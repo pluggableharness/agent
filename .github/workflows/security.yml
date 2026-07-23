@@ -86,6 +86,9 @@ jobs:
         uses: golang/govulncheck-action@v1
         with:
           go-version-file: go.mod
+          # The action's go-version-input defaults to "stable"; passing both a
+          # version and a version file makes setup-go warn and ignore the file.
+          go-version-input: ""
 
   # ---------------------------------------------------------------------------
   # dependency-review — gate what a PR adds to the dependency graph.
