@@ -59,3 +59,15 @@ All Markdown in this repo is GitHub Flavored Markdown with one unwrapped line pe
 ## Review
 
 Every PR needs a passing CI run and a review from a code owner (see `.github/CODEOWNERS`). Spec changes get the closest scrutiny — expect discussion on MUST-level wording; that's the contract every provider author builds against.
+
+## Branch protection & merging
+
+`main` is governed by a repository ruleset ([Rules → Rulesets](https://github.com/pluggableharness/agent/settings/rules), not classic branch protection), so the mechanics below are enforced by GitHub, not convention:
+
+- **No direct pushes.** Changes land through a PR from a feature branch; only maintainers and admins carry a ruleset bypass. Force pushes and branch deletion are blocked for everyone, bypass included.
+- **The PR gate**: one approving review, all review threads resolved, and stale approvals are dismissed when new commits are pushed.
+- **Squash or rebase merges only.** `main` requires linear history, so merge commits are rejected — the merge-method picker simply won't offer one.
+- **Required status checks**: the CI jobs (build & vet, gofmt, the protobuf gate, tests on all three platforms), golangci-lint, gosec, govulncheck, dependency review, and CodeQL must all pass before merge. These are matched by job name — renaming a workflow job requires updating the ruleset in the same change, or merges will wait forever on a check that no longer reports.
+- **Release tags are locked.** Creating, moving, or deleting `v*` tags is restricted to admins, because `release.yml` hands whatever a `v*` tag points at straight to GoReleaser.
+
+The docs deploy workflow is path-filtered and therefore deliberately **not** a required check — a required check that never runs would deadlock the PR.
