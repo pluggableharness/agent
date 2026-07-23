@@ -36,6 +36,14 @@ Kernel-side packages in `internal/` and the `pkg/` SDK are real, tested Go. Ther
 
 Everything in the CI and Lint columns passes today; keep it that way. Dependabot watches `go.mod` and the workflow actions. Protos: change `.proto` under `api/`, then `buf format -w` and regenerate with `GOBIN=$PWD/bin go install tool && PATH=$PWD/bin:$PATH buf generate` — generator versions are pinned by `go.mod` `tool` directives; never hand-edit anything under `pkg/*/proto/v1/` (100% derived output, and CI fails on drift).
 
+## Branch protection — GitHub rulesets, not convention
+
+`main` and `v*` tags are governed by repository rulesets (Rules → Rulesets, not classic branch protection); [`CONTRIBUTING.md`](CONTRIBUTING.md) documents the contributor-facing mechanics. What matters operationally here:
+
+- Direct pushes to `main` land only via the maintainer/admin bypass the operator holds; force pushes and `main` deletion are blocked for everyone, bypass included — never retry a rejected push with a force variant.
+- PRs merge squash/rebase only (linear history) behind eleven required status checks: the CI jobs, golangci-lint, gosec, govulncheck, dependency review, and CodeQL. Checks are matched by **job name** — renaming a workflow job means updating the `protect-main` ruleset in the same change, or merges wait forever on a check that no longer reports. The path-filtered Docs workflow is deliberately not required.
+- `v*` tag creation/update/deletion is admin-only: `release.yml` hands whatever a `v*` tag points at to GoReleaser, so never touch `v*` tags as a side effect of other work.
+
 ## Build output — bin/ only, no exceptions
 
 Every compiled artifact goes to the repo's `bin/` directory (gitignored for exactly this purpose):
