@@ -1,0 +1,9 @@
+# Default: every change needs a maintainer review.
+* @pluggableharness/maintainers
+
+# The protocol contracts are the highest-scrutiny surface — spec changes
+# ripple to every provider author building against them.
+/docs/specifications/ @pluggableharness/maintainers
+
+# CI, release, and repo policy.
+/.github/ @pluggableharness/maintainers

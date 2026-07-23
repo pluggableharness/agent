@@ -1,0 +1,103 @@
+# =============================================================================
+# Docs — build and deploy docs.pluggableharness.ai.
+#
+# Two jobs:
+#
+#   build    strict MkDocs build (broken links, broken anchors, and files
+#            missing from nav all fail); uploads the Pages artifact on
+#            non-PR runs. CI=true enables the env-gated plugins (social
+#            cards, git revision dates, minification) that stay off for
+#            local pre-git builds.
+#   deploy   Pages-native deployment (no gh-pages branch) via the official
+#            artifact flow; creates the Pages site on first run.
+#
+# The docs toolchain is pinned by uv.lock at the repo root; the local
+# equivalent is `uv run --only-group docs mkdocs build --strict`.
+#
+# Runs on: PRs and pushes to main that touch the docs surface, and manual
+# dispatch. Deploys never race — in-flight deploys finish before the next.
+# =============================================================================
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/docs.yml
+  pull_request:
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+
+jobs:
+  build:
+    name: Build (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # Full history so git-revision-date-localized can stamp real dates.
+          fetch-depth: 0
+
+      - name: Install social-card native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libcairo2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync docs toolchain
+        run: uv sync --locked --only-group docs
+
+      - name: Build site
+        run: uv run --only-group docs mkdocs build --strict
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

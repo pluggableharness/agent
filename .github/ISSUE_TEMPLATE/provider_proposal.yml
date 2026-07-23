@@ -1,0 +1,48 @@
+name: Provider proposal
+description: Propose a new provider — first-party, or a third-party one that needs a protocol change.
+labels: ["provider-proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reminder: third-party providers don't need permission or a PR here — build against `docs/specifications/`, tag a release, add the `agent-harness-provider` topic, and it's installable. File this issue when you're proposing a **first-party** provider, or when building yours revealed a gap in the protocol itself. Still-forming ideas fit better in [Discussions](https://github.com/orgs/pluggableharness/discussions).
+  - type: dropdown
+    id: category
+    attributes:
+      label: Provider category
+      options:
+        - Model provider
+        - Tool provider
+        - Context provider
+        - Memory provider
+        - Frontend provider
+        - Widget provider
+        - New category (protocol change)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What it does
+      description: The provider's job in a few sentences, and the config surface you imagine for its `provider` block.
+    validations:
+      required: true
+  - type: textarea
+    id: why-first-party
+    attributes:
+      label: Why this belongs here
+      description: What makes this first-party (or a protocol change) instead of an independently published third-party provider?
+    validations:
+      required: true
+  - type: textarea
+    id: protocol-fit
+    attributes:
+      label: Protocol fit
+      description: Does the existing category contract cover it? Link the spec sections that apply, and call out anything the protocol is missing.
+    validations:
+      required: true
+  - type: input
+    id: existing-work
+    attributes:
+      label: Existing implementation
+      description: Link a repo if you've already built any of it.

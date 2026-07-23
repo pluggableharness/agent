@@ -1,0 +1,110 @@
+# =============================================================================
+# .gitignore — organized by artifact class, most-specific first.
+#
+# Ground rules:
+#   - Patterns are root-anchored (leading /) wherever the artifact only ever
+#     appears at one path; unanchored patterns are reserved for cruft that
+#     can appear anywhere (editor swap, OS metadata, __pycache__).
+#   - Lockfiles and toolchain pins are COMMITTED, never ignored: go.sum,
+#     uv.lock, .python-version, .golangci.yml, .goreleaser.yaml.
+#   - Generated protobuf code (pkg/*/proto/v1/) is deliberately committed —
+#     CI fails on drift — so nothing under pkg/ is ignored.
+# =============================================================================
+
+# --- Go: build outputs -------------------------------------------------------
+# Every compiled artifact goes to bin/ (repo rule: no exceptions, including
+# scratch binaries and `go test -c` output). dist/ belongs to GoReleaser only.
+/bin/
+/dist/
+
+# Compiled binaries that would appear if the bin/-only rule is fat-fingered —
+# ignored so an accident never lands in a commit.
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+__debug_bin*
+
+# --- Go: test, coverage & profiling artifacts --------------------------------
+*.out
+coverage.txt
+coverage.html
+coverage.xml
+*.cover
+*.prof
+*.pprof
+
+# --- Go: workspace files -----------------------------------------------------
+# Local multi-module workspaces are a per-developer convenience, never shared.
+go.work
+go.work.sum
+
+# --- Docs site (MkDocs Material) ---------------------------------------------
+# Built site, the uv-managed Python env, and plugin caches (social cards
+# render into .cache/plugin/). The toolchain itself is committed:
+# pyproject.toml, uv.lock, .python-version, mkdocs.yml, overrides/.
+/site/
+/.venv/
+/.cache/
+__pycache__/
+*.py[cod]
+
+# --- Secrets & local environment --------------------------------------------
+# configuration.md's env() model means real secret values live in the
+# operator's shell env or an untracked .env file, never in agent.hcl or
+# this repo. .envrc (direnv) routinely exports credentials — same policy.
+.env
+.env.*
+!.env.example
+.envrc
+
+# --- Claude Code local/ephemeral state ---------------------------------------
+# settings.json (shared) and .claude/rules/*.md (project instructions) are
+# checked in; per-machine state is not.
+/.claude/settings.local.json
+/.claude/worktrees/
+
+# --- Logs & scratch ----------------------------------------------------------
+*.log
+*.tmp
+/tmp/
+
+# --- Editors / IDEs ----------------------------------------------------------
+# JetBrains (GoLand et al.) and VS Code ignored wholesale rather than the
+# sprawling per-plugin allowlist gitignore.io generates; nobody here needs
+# shared run configurations or code styles committed.
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# --- OS cruft ----------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.DocumentRevisions-V100
+*.icloud
+
+# Linux
+.directory
+.Trash-*
+.fuse_hidden*
+.nfs*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk

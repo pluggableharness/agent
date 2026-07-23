@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+# No cmd/ binary exists yet — this is a plugin-host monorepo still in the
+# library/proto/spec stage (see go-layout.md). Builds are explicitly
+# skipped rather than left to auto-detect a main package that doesn't
+# exist. Flip this to false and add a `builds:` block once cmd/<binary>
+# exists.
+builds:
+  - skip: true
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+release:
+  github:
+    owner: pluggableharness
+    name: agent
+  footer: >-
+
+    ---
+
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).

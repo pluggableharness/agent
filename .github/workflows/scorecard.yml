@@ -1,0 +1,57 @@
+# =============================================================================
+# Scorecard — OpenSSF supply-chain posture, measured continuously.
+#
+# Where security.yml and codeql.yml analyze the *code*, Scorecard analyzes
+# the *project*: branch protection, token permissions in workflows,
+# dependency pinning, review practices, dangerous workflow patterns. It's
+# the outside-in audit of the repo's own operating hygiene.
+#
+# Results go two places:
+#   - the code-scanning dashboard (SARIF upload below), and
+#   - the public OpenSSF API (publish_results: true), which powers the
+#     scorecard badge and lets downstream consumers assess this repo.
+#
+# Runs on: push to main, weekly cron, branch-protection changes (a
+# Scorecard-specific trigger — rule changes directly move the score), and
+# manual dispatch.
+# =============================================================================
+
+name: Scorecard
+
+on:
+  branch_protection_rule:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 2 * * 6"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      security-events: write # SARIF upload
+      id-token: write # OIDC — proves to the OpenSSF API which repo/workflow is publishing
+    steps:
+      # persist-credentials: false — Scorecard's own hygiene rules flag
+      # checkouts that leave a token on disk; practice what it preaches.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

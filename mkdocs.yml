@@ -1,0 +1,240 @@
+site_name: PluggableHarness Agent
+site_url: https://docs.pluggableharness.ai/
+site_description: >-
+  The AI coding harness you never have to fork. A small Go microkernel, six
+  out-of-process plugin categories, one config file — protocol specifications
+  and the first-party catalog.
+repo_url: https://github.com/pluggableharness/agent
+repo_name: pluggableharness/agent
+edit_uri: edit/main/docs/
+copyright: '&copy; PluggableHarness contributors'
+
+docs_dir: docs
+site_dir: site
+
+# Bind on all interfaces so `mkdocs serve` on a remote host is reachable
+# from the operator's browser.
+dev_addr: 0.0.0.0:8000
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - navigation.instant
+    - navigation.instant.progress
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+
+extra_css:
+  - assets/extra.css
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/pluggableharness/agent
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+markdown_extensions:
+  - toc:
+      permalink: "#"
+      permalink_title: Link to this section
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - gfm_admonition
+  - admonition
+  - attr_list
+  - md_in_html
+  - def_list
+  - footnotes
+  - tables
+  - pymdownx.highlight:
+      anchor_linenums: true
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tilde
+  - pymdownx.magiclink
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)'
+  - social:
+      enabled: !ENV [CI, false]
+      cards_layout_options:
+        background_color: "#1e2228"
+        color: "#fafaf9"
+  - git-revision-date-localized:
+      # Gated on GITHUB_ACTIONS (not CI) so a local `CI=true` full-parity
+      # build works in a tree that has no git history yet.
+      enabled: !ENV [GITHUB_ACTIONS, false]
+      type: date
+      fallback_to_build_date: true
+  - minify:
+      enabled: !ENV [CI, false]
+      minify_html: true
+  - llmstxt:
+      markdown_description: >-
+        PluggableHarness Agent is a microkernel AI coding harness: a small Go
+        kernel plus six out-of-process plugin categories (model, tool, context,
+        memory, frontend, widget) declared in agent.hcl. These documents are
+        the authoritative protocol specifications and the first-party
+        provider/tool catalog.
+      full_output: llms-full.txt
+      sections:
+        Specifications:
+          - specifications/*.md
+          - specifications/agent-loop/*.md
+          - specifications/configuration/*.md
+          - specifications/provider/*.md
+          - specifications/tool/*.md
+          - specifications/context/*.md
+          - specifications/memory/*.md
+          - specifications/frontend/*.md
+        First-party catalog:
+          - first-party/*.md
+          - first-party/providers/*.md
+          - first-party/tools/*.md
+
+nav:
+  - Home: index.md
+  - Specifications:
+      - specifications/README.md
+      - Conventions: specifications/conventions.md
+      - Glossary: specifications/glossary.md
+      - Architecture: specifications/architecture.md
+      - Kernel contracts:
+          - Kernel callbacks: specifications/kernel-callbacks.md
+          - State backend: specifications/state-backend.md
+      - Agent loop:
+          - specifications/agent-loop/README.md
+          - Turn algorithm: specifications/agent-loop/turn-algorithm.md
+          - Hook dispatch: specifications/agent-loop/hook-dispatch.md
+          - Plan / apply gate: specifications/agent-loop/plan-apply-gate.md
+          - Sub-agents: specifications/agent-loop/subagents.md
+          - Error recovery: specifications/agent-loop/error-recovery.md
+          - Conformance: specifications/agent-loop/conformance.md
+      - Configuration:
+          - specifications/configuration/README.md
+          - Blocks reference: specifications/configuration/blocks-reference.md
+          - Agent profiles: specifications/configuration/agent-profiles.md
+          - Policy DSL: specifications/configuration/policy-dsl.md
+          - Settings & global config: specifications/configuration/settings-and-global.md
+          - Lock file: specifications/configuration/lock-file.md
+          - Examples: specifications/configuration/examples.md
+          - Conformance: specifications/configuration/conformance.md
+      - Model provider protocol:
+          - specifications/provider/README.md
+          - Protocol: specifications/provider/protocol.md
+          - Data types: specifications/provider/data-types.md
+          - Examples: specifications/provider/examples.md
+          - Conformance: specifications/provider/conformance.md
+      - Tool provider protocol:
+          - specifications/tool/README.md
+          - Protocol: specifications/tool/protocol.md
+          - Data types: specifications/tool/data-types.md
+          - Reference catalog: specifications/tool/reference-catalog.md
+          - Examples: specifications/tool/examples.md
+          - Conformance: specifications/tool/conformance.md
+      - Context provider protocol:
+          - specifications/context/README.md
+          - Protocol: specifications/context/protocol.md
+          - Data types: specifications/context/data-types.md
+          - Examples: specifications/context/examples.md
+          - Conformance: specifications/context/conformance.md
+      - Memory provider protocol:
+          - specifications/memory/README.md
+          - Protocol: specifications/memory/protocol.md
+          - Data types: specifications/memory/data-types.md
+          - Taxonomy: specifications/memory/taxonomy.md
+          - Examples: specifications/memory/examples.md
+          - Conformance: specifications/memory/conformance.md
+      - Frontend & widget protocol:
+          - specifications/frontend/README.md
+          - Frontend protocol: specifications/frontend/frontend-protocol.md
+          - Widget protocol: specifications/frontend/widget-protocol.md
+          - Render tree: specifications/frontend/render-tree.md
+          - Examples: specifications/frontend/examples.md
+          - Conformance: specifications/frontend/conformance.md
+  - First-party:
+      - first-party/index.md
+      - Model providers:
+          - first-party/providers/README.md
+          - Anthropic: first-party/providers/anthropic.md
+          - OpenAI: first-party/providers/openai.md
+          - Google: first-party/providers/google.md
+          - xAI: first-party/providers/xai.md
+      - Tools:
+          - first-party/tools/README.md
+          - File read: first-party/tools/file-read.md
+          - File write: first-party/tools/file-write.md
+          - File edit: first-party/tools/file-edit.md
+          - Multi-file edit: first-party/tools/multi-file-edit.md
+          - Glob / file search: first-party/tools/glob-file-search.md
+          - Grep / content search: first-party/tools/grep-content-search.md
+          - Shell execution: first-party/tools/shell-exec.md
+          - Web search: first-party/tools/web-search.md
+          - Web fetch: first-party/tools/web-fetch.md
+          - Sub-agent spawning: first-party/tools/subagent.md
+          - Task tracking: first-party/tools/task-tracking.md
+          - Notebook edit: first-party/tools/notebook-edit.md
+          - MCP client: first-party/tools/mcp-client.md
+          - LSP / code intelligence: first-party/tools/lsp-code-intelligence.md
+          - Browser automation: first-party/tools/browser-automation.md
+          - Git / VCS: first-party/tools/git-vcs.md
+          - Memory persistence: first-party/tools/memory-persistence.md
+          - Plan mode: first-party/tools/plan-mode.md
+          - Diagnostics / lint: first-party/tools/diagnostics-lint.md
+          - Image / vision input: first-party/tools/image-vision.md
+          - User question: first-party/tools/user-question.md
+          - Cron / scheduling: first-party/tools/cron-scheduling.md

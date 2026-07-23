@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+// Package pluggableharness.agent.model.v1 defines the two distinct model-identity shapes
+// used across the specs. They are deliberately NOT unified into one
+// message: ModelTarget is a rich "what am I generating context for"
+// descriptor (context.md §4, memory.md §6); ModelRef is a narrow
+// "which model's tokenizer" selector (kernel-callbacks.md §2). Merging
+// them would force every CountTokens caller to populate fields it doesn't
+// have and doesn't need.
+package pluggableharness.agent.model.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
+
+// ModelTarget describes the model a context or memory contribution is
+// being assembled for, derived from that model's ModelSpec
+// (provider.md §2). Carried on context.md's ContextRequest and memory.md's
+// RecallRequest so a provider can tailor its contribution (and compute
+// tokens against the right budget) for the model that will actually
+// consume it.
+message ModelTarget {
+  // The target model's ModelSpec.id (provider.md §2) — the vendor's exact
+  // model identifier.
+  string id = 1;
+
+  // The target model's total input token budget (provider.md §2
+  // ModelSpec.context_window).
+  int64 context_window = 2;
+
+  // The usable portion of context_window after the kernel reserves space
+  // for expected output, tool schemas, and other fixed overhead for this
+  // turn — the number a context/memory provider should actually budget
+  // its contribution against, rather than the raw context_window.
+  int64 effective_ceiling = 3;
+}
+
+// ModelRef narrowly selects a model for token-counting purposes
+// (kernel-callbacks.md §2 CountTokensRequest.model_ref). Optional on the
+// request it's embedded in — omitted means "use the kernel's fallback
+// heuristic," never "count against an unspecified model."
+message ModelRef {
+  // The declared name of the model provider plugin (common.v1.ProducerRef
+  // or ProviderRef's name field), e.g. "anthropic".
+  string provider = 1;
+
+  // The model's ModelSpec.id within that provider.
+  string id = 2;
+}

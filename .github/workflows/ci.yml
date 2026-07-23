@@ -1,0 +1,236 @@
+# =============================================================================
+# CI — the correctness gate.
+#
+# Everything a change must prove before merge, split into four jobs:
+#
+#   build → test   compile + vet once on Linux, then race-enabled tests
+#                  across all three release platforms
+#   fmt            fast, dependency-free formatting signal
+#   proto          the protobuf contract gate: lint, format, breaking-change
+#                  detection, and generated-code drift
+#
+# Static analysis lives in lint.yml (golangci-lint) and security.yml
+# (gosec / govulncheck / dependency-review) so each surface reports as its
+# own named status check and can evolve on its own cadence.
+#
+# Runs on: every PR, every push to main, and manual dispatch. Superseded
+# runs for the same branch are cancelled — only the newest commit matters.
+#
+# The local equivalent of this whole gate is documented in CONTRIBUTING.md
+# ("Before you open a PR"); keep the two in sync when editing here.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only by default; no job in this workflow mutates anything.
+permissions:
+  contents: read
+
+# One active run per branch: a new push obsoletes the previous run's verdict,
+# so cancel it rather than paying for a stale answer.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+# bash everywhere, including the Windows test leg — one shell dialect to
+# reason about across the whole matrix.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # build — the cheap fail-fast gate.
+  #
+  # Compiles and vets once on Linux before the 3-OS test matrix spends any
+  # runner minutes. A broken build fails here in ~1 minute instead of three
+  # times in parallel. Also the canonical place for the tidy check: go.mod /
+  # go.sum must be committed exactly as `go mod tidy` would write them.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build & vet
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # cache: true keys GOMODCACHE + GOCACHE on go.sum — shared by every
+      # job in this workflow that sets up Go the same way.
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+  # ---------------------------------------------------------------------------
+  # test — race-enabled tests on every platform we release for.
+  #
+  # The kernel launches plugin subprocesses and streams over gRPC, so
+  # concurrency bugs are the expected failure mode: -race is non-negotiable
+  # and -shuffle=on breaks accidental inter-test ordering dependencies.
+  # Coverage is atomic (required under -race) and uploaded per-OS; the
+  # human-readable summary renders once, on the Linux leg.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (${{ matrix.os }})
+    needs: build
+    strategy:
+      # One platform failing is signal about that platform — let the other
+      # two finish and report rather than cancelling them.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test with race detector + coverage
+        run: go test -race -shuffle=on -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage.out
+          retention-days: 7
+
+      - name: Coverage summary
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          {
+            echo "### Coverage"
+            echo
+            echo '```'
+            go tool cover -func=coverage.out | tail -n 1
+            echo '```'
+            echo
+            echo "<details><summary>Per-package breakdown</summary>"
+            echo
+            echo '```'
+            go tool cover -func=coverage.out
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # fmt — gofmt -s as its own fast, isolated signal.
+  #
+  # golangci-lint (lint.yml) also enforces gofmt/goimports, but this job
+  # needs no lint config and finishes in seconds, so a pure formatting slip
+  # gets an unambiguous check name instead of being buried in a lint report.
+  # ---------------------------------------------------------------------------
+  fmt:
+    name: gofmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check gofmt -s
+        run: |
+          out="$(gofmt -l -s .)"
+          if [ -n "$out" ]; then
+            echo "The following files are not gofmt -s formatted:"
+            echo "$out"
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # proto — the wire-contract gate. Four checks, strictest last:
+  #
+  #   1. buf lint      style/naming per buf.yaml (STANDARD rule set)
+  #   2. buf format    formatting drift in .proto sources
+  #   3. buf breaking  wire-compat vs the PR base branch (FILE rule set).
+  #                    Plugins are versioned artifacts resolved at runtime —
+  #                    an unnoticed contract break strands every provider
+  #                    built against the old wire format. An intentional
+  #                    break must be visible: this check forces the PR to
+  #                    say so.
+  #   4. drift check   pkg/*/proto/v1 is 100% derived output and must match
+  #                    what the pinned generators produce from api/ exactly.
+  #                    Catches both hand-edited .pb.go files and .proto
+  #                    changes committed without regeneration.
+  # ---------------------------------------------------------------------------
+  proto:
+    name: Protobuf (lint, format, breaking, drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # setup_only: we drive buf explicitly below rather than using the
+      # action's opinionated defaults. Version pinned for reproducibility;
+      # bump deliberately, alongside the version noted in CONTRIBUTING.md.
+      - name: Set up buf
+        uses: bufbuild/buf-action@v1
+        with:
+          version: 1.69.0
+          setup_only: true
+
+      - name: Lint
+        run: buf lint
+
+      - name: Format check
+        run: buf format --diff --exit-code
+
+      # The base ref isn't fetched on a shallow PR checkout — fetch it into
+      # a real remote-tracking ref so buf can diff against it.
+      - name: Breaking-change check (vs base branch)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+          buf breaking --against ".git#ref=refs/remotes/origin/${{ github.base_ref }}"
+
+      # Generator versions are pinned by go.mod `tool` directives, so this
+      # regeneration is byte-for-byte reproducible. Binaries go to bin/ per
+      # repo policy (gitignored, invisible to the diff). The porcelain check
+      # catches brand-new generated files that `git diff` alone would miss.
+      - name: Verify generated code is in sync
+        run: |
+          GOBIN="$GITHUB_WORKSPACE/bin" go install tool
+          PATH="$GITHUB_WORKSPACE/bin:$PATH" buf generate
+          git diff --exit-code -- pkg
+          test -z "$(git status --porcelain -- pkg)" || { git status --porcelain -- pkg; exit 1; }

@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+// Package pluggableharness.agent.content.v1 defines the canonical content-block message
+// schema described in specifications/provider.md §5 — the state backend's
+// source of truth for conversation history (state-backend.md §5's `message`
+// event kind). Every model-provider adapter translates its own vendor
+// format to and from exactly this schema; nothing else in the system
+// invents a competing message representation. Also consumed by
+// context.md's conversation_history/rewritten_history (§5.1), memory.md's
+// record content, and kernel-callbacks.md's CountTokensRequest.
+package pluggableharness.agent.content.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/content/proto/v1;contentv1";
+
+// Role identifies which conversational party produced a Message. There is
+// deliberately no SYSTEM value: system-level content is assembled by
+// context providers (context.md) as ContextSections, not carried as a
+// message with a role — the two-party user/assistant turn model is the
+// only one the canonical schema needs to represent.
+enum Role {
+  // Zero value. Never valid for a real message; its presence on the wire
+  // means a caller forgot to set the field.
+  ROLE_UNSPECIFIED = 0;
+  // The human (or upstream caller) side of the conversation.
+  ROLE_USER = 1;
+  // The model's own turn.
+  ROLE_ASSISTANT = 2;
+}
+
+// Message is one turn in the canonical conversation history: a role plus
+// an ordered list of content blocks. provider.md §5 is the source of these
+// semantics.
+message Message {
+  // Which party produced this message. MUST be set.
+  Role role = 1;
+
+  // The message's content, in emission order. A single message MAY carry
+  // multiple blocks (e.g. an assistant turn with both text and a tool_use).
+  repeated ContentBlock content = 2;
+}
+
+// ContentBlock is one block within a Message. Exactly one variant is set.
+// Which variants a given model MAY produce/accept is gated by that model's
+// ModelSpec capability flags (provider.md §2, §5): `text` MUST work both
+// directions unconditionally; `image` requires supports_vision; `tool_use`/
+// `tool_result` require supports_tool_use; `thinking`/`redacted_thinking`
+// require ThinkingSpec.supported.
+message ContentBlock {
+  oneof block {
+    TextBlock text = 1;
+    ToolUseBlock tool_use = 2;
+    ToolResultBlock tool_result = 3;
+    ImageBlock image = 4;
+    ThinkingBlock thinking = 5;
+    RedactedThinkingBlock redacted_thinking = 6;
+  }
+}
+
+// TextBlock is plain conversational text. MUST be supported by every
+// model, in both directions (provider.md §5).
+message TextBlock {
+  // The block's text content.
+  string text = 1;
+}
+
+// ToolUseBlock represents the model requesting a tool invocation. `id`
+// correlates this block to the resulting ToolResultBlock, mirroring
+// provider.md §4's StreamEvent tool_call_start/tool_call_done id
+// correlation once the stream has been assembled into a persisted message.
+message ToolUseBlock {
+  // Correlation id for the matching ToolResultBlock.
+  string id = 1;
+
+  // The tool's declared name (tool.md §2 ToolSchema.name).
+  string name = 2;
+
+  // The call's arguments, already parsed — conforms to the tool's
+  // input_schema (pluggableharness.agent.schema.v1.Schema). A Struct because the shape is
+  // genuinely runtime-defined per tool, not fixed at the proto level (see
+  // .claude/rules/proto.md's Struct carve-out).
+  google.protobuf.Struct arguments = 3;
+}
+
+// ToolResultBlock carries a tool invocation's outcome back into the
+// conversation, so the model observes it on its next turn.
+message ToolResultBlock {
+  // The id of the ToolUseBlock this result answers.
+  string tool_use_id = 1;
+
+  // The result's content. Modeled as nested ContentBlocks (not a single
+  // string) because some vendors' tool results may include non-text
+  // content (e.g. an image a tool produced) — in practice this is almost
+  // always a single TextBlock.
+  repeated ContentBlock content = 2;
+
+  // True when this result represents a failure or denial rather than a
+  // successful outcome — e.g. the plan/apply gate's synthesized denial
+  // block (agent-loop.md §5.2), which MUST let the model observe a denial
+  // in its own history. Mirrors the is_error convention several vendor
+  // APIs already use for exactly this purpose.
+  bool is_error = 3;
+}
+
+// ImageBlock is inline image content. Requires the target model's
+// ModelSpec.supports_vision (provider.md §5); the kernel MUST reject an
+// ImageBlock sent to a model where that flag is false, with
+// invalid_request (provider.md §8).
+message ImageBlock {
+  // Raw image bytes.
+  bytes data = 1;
+
+  // The image's MIME type, e.g. "image/png".
+  string media_type = 2;
+}
+
+// ThinkingBlock is the model's extended-reasoning output, when
+// ThinkingSpec.supported (provider.md §2). Requires the model's
+// ThinkingSpec.supported to be true.
+message ThinkingBlock {
+  // The accumulated reasoning text (provider.md §4's thinking_delta
+  // StreamEvent variants, assembled into one block once the turn
+  // completes).
+  string text = 1;
+
+  // An opaque vendor integrity token, when the vendor's thinking blocks
+  // carry one (provider.md §4's thinking_signature StreamEvent variant).
+  // The kernel MUST store and round-trip this verbatim without
+  // interpreting it — it is meaningful only to the vendor that issued it.
+  bytes signature = 2;
+}
+
+// RedactedThinkingBlock is a vendor-encrypted reasoning block the kernel
+// cannot interpret at all — not even as text. Requires
+// ThinkingSpec.supported. MUST be stored and round-tripped verbatim,
+// exactly like ThinkingBlock.signature.
+message RedactedThinkingBlock {
+  // Opaque, vendor-encrypted bytes. The kernel never inspects this.
+  bytes data = 1;
+}

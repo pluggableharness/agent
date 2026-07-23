@@ -1,0 +1,49 @@
+# =============================================================================
+# Dependabot — automated dependency updates for both surfaces this repo has:
+# the Go module graph and the actions the workflows themselves run on.
+#
+# Design decisions:
+#   - Grouped updates: minor/patch bumps arrive as one PR per ecosystem per
+#     week instead of a PR per dependency. Major Go bumps stay individual —
+#     they carry breaking changes and deserve their own review.
+#   - Cooldowns: never take a release the day it ships; let upstream pull a
+#     bad tag first. Majors wait a full week.
+#   - Commit prefixes ("deps"/"ci") keep Dependabot commits greppable;
+#     Dependabot's default "dependencies" label routes its PRs into the
+#     Dependencies section of auto-generated release notes (.github/release.yml).
+#
+# Every Dependabot PR still runs the full CI/lint/security gate — merging
+# one is a reviewed action, not an auto-merge.
+# =============================================================================
+
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 2
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"

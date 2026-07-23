@@ -1,0 +1,68 @@
+# =============================================================================
+# CodeQL — GitHub's deep semantic analysis for Go.
+#
+# Complements security.yml's scanners: gosec pattern-matches source and
+# govulncheck checks known CVEs, while CodeQL builds a full semantic model
+# and runs dataflow/taint queries against it — the class of analysis that
+# finds injection paths and logic-level flaws the others can't.
+#
+# Findings land in the code-scanning dashboard (Security tab) under the
+# /language:go category; the workflow itself only fails on analysis errors,
+# not on findings.
+#
+# Runs on: push/PR to main, a weekly cron (query packs improve over time —
+# rescanning unchanged code with newer queries yields new findings), and
+# manual dispatch.
+# =============================================================================
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "42 4 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (go)
+    runs-on: ubuntu-latest
+    # CodeQL compiles the codebase under instrumentation — comfortably the
+    # slowest analysis in the repo, hence the generous ceiling.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # analysis upload
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Explicit Go setup so CodeQL's autobuild compiles with the toolchain
+      # go.mod declares, not whatever the runner image happens to ship.
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          build-mode: autobuild
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:go"

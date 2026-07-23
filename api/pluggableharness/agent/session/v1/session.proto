@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+// Package pluggableharness.agent.session.v1 defines the session lifecycle status enum
+// shared by kernel-callbacks.md §1's RunSessionResult, state-backend.md
+// §4.2's session_meta.status column, and frontend.md §3.2's
+// session_tree_update ServerEvent.
+package pluggableharness.agent.session.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/session/proto/v1;sessionv1";
+
+// SessionStatus is a session's lifecycle state. RUNNING is the only value
+// a live (non-terminal) session can be in; every other value is terminal.
+// agent-loop.md §7.1's RunSessionResult never carries RUNNING (a
+// RunSession call only returns once its child session has reached a
+// terminal state) — it reuses this same enum rather than defining a
+// narrower terminal-only one, since the two are the same status space
+// observed at different times.
+enum SessionStatus {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  SESSION_STATUS_UNSPECIFIED = 0;
+  // The session is still in progress.
+  SESSION_STATUS_RUNNING = 1;
+  // The session finished normally.
+  SESSION_STATUS_COMPLETED = 2;
+  // The session hit its configured max-turns bound (agent-loop.md §3.2).
+  SESSION_STATUS_ERROR_MAX_TURNS = 3;
+  // The session hit its configured max-cost-USD bound.
+  SESSION_STATUS_ERROR_MAX_BUDGET_USD = 4;
+  // The session hit its configured max-wall-clock bound.
+  SESSION_STATUS_ERROR_MAX_WALL_CLOCK = 5;
+  // The session was cancelled (user interrupt, parent cancellation
+  // propagation per agent-loop.md §7.7).
+  SESSION_STATUS_CANCELLED = 6;
+  // The session ended due to an unrecoverable error.
+  SESSION_STATUS_FAILED = 7;
+}

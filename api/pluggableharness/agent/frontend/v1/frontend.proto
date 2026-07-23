@@ -1,0 +1,275 @@
+syntax = "proto3";
+
+// Package pluggableharness.agent.frontend.v1 defines the frontend provider plugin protocol
+// described in specifications/frontend.md §3 (Attach, ServerEvent,
+// ClientEvent, ...).
+package pluggableharness.agent.frontend.v1;
+
+import "google/protobuf/struct.proto";
+import "pluggableharness/agent/config/v1/config.proto";
+import "pluggableharness/agent/plan/v1/plan.proto";
+import "pluggableharness/agent/render/v1/render.proto";
+import "pluggableharness/agent/session/v1/session.proto";
+import "pluggableharness/agent/slashcommand/v1/slashcommand.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1";
+
+// FrontendService implements the frontend provider protocol described in
+// specifications/frontend.md §3.
+service FrontendService {
+  // GetCapabilities returns this frontend's slash commands and config
+  // schema. Unary. frontend.md §3.1.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+
+  // Configure applies this provider's `agent.hcl` configuration, validated
+  // against the schema returned by GetCapabilities (configuration.md §4).
+  // Unary. frontend.md §3.1.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // Attach opens the session-scoped event channel between the kernel and
+  // this frontend: ServerEvents flow from kernel to frontend, ClientEvents
+  // flow from frontend to kernel, both directions live for the duration of
+  // the stream. Bidirectional streaming — frontend.md §3.1, and (along with
+  // the kernel callback channel) one of only two genuinely bidirectional
+  // RPCs in this protocol series (see .claude/rules/grpc.md).
+  //
+  // Multiple frontends MAY Attach to one session concurrently
+  // (frontend.md §3.3): every ServerEvent broadcasts identically to every
+  // attached frontend, with no partitioning and no "primary" frontend.
+  // ClientEvents are processed in kernel arrival order; for
+  // ClientEvent.plan_decision and ClientEvent.interactive_response
+  // specifically, which name a pending item by id, the kernel applies
+  // first-response-wins arbitration and MUST reject any later response for
+  // an already-resolved item with a distinct error back to its sender.
+  //
+  // buf:lint:ignore RPC_REQUEST_STANDARD_NAME
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Stream element types are the bare "ClientEvent"/"ServerEvent" per
+  // frontend.md §3.2's literal spec — names used throughout this project's
+  // specs and rules, not just here. Neither is reused by another RPC (no
+  // uniqueness violation); renaming to Attach*Request/Response would only
+  // satisfy a style convention while discarding real spec traceability.
+  rpc Attach(stream ClientEvent) returns (stream ServerEvent);
+}
+
+// GetCapabilitiesRequest carries no fields; capability discovery is not
+// parameterized.
+message GetCapabilitiesRequest {}
+
+// GetCapabilitiesResponse wraps FrontendCapabilities for the RPC signature,
+// per this repo's per-RPC envelope convention (.claude/rules/proto.md).
+message GetCapabilitiesResponse {
+  FrontendCapabilities capabilities = 1;
+}
+
+// FrontendCapabilities is this frontend's static self-description, returned
+// by GetCapabilities (frontend.md §3.1).
+message FrontendCapabilities {
+  // Slash commands this frontend contributes. MAY be empty.
+  repeated pluggableharness.agent.slashcommand.v1.SlashCommandSpec slash_commands = 1;
+  // This provider's `agent.hcl` configuration schema (configuration.md §4).
+  pluggableharness.agent.config.v1.ConfigSchema config_schema = 2;
+}
+
+// ConfigureRequest carries this provider's `agent.hcl` configuration as a
+// dynamic Struct, shaped per the ConfigSchema returned by GetCapabilities
+// (configuration.md §4).
+message ConfigureRequest {
+  // The configuration value, validated against this provider's ConfigSchema.
+  google.protobuf.Struct config = 1;
+}
+
+// ConfigureResponse is empty on success. Configuration errors surface as a
+// gRPC status carrying a FrontendError in its structured detail
+// (.claude/rules/grpc.md), not as an in-band field on this message.
+message ConfigureResponse {}
+
+// ServerEvent is one message the kernel sends to an attached frontend over
+// Attach, described in frontend.md §3.2. Exactly one variant is set.
+message ServerEvent {
+  oneof event {
+    StreamDelta stream_delta = 1;
+    Render render = 2;
+    PermissionRequest permission_request = 3;
+    PlanReady plan_ready = 4;
+    InteractiveRequest interactive_request = 5;
+    SessionTreeUpdate session_tree_update = 6;
+    Error error = 7;
+  }
+
+  // StreamDelta is the fast path for incremental text display, skipping a
+  // full Render() round trip. frontend.md §3.2.
+  message StreamDelta {
+    // Identifies which displayed element this delta appends to (e.g. a
+    // RenderNode id from a prior Render), for correlating consecutive
+    // deltas into one growing piece of text.
+    string target_id = 1;
+    // The incremental text to append.
+    string text = 2;
+  }
+
+  // Render carries one placed RenderTree to Paint. frontend.md §3.2.
+  message Render {
+    // The content, its target region, and its replace/append behavior.
+    pluggableharness.agent.render.v1.PlacedContent content = 1;
+  }
+
+  // PermissionRequest asks the user to resolve an agent-loop.md §5.2 `ask`
+  // decision: the kernel blocks this plan item's apply until a
+  // ClientEvent.plan_decision resolves it.
+  message PermissionRequest {
+    // The plan item awaiting a decision.
+    pluggableharness.agent.plan.v1.PlanItem plan_item = 1;
+  }
+
+  // PlanReady announces a complete plan for display, e.g. before execution
+  // begins or after a replan.
+  message PlanReady {
+    // The plan to display.
+    pluggableharness.agent.plan.v1.Plan plan = 1;
+  }
+
+  // InteractiveRequest corresponds to a tool.md §2.1
+  // TOOL_KIND_INTERACTIVE call. A frontend MUST render this in the
+  // REGION_OVERLAY region (frontend.md §2), the same visual treatment as an
+  // ordinary `ask` prompt.
+  message InteractiveRequest {
+    // Identifies the pending interactive tool call, echoed back in the
+    // resolving ClientEvent.interactive_response.
+    string call_id = 1;
+    // The tool being invoked (tool.md §2.1 ToolSchema.name).
+    string tool_name = 2;
+    // The prompt to render.
+    pluggableharness.agent.render.v1.RenderTree prompt = 3;
+  }
+
+  // SessionTreeUpdate reports a change in a nested sub-session's lifecycle
+  // (e.g. a RunSession-spawned child), so a frontend can keep a
+  // SubSessionNode's displayed status current.
+  message SessionTreeUpdate {
+    // The parent session's id.
+    string parent_session_id = 1;
+    // The child session's id.
+    string child_session_id = 2;
+    // The child session's current status.
+    pluggableharness.agent.session.v1.SessionStatus status = 3;
+  }
+
+  // Error carries a structured, non-fatal frontend error for display.
+  message Error {
+    // The error's category and message.
+    FrontendError error = 1;
+  }
+}
+
+// ClientDecision is the user's resolution of a pending PermissionRequest,
+// per agent-loop.md §5.2's `ask` decision.
+enum ClientDecision {
+  // Zero value. Never valid for a real decision; its presence on the wire
+  // means a caller forgot to set the field.
+  CLIENT_DECISION_UNSPECIFIED = 0;
+  // The user approved the plan item as proposed (or as corrected, see
+  // ClientEvent.PlanDecision.corrected_input).
+  CLIENT_DECISION_ALLOW = 1;
+  // The user rejected the plan item.
+  CLIENT_DECISION_DENY = 2;
+}
+
+// ClientEvent is one message a frontend sends to the kernel over Attach,
+// described in frontend.md §3.2. Exactly one variant is set.
+message ClientEvent {
+  oneof event {
+    UserMessage user_message = 1;
+    SlashCommand slash_command = 2;
+    PlanDecision plan_decision = 3;
+    InteractiveResponse interactive_response = 4;
+    ActionTrigger action_trigger = 5;
+    Interrupt interrupt = 6;
+  }
+
+  // UserMessage is ordinary chat input from the user.
+  message UserMessage {
+    // The message text.
+    string text = 1;
+  }
+
+  // SlashCommand is a dispatched slash command invocation (frontend.md §5).
+  message SlashCommand {
+    // The command name, without its leading slash.
+    string name = 1;
+    // The raw argument string following the command name.
+    string args = 2;
+  }
+
+  // PlanDecision resolves a pending ServerEvent.PermissionRequest.
+  message PlanDecision {
+    // The plan item being resolved, matching
+    // ServerEvent.PermissionRequest.plan_item's id.
+    string plan_item_id = 1;
+    // The user's decision.
+    ClientDecision decision = 2;
+    // When present, a user-edited replacement for the plan item's tool
+    // input. The kernel MUST re-validate this against the tool's
+    // input_schema (tool.md §6); an invalid correction is rejected as a
+    // distinct error, not silently coerced.
+    optional google.protobuf.Struct corrected_input = 3;
+  }
+
+  // InteractiveResponse resolves a pending ServerEvent.InteractiveRequest.
+  message InteractiveResponse {
+    // Correlates to ServerEvent.InteractiveRequest.call_id.
+    string call_id = 1;
+    // The user's response, becoming the interactive call's
+    // ToolResult.payload.
+    google.protobuf.Struct response = 2;
+  }
+
+  // ActionTrigger is dispatched when a user activates a RenderNode's
+  // ActionNode (render.proto's ActionNode, frontend.md §5.1). The kernel
+  // handles this identically to a direct_invoke slash command: the normal
+  // Invoke/plan-apply pipeline including policy evaluation, with no model
+  // turn.
+  message ActionTrigger {
+    // The originating ActionNode's id (render.proto's ActionNode.id).
+    string node_id = 1;
+    // The tool operation to invoke (tool.md §2 ToolSchema.name), echoed
+    // unchanged from the originating ActionNode.tool_name.
+    string tool_name = 2;
+    // The arguments to invoke it with, echoed unchanged from the
+    // originating ActionNode.args.
+    google.protobuf.Struct args = 3;
+  }
+
+  // Interrupt carries no fields; it signals that the user wants to
+  // interrupt the current turn.
+  message Interrupt {}
+}
+
+// FrontendErrorCategory classifies a FrontendError, per the error taxonomy
+// in frontend.md §7.
+enum FrontendErrorCategory {
+  // Zero value. Never valid for a real error; its presence on the wire
+  // means a caller forgot to set the field.
+  FRONTEND_ERROR_CATEGORY_UNSPECIFIED = 0;
+  // A RenderTree or PlacedContent could not be displayed.
+  FRONTEND_ERROR_CATEGORY_RENDER_FAILED = 1;
+  // A ClientEvent was malformed or referenced an unknown/already-resolved
+  // id (e.g. a plan_decision or interactive_response naming an item that
+  // was already resolved by another attached frontend, per frontend.md
+  // §3.3's first-response-wins arbitration).
+  FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT = 2;
+  // A PlacedContent named a Region this frontend cannot honor.
+  FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED = 3;
+  // An error that does not fit any other category.
+  FRONTEND_ERROR_CATEGORY_UNKNOWN = 4;
+}
+
+// FrontendError is the structured error type for this category, per
+// frontend.md §7. Carried in ServerEvent.Error and in the structured detail
+// of a gRPC status returned from Configure.
+message FrontendError {
+  // The error's category.
+  FrontendErrorCategory category = 1;
+  // A human-readable message.
+  string message = 2;
+}

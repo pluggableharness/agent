@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, ideas & provider-authoring help
+    url: https://github.com/orgs/pluggableharness/discussions
+    about: The community channel. Feature ideas start here and graduate to issues once concrete.
+  - name: Report a security vulnerability
+    url: https://github.com/pluggableharness/agent/security/advisories/new
+    about: Private vulnerability reporting — never file security issues publicly. See SECURITY.md.

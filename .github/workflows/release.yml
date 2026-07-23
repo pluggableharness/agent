@@ -1,0 +1,101 @@
+# =============================================================================
+# Release — tag-triggered, test-gated, GoReleaser-built.
+#
+# Pushing a semver tag (v1.2.3) produces the release: cross-platform
+# archives, per-release checksums, and the GitHub Release itself, all per
+# .goreleaser.yaml. SECURITY.md tells users to verify those checksums —
+# this workflow is where they come from.
+#
+# Two-job shape, and the order is the point:
+#
+#   verify  →  goreleaser
+#
+# A tag can be cut from any commit, including one that never saw CI (or saw
+# it before a flaky-history rewrite) — so the release re-proves build + race
+# tests at the exact tagged commit before any artifact is published. A
+# release that skips the gate is a release nobody tested.
+#
+# Local smoke-test of the packaging step (no tag, no publish):
+#   goreleaser release --snapshot --clean
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+# Baseline read-only; only the goreleaser job escalates to contents: write.
+permissions:
+  contents: read
+
+# Never cancel a release mid-flight — a half-published release (some
+# artifacts up, checksums missing) is worse than a slow one. Queue instead.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # verify — re-run the meaningful gate at the tagged commit.
+  #
+  # Linux-only on purpose: the full 3-OS matrix ran on the PRs that built up
+  # to this tag; this is a final tripwire against tagging the wrong commit,
+  # not a substitute for CI.
+  # ---------------------------------------------------------------------------
+  verify:
+    name: Verify tag (build + race tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -race -shuffle=on ./...
+
+  # ---------------------------------------------------------------------------
+  # goreleaser — build and publish, only after verify is green.
+  # ---------------------------------------------------------------------------
+  goreleaser:
+    name: GoReleaser
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the GitHub Release + upload artifacts
+    steps:
+      # Full history: GoReleaser derives the changelog from commits since
+      # the previous tag, which a shallow clone can't see.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # GoReleaser binary version pinned for reproducible release builds —
+      # bump deliberately, not via Dependabot (which only tracks the action).
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

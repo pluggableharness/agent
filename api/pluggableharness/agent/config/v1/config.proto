@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+// Package pluggableharness.agent.config.v1 defines the on-the-wire config-schema
+// advertisement described in specifications/configuration.md §4. This is
+// what a provider returns alongside its capabilities so the kernel knows
+// what agent.hcl fields it accepts; the schema-to-cty bridge itself (HCL
+// decoding, hcldec, cty.Value) is kernel-internal and never crosses the
+// wire — Configure receives already-decoded JSON, not HCL or cty.
+package pluggableharness.agent.config.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/config/proto/v1;configv1";
+
+// AttrType is the small subset of HCL/cty attribute types a provider's
+// config schema may use in v1. No nested blocks — configuration.md §4
+// deliberately keeps this flat.
+enum AttrType {
+  // Zero value. Never valid for a real attribute; its presence on the wire
+  // means a caller forgot to set the field.
+  ATTR_TYPE_UNSPECIFIED = 0;
+  ATTR_TYPE_STRING = 1;
+  ATTR_TYPE_NUMBER = 2;
+  ATTR_TYPE_BOOL = 3;
+  ATTR_TYPE_LIST_STRING = 4;
+  ATTR_TYPE_LIST_NUMBER = 5;
+  ATTR_TYPE_MAP_STRING = 6;
+  ATTR_TYPE_OBJECT = 7;
+}
+
+// ConfigAttribute declares one field a provider's agent.hcl config block
+// accepts.
+message ConfigAttribute {
+  // The attribute's name, as it appears in the HCL block body.
+  string name = 1;
+
+  // The attribute's type.
+  AttrType type = 2;
+
+  // Whether agent.hcl MUST set this attribute. The kernel MUST reject a
+  // Configure call with a missing required attribute via a structured
+  // error, per provider.md §3 / tool.md §3's shared Configure contract.
+  bool required = 3;
+
+  // MUST be true for any attribute that can hold a secret (API keys,
+  // tokens, credentials). configuration.md §4 restricts a sensitive
+  // attribute's HCL expression to env(...) indirection only — the kernel
+  // resolves that indirection before Configure ever sees the literal
+  // value, and a provider MUST NOT echo a sensitive value into Emit,
+  // Render, logs, or errors.
+  bool sensitive = 4;
+
+  // Human-readable description, shown wherever agent.hcl schema is
+  // surfaced to an operator (docs generation, validation errors).
+  string description = 5;
+}
+
+// ConfigSchema is a provider's complete config-schema advertisement,
+// returned alongside its capabilities.
+message ConfigSchema {
+  // The provider's declared config attributes.
+  repeated ConfigAttribute attributes = 1;
+}

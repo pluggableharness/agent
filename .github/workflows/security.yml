@@ -1,0 +1,112 @@
+# =============================================================================
+# Security — three complementary scanners, three different questions:
+#
+#   gosec               "does our code contain risky patterns?"
+#                       (static analysis → SARIF → code-scanning dashboard)
+#   govulncheck         "do we call into code with known CVEs?"
+#                       (call-graph-aware, so hits are actually reachable)
+#   dependency-review   "does this PR introduce a vulnerable or
+#                       license-problematic dependency?" (PRs only)
+#
+# CodeQL (codeql.yml) and Scorecard (scorecard.yml) are separate workflows:
+# they run on their own schedules with their own permission sets.
+#
+# Runs on: every PR, every push to main, manual dispatch, and a weekly cron —
+# the cron exists to catch newly-disclosed CVEs against unchanged code, not
+# just new commits. This workflow is advisory-by-dashboard for gosec (SARIF
+# triage in the Security tab) but blocking for govulncheck and
+# dependency-review, which fail the run outright.
+# =============================================================================
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Catch newly-disclosed CVEs against unchanged code, not just new commits.
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # gosec — pattern-level static analysis, reported not blocking.
+  #
+  # -no-fail because findings land in the code-scanning dashboard where they
+  # can be triaged/dismissed with a recorded reason; failing the build on
+  # every heuristic hit would train people to ignore the check.
+  # ---------------------------------------------------------------------------
+  gosec:
+    name: gosec (SARIF)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write # SARIF upload
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # -exclude-generated: pkg/*/proto/v1 is 100% buf-generated output;
+      # findings there are upstream-generator noise, not actionable here.
+      - name: Run gosec
+        uses: securego/gosec@v2.28.0
+        with:
+          args: -no-fail -exclude-generated -fmt sarif -out results.sarif ./...
+
+      - name: Upload SARIF to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
+
+  # ---------------------------------------------------------------------------
+  # govulncheck — known CVEs, filtered to reachable call paths.
+  #
+  # Blocking on purpose: unlike gosec's heuristics, a govulncheck finding
+  # means code we actually execute has a published vulnerability. The weekly
+  # cron makes this the check that goes red when a CVE drops with no commit.
+  # ---------------------------------------------------------------------------
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: govulncheck
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+
+  # ---------------------------------------------------------------------------
+  # dependency-review — gate what a PR adds to the dependency graph.
+  #
+  # PR-only by nature (it diffs the graph between base and head). Blocking,
+  # with the verdict also posted as a PR comment so the reviewer sees it
+  # without leaving the conversation.
+  # ---------------------------------------------------------------------------
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # summary comment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v5
+        with:
+          comment-summary-in-pr: always

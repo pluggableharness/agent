@@ -1,0 +1,53 @@
+# =============================================================================
+# Lint — golangci-lint as its own named status check.
+#
+# Separate from ci.yml deliberately: lint findings are a different kind of
+# signal than build/test failures, and keeping them apart means a red "Lint"
+# check is instantly diagnosable from the PR checks list without opening logs.
+#
+# All linter/formatter policy lives in .golangci.yml at the repo root — this
+# workflow contributes zero configuration of its own beyond the tool version.
+#
+# Runs on: every PR, every push to main, and manual dispatch.
+# =============================================================================
+
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Full-repo enforcement, not only-new-issues: the baseline is clean,
+      # and diff-scoped linting can miss issues surfaced by base-branch drift.
+      #
+      # The `version` input pins the golangci-lint binary and is NOT bumped
+      # by Dependabot (which only tracks the action ref) — bump it manually,
+      # and expect new linter releases to surface new findings when you do.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
