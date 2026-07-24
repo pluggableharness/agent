@@ -15,8 +15,8 @@
 // that plugin's own category service. A plugin with no `hook{}` blocks in
 // agent.hcl simply never has it called.
 //
-// context-assemble is deliberately absent from this surface's HookPoint
-// enum below — it stays on ContextService.Contribute
+// context-assemble is deliberately absent from this surface's hook-point
+// vocabulary (common.v1.HookPoint) — it stays on ContextService.Contribute
 // (context/protocol.md#contribute-the-context-assemble-rpc; architecture.md
 // §Hook dispatch semantics), which already carries the full accumulated
 // ContextSection chain and doesn't need a second, competing dispatch path.

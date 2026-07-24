@@ -50,6 +50,48 @@ enum Category {
   CATEGORY_WIDGET = 6;
 }
 
+// HookPoint identifies one of the eight dispatchable points in the agent
+// loop (agent-loop/hook-dispatch.md; architecture.md §Hook dispatch
+// semantics enumerates the nine hook-point names, of which
+// context-assemble is deliberately excluded — it stays on
+// ContextService.Contribute rather than the hook.v1 dispatch surface).
+// Lives here rather than in hook.v1 because hook.v1 imports several
+// category packages (model, tool, plan, session) for its typed payloads:
+// a category package advertising `supported_hook_points` in its
+// capability message could not import hook.v1 back without a cycle, and
+// this file is the import-nothing leaf every package may depend on —
+// the same reasoning that homes Category here. Used by hook.v1's
+// HookError, the event.v1 hook-error payload, and every category's
+// capability advertisement.
+enum HookPoint {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  HOOK_POINT_UNSPECIFIED = 0;
+  // Session creation, before the first turn begins.
+  HOOK_POINT_SESSION_START = 1;
+  // Immediately before a model provider's StreamCompletion is called.
+  HOOK_POINT_PRE_MODEL_CALL = 2;
+  // Immediately after a model turn's canonical message has been
+  // assembled from the completion stream.
+  HOOK_POINT_POST_MODEL_RESPONSE = 3;
+  // Immediately before a plan item's tool call is applied.
+  HOOK_POINT_PRE_TOOL_CALL = 4;
+  // Once a turn's Plan has been fully built, before plan/apply gate
+  // dispatch. The kernel-privileged policy veto subscriber
+  // (architecture.md §Policy — first-party, not a plugin category) always
+  // runs at this point.
+  HOOK_POINT_PLAN_READY = 5;
+  // Immediately after a plan item's tool call has produced a terminal
+  // ToolResult or ToolError.
+  HOOK_POINT_POST_TOOL_CALL = 6;
+  // Immediately after a turn's whole Plan has finished applying (every
+  // item reached a terminal ApplyOutcome).
+  HOOK_POINT_POST_APPLY = 7;
+  // Session termination, once the session has reached a terminal
+  // SessionStatus.
+  HOOK_POINT_SESSION_END = 8;
+}
+
 // ProducerRef identifies the exact plugin build that produced something: a
 // specific name, version, and source, pinned to the category it
 // implements. This is the wire-level counterpart of the "supersedes"

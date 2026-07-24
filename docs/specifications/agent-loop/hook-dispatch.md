@@ -10,7 +10,7 @@
 
 ### Hook points
 
-`hook.v1.HookPoint` enumerates eight of [`architecture.md`](../architecture.md#hook-dispatch-semantics)'s nine named points — every one except `context-assemble`, which stays on `ContextService.Contribute` ([`../context/protocol.md#contribute-the-context-assemble-rpc`](../context/protocol.md#contribute-the-context-assemble-rpc)) rather than riding this surface. `Contribute` already carries the full accumulated `ContextSection` chain as a first-class typed request/response; routing it through the generic `HookPayload` oneof below would just be a second, redundant path to the same effect with weaker typing.
+`common.v1.HookPoint` (homed in `common/v1/common.proto` — the import-nothing leaf — so category capability messages can advertise `supported_hook_points` without importing `hook.v1`, which itself imports several category packages for its typed payloads) enumerates eight of [`architecture.md`](../architecture.md#hook-dispatch-semantics)'s nine named points — every one except `context-assemble`, which stays on `ContextService.Contribute` ([`../context/protocol.md#contribute-the-context-assemble-rpc`](../context/protocol.md#contribute-the-context-assemble-rpc)) rather than riding this surface. `Contribute` already carries the full accumulated `ContextSection` chain as a first-class typed request/response; routing it through the generic `HookPayload` oneof below would just be a second, redundant path to the same effect with weaker typing.
 
 | Hook point | `HookPayload` variant |
 |---|---|
@@ -23,7 +23,7 @@
 | `post-apply` | `PostApplyPayload` |
 | `session-end` | `SessionEndPayload` |
 
-`HookPayload` is a `oneof`; the set variant *is* the point being dispatched — `DispatchHookRequest` carries no separate `HookPoint` field. `HookPoint` exists on the wire only where there's no oneof to infer a point from: `HookError`, and the future `event.v1.HookErrorEvent` it's embedded in.
+`HookPayload` is a `oneof`; the set variant *is* the point being dispatched — `DispatchHookRequest` carries no separate `HookPoint` field. `common.v1.HookPoint` exists on the wire only where there's no oneof to infer a point from: `HookError`, and the future `event.v1.HookErrorEvent` it's embedded in.
 
 ### Dispatch modes → response shapes
 

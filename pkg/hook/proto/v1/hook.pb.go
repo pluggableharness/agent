@@ -15,8 +15,8 @@
 // that plugin's own category service. A plugin with no `hook{}` blocks in
 // agent.hcl simply never has it called.
 //
-// context-assemble is deliberately absent from this surface's HookPoint
-// enum below — it stays on ContextService.Contribute
+// context-assemble is deliberately absent from this surface's hook-point
+// vocabulary (common.v1.HookPoint) — it stays on ContextService.Contribute
 // (context/protocol.md#contribute-the-context-assemble-rpc; architecture.md
 // §Hook dispatch semantics), which already carries the full accumulated
 // ContextSection chain and doesn't need a second, competing dispatch path.
@@ -44,97 +44,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-// HookPoint identifies which of the eight dispatchable points in the agent
-// loop a DispatchHookRequest fires for. Not carried directly on
-// DispatchHookRequest (the set HookPayload oneof variant already implies
-// the point) — this enum exists for HookError, which has no oneof to infer
-// a point from. architecture.md §Hook dispatch semantics enumerates these
-// nine hook-point names; context-assemble (the ninth) is deliberately
-// excluded here — see this file's package comment.
-type HookPoint int32
-
-const (
-	// Zero value. Never valid on the wire; its presence means a caller
-	// forgot to set the field.
-	HookPoint_HOOK_POINT_UNSPECIFIED HookPoint = 0
-	// Session creation, before the first turn begins.
-	HookPoint_HOOK_POINT_SESSION_START HookPoint = 1
-	// Immediately before a model provider's StreamCompletion is called.
-	HookPoint_HOOK_POINT_PRE_MODEL_CALL HookPoint = 2
-	// Immediately after a model turn's canonical message has been
-	// assembled from the completion stream.
-	HookPoint_HOOK_POINT_POST_MODEL_RESPONSE HookPoint = 3
-	// Immediately before a plan item's tool call is applied.
-	HookPoint_HOOK_POINT_PRE_TOOL_CALL HookPoint = 4
-	// Once a turn's Plan has been fully built, before plan/apply gate
-	// dispatch. The kernel-privileged policy veto subscriber
-	// (architecture.md §Policy — first-party, not a plugin category) always
-	// runs at this point.
-	HookPoint_HOOK_POINT_PLAN_READY HookPoint = 5
-	// Immediately after a plan item's tool call has produced a terminal
-	// ToolResult or ToolError.
-	HookPoint_HOOK_POINT_POST_TOOL_CALL HookPoint = 6
-	// Immediately after a turn's whole Plan has finished applying (every
-	// item reached a terminal ApplyOutcome).
-	HookPoint_HOOK_POINT_POST_APPLY HookPoint = 7
-	// Session termination, once the session has reached a terminal
-	// SessionStatus.
-	HookPoint_HOOK_POINT_SESSION_END HookPoint = 8
-)
-
-// Enum value maps for HookPoint.
-var (
-	HookPoint_name = map[int32]string{
-		0: "HOOK_POINT_UNSPECIFIED",
-		1: "HOOK_POINT_SESSION_START",
-		2: "HOOK_POINT_PRE_MODEL_CALL",
-		3: "HOOK_POINT_POST_MODEL_RESPONSE",
-		4: "HOOK_POINT_PRE_TOOL_CALL",
-		5: "HOOK_POINT_PLAN_READY",
-		6: "HOOK_POINT_POST_TOOL_CALL",
-		7: "HOOK_POINT_POST_APPLY",
-		8: "HOOK_POINT_SESSION_END",
-	}
-	HookPoint_value = map[string]int32{
-		"HOOK_POINT_UNSPECIFIED":         0,
-		"HOOK_POINT_SESSION_START":       1,
-		"HOOK_POINT_PRE_MODEL_CALL":      2,
-		"HOOK_POINT_POST_MODEL_RESPONSE": 3,
-		"HOOK_POINT_PRE_TOOL_CALL":       4,
-		"HOOK_POINT_PLAN_READY":          5,
-		"HOOK_POINT_POST_TOOL_CALL":      6,
-		"HOOK_POINT_POST_APPLY":          7,
-		"HOOK_POINT_SESSION_END":         8,
-	}
-)
-
-func (x HookPoint) Enum() *HookPoint {
-	p := new(HookPoint)
-	*p = x
-	return p
-}
-
-func (x HookPoint) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (HookPoint) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[0].Descriptor()
-}
-
-func (HookPoint) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[0]
-}
-
-func (x HookPoint) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use HookPoint.Descriptor instead.
-func (HookPoint) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{0}
-}
 
 // HookMode is the operator-declared subscription mode for one plugin's
 // hook{} block, per architecture.md §Hook dispatch semantics and
@@ -192,11 +101,11 @@ func (x HookMode) String() string {
 }
 
 func (HookMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[0].Descriptor()
 }
 
 func (HookMode) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[1]
+	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[0]
 }
 
 func (x HookMode) Number() protoreflect.EnumNumber {
@@ -205,7 +114,7 @@ func (x HookMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HookMode.Descriptor instead.
 func (HookMode) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{0}
 }
 
 // HookDecision is a veto subscriber's coarse allow/deny verdict over a
@@ -258,11 +167,11 @@ func (x HookDecision) String() string {
 }
 
 func (HookDecision) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[2].Descriptor()
+	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[1].Descriptor()
 }
 
 func (HookDecision) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[2]
+	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[1]
 }
 
 func (x HookDecision) Number() protoreflect.EnumNumber {
@@ -271,7 +180,7 @@ func (x HookDecision) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HookDecision.Descriptor instead.
 func (HookDecision) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{1}
 }
 
 // HookErrorCategory classifies why a hook dispatch to one subscriber
@@ -346,11 +255,11 @@ func (x HookErrorCategory) String() string {
 }
 
 func (HookErrorCategory) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[3].Descriptor()
+	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[2].Descriptor()
 }
 
 func (HookErrorCategory) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[3]
+	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[2]
 }
 
 func (x HookErrorCategory) Number() protoreflect.EnumNumber {
@@ -359,13 +268,13 @@ func (x HookErrorCategory) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HookErrorCategory.Descriptor instead.
 func (HookErrorCategory) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{2}
 }
 
 // HookPayload carries one hook point's data. Exactly one oneof variant is
 // set; which variant is set *is* the point being dispatched — the
-// parallel HookPoint enum above exists only for contexts (HookError) that
-// have no oneof to infer the point from.
+// parallel common.v1.HookPoint enum exists only for contexts (HookError)
+// that have no oneof to infer the point from.
 type HookPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Payload:
@@ -1279,7 +1188,7 @@ func (*DispatchHookResponse_Veto) isDispatchHookResponse_Outcome() {}
 type HookError struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which hook point the failing dispatch was for. MUST be set.
-	Point HookPoint `protobuf:"varint,1,opt,name=point,proto3,enum=pluggableharness.agent.hook.v1.HookPoint" json:"point,omitempty"`
+	Point v12.HookPoint `protobuf:"varint,1,opt,name=point,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"point,omitempty"`
 	// Which plugin build the failing subscriber was. MUST be set.
 	Subscriber *v12.ProducerRef `protobuf:"bytes,2,opt,name=subscriber,proto3" json:"subscriber,omitempty"`
 	// The HookMode the failing subscription was declared under. MUST be
@@ -1323,11 +1232,11 @@ func (*HookError) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *HookError) GetPoint() HookPoint {
+func (x *HookError) GetPoint() v12.HookPoint {
 	if x != nil {
 		return x.Point
 	}
-	return HookPoint_HOOK_POINT_UNSPECIFIED
+	return v12.HookPoint(0)
 }
 
 func (x *HookError) GetSubscriber() *v12.ProducerRef {
@@ -1563,25 +1472,15 @@ const file_pluggableharness_agent_hook_v1_hook_proto_rawDesc = "" +
 	"\n" +
 	"VetoResult\x12H\n" +
 	"\bdecision\x18\x01 \x01(\x0e2,.pluggableharness.agent.hook.v1.HookDecisionR\bdecisionB\t\n" +
-	"\aoutcome\"\xc2\x02\n" +
-	"\tHookError\x12?\n" +
-	"\x05point\x18\x01 \x01(\x0e2).pluggableharness.agent.hook.v1.HookPointR\x05point\x12M\n" +
+	"\aoutcome\"\xc4\x02\n" +
+	"\tHookError\x12A\n" +
+	"\x05point\x18\x01 \x01(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x05point\x12M\n" +
 	"\n" +
 	"subscriber\x18\x02 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\n" +
 	"subscriber\x12<\n" +
 	"\x04mode\x18\x03 \x01(\x0e2(.pluggableharness.agent.hook.v1.HookModeR\x04mode\x12M\n" +
 	"\bcategory\x18\x04 \x01(\x0e21.pluggableharness.agent.hook.v1.HookErrorCategoryR\bcategory\x12\x18\n" +
-	"\amessage\x18\x05 \x01(\tR\amessage*\x97\x02\n" +
-	"\tHookPoint\x12\x1a\n" +
-	"\x16HOOK_POINT_UNSPECIFIED\x10\x00\x12\x1c\n" +
-	"\x18HOOK_POINT_SESSION_START\x10\x01\x12\x1d\n" +
-	"\x19HOOK_POINT_PRE_MODEL_CALL\x10\x02\x12\"\n" +
-	"\x1eHOOK_POINT_POST_MODEL_RESPONSE\x10\x03\x12\x1c\n" +
-	"\x18HOOK_POINT_PRE_TOOL_CALL\x10\x04\x12\x19\n" +
-	"\x15HOOK_POINT_PLAN_READY\x10\x05\x12\x1d\n" +
-	"\x19HOOK_POINT_POST_TOOL_CALL\x10\x06\x12\x19\n" +
-	"\x15HOOK_POINT_POST_APPLY\x10\a\x12\x1a\n" +
-	"\x16HOOK_POINT_SESSION_END\x10\b*i\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage*i\n" +
 	"\bHookMode\x12\x19\n" +
 	"\x15HOOK_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11HOOK_MODE_OBSERVE\x10\x01\x12\x17\n" +
@@ -1614,75 +1513,75 @@ func file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescData
 }
 
-var file_pluggableharness_agent_hook_v1_hook_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_pluggableharness_agent_hook_v1_hook_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_pluggableharness_agent_hook_v1_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_pluggableharness_agent_hook_v1_hook_proto_goTypes = []any{
-	(HookPoint)(0),                               // 0: pluggableharness.agent.hook.v1.HookPoint
-	(HookMode)(0),                                // 1: pluggableharness.agent.hook.v1.HookMode
-	(HookDecision)(0),                            // 2: pluggableharness.agent.hook.v1.HookDecision
-	(HookErrorCategory)(0),                       // 3: pluggableharness.agent.hook.v1.HookErrorCategory
-	(*HookPayload)(nil),                          // 4: pluggableharness.agent.hook.v1.HookPayload
-	(*SessionStartPayload)(nil),                  // 5: pluggableharness.agent.hook.v1.SessionStartPayload
-	(*PreModelCallPayload)(nil),                  // 6: pluggableharness.agent.hook.v1.PreModelCallPayload
-	(*PostModelResponsePayload)(nil),             // 7: pluggableharness.agent.hook.v1.PostModelResponsePayload
-	(*PreToolCallPayload)(nil),                   // 8: pluggableharness.agent.hook.v1.PreToolCallPayload
-	(*PlanReadyPayload)(nil),                     // 9: pluggableharness.agent.hook.v1.PlanReadyPayload
-	(*PostToolCallPayload)(nil),                  // 10: pluggableharness.agent.hook.v1.PostToolCallPayload
-	(*PostApplyPayload)(nil),                     // 11: pluggableharness.agent.hook.v1.PostApplyPayload
-	(*SessionEndPayload)(nil),                    // 12: pluggableharness.agent.hook.v1.SessionEndPayload
-	(*DispatchHookRequest)(nil),                  // 13: pluggableharness.agent.hook.v1.DispatchHookRequest
-	(*DispatchHookResponse)(nil),                 // 14: pluggableharness.agent.hook.v1.DispatchHookResponse
-	(*HookError)(nil),                            // 15: pluggableharness.agent.hook.v1.HookError
-	(*DispatchHookResponse_ObserveAck)(nil),      // 16: pluggableharness.agent.hook.v1.DispatchHookResponse.ObserveAck
-	(*DispatchHookResponse_TransformResult)(nil), // 17: pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult
-	(*DispatchHookResponse_VetoResult)(nil),      // 18: pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult
-	(*v1.Message)(nil),                           // 19: pluggableharness.agent.content.v1.Message
-	(*v11.ModelRef)(nil),                         // 20: pluggableharness.agent.model.v1.ModelRef
-	(*v12.ProducerRef)(nil),                      // 21: pluggableharness.agent.common.v1.ProducerRef
-	(*v11.Usage)(nil),                            // 22: pluggableharness.agent.model.v1.Usage
-	(*v13.ToolCall)(nil),                         // 23: pluggableharness.agent.tool.v1.ToolCall
-	(*v14.PlanItem)(nil),                         // 24: pluggableharness.agent.plan.v1.PlanItem
-	(*v14.Plan)(nil),                             // 25: pluggableharness.agent.plan.v1.Plan
-	(*v13.ToolResult)(nil),                       // 26: pluggableharness.agent.tool.v1.ToolResult
-	(*v13.ToolError)(nil),                        // 27: pluggableharness.agent.tool.v1.ToolError
-	(*v14.ApplyResult)(nil),                      // 28: pluggableharness.agent.plan.v1.ApplyResult
-	(v15.SessionStatus)(0),                       // 29: pluggableharness.agent.session.v1.SessionStatus
+	(HookMode)(0),                                // 0: pluggableharness.agent.hook.v1.HookMode
+	(HookDecision)(0),                            // 1: pluggableharness.agent.hook.v1.HookDecision
+	(HookErrorCategory)(0),                       // 2: pluggableharness.agent.hook.v1.HookErrorCategory
+	(*HookPayload)(nil),                          // 3: pluggableharness.agent.hook.v1.HookPayload
+	(*SessionStartPayload)(nil),                  // 4: pluggableharness.agent.hook.v1.SessionStartPayload
+	(*PreModelCallPayload)(nil),                  // 5: pluggableharness.agent.hook.v1.PreModelCallPayload
+	(*PostModelResponsePayload)(nil),             // 6: pluggableharness.agent.hook.v1.PostModelResponsePayload
+	(*PreToolCallPayload)(nil),                   // 7: pluggableharness.agent.hook.v1.PreToolCallPayload
+	(*PlanReadyPayload)(nil),                     // 8: pluggableharness.agent.hook.v1.PlanReadyPayload
+	(*PostToolCallPayload)(nil),                  // 9: pluggableharness.agent.hook.v1.PostToolCallPayload
+	(*PostApplyPayload)(nil),                     // 10: pluggableharness.agent.hook.v1.PostApplyPayload
+	(*SessionEndPayload)(nil),                    // 11: pluggableharness.agent.hook.v1.SessionEndPayload
+	(*DispatchHookRequest)(nil),                  // 12: pluggableharness.agent.hook.v1.DispatchHookRequest
+	(*DispatchHookResponse)(nil),                 // 13: pluggableharness.agent.hook.v1.DispatchHookResponse
+	(*HookError)(nil),                            // 14: pluggableharness.agent.hook.v1.HookError
+	(*DispatchHookResponse_ObserveAck)(nil),      // 15: pluggableharness.agent.hook.v1.DispatchHookResponse.ObserveAck
+	(*DispatchHookResponse_TransformResult)(nil), // 16: pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult
+	(*DispatchHookResponse_VetoResult)(nil),      // 17: pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult
+	(*v1.Message)(nil),                           // 18: pluggableharness.agent.content.v1.Message
+	(*v11.ModelRef)(nil),                         // 19: pluggableharness.agent.model.v1.ModelRef
+	(*v12.ProducerRef)(nil),                      // 20: pluggableharness.agent.common.v1.ProducerRef
+	(*v11.Usage)(nil),                            // 21: pluggableharness.agent.model.v1.Usage
+	(*v13.ToolCall)(nil),                         // 22: pluggableharness.agent.tool.v1.ToolCall
+	(*v14.PlanItem)(nil),                         // 23: pluggableharness.agent.plan.v1.PlanItem
+	(*v14.Plan)(nil),                             // 24: pluggableharness.agent.plan.v1.Plan
+	(*v13.ToolResult)(nil),                       // 25: pluggableharness.agent.tool.v1.ToolResult
+	(*v13.ToolError)(nil),                        // 26: pluggableharness.agent.tool.v1.ToolError
+	(*v14.ApplyResult)(nil),                      // 27: pluggableharness.agent.plan.v1.ApplyResult
+	(v15.SessionStatus)(0),                       // 28: pluggableharness.agent.session.v1.SessionStatus
+	(v12.HookPoint)(0),                           // 29: pluggableharness.agent.common.v1.HookPoint
 }
 var file_pluggableharness_agent_hook_v1_hook_proto_depIdxs = []int32{
-	5,  // 0: pluggableharness.agent.hook.v1.HookPayload.session_start:type_name -> pluggableharness.agent.hook.v1.SessionStartPayload
-	6,  // 1: pluggableharness.agent.hook.v1.HookPayload.pre_model_call:type_name -> pluggableharness.agent.hook.v1.PreModelCallPayload
-	7,  // 2: pluggableharness.agent.hook.v1.HookPayload.post_model_response:type_name -> pluggableharness.agent.hook.v1.PostModelResponsePayload
-	8,  // 3: pluggableharness.agent.hook.v1.HookPayload.pre_tool_call:type_name -> pluggableharness.agent.hook.v1.PreToolCallPayload
-	9,  // 4: pluggableharness.agent.hook.v1.HookPayload.plan_ready:type_name -> pluggableharness.agent.hook.v1.PlanReadyPayload
-	10, // 5: pluggableharness.agent.hook.v1.HookPayload.post_tool_call:type_name -> pluggableharness.agent.hook.v1.PostToolCallPayload
-	11, // 6: pluggableharness.agent.hook.v1.HookPayload.post_apply:type_name -> pluggableharness.agent.hook.v1.PostApplyPayload
-	12, // 7: pluggableharness.agent.hook.v1.HookPayload.session_end:type_name -> pluggableharness.agent.hook.v1.SessionEndPayload
-	19, // 8: pluggableharness.agent.hook.v1.PreModelCallPayload.messages:type_name -> pluggableharness.agent.content.v1.Message
-	20, // 9: pluggableharness.agent.hook.v1.PreModelCallPayload.model:type_name -> pluggableharness.agent.model.v1.ModelRef
-	19, // 10: pluggableharness.agent.hook.v1.PostModelResponsePayload.message:type_name -> pluggableharness.agent.content.v1.Message
-	21, // 11: pluggableharness.agent.hook.v1.PostModelResponsePayload.model:type_name -> pluggableharness.agent.common.v1.ProducerRef
-	22, // 12: pluggableharness.agent.hook.v1.PostModelResponsePayload.usage:type_name -> pluggableharness.agent.model.v1.Usage
-	23, // 13: pluggableharness.agent.hook.v1.PreToolCallPayload.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
-	24, // 14: pluggableharness.agent.hook.v1.PreToolCallPayload.plan_item:type_name -> pluggableharness.agent.plan.v1.PlanItem
-	25, // 15: pluggableharness.agent.hook.v1.PlanReadyPayload.plan:type_name -> pluggableharness.agent.plan.v1.Plan
-	23, // 16: pluggableharness.agent.hook.v1.PostToolCallPayload.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
-	26, // 17: pluggableharness.agent.hook.v1.PostToolCallPayload.result:type_name -> pluggableharness.agent.tool.v1.ToolResult
-	27, // 18: pluggableharness.agent.hook.v1.PostToolCallPayload.error:type_name -> pluggableharness.agent.tool.v1.ToolError
-	28, // 19: pluggableharness.agent.hook.v1.PostApplyPayload.apply:type_name -> pluggableharness.agent.plan.v1.ApplyResult
-	29, // 20: pluggableharness.agent.hook.v1.SessionEndPayload.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
-	4,  // 21: pluggableharness.agent.hook.v1.DispatchHookRequest.payload:type_name -> pluggableharness.agent.hook.v1.HookPayload
-	1,  // 22: pluggableharness.agent.hook.v1.DispatchHookRequest.mode:type_name -> pluggableharness.agent.hook.v1.HookMode
-	16, // 23: pluggableharness.agent.hook.v1.DispatchHookResponse.observe:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.ObserveAck
-	17, // 24: pluggableharness.agent.hook.v1.DispatchHookResponse.transform:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult
-	18, // 25: pluggableharness.agent.hook.v1.DispatchHookResponse.veto:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult
-	0,  // 26: pluggableharness.agent.hook.v1.HookError.point:type_name -> pluggableharness.agent.hook.v1.HookPoint
-	21, // 27: pluggableharness.agent.hook.v1.HookError.subscriber:type_name -> pluggableharness.agent.common.v1.ProducerRef
-	1,  // 28: pluggableharness.agent.hook.v1.HookError.mode:type_name -> pluggableharness.agent.hook.v1.HookMode
-	3,  // 29: pluggableharness.agent.hook.v1.HookError.category:type_name -> pluggableharness.agent.hook.v1.HookErrorCategory
-	4,  // 30: pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult.payload:type_name -> pluggableharness.agent.hook.v1.HookPayload
-	2,  // 31: pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult.decision:type_name -> pluggableharness.agent.hook.v1.HookDecision
-	13, // 32: pluggableharness.agent.hook.v1.HookSubscriberService.DispatchHook:input_type -> pluggableharness.agent.hook.v1.DispatchHookRequest
-	14, // 33: pluggableharness.agent.hook.v1.HookSubscriberService.DispatchHook:output_type -> pluggableharness.agent.hook.v1.DispatchHookResponse
+	4,  // 0: pluggableharness.agent.hook.v1.HookPayload.session_start:type_name -> pluggableharness.agent.hook.v1.SessionStartPayload
+	5,  // 1: pluggableharness.agent.hook.v1.HookPayload.pre_model_call:type_name -> pluggableharness.agent.hook.v1.PreModelCallPayload
+	6,  // 2: pluggableharness.agent.hook.v1.HookPayload.post_model_response:type_name -> pluggableharness.agent.hook.v1.PostModelResponsePayload
+	7,  // 3: pluggableharness.agent.hook.v1.HookPayload.pre_tool_call:type_name -> pluggableharness.agent.hook.v1.PreToolCallPayload
+	8,  // 4: pluggableharness.agent.hook.v1.HookPayload.plan_ready:type_name -> pluggableharness.agent.hook.v1.PlanReadyPayload
+	9,  // 5: pluggableharness.agent.hook.v1.HookPayload.post_tool_call:type_name -> pluggableharness.agent.hook.v1.PostToolCallPayload
+	10, // 6: pluggableharness.agent.hook.v1.HookPayload.post_apply:type_name -> pluggableharness.agent.hook.v1.PostApplyPayload
+	11, // 7: pluggableharness.agent.hook.v1.HookPayload.session_end:type_name -> pluggableharness.agent.hook.v1.SessionEndPayload
+	18, // 8: pluggableharness.agent.hook.v1.PreModelCallPayload.messages:type_name -> pluggableharness.agent.content.v1.Message
+	19, // 9: pluggableharness.agent.hook.v1.PreModelCallPayload.model:type_name -> pluggableharness.agent.model.v1.ModelRef
+	18, // 10: pluggableharness.agent.hook.v1.PostModelResponsePayload.message:type_name -> pluggableharness.agent.content.v1.Message
+	20, // 11: pluggableharness.agent.hook.v1.PostModelResponsePayload.model:type_name -> pluggableharness.agent.common.v1.ProducerRef
+	21, // 12: pluggableharness.agent.hook.v1.PostModelResponsePayload.usage:type_name -> pluggableharness.agent.model.v1.Usage
+	22, // 13: pluggableharness.agent.hook.v1.PreToolCallPayload.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
+	23, // 14: pluggableharness.agent.hook.v1.PreToolCallPayload.plan_item:type_name -> pluggableharness.agent.plan.v1.PlanItem
+	24, // 15: pluggableharness.agent.hook.v1.PlanReadyPayload.plan:type_name -> pluggableharness.agent.plan.v1.Plan
+	22, // 16: pluggableharness.agent.hook.v1.PostToolCallPayload.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
+	25, // 17: pluggableharness.agent.hook.v1.PostToolCallPayload.result:type_name -> pluggableharness.agent.tool.v1.ToolResult
+	26, // 18: pluggableharness.agent.hook.v1.PostToolCallPayload.error:type_name -> pluggableharness.agent.tool.v1.ToolError
+	27, // 19: pluggableharness.agent.hook.v1.PostApplyPayload.apply:type_name -> pluggableharness.agent.plan.v1.ApplyResult
+	28, // 20: pluggableharness.agent.hook.v1.SessionEndPayload.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
+	3,  // 21: pluggableharness.agent.hook.v1.DispatchHookRequest.payload:type_name -> pluggableharness.agent.hook.v1.HookPayload
+	0,  // 22: pluggableharness.agent.hook.v1.DispatchHookRequest.mode:type_name -> pluggableharness.agent.hook.v1.HookMode
+	15, // 23: pluggableharness.agent.hook.v1.DispatchHookResponse.observe:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.ObserveAck
+	16, // 24: pluggableharness.agent.hook.v1.DispatchHookResponse.transform:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult
+	17, // 25: pluggableharness.agent.hook.v1.DispatchHookResponse.veto:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult
+	29, // 26: pluggableharness.agent.hook.v1.HookError.point:type_name -> pluggableharness.agent.common.v1.HookPoint
+	20, // 27: pluggableharness.agent.hook.v1.HookError.subscriber:type_name -> pluggableharness.agent.common.v1.ProducerRef
+	0,  // 28: pluggableharness.agent.hook.v1.HookError.mode:type_name -> pluggableharness.agent.hook.v1.HookMode
+	2,  // 29: pluggableharness.agent.hook.v1.HookError.category:type_name -> pluggableharness.agent.hook.v1.HookErrorCategory
+	3,  // 30: pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult.payload:type_name -> pluggableharness.agent.hook.v1.HookPayload
+	1,  // 31: pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult.decision:type_name -> pluggableharness.agent.hook.v1.HookDecision
+	12, // 32: pluggableharness.agent.hook.v1.HookSubscriberService.DispatchHook:input_type -> pluggableharness.agent.hook.v1.DispatchHookRequest
+	13, // 33: pluggableharness.agent.hook.v1.HookSubscriberService.DispatchHook:output_type -> pluggableharness.agent.hook.v1.DispatchHookResponse
 	33, // [33:34] is the sub-list for method output_type
 	32, // [32:33] is the sub-list for method input_type
 	32, // [32:32] is the sub-list for extension type_name
@@ -1721,7 +1620,7 @@ func file_pluggableharness_agent_hook_v1_hook_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_hook_v1_hook_proto_rawDesc), len(file_pluggableharness_agent_hook_v1_hook_proto_rawDesc)),
-			NumEnums:      4,
+			NumEnums:      3,
 			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,

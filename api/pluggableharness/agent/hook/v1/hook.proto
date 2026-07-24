@@ -11,8 +11,8 @@ syntax = "proto3";
 // that plugin's own category service. A plugin with no `hook{}` blocks in
 // agent.hcl simply never has it called.
 //
-// context-assemble is deliberately absent from this surface's HookPoint
-// enum below — it stays on ContextService.Contribute
+// context-assemble is deliberately absent from this surface's hook-point
+// vocabulary (common.v1.HookPoint) — it stays on ContextService.Contribute
 // (context/protocol.md#contribute-the-context-assemble-rpc; architecture.md
 // §Hook dispatch semantics), which already carries the full accumulated
 // ContextSection chain and doesn't need a second, competing dispatch path.
@@ -49,41 +49,12 @@ service HookSubscriberService {
   rpc DispatchHook(DispatchHookRequest) returns (DispatchHookResponse);
 }
 
-// HookPoint identifies which of the eight dispatchable points in the agent
-// loop a DispatchHookRequest fires for. Not carried directly on
-// DispatchHookRequest (the set HookPayload oneof variant already implies
-// the point) — this enum exists for HookError, which has no oneof to infer
-// a point from. architecture.md §Hook dispatch semantics enumerates these
-// nine hook-point names; context-assemble (the ninth) is deliberately
-// excluded here — see this file's package comment.
-enum HookPoint {
-  // Zero value. Never valid on the wire; its presence means a caller
-  // forgot to set the field.
-  HOOK_POINT_UNSPECIFIED = 0;
-  // Session creation, before the first turn begins.
-  HOOK_POINT_SESSION_START = 1;
-  // Immediately before a model provider's StreamCompletion is called.
-  HOOK_POINT_PRE_MODEL_CALL = 2;
-  // Immediately after a model turn's canonical message has been
-  // assembled from the completion stream.
-  HOOK_POINT_POST_MODEL_RESPONSE = 3;
-  // Immediately before a plan item's tool call is applied.
-  HOOK_POINT_PRE_TOOL_CALL = 4;
-  // Once a turn's Plan has been fully built, before plan/apply gate
-  // dispatch. The kernel-privileged policy veto subscriber
-  // (architecture.md §Policy — first-party, not a plugin category) always
-  // runs at this point.
-  HOOK_POINT_PLAN_READY = 5;
-  // Immediately after a plan item's tool call has produced a terminal
-  // ToolResult or ToolError.
-  HOOK_POINT_POST_TOOL_CALL = 6;
-  // Immediately after a turn's whole Plan has finished applying (every
-  // item reached a terminal ApplyOutcome).
-  HOOK_POINT_POST_APPLY = 7;
-  // Session termination, once the session has reached a terminal
-  // SessionStatus.
-  HOOK_POINT_SESSION_END = 8;
-}
+// The HookPoint enum itself lives in common.v1 (common/v1/common.proto),
+// not here: hook.v1 imports several category packages (model, tool, plan,
+// session) for its typed payloads, so a category package advertising
+// `supported_hook_points` in its capability message could not import this
+// package back without a cycle. common.v1 is the import-nothing leaf both
+// sides can safely share.
 
 // HookMode is the operator-declared subscription mode for one plugin's
 // hook{} block, per architecture.md §Hook dispatch semantics and
@@ -114,8 +85,8 @@ enum HookMode {
 
 // HookPayload carries one hook point's data. Exactly one oneof variant is
 // set; which variant is set *is* the point being dispatched — the
-// parallel HookPoint enum above exists only for contexts (HookError) that
-// have no oneof to infer the point from.
+// parallel common.v1.HookPoint enum exists only for contexts (HookError)
+// that have no oneof to infer the point from.
 message HookPayload {
   oneof payload {
     // Fires at HOOK_POINT_SESSION_START.
@@ -380,7 +351,7 @@ enum HookErrorCategory {
 // message rather than redefining it.
 message HookError {
   // Which hook point the failing dispatch was for. MUST be set.
-  HookPoint point = 1;
+  pluggableharness.agent.common.v1.HookPoint point = 1;
   // Which plugin build the failing subscriber was. MUST be set.
   pluggableharness.agent.common.v1.ProducerRef subscriber = 2;
   // The HookMode the failing subscription was declared under. MUST be

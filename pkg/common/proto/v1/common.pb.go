@@ -102,6 +102,103 @@ func (Category) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP(), []int{0}
 }
 
+// HookPoint identifies one of the eight dispatchable points in the agent
+// loop (agent-loop/hook-dispatch.md; architecture.md §Hook dispatch
+// semantics enumerates the nine hook-point names, of which
+// context-assemble is deliberately excluded — it stays on
+// ContextService.Contribute rather than the hook.v1 dispatch surface).
+// Lives here rather than in hook.v1 because hook.v1 imports several
+// category packages (model, tool, plan, session) for its typed payloads:
+// a category package advertising `supported_hook_points` in its
+// capability message could not import hook.v1 back without a cycle, and
+// this file is the import-nothing leaf every package may depend on —
+// the same reasoning that homes Category here. Used by hook.v1's
+// HookError, the event.v1 hook-error payload, and every category's
+// capability advertisement.
+type HookPoint int32
+
+const (
+	// Zero value. Never valid on the wire; its presence means a caller
+	// forgot to set the field.
+	HookPoint_HOOK_POINT_UNSPECIFIED HookPoint = 0
+	// Session creation, before the first turn begins.
+	HookPoint_HOOK_POINT_SESSION_START HookPoint = 1
+	// Immediately before a model provider's StreamCompletion is called.
+	HookPoint_HOOK_POINT_PRE_MODEL_CALL HookPoint = 2
+	// Immediately after a model turn's canonical message has been
+	// assembled from the completion stream.
+	HookPoint_HOOK_POINT_POST_MODEL_RESPONSE HookPoint = 3
+	// Immediately before a plan item's tool call is applied.
+	HookPoint_HOOK_POINT_PRE_TOOL_CALL HookPoint = 4
+	// Once a turn's Plan has been fully built, before plan/apply gate
+	// dispatch. The kernel-privileged policy veto subscriber
+	// (architecture.md §Policy — first-party, not a plugin category) always
+	// runs at this point.
+	HookPoint_HOOK_POINT_PLAN_READY HookPoint = 5
+	// Immediately after a plan item's tool call has produced a terminal
+	// ToolResult or ToolError.
+	HookPoint_HOOK_POINT_POST_TOOL_CALL HookPoint = 6
+	// Immediately after a turn's whole Plan has finished applying (every
+	// item reached a terminal ApplyOutcome).
+	HookPoint_HOOK_POINT_POST_APPLY HookPoint = 7
+	// Session termination, once the session has reached a terminal
+	// SessionStatus.
+	HookPoint_HOOK_POINT_SESSION_END HookPoint = 8
+)
+
+// Enum value maps for HookPoint.
+var (
+	HookPoint_name = map[int32]string{
+		0: "HOOK_POINT_UNSPECIFIED",
+		1: "HOOK_POINT_SESSION_START",
+		2: "HOOK_POINT_PRE_MODEL_CALL",
+		3: "HOOK_POINT_POST_MODEL_RESPONSE",
+		4: "HOOK_POINT_PRE_TOOL_CALL",
+		5: "HOOK_POINT_PLAN_READY",
+		6: "HOOK_POINT_POST_TOOL_CALL",
+		7: "HOOK_POINT_POST_APPLY",
+		8: "HOOK_POINT_SESSION_END",
+	}
+	HookPoint_value = map[string]int32{
+		"HOOK_POINT_UNSPECIFIED":         0,
+		"HOOK_POINT_SESSION_START":       1,
+		"HOOK_POINT_PRE_MODEL_CALL":      2,
+		"HOOK_POINT_POST_MODEL_RESPONSE": 3,
+		"HOOK_POINT_PRE_TOOL_CALL":       4,
+		"HOOK_POINT_PLAN_READY":          5,
+		"HOOK_POINT_POST_TOOL_CALL":      6,
+		"HOOK_POINT_POST_APPLY":          7,
+		"HOOK_POINT_SESSION_END":         8,
+	}
+)
+
+func (x HookPoint) Enum() *HookPoint {
+	p := new(HookPoint)
+	*p = x
+	return p
+}
+
+func (x HookPoint) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (HookPoint) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_agent_common_v1_common_proto_enumTypes[1].Descriptor()
+}
+
+func (HookPoint) Type() protoreflect.EnumType {
+	return &file_pluggableharness_agent_common_v1_common_proto_enumTypes[1]
+}
+
+func (x HookPoint) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use HookPoint.Descriptor instead.
+func (HookPoint) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP(), []int{1}
+}
+
 // ProducerRef identifies the exact plugin build that produced something: a
 // specific name, version, and source, pinned to the category it
 // implements. This is the wire-level counterpart of the "supersedes"
@@ -359,7 +456,17 @@ const file_pluggableharness_agent_common_v1_common_proto_rawDesc = "" +
 	"\x10CATEGORY_CONTEXT\x10\x03\x12\x13\n" +
 	"\x0fCATEGORY_MEMORY\x10\x04\x12\x15\n" +
 	"\x11CATEGORY_FRONTEND\x10\x05\x12\x13\n" +
-	"\x0fCATEGORY_WIDGET\x10\x06B@Z>github.com/pluggableharness/agent/pkg/common/proto/v1;commonv1b\x06proto3"
+	"\x0fCATEGORY_WIDGET\x10\x06*\x97\x02\n" +
+	"\tHookPoint\x12\x1a\n" +
+	"\x16HOOK_POINT_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18HOOK_POINT_SESSION_START\x10\x01\x12\x1d\n" +
+	"\x19HOOK_POINT_PRE_MODEL_CALL\x10\x02\x12\"\n" +
+	"\x1eHOOK_POINT_POST_MODEL_RESPONSE\x10\x03\x12\x1c\n" +
+	"\x18HOOK_POINT_PRE_TOOL_CALL\x10\x04\x12\x19\n" +
+	"\x15HOOK_POINT_PLAN_READY\x10\x05\x12\x1d\n" +
+	"\x19HOOK_POINT_POST_TOOL_CALL\x10\x06\x12\x19\n" +
+	"\x15HOOK_POINT_POST_APPLY\x10\a\x12\x1a\n" +
+	"\x16HOOK_POINT_SESSION_END\x10\bB@Z>github.com/pluggableharness/agent/pkg/common/proto/v1;commonv1b\x06proto3"
 
 var (
 	file_pluggableharness_agent_common_v1_common_proto_rawDescOnce sync.Once
@@ -373,13 +480,14 @@ func file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_agent_common_v1_common_proto_rawDescData
 }
 
-var file_pluggableharness_agent_common_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_agent_common_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_pluggableharness_agent_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pluggableharness_agent_common_v1_common_proto_goTypes = []any{
 	(Category)(0),       // 0: pluggableharness.agent.common.v1.Category
-	(*ProducerRef)(nil), // 1: pluggableharness.agent.common.v1.ProducerRef
-	(*ProviderRef)(nil), // 2: pluggableharness.agent.common.v1.ProviderRef
-	(*CallContext)(nil), // 3: pluggableharness.agent.common.v1.CallContext
+	(HookPoint)(0),      // 1: pluggableharness.agent.common.v1.HookPoint
+	(*ProducerRef)(nil), // 2: pluggableharness.agent.common.v1.ProducerRef
+	(*ProviderRef)(nil), // 3: pluggableharness.agent.common.v1.ProviderRef
+	(*CallContext)(nil), // 4: pluggableharness.agent.common.v1.CallContext
 }
 var file_pluggableharness_agent_common_v1_common_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.agent.common.v1.ProducerRef.category:type_name -> pluggableharness.agent.common.v1.Category
@@ -401,7 +509,7 @@ func file_pluggableharness_agent_common_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_common_v1_common_proto_rawDesc), len(file_pluggableharness_agent_common_v1_common_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
