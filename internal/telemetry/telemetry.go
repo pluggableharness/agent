@@ -75,6 +75,8 @@ type Backend interface {
 // plugin's pkg/telemetry.Bootstrap) constructs via New and tears down via
 // Shutdown.
 type Provider struct {
+	cfg Config
+
 	tp *sdktrace.TracerProvider
 	mp *sdkmetric.MeterProvider
 	lp *sdklog.LoggerProvider
@@ -119,7 +121,7 @@ func New(ctx context.Context, cfg Config, backend Backend, producer *commonv1.Pr
 		return nil, fmt.Errorf("telemetry: new: %w", err)
 	}
 
-	p := &Provider{}
+	p := &Provider{cfg: cfg}
 
 	if cfg.TracesEnabled {
 		exporter, err := backend.TraceExporter(ctx)
@@ -240,4 +242,13 @@ func (p *Provider) Tracer() trace.Tracer {
 // Instruments returns the pre-constructed metric instruments.
 func (p *Provider) Instruments() *Instruments {
 	return p.instruments
+}
+
+// Config returns the Config this Provider was constructed with — used by
+// internal/kernelcallback's GetTelemetryConfig handler to answer whether
+// tracing/metrics/logs are enabled and at what sampling ratio
+// (kernel-callbacks.md's GetTelemetryConfig), without threading a second
+// copy of the same configuration through kernelcallback.Config.
+func (p *Provider) Config() Config {
+	return p.cfg
 }

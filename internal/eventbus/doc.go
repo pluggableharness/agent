@@ -5,25 +5,29 @@
 // replay — closing the process (or the Bus itself) discards everything;
 // a fresh Bus starts empty and must be re-filled by its publishers.
 //
-// This is kernel-internal plumbing, not a plugin-protocol category: it
-// sits below the wire protocol entirely, and nothing in
-// docs/specifications/ describes it (confirmed absent during design —
-// the existing "emit"/"subscribe"/"broadcast" vocabulary there names
-// three unrelated things: state-backend Emit, the synchronous ordered
-// hook-dispatch chain, and frontend ServerEvent broadcast; none of them
-// is a pub/sub bus, and none exists anywhere in internal/ or pkg/ prior
-// to this package). This package deliberately does not integrate with
-// any of them — no agent-loop wiring, no plugin RPC, no docs/specifications/
-// entry. When a later change feeds plugin RPCs from Bus events, that
-// integration is a separate, spec-first effort.
+// This started as kernel-internal plumbing with no plugin-facing wire
+// protocol of its own — docs/specifications/event-bus.md now names it
+// explicitly, as the mechanism behind KernelCallbackService's Publish/
+// Subscribe RPCs (internal/kernelcallback's eventbus.go bridges those two
+// RPCs to this package's Bus). event-bus.md's own boundary section
+// distinguishes this from the other three "event"-shaped mechanisms
+// already in this project: state-backend Emit (durable, sequenced), the
+// synchronous ordered hook-dispatch chain (static, agent.hcl-declared,
+// can veto), and frontend ServerEvent broadcast (connection-scoped) —
+// none of them is a pub/sub bus, and this package remains the only one.
 //
-// Bus (eventbus.go) holds a topic -> subscriber registry guarded by a
-// mutex; Publish (eventbus.go) fans an Event out to every current
-// subscriber of its Topic and returns immediately — it never blocks and
-// never drops. Subscribe (eventbus.go) returns a Subscription
-// (subscription.go), each with its own unbounded per-subscriber queue
-// (queue.go) drained by a dedicated delivery goroutine that invokes the
-// registered Handler out-of-band from any publisher.
+// Bus (eventbus.go) holds a topic -> subscriber registry (an exact-match
+// map plus a linearly-scanned trailing-wildcard list, filter.go) guarded
+// by a mutex; Publish (eventbus.go) fans an Event out to every current
+// subscriber whose registration matches its Topic and returns immediately
+// — it never blocks and never drops. Subscribe/SubscribeFilters
+// (eventbus.go) return a Subscription (subscription.go), each with its
+// own unbounded per-subscriber queue (queue.go) drained by a dedicated
+// delivery goroutine that invokes the registered Handler out-of-band from
+// any publisher. internal/kernelcallback's Subscribe RPC layers its own,
+// separate bounded buffer on top of a Subscription for the plugin-facing
+// stream (event-bus.md#backpressure) — that bound lives entirely in the
+// bridge; this package's own contract is unchanged by it.
 //
 // # Design decisions
 //

@@ -82,14 +82,29 @@
   case a caller already has one in hand; don't assume that's the only or
   primary path.
 
-- **Export is direct-from-each-process, not funneled through a kernel
-  callback.** Both the kernel and every plugin export OTLP directly to the
-  same collector; nesting comes from W3C traceparent propagation across
-  the gRPC boundary (`grpchooks.go`'s `ClientHandler`/`ServerHandler`), not
-  from routing spans through `KernelCallbackService`. `kernel-callbacks.md`
-  §8 leaves open whether future primitives belong on that service — a
-  span-funnel RPC was considered and rejected (see `telemetry.go`'s and the
-  plan's reasoning); don't propose it without re-reading the tradeoff.
+- **Span export now relays through `KernelCallbackService.ExportSpans` by
+  default — this reverses an earlier decision, not a stale note to
+  correct back.** A span-funnel RPC was originally considered and
+  rejected in favor of direct per-process OTLP export; `specifications/observability.md#the-relay-model`
+  records why that call was reversed (a plugin subprocess shouldn't need
+  network egress/collector credentials of its own, and the kernel becomes
+  the one place sampling/export config lives). `Backend.TraceUploader`
+  (`telemetry.go`) plus `internal/telemetryrelay` plus
+  `internal/kernelcallback`'s `ExportSpans` handler are that funnel,
+  already implemented. **Trace-context propagation across the plugin
+  boundary is unaffected by this** — nesting still comes entirely from
+  W3C traceparent propagation over the gRPC boundary
+  (`grpchooks.go`'s `ClientHandler`/`ServerHandler`); relay is a
+  transport decision about where a *finished* span's bytes go, not a
+  second mechanism for how an in-flight call's trace context crosses the
+  boundary. Metrics deliberately do **not** get the same transparent
+  relay — `RecordDynamicMetric` (`dynamicmetric.go`) records against
+  kernel-owned instruments instead, per the cardinality rule below and
+  `specifications/observability.md#the-tracing-metrics-asymmetry`.
+  `pkg/telemetry.Bootstrap` itself hasn't been switched to build on this
+  relay by default yet (tracked separately) — don't assume `Bootstrap`'s
+  current env-var-driven direct export is the intended end state; it's
+  what the plugin-facing SDK work will replace.
 
 - **Corrections needed elsewhere**, tracked per project `CLAUDE.md`
   convention:
@@ -107,6 +122,15 @@
      (renamed to drop package stutter). `internal/log` imports it like any
      other consumer; this package's future kernel-callback-server span
      attribution should do the same once that server exists.
+  3. ~~Whether a span-funnel-through-the-kernel RPC belongs on
+     `KernelCallbackService` — considered and rejected in favor of direct
+     per-process OTLP export, see the bullet above (now superseded).~~ —
+     reversed: `ExportSpans` (`kernel-callbacks.md`), `Backend.TraceUploader`
+     (`telemetry.go`), and `internal/telemetryrelay` are that funnel, now
+     implemented. `specifications/observability.md#the-relay-model`
+     records the reversal's reasoning. `pkg/telemetry.Bootstrap` switching
+     its *default* to build on this relay (rather than direct export) is
+     separate, not-yet-done follow-up work.
 
 ## Logs integration (`sloghandler.go`)
 

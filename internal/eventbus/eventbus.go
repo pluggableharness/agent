@@ -36,7 +36,7 @@ type wildcardEntry struct {
 type Bus struct {
 	mu        sync.RWMutex
 	subs      map[string]map[*Subscription]struct{} // exact topic filter -> that topic's open subscriptions
-	wildcards []wildcardEntry                        // trailing-wildcard filters, scanned per Publish
+	wildcards []wildcardEntry                       // trailing-wildcard filters, scanned per Publish
 
 	logger             *slog.Logger
 	telemetry          *telemetry.Provider

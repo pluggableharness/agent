@@ -29,6 +29,9 @@ func TestNew(t *testing.T) {
 	if p.Instruments() == nil {
 		t.Error("Instruments() = nil")
 	}
+	if got := p.Config(); got.ServiceName != "test" {
+		t.Errorf("Config().ServiceName = %q, want test", got.ServiceName)
+	}
 	if err := p.Shutdown(context.Background()); err != nil {
 		t.Fatalf("Shutdown: %v", err)
 	}

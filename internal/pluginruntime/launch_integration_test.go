@@ -13,11 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/kernelcallback"
 	"github.com/pluggableharness/agent/internal/log"
 	"github.com/pluggableharness/agent/internal/pluginruntime"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
+	"github.com/pluggableharness/agent/internal/telemetryrelay"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 )
@@ -106,9 +108,9 @@ func newFixtureLaunch(t *testing.T) (pluginruntime.Config, *captureHandler, *com
 		Name:     "fixture",
 		Version:  "0.0.1",
 	}
-	cb := kernelcallback.NewServer(log.NewServer(logger), producer)
 
-	prov, err := telemetry.New(context.Background(), telemetry.DefaultConfig, fake.New(), nil)
+	telemetryBackend := fake.New()
+	prov, err := telemetry.New(context.Background(), telemetry.DefaultConfig, telemetryBackend, nil)
 	if err != nil {
 		t.Fatalf("telemetry.New: %v", err)
 	}
@@ -116,6 +118,18 @@ func newFixtureLaunch(t *testing.T) (pluginruntime.Config, *captureHandler, *com
 		if err := prov.Shutdown(context.Background()); err != nil {
 			t.Errorf("telemetry.Shutdown: %v", err)
 		}
+	})
+
+	bus := eventbus.New()
+	t.Cleanup(func() { _ = bus.Close() })
+
+	cb := kernelcallback.NewServer(kernelcallback.Config{
+		Log:            log.NewServer(logger),
+		Producer:       producer,
+		Telemetry:      prov,
+		TelemetryRelay: telemetryrelay.New(telemetryBackend.RelayedSpans),
+		Bus:            bus,
+		Logger:         logger,
 	})
 
 	return pluginruntime.Config{
