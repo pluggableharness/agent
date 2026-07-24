@@ -29,8 +29,10 @@ const (
 )
 
 // AttrType is the small subset of HCL/cty attribute types a provider's
-// config schema may use in v1. No nested blocks — configuration.md §4
-// deliberately keeps this flat.
+// config schema may use in v1. ATTR_TYPE_OBJECT is the one type with
+// structure below the scalar/list/map level — ConfigAttribute.object_attributes
+// carries its nested schema, recursively, rather than accepting an
+// unvalidated dynamic object (configuration.md §The schema-to-cty bridge).
 type AttrType int32
 
 const (
@@ -118,7 +120,30 @@ type ConfigAttribute struct {
 	Sensitive bool `protobuf:"varint,4,opt,name=sensitive,proto3" json:"sensitive,omitempty"`
 	// Human-readable description, shown wherever agent.hcl schema is
 	// surfaced to an operator (docs generation, validation errors).
-	Description   string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	// The nested attribute schema for this attribute's object shape. MUST
+	// be set (non-empty) iff type == ATTR_TYPE_OBJECT; MUST be empty for
+	// every other type. configuration.md's schema-to-cty bridge decodes
+	// this the same way it decodes the provider's own top-level
+	// ConfigSchema.attributes, so an object attribute's fields get the same
+	// required/sensitive/description treatment as any top-level attribute.
+	// One level of nesting is sanctioned per direct ConfigAttribute; deeper
+	// nesting is expressed by an entry in object_attributes itself being
+	// type == ATTR_TYPE_OBJECT with its own populated object_attributes —
+	// the schema is recursive, not flat-capped.
+	ObjectAttributes []*ConfigAttribute `protobuf:"bytes,6,rep,name=object_attributes,json=objectAttributes,proto3" json:"object_attributes,omitempty"`
+	// A JSON-encoded default value applied when this attribute is optional
+	// (required == false) and agent.hcl omits it. Absent means "no default
+	// — an omitted optional attribute decodes to that type's cty zero
+	// value." String-typed (rather than a typed field per AttrType, or a
+	// google.protobuf.Struct/Value) to stay cty-agnostic at the proto
+	// level: the kernel's schema-to-cty bridge is the only thing that
+	// interprets this string, parsing it as JSON and converting the result
+	// to the cty.Value this attribute's type expects — the wire type
+	// itself doesn't need to model cty's type system to carry a default
+	// through it. A default for an ATTR_TYPE_OBJECT attribute is a
+	// JSON object matching object_attributes' shape.
+	DefaultJson   *string `protobuf:"bytes,7,opt,name=default_json,json=defaultJson,proto3,oneof" json:"default_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -188,6 +213,20 @@ func (x *ConfigAttribute) GetDescription() string {
 	return ""
 }
 
+func (x *ConfigAttribute) GetObjectAttributes() []*ConfigAttribute {
+	if x != nil {
+		return x.ObjectAttributes
+	}
+	return nil
+}
+
+func (x *ConfigAttribute) GetDefaultJson() string {
+	if x != nil && x.DefaultJson != nil {
+		return *x.DefaultJson
+	}
+	return ""
+}
+
 // ConfigSchema is a provider's complete config-schema advertisement,
 // returned alongside its capabilities.
 type ConfigSchema struct {
@@ -239,13 +278,16 @@ var File_pluggableharness_agent_config_v1_config_proto protoreflect.FileDescript
 
 const file_pluggableharness_agent_config_v1_config_proto_rawDesc = "" +
 	"\n" +
-	"-pluggableharness/agent/config/v1/config.proto\x12 pluggableharness.agent.config.v1\"\xc1\x01\n" +
+	"-pluggableharness/agent/config/v1/config.proto\x12 pluggableharness.agent.config.v1\"\xda\x02\n" +
 	"\x0fConfigAttribute\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12>\n" +
 	"\x04type\x18\x02 \x01(\x0e2*.pluggableharness.agent.config.v1.AttrTypeR\x04type\x12\x1a\n" +
 	"\brequired\x18\x03 \x01(\bR\brequired\x12\x1c\n" +
 	"\tsensitive\x18\x04 \x01(\bR\tsensitive\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription\"a\n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12^\n" +
+	"\x11object_attributes\x18\x06 \x03(\v21.pluggableharness.agent.config.v1.ConfigAttributeR\x10objectAttributes\x12&\n" +
+	"\fdefault_json\x18\a \x01(\tH\x00R\vdefaultJson\x88\x01\x01B\x0f\n" +
+	"\r_default_json\"a\n" +
 	"\fConfigSchema\x12Q\n" +
 	"\n" +
 	"attributes\x18\x01 \x03(\v21.pluggableharness.agent.config.v1.ConfigAttributeR\n" +
@@ -281,12 +323,13 @@ var file_pluggableharness_agent_config_v1_config_proto_goTypes = []any{
 }
 var file_pluggableharness_agent_config_v1_config_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.agent.config.v1.ConfigAttribute.type:type_name -> pluggableharness.agent.config.v1.AttrType
-	1, // 1: pluggableharness.agent.config.v1.ConfigSchema.attributes:type_name -> pluggableharness.agent.config.v1.ConfigAttribute
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 1: pluggableharness.agent.config.v1.ConfigAttribute.object_attributes:type_name -> pluggableharness.agent.config.v1.ConfigAttribute
+	1, // 2: pluggableharness.agent.config.v1.ConfigSchema.attributes:type_name -> pluggableharness.agent.config.v1.ConfigAttribute
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_config_v1_config_proto_init() }
@@ -294,6 +337,7 @@ func file_pluggableharness_agent_config_v1_config_proto_init() {
 	if File_pluggableharness_agent_config_v1_config_proto != nil {
 		return
 	}
+	file_pluggableharness_agent_config_v1_config_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

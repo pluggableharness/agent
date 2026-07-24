@@ -32,7 +32,7 @@ CREATE TABLE events (
   id                TEXT NOT NULL UNIQUE,   -- stable event identifier, independent of storage
   timestamp         TEXT NOT NULL,          -- wall-clock, display only, not ordering-authoritative
   kind              TEXT NOT NULL,          -- see "The kind enum" below for the authoritative enum
-  producer_category TEXT NOT NULL,          -- provider | tool | context | memory | frontend | widget
+  producer_category TEXT NOT NULL,          -- model | tool | context | memory | frontend | widget
   producer_name     TEXT NOT NULL,
   producer_version  TEXT NOT NULL,
   schema_version    TEXT NOT NULL,
@@ -142,8 +142,17 @@ kind = enum {
   memory_write
   memory_update
   memory_delete
+  hook_error             // kernel-synthesized when a transform or veto hook
+                          // subscriber fails
+                          // (agent-loop/hook-dispatch.md#subscriber-error-handling);
+                          // payload shape is
+                          // pluggableharness.agent.hook.v1.HookError,
+                          // wrapped by the forthcoming event.v1 package's
+                          // HookErrorEvent
 }
 ```
+
+`hook_error` is the one `kind` the kernel writes on a subscriber's behalf rather than in response to that subscriber's own `Emit` call — a hook subscriber that just failed can't be relied on to call `Emit` itself; the kernel detects the failure during dispatch and persists the event directly. `producer_category`/`producer_name`/`producer_version` still identify the failing subscriber (`HookError.subscriber`, a `ProducerRef`), not the kernel itself — see [`kernel-callbacks.md#emit`](kernel-callbacks.md#emit) for how every other `kind` is written by the producing plugin's own callback connection.
 
 Three things deliberately do **not** get their own `kind`:
 

@@ -9,6 +9,13 @@
 // context-assemble and contribute content to the prompt before each model
 // call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/file-tree
 // summarizer). See .claude/rules/proto.md.
+//
+// ContextSection and Stability — the section chain this protocol assembles
+// and the turn-to-turn-change hint each section carries — are defined in
+// pluggableharness.agent.content.v1, not here: that chain is consumed by
+// both this protocol and the model provider's completion request
+// (forthcoming), so it's homed alongside content.v1's other shared content
+// shapes rather than duplicated or owned by only one consumer.
 
 package contextv1
 

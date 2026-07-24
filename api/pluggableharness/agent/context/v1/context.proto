@@ -5,6 +5,13 @@ syntax = "proto3";
 // context-assemble and contribute content to the prompt before each model
 // call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/file-tree
 // summarizer). See .claude/rules/proto.md.
+//
+// ContextSection and Stability — the section chain this protocol assembles
+// and the turn-to-turn-change hint each section carries — are defined in
+// pluggableharness.agent.content.v1, not here: that chain is consumed by
+// both this protocol and the model provider's completion request
+// (forthcoming), so it's homed alongside content.v1's other shared content
+// shapes rather than duplicated or owned by only one consumer.
 package pluggableharness.agent.context.v1;
 
 import "google/protobuf/struct.proto";
@@ -80,24 +87,6 @@ message ConfigureRequest {
   google.protobuf.Struct config = 1;
 }
 
-// Stability hints whether a ContextSection's content changes turn to turn,
-// used both as ContextCapabilities' provider-wide declaration and per
-// ContextSection. context.md §7: this is a direct translation of the
-// research's strongest cross-cutting finding — harnesses converge on a
-// tools -> system -> static-project-context -> conversation-tail prefix
-// ordering because it is a constraint, not a preference, for prompt-cache
-// reuse.
-enum Stability {
-  // Zero value. Never valid for a real capability or section declaration;
-  // its presence on the wire means a caller forgot to set the field.
-  STABILITY_UNSPECIFIED = 0;
-  // Content that doesn't change turn to turn for the life of the session,
-  // e.g. a repo's CLAUDE.md.
-  STABILITY_STATIC = 1;
-  // Content that's recomputed per turn, e.g. git status or a file tree.
-  STABILITY_DYNAMIC = 2;
-}
-
 // ContextCapabilities reports a context provider's static properties.
 // context.md §2. stability and compactor MUST be re-queryable cheaply and
 // MUST NOT depend on a live read of the content source — a provider reading
@@ -110,7 +99,7 @@ message ContextCapabilities {
 
   // Whether this provider's contributed content changes turn to turn. MUST
   // be set. context.md §2, §7.
-  Stability stability = 2;
+  pluggableharness.agent.content.v1.Stability stability = 2;
 
   // Whether this provider acts as a compactor: MAY rewrite, merge, or drop
   // other providers' sections in the chain it receives, and MAY receive
@@ -167,7 +156,7 @@ message ContextRequest {
   // The accumulated output of earlier providers in this hook's
   // declaration-order chain. MUST be set (MAY be empty on the first
   // provider in the chain). context.md §4, §5.
-  repeated ContextSection prior_sections = 8;
+  repeated pluggableharness.agent.content.v1.ContextSection prior_sections = 8;
 
   // The session's conversation history. Populated ONLY for a provider whose
   // ContextCapabilities.compactor == true; a non-compactor provider MUST
@@ -177,46 +166,13 @@ message ContextRequest {
   repeated pluggableharness.agent.content.v1.Message conversation_history = 9;
 }
 
-// ContextSection is one provider's contribution to the assembled prompt
-// context. context.md §4, §7.
-message ContextSection {
-  // The producing plugin's declared name — a plain string, not a
-  // common.v1.ProducerRef, used as the identity key for a provider
-  // re-finding and replacing its own prior section.
-  string provider = 1;
-
-  // Human-readable label the kernel uses to wrap this section in a clearly
-  // delimited boundary when concatenating the chain into the final prompt.
-  // MUST be set. context.md §4, §7.
-  string label = 2;
-
-  // The section's content, in emission order. MUST be set. Text-only in
-  // v1 — the kernel MUST reject a non-text block here rather than silently
-  // dropping it. context.md §4, §7, §11.
-  repeated pluggableharness.agent.content.v1.ContentBlock content = 3;
-
-  // This section's token count, computed via the kernel's CountTokens
-  // callback (kernel-callbacks.md §2), never a provider-local heuristic.
-  // MUST be set. context.md §4.
-  int64 tokens = 4;
-
-  // Whether this section's content changes turn to turn. context.md §7.
-  Stability stability = 5;
-
-  // Whether this section was truncated to fit its budget. Per context.md
-  // §6, setting this true is not itself sufficient to satisfy the budget
-  // constraint — a section that still exceeds token_budget MUST be
-  // rejected by the kernel regardless of this flag.
-  bool truncated = 6;
-}
-
 // ContextContribution is Contribute's response: the full, possibly-modified
 // section chain, with this provider's own section appended — never a
 // delta. context.md §4.
 message ContextContribution {
   // The full accumulated chain, in declaration order, including this
   // provider's own new or updated section(s).
-  repeated ContextSection sections = 1;
+  repeated pluggableharness.agent.content.v1.ContextSection sections = 1;
 
   // The session's conversation history, rewritten to replace what was sent
   // in ContextRequest.conversation_history. MAY be included by a compactor

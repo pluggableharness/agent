@@ -89,7 +89,7 @@ Kept honest to the microkernel: not privileged kernel code. The kernel exposes a
 
 ## Policy — first-party, not a plugin category
 
-Ties directly to the plan/apply gate (kernel-owned). Lives in `agent.hcl` as a small rule-matching DSL, deliberately mirroring a shape already proven out in practice (Claude Code's own `settings.json` allow/deny + auto-mode classifier). Mechanically, policy is the kernel-privileged `veto`-mode subscriber at the `plan-ready` hook — always run, always respected. Whether third-party plugins may register `veto`-mode hooks at all remains an open question; see [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md#open-questions). See [`configuration/policy-dsl.md`](configuration/policy-dsl.md) for the full DSL and evaluation semantics, including conflict-detection.
+Ties directly to the plan/apply gate (kernel-owned). Lives in `agent.hcl` as a small rule-matching DSL, deliberately mirroring a shape already proven out in practice (Claude Code's own `settings.json` allow/deny + auto-mode classifier). Mechanically, policy is the kernel-privileged `veto`-mode subscriber at the `plan-ready` hook — always run, always respected, and not itself a plugin call (it does not go through `HookSubscriberService`). Third-party plugins MAY also register `veto`-mode hooks, `agent.hcl` declaration being the operator's trust grant to do so; see [`agent-loop/hook-dispatch.md#veto-mode-subscription-trust-model`](agent-loop/hook-dispatch.md#veto-mode-subscription-trust-model). See [`configuration/policy-dsl.md`](configuration/policy-dsl.md) for the full DSL and evaluation semantics, including conflict-detection.
 
 ## Hook dispatch semantics
 
@@ -99,7 +99,9 @@ Hook points (`session-start`, `context-assemble`, `pre-model-call`, `post-model-
 - `transform` — receives the previous stage's output, returns a modified version; the next subscriber sees the transformed payload (context providers at `context-assemble`).
 - `veto` — can short-circuit with an explicit decision (policy at `plan-ready`).
 
-Ordering within a hook is declaration order in `agent.hcl`, not runtime registration order — determinism matters especially for `context-assemble`, where order affects what the model attends to. See [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md).
+Ordering within a hook is declaration order in `agent.hcl`, not runtime registration order — determinism matters especially for `context-assemble`, where order affects what the model attends to.
+
+The wire surface for all eight dispatchable points other than `context-assemble` (which stays on `ContextService.Contribute`, per [`context/protocol.md#contribute-the-context-assemble-rpc`](context/protocol.md#contribute-the-context-assemble-rpc)) is `pluggableharness.agent.hook.v1.HookSubscriberService` — one shared service every plugin category MAY implement, dispatched to over the same `hashicorp/go-plugin` connection as that plugin's own category service. See [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md) for the full dispatch mechanics and wire contract.
 
 ## Canonical message / tool-schema format
 

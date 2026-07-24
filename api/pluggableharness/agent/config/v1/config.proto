@@ -11,8 +11,10 @@ package pluggableharness.agent.config.v1;
 option go_package = "github.com/pluggableharness/agent/pkg/config/proto/v1;configv1";
 
 // AttrType is the small subset of HCL/cty attribute types a provider's
-// config schema may use in v1. No nested blocks — configuration.md §4
-// deliberately keeps this flat.
+// config schema may use in v1. ATTR_TYPE_OBJECT is the one type with
+// structure below the scalar/list/map level — ConfigAttribute.object_attributes
+// carries its nested schema, recursively, rather than accepting an
+// unvalidated dynamic object (configuration.md §The schema-to-cty bridge).
 enum AttrType {
   // Zero value. Never valid for a real attribute; its presence on the wire
   // means a caller forgot to set the field.
@@ -51,6 +53,31 @@ message ConfigAttribute {
   // Human-readable description, shown wherever agent.hcl schema is
   // surfaced to an operator (docs generation, validation errors).
   string description = 5;
+
+  // The nested attribute schema for this attribute's object shape. MUST
+  // be set (non-empty) iff type == ATTR_TYPE_OBJECT; MUST be empty for
+  // every other type. configuration.md's schema-to-cty bridge decodes
+  // this the same way it decodes the provider's own top-level
+  // ConfigSchema.attributes, so an object attribute's fields get the same
+  // required/sensitive/description treatment as any top-level attribute.
+  // One level of nesting is sanctioned per direct ConfigAttribute; deeper
+  // nesting is expressed by an entry in object_attributes itself being
+  // type == ATTR_TYPE_OBJECT with its own populated object_attributes —
+  // the schema is recursive, not flat-capped.
+  repeated ConfigAttribute object_attributes = 6;
+
+  // A JSON-encoded default value applied when this attribute is optional
+  // (required == false) and agent.hcl omits it. Absent means "no default
+  // — an omitted optional attribute decodes to that type's cty zero
+  // value." String-typed (rather than a typed field per AttrType, or a
+  // google.protobuf.Struct/Value) to stay cty-agnostic at the proto
+  // level: the kernel's schema-to-cty bridge is the only thing that
+  // interprets this string, parsing it as JSON and converting the result
+  // to the cty.Value this attribute's type expects — the wire type
+  // itself doesn't need to model cty's type system to carry a default
+  // through it. A default for an ATTR_TYPE_OBJECT attribute is a
+  // JSON object matching object_attributes' shape.
+  optional string default_json = 7;
 }
 
 // ConfigSchema is a provider's complete config-schema advertisement,

@@ -12,6 +12,15 @@
 // invents a competing message representation. Also consumed by
 // context.md's conversation_history/rewritten_history (§5.1), memory.md's
 // record content, and kernel-callbacks.md's CountTokensRequest.
+//
+// This package is also the shared home for ContextSection and Stability
+// (below) — the prompt-assembly section chain that context.md's
+// ContextService.Contribute produces and consumes, and that the model
+// provider's completion request will carry (forthcoming). Both types live
+// here, not in context.v1, because a section is fundamentally a content
+// shape (a labeled, stability-tagged list of ContentBlocks) that a second
+// consumer besides the context protocol needs to reference without
+// depending on the whole context.v1 package.
 
 package contentv1
 
@@ -87,6 +96,68 @@ func (x Role) Number() protoreflect.EnumNumber {
 // Deprecated: Use Role.Descriptor instead.
 func (Role) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP(), []int{0}
+}
+
+// Stability hints whether a ContextSection's content changes turn to turn,
+// used both as a context provider's ContextCapabilities-level declaration
+// (pluggableharness.agent.context.v1.ContextCapabilities.stability) and
+// per ContextSection below. context.md §7: this is a direct translation of
+// the research's strongest cross-cutting finding — harnesses converge on a
+// tools -> system -> static-project-context -> conversation-tail prefix
+// ordering because it is a constraint, not a preference, for prompt-cache
+// reuse.
+type Stability int32
+
+const (
+	// Zero value. Never valid for a real capability or section declaration;
+	// its presence on the wire means a caller forgot to set the field.
+	Stability_STABILITY_UNSPECIFIED Stability = 0
+	// Content that doesn't change turn to turn for the life of the session,
+	// e.g. a repo's CLAUDE.md.
+	Stability_STABILITY_STATIC Stability = 1
+	// Content that's recomputed per turn, e.g. git status or a file tree.
+	Stability_STABILITY_DYNAMIC Stability = 2
+)
+
+// Enum value maps for Stability.
+var (
+	Stability_name = map[int32]string{
+		0: "STABILITY_UNSPECIFIED",
+		1: "STABILITY_STATIC",
+		2: "STABILITY_DYNAMIC",
+	}
+	Stability_value = map[string]int32{
+		"STABILITY_UNSPECIFIED": 0,
+		"STABILITY_STATIC":      1,
+		"STABILITY_DYNAMIC":     2,
+	}
+)
+
+func (x Stability) Enum() *Stability {
+	p := new(Stability)
+	*p = x
+	return p
+}
+
+func (x Stability) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Stability) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_agent_content_v1_content_proto_enumTypes[1].Descriptor()
+}
+
+func (Stability) Type() protoreflect.EnumType {
+	return &file_pluggableharness_agent_content_v1_content_proto_enumTypes[1]
+}
+
+func (x Stability) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Stability.Descriptor instead.
+func (Stability) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP(), []int{1}
 }
 
 // Message is one turn in the canonical conversation history: a role plus
@@ -657,6 +728,109 @@ func (x *RedactedThinkingBlock) GetData() []byte {
 	return nil
 }
 
+// ContextSection is one provider's contribution to the assembled prompt
+// context. context.md §4, §7.
+type ContextSection struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The producing plugin's declared name — a plain string, not a
+	// common.v1.ProducerRef, used as the identity key for a provider
+	// re-finding and replacing its own prior section.
+	Provider string `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	// Human-readable label the kernel uses to wrap this section in a clearly
+	// delimited boundary when concatenating the chain into the final prompt.
+	// MUST be set. context.md §4, §7.
+	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// The section's content, in emission order. MUST be set. Text-only in
+	// v1 — the kernel MUST reject a non-text block here rather than silently
+	// dropping it. context.md §4, §7, §11.
+	Content []*ContentBlock `protobuf:"bytes,3,rep,name=content,proto3" json:"content,omitempty"`
+	// This section's token count, computed via the kernel's CountTokens
+	// callback (kernel-callbacks.md §2), never a provider-local heuristic.
+	// MUST be set. context.md §4.
+	Tokens int64 `protobuf:"varint,4,opt,name=tokens,proto3" json:"tokens,omitempty"`
+	// Whether this section's content changes turn to turn. context.md §7.
+	Stability Stability `protobuf:"varint,5,opt,name=stability,proto3,enum=pluggableharness.agent.content.v1.Stability" json:"stability,omitempty"`
+	// Whether this section was truncated to fit its budget. Per context.md
+	// §6, setting this true is not itself sufficient to satisfy the budget
+	// constraint — a section that still exceeds token_budget MUST be
+	// rejected by the kernel regardless of this flag.
+	Truncated     bool `protobuf:"varint,6,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ContextSection) Reset() {
+	*x = ContextSection{}
+	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContextSection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContextSection) ProtoMessage() {}
+
+func (x *ContextSection) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContextSection.ProtoReflect.Descriptor instead.
+func (*ContextSection) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ContextSection) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *ContextSection) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *ContextSection) GetContent() []*ContentBlock {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+func (x *ContextSection) GetTokens() int64 {
+	if x != nil {
+		return x.Tokens
+	}
+	return 0
+}
+
+func (x *ContextSection) GetStability() Stability {
+	if x != nil {
+		return x.Stability
+	}
+	return Stability_STABILITY_UNSPECIFIED
+}
+
+func (x *ContextSection) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
 var File_pluggableharness_agent_content_v1_content_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_agent_content_v1_content_proto_rawDesc = "" +
@@ -693,11 +867,22 @@ const file_pluggableharness_agent_content_v1_content_proto_rawDesc = "" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"+\n" +
 	"\x15RedactedThinkingBlock\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04data*?\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"\x8f\x02\n" +
+	"\x0eContextSection\x12\x1a\n" +
+	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12I\n" +
+	"\acontent\x18\x03 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\x12\x16\n" +
+	"\x06tokens\x18\x04 \x01(\x03R\x06tokens\x12J\n" +
+	"\tstability\x18\x05 \x01(\x0e2,.pluggableharness.agent.content.v1.StabilityR\tstability\x12\x1c\n" +
+	"\ttruncated\x18\x06 \x01(\bR\ttruncated*?\n" +
 	"\x04Role\x12\x14\n" +
 	"\x10ROLE_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tROLE_USER\x10\x01\x12\x12\n" +
-	"\x0eROLE_ASSISTANT\x10\x02BBZ@github.com/pluggableharness/agent/pkg/content/proto/v1;contentv1b\x06proto3"
+	"\x0eROLE_ASSISTANT\x10\x02*S\n" +
+	"\tStability\x12\x19\n" +
+	"\x15STABILITY_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10STABILITY_STATIC\x10\x01\x12\x15\n" +
+	"\x11STABILITY_DYNAMIC\x10\x02BBZ@github.com/pluggableharness/agent/pkg/content/proto/v1;contentv1b\x06proto3"
 
 var (
 	file_pluggableharness_agent_content_v1_content_proto_rawDescOnce sync.Once
@@ -711,36 +896,40 @@ func file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_agent_content_v1_content_proto_rawDescData
 }
 
-var file_pluggableharness_agent_content_v1_content_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_agent_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_pluggableharness_agent_content_v1_content_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_agent_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_pluggableharness_agent_content_v1_content_proto_goTypes = []any{
 	(Role)(0),                     // 0: pluggableharness.agent.content.v1.Role
-	(*Message)(nil),               // 1: pluggableharness.agent.content.v1.Message
-	(*ContentBlock)(nil),          // 2: pluggableharness.agent.content.v1.ContentBlock
-	(*TextBlock)(nil),             // 3: pluggableharness.agent.content.v1.TextBlock
-	(*ToolUseBlock)(nil),          // 4: pluggableharness.agent.content.v1.ToolUseBlock
-	(*ToolResultBlock)(nil),       // 5: pluggableharness.agent.content.v1.ToolResultBlock
-	(*ImageBlock)(nil),            // 6: pluggableharness.agent.content.v1.ImageBlock
-	(*ThinkingBlock)(nil),         // 7: pluggableharness.agent.content.v1.ThinkingBlock
-	(*RedactedThinkingBlock)(nil), // 8: pluggableharness.agent.content.v1.RedactedThinkingBlock
-	(*structpb.Struct)(nil),       // 9: google.protobuf.Struct
+	(Stability)(0),                // 1: pluggableharness.agent.content.v1.Stability
+	(*Message)(nil),               // 2: pluggableharness.agent.content.v1.Message
+	(*ContentBlock)(nil),          // 3: pluggableharness.agent.content.v1.ContentBlock
+	(*TextBlock)(nil),             // 4: pluggableharness.agent.content.v1.TextBlock
+	(*ToolUseBlock)(nil),          // 5: pluggableharness.agent.content.v1.ToolUseBlock
+	(*ToolResultBlock)(nil),       // 6: pluggableharness.agent.content.v1.ToolResultBlock
+	(*ImageBlock)(nil),            // 7: pluggableharness.agent.content.v1.ImageBlock
+	(*ThinkingBlock)(nil),         // 8: pluggableharness.agent.content.v1.ThinkingBlock
+	(*RedactedThinkingBlock)(nil), // 9: pluggableharness.agent.content.v1.RedactedThinkingBlock
+	(*ContextSection)(nil),        // 10: pluggableharness.agent.content.v1.ContextSection
+	(*structpb.Struct)(nil),       // 11: google.protobuf.Struct
 }
 var file_pluggableharness_agent_content_v1_content_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.agent.content.v1.Message.role:type_name -> pluggableharness.agent.content.v1.Role
-	2,  // 1: pluggableharness.agent.content.v1.Message.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	3,  // 2: pluggableharness.agent.content.v1.ContentBlock.text:type_name -> pluggableharness.agent.content.v1.TextBlock
-	4,  // 3: pluggableharness.agent.content.v1.ContentBlock.tool_use:type_name -> pluggableharness.agent.content.v1.ToolUseBlock
-	5,  // 4: pluggableharness.agent.content.v1.ContentBlock.tool_result:type_name -> pluggableharness.agent.content.v1.ToolResultBlock
-	6,  // 5: pluggableharness.agent.content.v1.ContentBlock.image:type_name -> pluggableharness.agent.content.v1.ImageBlock
-	7,  // 6: pluggableharness.agent.content.v1.ContentBlock.thinking:type_name -> pluggableharness.agent.content.v1.ThinkingBlock
-	8,  // 7: pluggableharness.agent.content.v1.ContentBlock.redacted_thinking:type_name -> pluggableharness.agent.content.v1.RedactedThinkingBlock
-	9,  // 8: pluggableharness.agent.content.v1.ToolUseBlock.arguments:type_name -> google.protobuf.Struct
-	2,  // 9: pluggableharness.agent.content.v1.ToolResultBlock.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	3,  // 1: pluggableharness.agent.content.v1.Message.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	4,  // 2: pluggableharness.agent.content.v1.ContentBlock.text:type_name -> pluggableharness.agent.content.v1.TextBlock
+	5,  // 3: pluggableharness.agent.content.v1.ContentBlock.tool_use:type_name -> pluggableharness.agent.content.v1.ToolUseBlock
+	6,  // 4: pluggableharness.agent.content.v1.ContentBlock.tool_result:type_name -> pluggableharness.agent.content.v1.ToolResultBlock
+	7,  // 5: pluggableharness.agent.content.v1.ContentBlock.image:type_name -> pluggableharness.agent.content.v1.ImageBlock
+	8,  // 6: pluggableharness.agent.content.v1.ContentBlock.thinking:type_name -> pluggableharness.agent.content.v1.ThinkingBlock
+	9,  // 7: pluggableharness.agent.content.v1.ContentBlock.redacted_thinking:type_name -> pluggableharness.agent.content.v1.RedactedThinkingBlock
+	11, // 8: pluggableharness.agent.content.v1.ToolUseBlock.arguments:type_name -> google.protobuf.Struct
+	3,  // 9: pluggableharness.agent.content.v1.ToolResultBlock.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	3,  // 10: pluggableharness.agent.content.v1.ContextSection.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	1,  // 11: pluggableharness.agent.content.v1.ContextSection.stability:type_name -> pluggableharness.agent.content.v1.Stability
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_content_v1_content_proto_init() }
@@ -761,8 +950,8 @@ func file_pluggableharness_agent_content_v1_content_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_content_v1_content_proto_rawDesc), len(file_pluggableharness_agent_content_v1_content_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   8,
+			NumEnums:      2,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

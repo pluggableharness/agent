@@ -24,6 +24,14 @@ RunSessionResult {
                        // crosses the session boundary back to the parent turn
   status               enum { completed, error_max_turns, error_max_budget_usd,
                                error_max_wall_clock, cancelled, failed }
+  total_cost_usd       float64   // MUST — the child session's aggregate cost,
+                                  // summed across every turn it ran, including
+                                  // descendant sub-agent sessions; an aggregate,
+                                  // not one completion's Usage, so an
+                                  // orchestrator plugin can do budget-aware
+                                  // fan-out on a child's outcome
+  total_input_tokens   int64     // MUST — same aggregate shape as total_cost_usd
+  total_output_tokens  int64     // MUST — same aggregate shape as total_cost_usd
 }
 ```
 

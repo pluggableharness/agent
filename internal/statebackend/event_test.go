@@ -41,6 +41,23 @@ func TestDecodeEventKind_unrecognized(t *testing.T) {
 	}
 }
 
+func TestEncodeEventKind_hookError(t *testing.T) {
+	t.Parallel()
+	// EVENT_KIND_HOOK_ERROR is kernel-synthesized (never emitted by a
+	// plugin's own Emit call, per docs/specifications/state-backend.md#the-kind-enum)
+	// but round-trips through the same eventKindText table as every other
+	// kind; this pins the exact stored text against the kind enum's
+	// dedicated table entry, on top of the generic TestEventKind_roundTrip
+	// coverage above.
+	got, err := encodeEventKind(kernelv1.EventKind_EVENT_KIND_HOOK_ERROR)
+	if err != nil {
+		t.Fatalf("encodeEventKind(EVENT_KIND_HOOK_ERROR): %v", err)
+	}
+	if got != "hook_error" {
+		t.Errorf("encodeEventKind(EVENT_KIND_HOOK_ERROR) = %q, want %q", got, "hook_error")
+	}
+}
+
 func TestProducerCategory_roundTrip(t *testing.T) {
 	t.Parallel()
 

@@ -88,6 +88,7 @@ var eventKindText = map[kernelv1.EventKind]string{
 	kernelv1.EventKind_EVENT_KIND_MEMORY_WRITE:         "memory_write",
 	kernelv1.EventKind_EVENT_KIND_MEMORY_UPDATE:        "memory_update",
 	kernelv1.EventKind_EVENT_KIND_MEMORY_DELETE:        "memory_delete",
+	kernelv1.EventKind_EVENT_KIND_HOOK_ERROR:           "hook_error",
 }
 
 // eventTextKind is eventKindText inverted, built once from eventKindText

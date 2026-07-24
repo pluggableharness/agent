@@ -78,19 +78,36 @@ ConfigSchema {
 }
 
 ConfigAttribute {
-  name         string
-  type         enum { string, number, bool, list_string, list_number, map_string, object }
-               // a deliberately small subset of cty's type system — no nested
-               // block types in v1
-  required     bool
-  sensitive    bool     // MUST — see "Secrets" below
-  description  string
+  name               string
+  type               enum { string, number, bool, list_string, list_number, map_string, object }
+                      // a deliberately small subset of cty's type system
+  required           bool
+  sensitive          bool               // MUST — see "Secrets" below
+  description        string
+  object_attributes  []ConfigAttribute  // MUST be set (non-empty) iff type == object;
+                                         // MUST be empty for every other type — see
+                                         // "Nested object attributes" below
+  default_json       string?            // MAY — a JSON-encoded default applied when this
+                                         // attribute is optional and agent.hcl omits it —
+                                         // see "Declared defaults" below
 }
 ```
 
 The kernel converts a `ConfigSchema` into an `hcldec` spec, decodes the matching `provider` block body into a `cty.Value` against it — resolving any `env(...)` calls during decoding — and marshals the result to the wire format `Configure` expects (JSON, carried as a `google.protobuf.Struct` on the wire).
 
-An attribute of type `object` accepts any object-shaped value dynamically, rather than being validated against a fixed nested schema — consistent with this document's "no nested block types in v1" rule.
+### Nested object attributes
+
+An attribute of type `object` carries its own nested schema in `object_attributes`, structurally identical to a top-level `ConfigSchema.attributes` list — each nested `ConfigAttribute` gets the same `required`/`sensitive`/`description` treatment the schema-to-cty bridge already applies at the top level, rather than accepting an unvalidated dynamic object. One level of nesting is the common case; deeper nesting is expressed the same way recursively — an entry in `object_attributes` MAY itself be `type == object` with its own populated `object_attributes`, with no depth cap enforced by the wire type itself. A provider author should still keep nesting shallow in practice: this schema exists to be validated and documented, and a deeply nested config block defeats both purposes.
+
+`sensitive` and the `env(...)` shape-validation rule (see "Secrets" below) apply identically to a nested attribute — a secret buried inside an `object`-typed attribute is validated exactly as if it were a top-level attribute of the same type.
+
+### Declared defaults
+
+`default_json` supplies the value the schema-to-cty bridge uses when a `required = false` attribute's corresponding HCL expression is absent from the `provider` block body entirely. Absent `default_json` means "no default" — an omitted optional attribute decodes to that type's cty zero value (empty string, `0`, `false`, an empty list/map), exactly as it did before this field existed.
+
+`default_json` is a JSON-encoded string rather than a typed field per `AttrType` (or a `google.protobuf.Struct`/`Value`) so the wire type stays cty-agnostic: the kernel's schema-to-cty bridge is the only thing that interprets it, parsing the JSON and converting the result to the `cty.Value` the attribute's declared `type` expects. Encoding rule: the JSON value's shape MUST match `type` under the same mapping the bridge already uses when decoding an actual HCL-supplied value (a JSON string for `string`, a JSON number for `number`, a JSON array of strings for `list_string`, a JSON object for `object` — matching that attribute's own `object_attributes` shape, recursively for nested `object`-typed defaults). A `default_json` that doesn't parse as JSON, or that parses but doesn't match `type`'s expected shape, MUST be rejected as a config-load-time error against the provider's own advertised schema — the same "misconfiguration is a load-time error" posture this document applies everywhere else.
+
+`default_json` MUST NOT be set on an attribute with `sensitive = true` — a declared default is a literal value baked into the schema advertisement itself, which is exactly the literal-secret-value case "Secrets" below forbids regardless of where the literal appears.
 
 ## Secrets: `sensitive` and `env(...)`
 

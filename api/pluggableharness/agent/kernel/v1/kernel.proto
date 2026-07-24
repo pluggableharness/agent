@@ -129,6 +129,28 @@ message RunSessionResult {
   // SESSION_STATUS_RUNNING — a RunSession call only returns once the
   // child session has reached a terminal state.
   pluggableharness.agent.session.v1.SessionStatus status = 3;
+
+  // The child session's aggregate cost, in USD, summed across every turn
+  // it ran, including any of its own descendant sub-agent sessions. MUST
+  // be set. Deliberately a flat field, not a
+  // pluggableharness.agent.model.v1.Usage-shaped reference — this is a
+  // whole-session rollup (state-backend.md's cost_ledger SUM, per
+  // .claude/rules/determinism.md's "Cost and budget rollup"), a different
+  // shape from one completion call's per-call Usage. Lets an orchestrator
+  // plugin do budget-aware fan-out (spend-check a child's outcome before
+  // deciding whether to spawn another) without needing to separately sum
+  // the child's own event history itself.
+  double total_cost_usd = 4;
+
+  // The child session's aggregate input token count, summed across every
+  // turn it ran, including descendants. MUST be set. Same flat,
+  // aggregate-not-per-call rationale as total_cost_usd.
+  int64 total_input_tokens = 5;
+
+  // The child session's aggregate output token count, summed across
+  // every turn it ran, including descendants. MUST be set. Same flat,
+  // aggregate-not-per-call rationale as total_cost_usd.
+  int64 total_output_tokens = 6;
 }
 
 // CountTokensRequest asks the kernel to count tokens for a block of
@@ -200,6 +222,14 @@ enum EventKind {
 
   // A memory provider's deletion of an existing record.
   EVENT_KIND_MEMORY_DELETE = 9;
+
+  // Kernel-synthesized when a transform or veto hook subscriber fails
+  // (agent-loop/hook-dispatch.md#subscriber-error-handling) — never
+  // emitted by a plugin's own Emit call, only by the kernel itself
+  // dispatching a hook. Payload shape is
+  // pluggableharness.agent.hook.v1.HookError, wrapped by the forthcoming
+  // event.v1 package's HookErrorEvent (state-backend.md §5).
+  EVENT_KIND_HOOK_ERROR = 10;
 }
 
 // EmitRequest asks the kernel to persist one event into the calling

@@ -261,6 +261,78 @@ func (x *ProviderRef) GetName() string {
 	return ""
 }
 
+// CallContext identifies the session, turn, and working directory a given
+// RPC call executes for. Attached to a model provider's
+// StreamCompletionRequest and a tool provider's ToolCall in this protocol
+// revision (forthcoming in those files) — it's what a plugin passes back
+// on its own KernelCallbackService.Emit call (kernel-callbacks.md §Emit)
+// for correlation, without having to separately thread session_id/turn_id
+// through every call site by hand.
+type CallContext struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this call executes for. ULID-formatted, per this file's
+	// ID conventions above (§"ID and timestamp conventions") — the same
+	// session_id a plugin passes to Emit.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The turn within that session this call executes for. ULID-formatted.
+	TurnId string `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	// The session's working directory at call time.
+	WorkingDirectory string `protobuf:"bytes,3,opt,name=working_directory,json=workingDirectory,proto3" json:"working_directory,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CallContext) Reset() {
+	*x = CallContext{}
+	mi := &file_pluggableharness_agent_common_v1_common_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallContext) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallContext) ProtoMessage() {}
+
+func (x *CallContext) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_common_v1_common_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallContext.ProtoReflect.Descriptor instead.
+func (*CallContext) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CallContext) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *CallContext) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
+}
+
+func (x *CallContext) GetWorkingDirectory() string {
+	if x != nil {
+		return x.WorkingDirectory
+	}
+	return ""
+}
+
 var File_pluggableharness_agent_common_v1_common_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_agent_common_v1_common_proto_rawDesc = "" +
@@ -274,7 +346,12 @@ const file_pluggableharness_agent_common_v1_common_proto_rawDesc = "" +
 	"\x10protocol_version\x18\x05 \x01(\rR\x0fprotocolVersion\"i\n" +
 	"\vProviderRef\x12F\n" +
 	"\bcategory\x18\x01 \x01(\x0e2*.pluggableharness.agent.common.v1.CategoryR\bcategory\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name*\xa2\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"r\n" +
+	"\vCallContext\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
+	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12+\n" +
+	"\x11working_directory\x18\x03 \x01(\tR\x10workingDirectory*\xa2\x01\n" +
 	"\bCategory\x12\x18\n" +
 	"\x14CATEGORY_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eCATEGORY_MODEL\x10\x01\x12\x11\n" +
@@ -297,11 +374,12 @@ func file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_agent_common_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_agent_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pluggableharness_agent_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pluggableharness_agent_common_v1_common_proto_goTypes = []any{
 	(Category)(0),       // 0: pluggableharness.agent.common.v1.Category
 	(*ProducerRef)(nil), // 1: pluggableharness.agent.common.v1.ProducerRef
 	(*ProviderRef)(nil), // 2: pluggableharness.agent.common.v1.ProviderRef
+	(*CallContext)(nil), // 3: pluggableharness.agent.common.v1.CallContext
 }
 var file_pluggableharness_agent_common_v1_common_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.agent.common.v1.ProducerRef.category:type_name -> pluggableharness.agent.common.v1.Category
@@ -324,7 +402,7 @@ func file_pluggableharness_agent_common_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_common_v1_common_proto_rawDesc), len(file_pluggableharness_agent_common_v1_common_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

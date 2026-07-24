@@ -10,6 +10,7 @@ syntax = "proto3";
 package pluggableharness.agent.plan.v1;
 
 import "google/protobuf/struct.proto";
+import "pluggableharness/agent/tool/v1/tool.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/plan/proto/v1;planv1";
 
@@ -76,4 +77,70 @@ message Plan {
 
   // The plan's items, in the order they were identified during the turn.
   repeated PlanItem items = 2;
+}
+
+// ApplyResult carries a turn's complete set of per-item apply outcomes,
+// once every item in its Plan has reached a terminal ApplyOutcome, per
+// agent-loop.md §5.2. Homed in plan.v1 (rather than the forthcoming
+// event.v1 package that would otherwise seem the more obvious owner) so
+// both pluggableharness.agent.hook.v1's PostApplyPayload and event.v1's
+// future EVENT_KIND_APPLY payload can reference this exact message
+// without either importing the other — plan.v1 has no dependency on
+// either, keeping the graph acyclic.
+message ApplyResult {
+  // The turn this apply outcome belongs to. Matches the originating
+  // Plan.turn_id.
+  string turn_id = 1;
+
+  // One outcome per applied plan item, in apply order.
+  repeated ApplyItem items = 2;
+
+  // ApplyItem is one plan item's apply outcome.
+  message ApplyItem {
+    // The originating PlanItem.id this outcome is for. MUST be set.
+    string plan_item_id = 1;
+
+    // The originating PlanItem.tool_call_id this outcome is for. MUST
+    // be set.
+    string tool_call_id = 2;
+
+    // How this item's apply attempt concluded. MUST be set (never
+    // APPLY_OUTCOME_UNSPECIFIED).
+    ApplyOutcome outcome = 3;
+
+    // Absent for APPLY_OUTCOME_DENIED and APPLY_OUTCOME_SKIPPED —
+    // neither outcome executes the underlying tool call, so neither has
+    // a ToolResult/ToolError to carry.
+    oneof result {
+      // The call's successful result, when outcome ==
+      // APPLY_OUTCOME_APPLIED.
+      pluggableharness.agent.tool.v1.ToolResult tool_result = 4;
+      // The call's failed result, when outcome == APPLY_OUTCOME_FAILED.
+      pluggableharness.agent.tool.v1.ToolError tool_error = 5;
+    }
+  }
+
+  // ApplyOutcome classifies how one plan item's apply attempt concluded.
+  enum ApplyOutcome {
+    // Zero value. Never valid for a real outcome; its presence on the
+    // wire means a caller forgot to set the field.
+    APPLY_OUTCOME_UNSPECIFIED = 0;
+    // The item's call executed and succeeded.
+    APPLY_OUTCOME_APPLIED = 1;
+    // The item's call executed and failed on its own terms (a
+    // ToolError).
+    APPLY_OUTCOME_FAILED = 2;
+    // The item was not executed: the plan/apply gate synthesized a
+    // denial instead, per agent-loop.md §5.2's tool_result denial block
+    // (kernel policy PLAN_DECISION_DENY, or a HOOK_DECISION_DENY veto
+    // at plan-ready). The model observes this denial in its own
+    // history via the synthesized ToolResultBlock, not via this
+    // ApplyItem.
+    APPLY_OUTCOME_DENIED = 3;
+    // The item was never reached because an earlier item in the same
+    // apply pass aborted the whole apply. Not reached in the current
+    // apply algorithm — reserved for a future partial-apply-then-abort
+    // mode.
+    APPLY_OUTCOME_SKIPPED = 4;
+  }
 }

@@ -98,3 +98,23 @@ message ProviderRef {
   // not globally — matches ProducerRef.name's uniqueness scope.
   string name = 2;
 }
+
+// CallContext identifies the session, turn, and working directory a given
+// RPC call executes for. Attached to a model provider's
+// StreamCompletionRequest and a tool provider's ToolCall in this protocol
+// revision (forthcoming in those files) — it's what a plugin passes back
+// on its own KernelCallbackService.Emit call (kernel-callbacks.md §Emit)
+// for correlation, without having to separately thread session_id/turn_id
+// through every call site by hand.
+message CallContext {
+  // The session this call executes for. ULID-formatted, per this file's
+  // ID conventions above (§"ID and timestamp conventions") — the same
+  // session_id a plugin passes to Emit.
+  string session_id = 1;
+
+  // The turn within that session this call executes for. ULID-formatted.
+  string turn_id = 2;
+
+  // The session's working directory at call time.
+  string working_directory = 3;
+}

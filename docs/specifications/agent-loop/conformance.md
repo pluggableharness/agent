@@ -27,6 +27,7 @@
 | Per-subscriber timeout enforcement | MUST | [`hook-dispatch.md`](hook-dispatch.md#timeout-behavior) |
 | Sequential dispatch for `transform`/`veto` within one hook point | MUST | [`hook-dispatch.md`](hook-dispatch.md#parallelism-within-one-hook-point) |
 | Concurrent dispatch among consecutive `observe` subscribers | MAY | [`hook-dispatch.md`](hook-dispatch.md#parallelism-within-one-hook-point) |
+| Third-party `veto`-mode hook subscription, via `agent.hcl` declaration | MAY | [`hook-dispatch.md`](hook-dispatch.md#veto-mode-subscription-trust-model) |
 | Per-`PlanItem` (not per-plan) policy evaluation | MUST | [`plan-apply-gate.md`](plan-apply-gate.md#plan-construction-and-policy-evaluation) |
 | Batched UI presentation of multiple `ask` items | MAY | [`plan-apply-gate.md`](plan-apply-gate.md#plan-construction-and-policy-evaluation) |
 | `deny` synthesizes a `tool_result` denial block back to the model | MUST | [`plan-apply-gate.md`](plan-apply-gate.md#decision-semantics) |
@@ -51,7 +52,6 @@
 ## Open questions
 
 - **Veto-hook timeout fail-closed default** ([`hook-dispatch.md`](hook-dispatch.md#timeout-behavior)). Chosen over a fail-open-with-explicit-instructions alternative because policy sits at the terminal mutation gate. Worth revisiting if fail-closed proves too disruptive to interactive UX in practice — there is no clear consensus among comparable systems here, only one adjacent precedent this design deliberately diverges from.
-- **Whether third-party plugins may register `veto`-mode hooks at all**, or whether `veto` is policy-exclusive ([`hook-dispatch.md`](hook-dispatch.md#open-questions)). Carried forward from [`architecture.md`](../architecture.md#policy--first-party-not-a-plugin-category) — this is a plugin trust-model question that cross-harness comparison doesn't settle, and this document's hook-dispatch mechanics apply equally either way once that's decided.
 - **Tool-provider crash handling** ([`error-recovery.md`](error-recovery.md#tool-provider-plugin-crashes)) is reasoned by analogy to the denial-feedback pattern, not a pattern directly established for crashes specifically. Should be revisited if tool-result formatting and feedback conventions evolve to address crash handling directly.
 - **Full context-compaction algorithm** (trigger metric, mechanism, tail protection) is deliberately out of scope across this whole directory — "what's worth remembering" and context injection belong to memory/context providers ([`memory/README.md`](../memory/README.md), [`context/README.md`](../context/README.md)), not the kernel loop. This directory's only compaction-adjacent obligation is the reaction to a `context_length_exceeded` error ([`error-recovery.md#model-provider-errors`](error-recovery.md#model-provider-errors)).
 
