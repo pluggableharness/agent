@@ -106,7 +106,15 @@ external systems. If yes, it's pure domain, full stop.
   `internal/telemetry.Provider`'s `ClientHandler()`/`ServerHandler()` into
   its `grpc.WithStatsHandler`/`grpc.StatsHandler` options
   (`internal/telemetry/grpchooks.go`). MUST NOT hand-roll a separate
-  trace-context propagation mechanism.
+  trace-context propagation mechanism. **This is unaffected by
+  `ExportSpans`/`RecordMetrics` relaying a plugin's finished spans/metrics
+  through the kernel** (`docs/specifications/observability.md#the-relay-model`)
+  — relay is a transport decision about where already-finished telemetry
+  data is *exported to*, not a second, competing mechanism for how an
+  in-flight call's trace context crosses the plugin boundary in the first
+  place. `traceparent` still propagates via the otelgrpc stats handlers
+  exactly as before; don't read the relay RPCs as license to also hand-roll
+  context propagation.
 - Replay-path code (`docs/specifications/state-backend.md`) MUST select the
   `noop` telemetry driver, unconditionally, no exceptions. Telemetry MUST
   NOT persist `trace_id`/`span_id` into any table and MUST NOT recompute a

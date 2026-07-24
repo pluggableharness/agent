@@ -21,11 +21,14 @@ dictated by the specs and MUST match exactly.
 | Widget | `Attach` | server-streaming only | `docs/specifications/frontend/widget-protocol.md` |
 | Slashcommand | `Invoke` | server-streaming | `docs/specifications/slashcommand/protocol.md` (same shape as Tool's `Invoke` — a direct-invoke command is a tool-shaped operation) |
 | Kernel callback | `RunSession`, `CountTokens` | bidirectional (go-plugin's native plugin→kernel channel) | `docs/specifications/kernel-callbacks.md` |
+| Kernel callback | `Subscribe` | server-streaming | `docs/specifications/kernel-callbacks.md#subscribe` (event-bus fan-out; see `docs/specifications/event-bus.md`) |
+| Kernel callback | `ReadEvents` | server-streaming | `docs/specifications/kernel-callbacks.md#readevents` |
 
 Frontend `Attach` and the kernel-callback channel are the **only** two
-genuinely bidirectional RPCs in the whole protocol. Do not default a new RPC
-to bidi streaming because it "might need it later" — pick the narrowest shape
-the spec calls for.
+genuinely bidirectional RPCs in the whole protocol — that channel's own
+`Subscribe`/`ReadEvents` additions are server-streaming, not a second bidi
+RPC on it. Do not default a new RPC to bidi streaming because it "might need
+it later" — pick the narrowest shape the spec calls for.
 
 - **A backend that has no real streaming to do still implements the
   streaming RPC shape** and emits exactly one terminal message. Do not add a
@@ -76,15 +79,26 @@ kernel decide.
   cancellation promptly (previous section) is what makes that deadline
   actually bound wall-clock time instead of leaking a goroutine.
 
-## The strong-typing rule and its one carve-out
+## The strong-typing rule and its carve-outs
 
-`proto.md` bans `Any`/untyped `bytes`/loose maps as a general rule. The
-Emit→Render→Paint payload (`docs/specifications/model/protocol.md#render`,
-`docs/specifications/frontend/render-tree.md`) is the one deliberate exception: it is
-opaque *by design* so a producer's payload format can evolve independently
-of the kernel. Do not "fix" this by giving it a concrete message type — that
-would defeat the plugin-independence the specs are built around. Every other
-field stays strongly typed.
+`proto.md` bans `Any`/untyped `bytes`/loose maps as a general rule, with two
+named exceptions — no others exist, and a third is not a shortcut to reach
+for by analogy:
+
+- The Emit→Render→Paint payload (`docs/specifications/model/protocol.md#render`,
+  `docs/specifications/frontend/render-tree.md`). Opaque *by design* so a
+  producer's payload format can evolve independently of the kernel. Do not
+  "fix" this by giving it a concrete message type — that would defeat the
+  plugin-independence the specs are built around.
+- The event-bus `Publish`/`BusEvent` payload (`docs/specifications/event-bus.md`,
+  `docs/specifications/kernel-callbacks.md#publish`). Opaque for a different
+  reason: a third-party plugin's own event shape is unknowable to the kernel
+  ahead of time, the same reasoning that already applies to a category
+  provider's `Configure`-time config values. `payload_type` and
+  `schema_version` carry enough typing information for a *subscriber* to
+  decode it; the kernel itself never needs to.
+
+Every other field stays strongly typed.
 
 Similarly, `docs/specifications/configuration/`'s two type systems — HCL/`cty` for
 provider config, a restricted JSON-Schema subset for tool I/O — are

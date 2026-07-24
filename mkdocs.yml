@@ -156,6 +156,8 @@ nav:
       - Architecture: specifications/architecture.md
       - Kernel contracts:
           - Kernel callbacks: specifications/kernel-callbacks.md
+          - Event bus: specifications/event-bus.md
+          - Observability: specifications/observability.md
           - State backend: specifications/state-backend.md
       - Agent loop:
           - specifications/agent-loop/README.md

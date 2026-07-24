@@ -19,7 +19,9 @@ Start with [`conventions.md`](conventions.md) — it defines the requirement key
 5. The kernel's own required behavior, not a plugin protocol:
    - [`agent-loop/`](agent-loop/README.md) — the turn loop, hook dispatch, plan/apply, sub-agents.
    - [`configuration/`](configuration/README.md) — `agent.hcl`, the policy DSL, agent profiles, global config, the lock file.
-   - [`kernel-callbacks.md`](kernel-callbacks.md) — the plugin→kernel direction (`RunSession`, `CountTokens`, `Emit`, `Log`).
+   - [`kernel-callbacks.md`](kernel-callbacks.md) — the plugin→kernel direction (`RunSession`, `CountTokens`, `Emit`, `Log`, `ExportSpans`, `RecordMetrics`, `GetTelemetryConfig`, `GetConfig`, `Publish`, `Subscribe`, `ReadEvents`, `GetSession`).
+   - [`event-bus.md`](event-bus.md) — the ephemeral, best-effort cross-plugin pub/sub primitive behind `Publish`/`Subscribe`.
+   - [`observability.md`](observability.md) — the tracing/metrics relay behind `ExportSpans`/`RecordMetrics`/`GetTelemetryConfig`.
    - [`state-backend.md`](state-backend.md) — session persistence and replay (sqlite, kernel-built-in, not pluggable in v1).
 
 ## What's not here

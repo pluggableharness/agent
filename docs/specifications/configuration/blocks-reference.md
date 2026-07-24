@@ -134,7 +134,7 @@ The decode and secret-resolution path is deliberately unlogged: because `env(...
 ```hcl
 settings {
   default_frontend = "tui"
-  log_level        = "info"      // trace | debug | info | warn | error
+  log_level        = "info"      // trace | debug | info | warn | error | fatal
   telemetry        = false
 
   retry {
@@ -154,10 +154,14 @@ settings {
     service_name       = "pluggableharness-agent"
     resource_attrs     = { env = "prod" }
   }
+
+  event_bus {
+    subscribe_queue_bound = 1024
+  }
 }
 ```
 
-`settings{}` is the home for cross-cutting, non-provider-specific, non-policy-shaped options — `default_frontend` names which `required_providers` entry the CLI attaches when more than one frontend provider is loaded, and `log_level` is exactly what it says. This block is intentionally small: a field that's really provider-specific belongs in that provider's own `provider{}` block, and a field that's really about approval/blocking behavior belongs in `policy{}`. `retry{}`'s canonical backoff defaults and `telemetry`'s master switch are covered in [`settings-and-global.md`](settings-and-global.md); the rest of this section covers `observability{}`.
+`settings{}` is the home for cross-cutting, non-provider-specific, non-policy-shaped options — `default_frontend` names which `required_providers` entry the CLI attaches when more than one frontend provider is loaded, and `log_level` is exactly what it says. `log_level`'s domain is the full six-level wire vocabulary (`kernel-callbacks.md#log`'s `trace | debug | info | warn | error | fatal`), not a five-level subset — a config that could never even select `FATAL` would be unable to exercise the one severity `kernel-callbacks.md#log` singles out as a label-only value. This block is intentionally small: a field that's really provider-specific belongs in that provider's own `provider{}` block, and a field that's really about approval/blocking behavior belongs in `policy{}`. `retry{}`'s canonical backoff defaults and `telemetry`'s master switch are covered in [`settings-and-global.md`](settings-and-global.md); the rest of this section covers `observability{}` and `event_bus{}`.
 
 ### `observability{}`
 
@@ -178,3 +182,11 @@ The current, full shape of the OTel-specific sub-block that controls the kernel'
 `resource_attrs` is the **one** optional field in the sub-block — every other field is `Required: true`, matching this block's existing all-or- nothing convention for `retry{}` (see [`settings-and-global.md#retry-defaults`](settings-and-global.md#retry-defaults)). When `telemetry = false`, the kernel MUST wire a discarding backend regardless of `observability{}`'s contents — no exporter is ever constructed. `traces_enabled`/`metrics_enabled`/`logs_enabled` let an operator run with, say, metrics and logs on but tracing off.
 
 `retry{}` and `observability{}` each receive their canonical defaults even when the enclosing `settings{}` block is entirely absent from `agent.hcl`, not only when `settings{}` is present but a specific sub-block is omitted — a config with no `settings{}` block at all still ends up with fully defaulted retry and observability behavior.
+
+### `event_bus{}`
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `subscribe_queue_bound` | number | **no**, default `1024` | The per-`Subscribe`-stream undelivered-event bound described in [`event-bus.md#backpressure`](../event-bus.md#backpressure). Once a stream's queue exceeds this, the kernel closes it with `codes.ResourceExhausted` rather than growing it further. |
+
+`event_bus{}` receives its canonical default the same way `retry{}` and `observability{}` do — a config with no `settings{}` block at all, or one that omits `event_bus{}` entirely, still runs with `subscribe_queue_bound = 1024`. Unlike `observability{}`, this sub-block has no all-or-nothing convention to preserve, since it declares exactly one field.

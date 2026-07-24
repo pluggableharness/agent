@@ -26,15 +26,37 @@ strongly typed as the Go code that implements it.
   silently-valid-looking value.
 - No `google.protobuf.Any` for anything the spec can name a concrete type
   for. If a field's shape varies by category or plugin, model it as a
-  `oneof` of named messages, not `Any` or a `bytes` blob — with **one
-  explicit, spec-documented exception**: the emit/render payload itself.
-  `docs/specifications/model/protocol.md` and `docs/specifications/frontend/render-tree.md`
-  define the Emit→Render→Paint payload as deliberately opaque (kernel and other
-  plugins don't interpret it) — that field stays `bytes`, and only that field.
+  `oneof` of named messages, not `Any` or a `bytes` blob — with **two
+  explicit, spec-documented exceptions**, and no third to be added by
+  analogy without its own spec-level justification:
+  1. The emit/render payload itself.
+     `docs/specifications/model/protocol.md` and `docs/specifications/frontend/render-tree.md`
+     define the Emit→Render→Paint payload as deliberately opaque (kernel and other
+     plugins don't interpret it) — that field stays `bytes`, and only that field.
+  2. The event-bus publish payload (`kernel.v1.PublishRequest.payload` /
+     `BusEvent.payload`). `docs/specifications/event-bus.md` and
+     `docs/specifications/kernel-callbacks.md#publish` define it as opaque for
+     the same underlying reason as #1 — a third-party plugin's own event
+     shape can't be named by the kernel's proto ahead of time — carried
+     alongside `payload_type`/`schema_version` so a *subscriber* can decode
+     it even though the kernel itself never does.
 - No untyped `map<string, string>` or `map<string, bytes>` standing in for a
   structured payload. A `map<string, string>` is acceptable only for genuine
-  open-ended key/value data (e.g. HTTP-style headers) — never as a substitute
-  for a message with named fields.
+  open-ended key/value data (e.g. HTTP-style headers, `metric.v1.MetricRecord.attributes`)
+  — never as a substitute for a message with named fields.
+- **`google.protobuf.Struct` is the sanctioned way to carry a genuinely
+  dynamic, per-call-site attribute/value set that a fixed message shape
+  can't name in advance** — distinct from the `Any`/untyped-`bytes` ban
+  above, which targets a field standing in for a payload the spec *could*
+  name concretely but didn't. `Struct` is reached for only when the set of
+  keys is inherently open-ended by design, not merely inconvenient to
+  enumerate: `log.v1.LogEntry.fields` (mirrors `slog.Attr`'s open key/value
+  model), `config.v1`'s `ConfigureRequest.config` and `kernel.v1.GetConfigResult.config`
+  (already-decoded `agent.hcl` values, whose shape is the *provider's* schema,
+  not the kernel's to name), and `trace.v1.Span`/`SpanEvent`'s `attributes`
+  (an OTel span's attribute set, open-ended per call site by the same
+  reasoning as `log.v1.LogEntry.fields`) are the precedents. A field whose
+  keys are actually fixed and enumerable belongs in a real message instead.
 - Every field that has a natural bounded domain (status, kind, risk class,
   error category) is an `enum`, not a `string`. `docs/specifications/tool/conformance.md`'s
   `ToolErrorCategory`, and `docs/specifications/tool/data-types.md`'s `RiskClass`
