@@ -156,6 +156,23 @@ kind = enum {
 }
 ```
 
+Each `kind` above decodes to exactly one concrete message in `pluggableharness.agent.event.v1` (`api/pluggableharness/agent/event/v1/event.proto`) — that package defines no enum of its own; this table, together with `kernel-callbacks.md#emit`'s restatement of the same enum, is the sole source of the kind → message mapping:
+
+| `kind` | `event.v1` message |
+|---|---|
+| `message` | `MessageEvent` |
+| `tool_call` | `ToolCallEvent` |
+| `tool_result` | `ToolResultEvent` |
+| `plan` | `PlanEvent` |
+| `apply` | `ApplyEvent` |
+| `context_contribution` | `ContextContributionEvent` |
+| `memory_write` / `memory_update` / `memory_delete` | `MemoryMutationEvent` (one message; the mutating verb is the `kind` itself, not a payload field) |
+| `hook_error` | `HookErrorEvent` |
+
+Each message above IS `events.schema_version = "1"` of its kind's payload: a row with `schema_version = "1"` (or `"v1"`) means "unmarshal `payload` as the `event.v1` message this table names for `kind`." A future breaking change to one payload's shape ships as `event.v2` + `schema_version = "2"`, never as an edit to the `event.v1` message — the same permanence guarantee this document already requires of every other released wire type.
+
+`event.v1`'s payload messages are normative for the owning spec without being kernel-validated: "normative" means the spec that owns a given `kind` dictates the exact bytes a conforming producer writes, not that the kernel parses or checks those bytes at `Emit` time — `events.payload opaque, never inspected by the kernel` above stays true unchanged. Conformance is enforced by the owning category spec and by the producer's own (possibly historical, "supersedes"-resolved) `Render` being able to make sense of what it emitted, never by kernel-side schema validation.
+
 `hook_error` is the one `kind` the kernel writes on a subscriber's behalf rather than in response to that subscriber's own `Emit` call — a hook subscriber that just failed can't be relied on to call `Emit` itself; the kernel detects the failure during dispatch and persists the event directly. `producer_category`/`producer_name`/`producer_version` still identify the failing subscriber (`HookError.subscriber`, a `ProducerRef`), not the kernel itself — see [`kernel-callbacks.md#emit`](kernel-callbacks.md#emit) for how every other `kind` is written by the producing plugin's own callback connection.
 
 Three things deliberately do **not** get their own `kind`:
