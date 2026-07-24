@@ -26,6 +26,14 @@ const (
 	spanNameLockFileLoad     = "registry.lockfile.load"
 	spanNameChecksumVerify   = "registry.checksum.verify"
 	spanNamePluginLaunch     = "plugin.launch"
+
+	spanNameStateBackendSessionCreate = "statebackend.session.create"
+	spanNameStateBackendSessionOpen   = "statebackend.session.open"
+	spanNameStateBackendEventAppend   = "statebackend.event.append"
+	spanNameStateBackendMessageAppend = "statebackend.message.append"
+	spanNameStateBackendPlanAppend    = "statebackend.plan.append"
+	spanNameStateBackendStatusSet     = "statebackend.session.set_status"
+	spanNameStateBackendSessionClose  = "statebackend.session.close"
 )
 
 // SessionSpan describes the session a StartSession call is opening
@@ -149,6 +157,63 @@ func (p *Provider) StartPluginLaunch(ctx context.Context, category, name, versio
 		ProducerNameKey.String(name),
 		ProducerVersionKey.String(version),
 	))
+}
+
+// StartStateBackendSessionCreate opens the span covering one session file's
+// creation — file create, schema apply, PRAGMA user_version stamp, and the
+// initial session_meta insert (docs/specifications/state-backend.md#file-layout,
+// docs/specifications/state-backend.md#schema-migration) — for use by
+// statebackend.Store.Create.
+func (p *Provider) StartStateBackendSessionCreate(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendSessionCreate, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendSessionOpen opens the span covering one session file's
+// open — the PRAGMA user_version check before any other operation touches
+// the file, plus any migration it triggers
+// (docs/specifications/state-backend.md#schema-migration) — for use by
+// statebackend.Store.Open.
+func (p *Provider) StartStateBackendSessionOpen(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendSessionOpen, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendEventAppend opens the span covering one events-table
+// append plus its same-transaction producers upsert
+// (docs/specifications/state-backend.md#events,
+// docs/specifications/state-backend.md#producers), for use by
+// statebackend.Session.AppendEvent.
+func (p *Provider) StartStateBackendEventAppend(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendEventAppend, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendMessageAppend opens the span covering one events-table
+// append plus its same-transaction cost_ledger insert
+// (docs/specifications/state-backend.md#cost_ledger), for use by
+// statebackend.Session.AppendMessage.
+func (p *Provider) StartStateBackendMessageAppend(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendMessageAppend, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendPlanAppend opens the span covering one events-table
+// append plus its same-transaction plan_items inserts
+// (docs/specifications/state-backend.md#plan_items), for use by
+// statebackend.Session.AppendPlan.
+func (p *Provider) StartStateBackendPlanAppend(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendPlanAppend, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendStatusSet opens the span covering one in-place
+// session_meta update (docs/specifications/state-backend.md#session_meta —
+// the one mutable table), for use by statebackend.Session.SetStatus.
+func (p *Provider) StartStateBackendStatusSet(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendStatusSet, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendSessionClose opens the span covering one session file's
+// close: PRAGMA wal_checkpoint(TRUNCATE) followed by closing the
+// underlying *sql.DB, for use by statebackend.Session.Close.
+func (p *Provider) StartStateBackendSessionClose(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendSessionClose, trace.WithAttributes(SessionIDKey.String(sessionID)))
 }
 
 // EndSpan ends span, recording err onto it first if non-nil (RecordError

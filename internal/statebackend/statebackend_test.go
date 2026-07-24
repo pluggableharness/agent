@@ -266,7 +266,7 @@ func TestStore_Open_schemaTooNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)
 	}
-	if _, err := db.Exec("PRAGMA user_version = 999"); err != nil {
+	if _, err := db.ExecContext(context.Background(), "PRAGMA user_version = 999"); err != nil {
 		t.Fatalf("set user_version: %v", err)
 	}
 	if err := db.Close(); err != nil {
@@ -472,7 +472,7 @@ func TestStore_Create_openFileError(t *testing.T) {
 
 func TestOpenDB_directoryPathFails(t *testing.T) {
 	t.Parallel()
-	if _, err := openDB(t.TempDir()); err == nil {
+	if _, err := openDB(context.Background(), t.TempDir()); err == nil {
 		t.Fatal("openDB(directory) = nil error, want error")
 	}
 }
@@ -496,7 +496,7 @@ func TestPopulateCreatedFile_initSchemaFailure(t *testing.T) {
 	st := newTestStore(t)
 	path := filepath.Join(st.dir, "existing.sqlite")
 
-	db, err := openDB(path)
+	db, err := openDB(context.Background(), path)
 	if err != nil {
 		t.Fatalf("openDB: %v", err)
 	}

@@ -71,7 +71,7 @@ func TestNewSessionIDConcurrentUniqueness(t *testing.T) {
 
 	now := time.Now()
 
-	for i := 0; i < goroutines; i++ {
+	for i := range goroutines {
 		go func(idx int) {
 			defer wg.Done()
 			ids[idx] = NewSessionID(now)
@@ -123,7 +123,7 @@ func TestValidateSessionIDRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	// Any generated ID must pass validation and round-trip.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		id := NewSessionID(time.Now())
 		if err := ValidateSessionID(id); err != nil {
 			t.Errorf("Generated ID failed validation: %q, %v", id, err)

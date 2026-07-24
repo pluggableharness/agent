@@ -27,10 +27,10 @@ func openTestDB(t *testing.T) *sql.DB {
 }
 
 // tableExists reports whether name is a table in db's sqlite_master.
-func tableExists(t *testing.T, ctx context.Context, db *sql.DB, name string) bool {
+func tableExists(t *testing.T, db *sql.DB, name string) bool {
 	t.Helper()
 	var got string
-	err := db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", name).Scan(&got)
+	err := db.QueryRowContext(context.Background(), "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", name).Scan(&got)
 	switch {
 	case err == nil:
 		return true
@@ -43,10 +43,10 @@ func tableExists(t *testing.T, ctx context.Context, db *sql.DB, name string) boo
 }
 
 // indexExists reports whether name is an index in db's sqlite_master.
-func indexExists(t *testing.T, ctx context.Context, db *sql.DB, name string) bool {
+func indexExists(t *testing.T, db *sql.DB, name string) bool {
 	t.Helper()
 	var got string
-	err := db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?", name).Scan(&got)
+	err := db.QueryRowContext(context.Background(), "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?", name).Scan(&got)
 	switch {
 	case err == nil:
 		return true
@@ -68,12 +68,12 @@ func TestInitSchema(t *testing.T) {
 	}
 
 	for _, table := range []string{"events", "session_meta", "cost_ledger", "plan_items", "producers"} {
-		if !tableExists(t, ctx, db, table) {
+		if !tableExists(t, db, table) {
 			t.Errorf("table %q missing after initSchema", table)
 		}
 	}
 	for _, idx := range []string{"idx_events_kind", "idx_events_producer"} {
-		if !indexExists(t, ctx, db, idx) {
+		if !indexExists(t, db, idx) {
 			t.Errorf("index %q missing after initSchema", idx)
 		}
 	}
@@ -99,7 +99,7 @@ func TestInitSchema_eventsAutoincrement(t *testing.T) {
 	// sqlite_sequence only exists when at least one table declares
 	// INTEGER PRIMARY KEY AUTOINCREMENT — its presence confirms the DDL
 	// kept AUTOINCREMENT verbatim rather than "optimizing" it away.
-	if !tableExists(t, ctx, db, "sqlite_sequence") {
+	if !tableExists(t, db, "sqlite_sequence") {
 		t.Error("sqlite_sequence table missing — AUTOINCREMENT was not applied")
 	}
 }
@@ -216,7 +216,7 @@ func TestApplyMigrations(t *testing.T) {
 	}
 
 	for _, table := range []string{"migration_marker_1", "migration_marker_2"} {
-		if !tableExists(t, ctx, db, table) {
+		if !tableExists(t, db, table) {
 			t.Errorf("table %q missing after migration", table)
 		}
 	}
@@ -313,7 +313,7 @@ func TestApplyMigrations_failingStepLeavesVersionUnchanged(t *testing.T) {
 		t.Errorf("user_version = %d, want 0 (unchanged after failed migration)", version)
 	}
 
-	if tableExists(t, ctx, db, "should_not_persist") {
+	if tableExists(t, db, "should_not_persist") {
 		t.Error("should_not_persist table exists after a failed, rolled-back migration step")
 	}
 }
@@ -346,7 +346,7 @@ func TestApplyMigrations_multiStepPartialFailureStopsAtLastGood(t *testing.T) {
 	if version != 1 {
 		t.Errorf("user_version = %d, want 1 (step 1 committed, step 2 rolled back)", version)
 	}
-	if !tableExists(t, ctx, db, "step_one") {
+	if !tableExists(t, db, "step_one") {
 		t.Error("step_one table missing — step 1's commit should have survived step 2's failure")
 	}
 }

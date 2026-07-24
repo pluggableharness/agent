@@ -11,10 +11,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" database/sql driver
 
+	"github.com/pluggableharness/agent/internal/telemetry"
+	"github.com/pluggableharness/agent/internal/telemetry/drivers/noop"
 	sessionv1 "github.com/pluggableharness/agent/pkg/session/proto/v1"
 )
 
@@ -110,13 +113,21 @@ type SessionMeta struct {
 }
 
 // Session is an open handle to one session's sqlite file: the *sql.DB
-// backing it plus its identifying ids. Append and query methods land in
-// Stages 2-3 (event/cost/plan-item writes, replay reads) — Stage 1 only
-// needs enough surface for Create and Open to return a working handle.
+// backing it, its identifying ids, and the logger/telemetry provider it
+// instruments through (inherited from the Store that opened it). Append and
+// query methods live in session.go (event/cost/plan-item writes) and
+// query.go (Stage 3's replay reads).
 type Session struct {
-	id   string
-	db   *sql.DB
-	path string
+	id        string
+	db        *sql.DB
+	path      string
+	logger    *slog.Logger
+	telemetry *telemetry.Provider
+
+	// closed is set by Close so every write method can reject a call made
+	// after it with ErrClosed instead of surfacing a raw database/sql
+	// error — see session.go.
+	closed atomic.Bool
 }
 
 // ID returns the session's ULID.
@@ -124,22 +135,15 @@ func (s *Session) ID() string {
 	return s.id
 }
 
-// Close closes the session's underlying *sql.DB.
-func (s *Session) Close() error {
-	if err := s.db.Close(); err != nil {
-		return fmt.Errorf("statebackend: close %s: %w", s.id, err)
-	}
-	return nil
-}
-
 // Store manages the directory of per-session sqlite files described by
 // docs/specifications/state-backend.md#file-layout
 // ($XDG_STATE_HOME/agent/sessions/<session_id>.sqlite). It is not itself a
 // database handle — each Session opened through it owns its own *sql.DB.
 type Store struct {
-	dir    string
-	clock  func() time.Time
-	logger *slog.Logger
+	dir       string
+	clock     func() time.Time
+	logger    *slog.Logger
+	telemetry *telemetry.Provider
 }
 
 // Option configures a Store constructed by NewStore.
@@ -167,6 +171,35 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
+// WithTelemetry sets the *telemetry.Provider the Store and every Session it
+// opens instrument through (internal/telemetry/span.go's
+// StartStateBackend* helpers). Omitting this option (or passing nil)
+// leaves the default: a Provider with every signal disabled, so New wires
+// OTel's own no-op tracer/meter/logger providers directly
+// (internal/telemetry.New's documented behavior for a disabled signal) —
+// the instrumentation code path still runs on every call, at effectively
+// zero cost, rather than being conditionally skipped.
+func WithTelemetry(prov *telemetry.Provider) Option {
+	return func(s *Store) {
+		if prov != nil {
+			s.telemetry = prov
+		}
+	}
+}
+
+// defaultTelemetryProvider builds the Provider a Store falls back to when
+// WithTelemetry isn't supplied. Every signal is disabled, so
+// telemetry.New never calls into the noop.Backend passed here at all — it
+// exists only to satisfy New's non-nil Backend requirement. Constructing
+// this at NewStore time (rather than propagating a caller context, which
+// NewStore's signature has none of) is this package's one ingress-style
+// use of context.Background(), the same carve-out go-style.md gives
+// "main, an HTTP handler boundary, a message-consume loop": NewStore is
+// this package's construction entry point.
+func defaultTelemetryProvider() (*telemetry.Provider, error) {
+	return telemetry.New(context.Background(), telemetry.Config{}, noop.New(), nil)
+}
+
 // NewStore returns a Store rooted at dir, creating it (mode 0700) if it
 // does not already exist. dir is expected to be
 // $XDG_STATE_HOME/agent/sessions per
@@ -185,6 +218,13 @@ func NewStore(dir string, opts ...Option) (*Store, error) {
 	for _, opt := range opts {
 		opt(st)
 	}
+	if st.telemetry == nil {
+		prov, err := defaultTelemetryProvider()
+		if err != nil {
+			return nil, fmt.Errorf("statebackend: new store: %w", err)
+		}
+		st.telemetry = prov
+	}
 	return st, nil
 }
 
@@ -199,18 +239,18 @@ func (st *Store) sessionPath(sessionID string) string {
 // is the only writer to any given session's file). The returned *sql.DB is
 // capped at one open connection, and WAL mode plus foreign key enforcement
 // are set immediately after connecting.
-func openDB(path string) (*sql.DB, error) {
+func openDB(ctx context.Context, path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("statebackend: open %s: %w", path, err)
 	}
 	db.SetMaxOpenConns(1)
 
-	if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode = WAL"); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("statebackend: open %s: set journal_mode: %w", path, err)
 	}
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("statebackend: open %s: set foreign_keys: %w", path, err)
 	}
@@ -226,9 +266,13 @@ func openDB(path string) (*sql.DB, error) {
 // failure after the file is created (a bad schema, an invalid
 // meta.Status, ...) removes the partial file rather than leaving it behind
 // to block a retry with the same session ID.
-func (st *Store) Create(ctx context.Context, meta SessionMeta) (*Session, error) {
-	if err := ValidateSessionID(meta.SessionID); err != nil {
-		return nil, fmt.Errorf("statebackend: create: %w", err)
+func (st *Store) Create(ctx context.Context, meta SessionMeta) (_ *Session, err error) {
+	ctx, span := st.telemetry.StartStateBackendSessionCreate(ctx, meta.SessionID)
+	defer func() { telemetry.EndSpan(span, err) }()
+
+	if err = ValidateSessionID(meta.SessionID); err != nil {
+		err = fmt.Errorf("statebackend: create: %w", err)
+		return nil, err
 	}
 	if meta.StartedAt.IsZero() {
 		meta.StartedAt = st.clock()
@@ -237,22 +281,27 @@ func (st *Store) Create(ctx context.Context, meta SessionMeta) (*Session, error)
 	path := st.sessionPath(meta.SessionID)
 	st.logger.DebugContext(ctx, "statebackend: creating session", "session_id", meta.SessionID)
 
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		if errors.Is(err, fs.ErrExist) {
-			return nil, fmt.Errorf("statebackend: create %s: session file already exists", meta.SessionID)
+	// #nosec G304 -- path is built from meta.SessionID, which ValidateSessionID above already rejected unless it's a canonical ULID; it is never attacker-controlled arbitrary input.
+	f, openErr := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	if openErr != nil {
+		if errors.Is(openErr, fs.ErrExist) {
+			err = fmt.Errorf("statebackend: create %s: session file already exists", meta.SessionID)
+			return nil, err
 		}
-		return nil, fmt.Errorf("statebackend: create %s: %w", meta.SessionID, err)
+		err = fmt.Errorf("statebackend: create %s: %w", meta.SessionID, openErr)
+		return nil, err
 	}
-	if err := f.Close(); err != nil {
+	if closeErr := f.Close(); closeErr != nil {
 		_ = os.Remove(path)
-		return nil, fmt.Errorf("statebackend: create %s: %w", meta.SessionID, err)
+		err = fmt.Errorf("statebackend: create %s: %w", meta.SessionID, closeErr)
+		return nil, err
 	}
 
-	sess, err := st.populateCreatedFile(ctx, path, meta)
-	if err != nil {
+	sess, popErr := st.populateCreatedFile(ctx, path, meta)
+	if popErr != nil {
 		_ = os.Remove(path)
-		return nil, fmt.Errorf("statebackend: create %s: %w", meta.SessionID, err)
+		err = fmt.Errorf("statebackend: create %s: %w", meta.SessionID, popErr)
+		return nil, err
 	}
 	return sess, nil
 }
@@ -261,7 +310,7 @@ func (st *Store) Create(ctx context.Context, meta SessionMeta) (*Session, error)
 // applies the schema, and inserts meta's session_meta row. Split out of
 // Create so every failure path shares one os.Remove(path) cleanup call.
 func (st *Store) populateCreatedFile(ctx context.Context, path string, meta SessionMeta) (*Session, error) {
-	db, err := openDB(path)
+	db, err := openDB(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +322,7 @@ func (st *Store) populateCreatedFile(ctx context.Context, path string, meta Sess
 		_ = db.Close()
 		return nil, err
 	}
-	return &Session{id: meta.SessionID, db: db, path: path}, nil
+	return &Session{id: meta.SessionID, db: db, path: path, logger: st.logger, telemetry: st.telemetry}, nil
 }
 
 // checkIntegrity is a seam for Stage 3's
@@ -291,47 +340,58 @@ func (st *Store) checkIntegrity(_ context.Context, _ string, _ *sql.DB) error {
 // (docs/specifications/state-backend.md#schema-migration): newer than
 // currentSchemaVersion returns ErrSchemaTooNew; older applies the ordered
 // migrations slice. sessionID not found returns ErrNotFound.
-func (st *Store) Open(ctx context.Context, sessionID string) (*Session, error) {
-	if err := ValidateSessionID(sessionID); err != nil {
-		return nil, fmt.Errorf("statebackend: open: %w", err)
+func (st *Store) Open(ctx context.Context, sessionID string) (_ *Session, err error) {
+	ctx, span := st.telemetry.StartStateBackendSessionOpen(ctx, sessionID)
+	defer func() { telemetry.EndSpan(span, err) }()
+
+	if err = ValidateSessionID(sessionID); err != nil {
+		err = fmt.Errorf("statebackend: open: %w", err)
+		return nil, err
 	}
 	st.logger.DebugContext(ctx, "statebackend: opening session", "session_id", sessionID)
 
 	path := st.sessionPath(sessionID)
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("statebackend: open %s: %w", sessionID, ErrNotFound)
+	if _, statErr := os.Stat(path); statErr != nil {
+		if errors.Is(statErr, fs.ErrNotExist) {
+			err = fmt.Errorf("statebackend: open %s: %w", sessionID, ErrNotFound)
+			return nil, err
 		}
-		return nil, fmt.Errorf("statebackend: open %s: %w", sessionID, err)
+		err = fmt.Errorf("statebackend: open %s: %w", sessionID, statErr)
+		return nil, err
 	}
 
-	db, err := openDB(path)
-	if err != nil {
-		return nil, fmt.Errorf("statebackend: open %s: %w", sessionID, err)
+	db, openErr := openDB(ctx, path)
+	if openErr != nil {
+		err = fmt.Errorf("statebackend: open %s: %w", sessionID, openErr)
+		return nil, err
 	}
 
-	if err := st.checkIntegrity(ctx, path, db); err != nil {
+	if icErr := st.checkIntegrity(ctx, path, db); icErr != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("statebackend: open %s: %w", sessionID, err)
+		err = fmt.Errorf("statebackend: open %s: %w", sessionID, icErr)
+		return nil, err
 	}
 
-	version, err := readUserVersion(ctx, db)
-	if err != nil {
+	version, verErr := readUserVersion(ctx, db)
+	if verErr != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("statebackend: open %s: %w", sessionID, err)
+		err = fmt.Errorf("statebackend: open %s: %w", sessionID, verErr)
+		return nil, err
 	}
 	switch {
 	case version > currentSchemaVersion:
 		_ = db.Close()
-		return nil, fmt.Errorf("statebackend: open %s: schema version %d: %w", sessionID, version, ErrSchemaTooNew)
+		err = fmt.Errorf("statebackend: open %s: schema version %d: %w", sessionID, version, ErrSchemaTooNew)
+		return nil, err
 	case version < currentSchemaVersion:
-		if err := applyMigrations(ctx, db, migrations, version, currentSchemaVersion); err != nil {
+		if migErr := applyMigrations(ctx, db, migrations, version, currentSchemaVersion); migErr != nil {
 			_ = db.Close()
-			return nil, fmt.Errorf("statebackend: open %s: %w", sessionID, err)
+			err = fmt.Errorf("statebackend: open %s: %w", sessionID, migErr)
+			return nil, err
 		}
 	}
 
-	return &Session{id: sessionID, db: db, path: path}, nil
+	return &Session{id: sessionID, db: db, path: path, logger: st.logger, telemetry: st.telemetry}, nil
 }
 
 // List returns every session's session_meta row, ordered by session_id
@@ -395,7 +455,7 @@ func (st *Store) scan(ctx context.Context, keep func(SessionMeta) bool) ([]Sessi
 // readSessionMeta opens sessionID's file directly (not through Open — see
 // scan's comment) purely to read its single session_meta row.
 func (st *Store) readSessionMeta(ctx context.Context, sessionID string) (SessionMeta, error) {
-	db, err := openDB(st.sessionPath(sessionID))
+	db, err := openDB(ctx, st.sessionPath(sessionID))
 	if err != nil {
 		return SessionMeta{}, err
 	}
