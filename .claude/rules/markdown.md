@@ -74,7 +74,9 @@ GFM-only rule — the site is configured to consume plain GFM:
   site. MkDocs/Sphinx `!!! note` directive syntax remains banned.
 - YAML front matter is permitted only on site-only pages that have no
   GitHub-reading audience: `docs/index.md` and `docs/first-party/index.md`.
-  Spec and catalog files stay front-matter-free.
+  Spec and catalog files stay front-matter-free. The other exemption is
+  `.github/instructions/*.instructions.md`, where Copilot's file format
+  mandates an `applyTo`/`excludeAgent` front-matter block.
 - `mkdocs build --strict` treats broken links, broken anchors, and files
   missing from the mkdocs.yml nav as failures — adding a new doc file
   means adding it to the nav.
