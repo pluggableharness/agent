@@ -127,18 +127,19 @@ func decodeEventKind(text string) (kernelv1.EventKind, error) {
 // undocumented (unlike session_meta.status and events.kind, which the spec
 // enumerates literally) — this uses the same lowercase category names the
 // specifications/ tree itself uses as directory names (model/, tool/,
-// context/, memory/, frontend/, widget/), for consistency with every other
-// lowercase-text enum this package stores. CATEGORY_UNSPECIFIED is
-// deliberately absent — a producer's category MUST NOT ever be
-// unspecified (kernel-callbacks.md's server-derived producer identity is
-// always a real category).
+// context/, memory/, frontend/, widget/, slashcommand/), for consistency
+// with every other lowercase-text enum this package stores.
+// CATEGORY_UNSPECIFIED is deliberately absent — a producer's category MUST
+// NOT ever be unspecified (kernel-callbacks.md's server-derived producer
+// identity is always a real category).
 var producerCategoryText = map[commonv1.Category]string{
-	commonv1.Category_CATEGORY_MODEL:    "model",
-	commonv1.Category_CATEGORY_TOOL:     "tool",
-	commonv1.Category_CATEGORY_CONTEXT:  "context",
-	commonv1.Category_CATEGORY_MEMORY:   "memory",
-	commonv1.Category_CATEGORY_FRONTEND: "frontend",
-	commonv1.Category_CATEGORY_WIDGET:   "widget",
+	commonv1.Category_CATEGORY_MODEL:        "model",
+	commonv1.Category_CATEGORY_TOOL:         "tool",
+	commonv1.Category_CATEGORY_CONTEXT:      "context",
+	commonv1.Category_CATEGORY_MEMORY:       "memory",
+	commonv1.Category_CATEGORY_FRONTEND:     "frontend",
+	commonv1.Category_CATEGORY_WIDGET:       "widget",
+	commonv1.Category_CATEGORY_SLASHCOMMAND: "slashcommand",
 }
 
 // producerTextCategory is producerCategoryText inverted, built once from

@@ -41,6 +41,7 @@ func TestPluginKey(t *testing.T) {
 		{"memory", commonv1.Category_CATEGORY_MEMORY, "memory"},
 		{"frontend", commonv1.Category_CATEGORY_FRONTEND, "frontend"},
 		{"widget", commonv1.Category_CATEGORY_WIDGET, "widget"},
+		{"slashcommand", commonv1.Category_CATEGORY_SLASHCOMMAND, "slashcommand"},
 	}
 
 	seen := make(map[string]commonv1.Category, len(tests))

@@ -16,6 +16,7 @@ import (
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	memoryv1 "github.com/pluggableharness/agent/pkg/memory/proto/v1"
 	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	slashcommandv1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 	widgetv1 "github.com/pluggableharness/agent/pkg/widget/proto/v1"
 
@@ -94,6 +95,8 @@ func newCategoryClient(category commonv1.Category, conn *grpc.ClientConn) (any, 
 		return frontendv1.NewFrontendServiceClient(conn), nil
 	case commonv1.Category_CATEGORY_WIDGET:
 		return widgetv1.NewWidgetServiceClient(conn), nil
+	case commonv1.Category_CATEGORY_SLASHCOMMAND:
+		return slashcommandv1.NewSlashCommandServiceClient(conn), nil
 	default:
 		return nil, fmt.Errorf("%w: %v", errUnrecognizedCategory, category)
 	}

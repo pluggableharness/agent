@@ -16,6 +16,7 @@ import (
 	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	memoryv1 "github.com/pluggableharness/agent/pkg/memory/proto/v1"
 	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	slashcommandv1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 	widgetv1 "github.com/pluggableharness/agent/pkg/widget/proto/v1"
 )
@@ -50,6 +51,7 @@ func TestPluginMap(t *testing.T) {
 		commonv1.Category_CATEGORY_MEMORY,
 		commonv1.Category_CATEGORY_FRONTEND,
 		commonv1.Category_CATEGORY_WIDGET,
+		commonv1.Category_CATEGORY_SLASHCOMMAND,
 	} {
 		t.Run(category.String(), func(t *testing.T) {
 			t.Parallel()
@@ -93,6 +95,7 @@ func TestNewCategoryClient(t *testing.T) {
 		{commonv1.Category_CATEGORY_MEMORY, memoryv1.MemoryServiceClient(nil)},
 		{commonv1.Category_CATEGORY_FRONTEND, frontendv1.FrontendServiceClient(nil)},
 		{commonv1.Category_CATEGORY_WIDGET, widgetv1.WidgetServiceClient(nil)},
+		{commonv1.Category_CATEGORY_SLASHCOMMAND, slashcommandv1.SlashCommandServiceClient(nil)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.category.String(), func(t *testing.T) {
@@ -126,6 +129,10 @@ func TestNewCategoryClient(t *testing.T) {
 			case commonv1.Category_CATEGORY_WIDGET:
 				if _, ok := got.(widgetv1.WidgetServiceClient); !ok {
 					t.Fatalf("got %T, want widgetv1.WidgetServiceClient", got)
+				}
+			case commonv1.Category_CATEGORY_SLASHCOMMAND:
+				if _, ok := got.(slashcommandv1.SlashCommandServiceClient); !ok {
+					t.Fatalf("got %T, want slashcommandv1.SlashCommandServiceClient", got)
 				}
 			}
 		})

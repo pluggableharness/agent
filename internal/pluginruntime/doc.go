@@ -1,6 +1,6 @@
-// Package pluginruntime is the kernel-side launcher for one of the six
+// Package pluginruntime is the kernel-side launcher for one of the seven
 // out-of-process PluggableHarness Agent plugin categories (provider, tool, context,
-// memory, frontend, widget), each speaking gRPC over
+// memory, frontend, widget, slashcommand), each speaking gRPC over
 // github.com/hashicorp/go-plugin.
 //
 // Launch runs the full launch sequence — pre-flight version check,

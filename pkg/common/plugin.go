@@ -1,6 +1,6 @@
 // Package common holds the hand-written, cross-category glue that every
 // PluggableHarness Agent plugin category (provider, tool, context, memory, frontend,
-// widget) and the kernel-side plugin runtime compile against identically:
+// widget, slashcommand) and the kernel-side plugin runtime compile against identically:
 // the go-plugin handshake, the shared callback broker ID, and small helpers
 // derived from the generated pluggableharness.common.v1 types in ./proto/v1. It is
 // deliberately tiny — anything category-specific belongs in that category's
@@ -26,7 +26,7 @@ const (
 	magicCookieValue = "pluggableharness-agent-v1-a6f3c9d2-plugin-handshake"
 )
 
-// Handshake is the single plugin.HandshakeConfig every one of the six
+// Handshake is the single plugin.HandshakeConfig every one of the seven
 // plugin categories MUST share — one magic cookie, one ProtocolVersion
 // field. Different categories MUST NOT be given different cookies
 // (.claude/rules/plugin-runtime.md).
@@ -40,7 +40,7 @@ var Handshake = plugin.HandshakeConfig{
 // on which the kernel serves KernelCallbackService back to every launched
 // plugin, and the plugin dials to reach it. It is fixed (not
 // wire-negotiated) because no ConfigureRequest — or any other message, in
-// any of the six category protos — carries a broker-ID field (confirmed by
+// any of the seven category protos — carries a broker-ID field (confirmed by
 // direct proto read during design). A fixed, out-of-band constant both
 // sides compile against removes the need for one, the same way the magic
 // cookie above is agreed out-of-band rather than negotiated. Since the
@@ -70,6 +70,8 @@ func PluginKey(c commonv1.Category) string {
 		return "frontend"
 	case commonv1.Category_CATEGORY_WIDGET:
 		return "widget"
+	case commonv1.Category_CATEGORY_SLASHCOMMAND:
+		return "slashcommand"
 	default:
 		return strings.ToLower(strings.TrimPrefix(c.String(), "CATEGORY_"))
 	}

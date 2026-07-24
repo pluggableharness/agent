@@ -1,6 +1,6 @@
 // Package pluginruntime launches, dials, and shuts down one
-// hashicorp/go-plugin subprocess for one of the six plugin categories
-// (provider, tool, context, memory, frontend, widget), and serves the
+// hashicorp/go-plugin subprocess for one of the seven plugin categories
+// (provider, tool, context, memory, frontend, widget, slashcommand), and serves the
 // reverse KernelCallbackService channel back to it. See doc.go for the
 // package-level overview and README.md/CLAUDE.md for the fuller design
 // rationale.

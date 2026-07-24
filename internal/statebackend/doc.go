@@ -56,8 +56,8 @@
 //     (.claude/rules/determinism.md).
 //   - events.producer_category and producers.category store the lowercase
 //     plugin-category vocabulary: model, tool, context, memory,
-//     frontend, widget — the same names docs/specifications/ uses as its
-//     own per-category directory names.
+//     frontend, widget, slashcommand — the same names docs/specifications/
+//     uses as its own per-category directory names.
 //   - Store.List and Store.Children read each file's session_meta row
 //     directly (scan, statebackend.go), bypassing Open's schema-version
 //     check and migration path — a metadata scan MUST NOT have the side
