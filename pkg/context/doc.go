@@ -19,13 +19,13 @@
 //
 // # Domain types vs. generated types
 //
-// [ContextCapabilities], [ContextSection], [ContextRequest], and
-// [ContextContribution] are this package's own Go types, not the
+// [Capabilities], [Section], [Request], and
+// [Contribution] are this package's own Go types, not the
 // generated pkg/context/proto/v1 messages — convert.go translates between
 // them at the server.go boundary. This is a deliberate departure from
 // go-layout.md's general "exactly one Go representation of each wire
 // message" rule for kernel-side client stubs: the value here is real, not
-// cosmetic. [ContextSection.Content] collapses the wire's
+// cosmetic. [Section.Content] collapses the wire's
 // []ContentBlock into a plain string, which is what "text-only in v1"
 // (data-types.md#contextsection) actually means for an author — there is
 // no way to accidentally construct a multi-block or non-text section
@@ -51,12 +51,12 @@
 //		pluggablecontext "github.com/pluggableharness/agent/pkg/context"
 //	)
 //
-// This package's type names ([ContextCapabilities], [ContextRequest],
-// [ContextSection], [ContextContribution], [ContextError]) intentionally
+// This package's type names ([Capabilities], [Request],
+// [Section], [Contribution], [Error]) intentionally
 // mirror the wire message names in pkg/context/proto/v1 and the spec text
 // verbatim, at the cost of the usual no-package-stutter convention — a
 // reader moving between this SDK, the generated stubs, and
 // docs/specifications/context/ sees one consistent vocabulary throughout,
-// which matters more here than avoiding "context.ContextRequest" reading
+// which matters more here than avoiding "context.Request" reading
 // redundant under an aliased import.
 package context

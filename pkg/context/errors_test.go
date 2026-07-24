@@ -9,7 +9,7 @@ import (
 func TestContextError_Error(t *testing.T) {
 	t.Parallel()
 
-	err := &pluggablecontext.ContextError{
+	err := &pluggablecontext.Error{
 		Category: pluggablecontext.ErrorCategorySourceUnavailable,
 		Message:  "CLAUDE.md deleted mid-session",
 	}

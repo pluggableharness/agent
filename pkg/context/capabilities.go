@@ -6,7 +6,7 @@ import (
 )
 
 // capabilitiesOptions collects CapabilitiesOption values before
-// NewCapabilities assembles them. Defaults match ContextCapabilities' own
+// NewCapabilities assembles them. Defaults match Capabilities' own
 // wire defaults: not a compactor, no slash commands, no supported hook
 // points.
 type capabilitiesOptions struct {
@@ -16,14 +16,14 @@ type capabilitiesOptions struct {
 }
 
 // CapabilitiesOption configures one optional field of a
-// ContextCapabilities built by NewCapabilities.
+// Capabilities built by NewCapabilities.
 type CapabilitiesOption func(*capabilitiesOptions)
 
 // WithCompactor declares this provider a compactor
 // (data-types.md#ordering--chaining): it MAY rewrite, merge, or drop
 // other providers' sections in the chain it receives, and MAY receive
-// ContextRequest.ConversationHistory and return
-// ContextContribution.RewrittenHistory.
+// Request.ConversationHistory and return
+// Contribution.RewrittenHistory.
 func WithCompactor() CapabilitiesOption {
 	return func(o *capabilitiesOptions) { o.compactor = true }
 }
@@ -41,7 +41,7 @@ func WithSupportedHookPoints(points ...commonv1.HookPoint) CapabilitiesOption {
 	return func(o *capabilitiesOptions) { o.supportedHookPoints = points }
 }
 
-// NewCapabilities builds a *ContextCapabilities for a Provider's
+// NewCapabilities builds a *Capabilities for a Provider's
 // GetCapabilities response. defaultTokenBudget and stability are the two
 // MUST-set fields (protocol.md#getcapabilities); configSchema is this
 // provider's agent.hcl config schema, typically built with
@@ -51,12 +51,12 @@ func WithSupportedHookPoints(points ...commonv1.HookPoint) CapabilitiesOption {
 // protocol.md#getcapabilities ("MUST include the provider's
 // ConfigSchema"). Optional properties (Compactor, SlashCommands,
 // SupportedHookPoints) are set via CapabilitiesOption.
-func NewCapabilities(defaultTokenBudget int64, stability Stability, configSchema *configv1.ConfigSchema, opts ...CapabilitiesOption) *ContextCapabilities {
+func NewCapabilities(defaultTokenBudget int64, stability Stability, configSchema *configv1.ConfigSchema, opts ...CapabilitiesOption) *Capabilities {
 	var o capabilitiesOptions
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return &ContextCapabilities{
+	return &Capabilities{
 		DefaultTokenBudget:  defaultTokenBudget,
 		Stability:           stability,
 		Compactor:           o.compactor,

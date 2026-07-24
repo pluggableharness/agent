@@ -16,7 +16,7 @@ import (
 	renderv1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 )
 
-// Stability is a ContextSection's or ContextCapabilities' turn-to-turn
+// Stability is a Section's or Capabilities' turn-to-turn
 // change hint (data-types.md#stability-hint--cache-prefix-ordering):
 // StabilityStatic for content unchanged for the session (e.g. a repo
 // convention file), StabilityDynamic for content that may differ turn to
@@ -49,13 +49,13 @@ func (s Stability) String() string {
 	}
 }
 
-// ContextCapabilities reports a context provider's static properties —
+// Capabilities reports a context provider's static properties —
 // the author-facing analogue of contextv1.ContextCapabilities
 // (protocol.md#getcapabilities). DefaultTokenBudget and Stability MUST be
 // set by every provider; Stability and Compactor MUST be re-queryable
 // cheaply and MUST NOT depend on a live read of the content source. Build
 // one with NewCapabilities rather than a struct literal.
-type ContextCapabilities struct {
+type Capabilities struct {
 	// DefaultTokenBudget is the token cap this provider requests if
 	// agent.hcl does not override it. MUST be set.
 	DefaultTokenBudget int64
@@ -64,7 +64,7 @@ type ContextCapabilities struct {
 	Stability Stability
 	// Compactor declares whether this provider MAY rewrite, merge, or
 	// drop other providers' sections in the chain it receives, and MAY
-	// receive ConversationHistory on ContextRequest and return
+	// receive ConversationHistory on Request and return
 	// RewrittenHistory. Defaults to false — most providers are not
 	// compactors. See data-types.md#ordering--chaining.
 	Compactor bool
@@ -81,12 +81,12 @@ type ContextCapabilities struct {
 	SupportedHookPoints []commonv1.HookPoint
 }
 
-// ContextSection is one provider's contribution to the assembled prompt
-// context — the author-facing analogue of contentv1.ContextSection
+// Section is one provider's contribution to the assembled prompt
+// context — the author-facing analogue of contentv1.Section
 // (data-types.md#contextsection). Content is a plain string because v1 is
 // text-only: a non-text content block MUST be rejected, not silently
 // dropped, so this type simply has no way to express one.
-type ContextSection struct {
+type Section struct {
 	// Provider is the producing plugin's declared name — the identity
 	// key a provider uses to re-find and replace its own prior
 	// section(s) in the chain. MUST match the plugin's own agent.hcl
@@ -98,7 +98,7 @@ type ContextSection struct {
 	Label string
 	// Content is this section's text. MUST be computed via CountTokens
 	// (below) for the Tokens field, and MUST fit within the
-	// ContextRequest.TokenBudget this provider was given — the provider
+	// Request.TokenBudget this provider was given — the provider
 	// itself, not the kernel, performs any needed reduction
 	// (data-types.md#budget-mechanics).
 	Content string
@@ -114,18 +114,18 @@ type ContextSection struct {
 	Truncated bool
 }
 
-// ContextRequest is Contribute's request — the author-facing analogue of
+// Request is Contribute's request — the author-facing analogue of
 // contextv1.ContextRequest (data-types.md#contextrequest), delivered once
 // per context-assemble firing (at least once per turn, before each model
 // call).
-type ContextRequest struct {
+type Request struct {
 	SessionID       string
 	ParentSessionID string
 	// TurnID identifies which turn this firing is for, a ULID string.
 	TurnID string
 	// TokenBudget is the kernel-computed allocation for this provider's
 	// own contribution this call — agent.hcl's declared override if
-	// present, else this provider's own ContextCapabilities.DefaultTokenBudget.
+	// present, else this provider's own Capabilities.DefaultTokenBudget.
 	TokenBudget int64
 	// ModelTarget describes the model this context is being assembled
 	// for. Note it carries no provider name (only id, context_window,
@@ -144,10 +144,10 @@ type ContextRequest struct {
 	// this hook's declaration-order chain. A non-compactor provider MUST
 	// only append or edit its OWN section(s) (matched by Provider name)
 	// in the chain it returns from Contribute — see
-	// ContextContribution.Sections and CheckOwnSectionOnly below.
-	PriorSections []*ContextSection
+	// Contribution.Sections and CheckOwnSectionOnly below.
+	PriorSections []*Section
 	// ConversationHistory arrives populated ONLY when this provider's
-	// own ContextCapabilities.Compactor == true; for every other
+	// own Capabilities.Compactor == true; for every other
 	// provider it is nil, indistinguishable from "not provided".
 	ConversationHistory []*contentv1.Message
 	// HistoryTokens is the kernel-computed current conversation-history
@@ -160,27 +160,27 @@ type ContextRequest struct {
 
 	// CountTokens is bound by Service.Contribute to the kernel's
 	// CountTokens callback (kernel-callbacks.md#counttokens) — call this
-	// to compute a ContextSection.Tokens value rather than inventing a
+	// to compute a Section.Tokens value rather than inventing a
 	// local heuristic. Always non-nil when Contribute is invoked through
 	// a *Service; a hand-rolled unit test that constructs a
-	// *ContextRequest directly MUST set it (e.g. to a fake, or to a
+	// *Request directly MUST set it (e.g. to a fake, or to a
 	// closure built from the package-level CountTokens function against
 	// a bufconn kernel-callback test server).
 	CountTokens func(ctx context.Context, text string) (int64, error)
 }
 
-// ContextContribution is Contribute's response — the author-facing
+// Contribution is Contribute's response — the author-facing
 // analogue of contextv1.ContextContribution
 // (data-types.md#contextcontribution).
-type ContextContribution struct {
+type Contribution struct {
 	// Sections MUST be the FULL accumulated chain, in declaration order,
 	// including this provider's own new/updated section(s) — this
 	// provider's own section appended to (or edited within)
-	// ContextRequest.PriorSections, NEVER a delta. A non-compactor
+	// Request.PriorSections, NEVER a delta. A non-compactor
 	// provider mutating a section it doesn't own is a scope_violation:
 	// the kernel discards the entire response for the turn. See
 	// CheckOwnSectionOnly.
-	Sections []*ContextSection
+	Sections []*Section
 	// RewrittenHistory MAY be included by a compactor provider (only)
 	// alongside its section contribution. When present, the kernel
 	// replaces the turn's conversation history with this value before
@@ -193,9 +193,9 @@ type ContextContribution struct {
 // pluggableharness.context.v1.ContextService gRPC server.
 type Provider interface {
 	// GetCapabilities reports this provider's static properties. MUST be
-	// cheap and side-effect-free — see ContextCapabilities.Stability and
-	// ContextCapabilities.Compactor.
-	GetCapabilities(ctx context.Context) (*ContextCapabilities, error)
+	// cheap and side-effect-free — see Capabilities.Stability and
+	// Capabilities.Compactor.
+	GetCapabilities(ctx context.Context) (*Capabilities, error)
 	// Configure delivers this provider's agent.hcl config block, already
 	// decoded via the schema-to-cty bridge into config. MUST reject with
 	// a structured error (see errors.go) if a declared source path/glob
@@ -207,14 +207,14 @@ type Provider interface {
 	//
 	// req.PriorSections is the accumulated chain from every earlier
 	// provider in this hook's declaration-order chain.
-	// ContextContribution.Sections in the return value MUST be the FULL
+	// Contribution.Sections in the return value MUST be the FULL
 	// accumulated chain — req.PriorSections plus (or with) this
 	// provider's own section(s) — NEVER just this provider's own
 	// addition. A non-compactor implementation MUST only append or edit
 	// sections whose Provider field matches this plugin's own declared
 	// name; see CheckOwnSectionOnly for a helper to verify that
 	// contract in this provider's own tests.
-	Contribute(ctx context.Context, req *ContextRequest) (*ContextContribution, error)
+	Contribute(ctx context.Context, req *Request) (*Contribution, error)
 }
 
 // Renderer is the optional interface a Provider MAY additionally
@@ -242,7 +242,7 @@ type RenderRequest struct {
 	SchemaVersion string
 }
 
-// CheckOwnSectionOnly reports a scope_violation-shaped *ContextError if
+// CheckOwnSectionOnly reports a scope_violation-shaped *Error if
 // chain diverges from prior anywhere other than the sections owned by
 // providerName, unless compactor is true. This mirrors
 // data-types.md#ordering--chaining's own-section-only rule structurally:
@@ -252,12 +252,12 @@ type RenderRequest struct {
 // kernel accept or reject its own response), but useful as a check in a
 // provider's own Contribute tests, and Service.Contribute calls it
 // defensively (log-only) as well.
-func CheckOwnSectionOnly(prior, chain []*ContextSection, providerName string, compactor bool) error {
+func CheckOwnSectionOnly(prior, chain []*Section, providerName string, compactor bool) error {
 	if compactor {
 		return nil
 	}
 	if len(chain) < len(prior) {
-		return &ContextError{
+		return &Error{
 			Category: ErrorCategoryScopeViolation,
 			Message:  fmt.Sprintf("context: returned chain has %d section(s), fewer than the %d it was given, without compactor capability", len(chain), len(prior)),
 		}
@@ -268,7 +268,7 @@ func CheckOwnSectionOnly(prior, chain []*ContextSection, providerName string, co
 		}
 		c := chain[i]
 		if !sectionEqual(p, c) {
-			return &ContextError{
+			return &Error{
 				Category: ErrorCategoryScopeViolation,
 				Message:  fmt.Sprintf("context: section %d (provider %q) was mutated by non-owning provider %q", i, p.Provider, providerName),
 			}
@@ -276,7 +276,7 @@ func CheckOwnSectionOnly(prior, chain []*ContextSection, providerName string, co
 	}
 	for i := len(prior); i < len(chain); i++ {
 		if chain[i].Provider != providerName {
-			return &ContextError{
+			return &Error{
 				Category: ErrorCategoryScopeViolation,
 				Message:  fmt.Sprintf("context: appended section %d has provider %q, want %q", i, chain[i].Provider, providerName),
 			}
@@ -286,7 +286,7 @@ func CheckOwnSectionOnly(prior, chain []*ContextSection, providerName string, co
 }
 
 // sectionEqual reports whether a and b carry identical field values.
-func sectionEqual(a, b *ContextSection) bool {
+func sectionEqual(a, b *Section) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -300,15 +300,15 @@ func sectionEqual(a, b *ContextSection) bool {
 
 // CountTokens resolves text's token count via the kernel's CountTokens
 // callback primitive (kernel-callbacks.md#counttokens) — the ONLY
-// sanctioned way a ContextSection.Tokens value may be produced
+// sanctioned way a Section.Tokens value may be produced
 // (data-types.md#contextsection: "never a provider-local heuristic
 // estimate"). modelRef MAY be nil, in which case the kernel's single
 // documented fallback heuristic applies
 // (kernel-callbacks.md#the-fallback-heuristic:
 // ceil(utf8_byte_length/4)) rather than a real vendor tokenizer. This is
-// the function ContextRequest.CountTokens is built from; call it directly
+// the function Request.CountTokens is built from; call it directly
 // only when a provider needs a model.v1.ModelRef more specific than what
-// ContextRequest.ModelTarget alone can supply (ModelTarget carries no
+// Request.ModelTarget alone can supply (ModelTarget carries no
 // provider name).
 func CountTokens(ctx context.Context, cb *plugin.Callback, modelRef *modelv1.ModelRef, text string) (int64, error) {
 	client, err := cb.Client(ctx)
@@ -321,7 +321,7 @@ func CountTokens(ctx context.Context, cb *plugin.Callback, modelRef *modelv1.Mod
 // countTokens is CountTokens' shared implementation over an
 // already-dialed *kernel.Client, reused by Service.Contribute so it
 // doesn't need to re-dial the callback broker for every provider it
-// wires a ContextRequest.CountTokens closure for.
+// wires a Request.CountTokens closure for.
 func countTokens(ctx context.Context, client *kernel.Client, modelRef *modelv1.ModelRef, text string) (int64, error) {
 	result, err := client.CountTokens(ctx, &kernelv1.CountTokensRequest{
 		Content: []*contentv1.ContentBlock{

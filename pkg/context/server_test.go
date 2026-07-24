@@ -57,7 +57,7 @@ func TestService_GetCapabilities(t *testing.T) {
 
 	schema := &configv1.ConfigSchema{}
 	provider := &fakeProvider{
-		getCapabilitiesFunc: func() (*pluggablecontext.ContextCapabilities, error) {
+		getCapabilitiesFunc: func() (*pluggablecontext.Capabilities, error) {
 			return pluggablecontext.NewCapabilities(2000, pluggablecontext.StabilityStatic, schema, pluggablecontext.WithCompactor()), nil
 		},
 	}
@@ -80,8 +80,8 @@ func TestService_GetCapabilities_error(t *testing.T) {
 	t.Parallel()
 
 	provider := &fakeProvider{
-		getCapabilitiesFunc: func() (*pluggablecontext.ContextCapabilities, error) {
-			return nil, &pluggablecontext.ContextError{Category: pluggablecontext.ErrorCategoryUnknown, Message: "boom"}
+		getCapabilitiesFunc: func() (*pluggablecontext.Capabilities, error) {
+			return nil, &pluggablecontext.Error{Category: pluggablecontext.ErrorCategoryUnknown, Message: "boom"}
 		},
 	}
 	client := newTestContextClient(t, pluggablecontext.NewService(provider, testIdentity(), plugin.NewCallback()))
@@ -125,7 +125,7 @@ func TestService_Configure_error(t *testing.T) {
 
 	provider := &fakeProvider{
 		configureFunc: func(*structpb.Struct) error {
-			return &pluggablecontext.ContextError{Category: pluggablecontext.ErrorCategorySourceUnavailable, Message: "glob resolves to nothing"}
+			return &pluggablecontext.Error{Category: pluggablecontext.ErrorCategorySourceUnavailable, Message: "glob resolves to nothing"}
 		},
 	}
 	client := newTestContextClient(t, pluggablecontext.NewService(provider, testIdentity(), plugin.NewCallback()))

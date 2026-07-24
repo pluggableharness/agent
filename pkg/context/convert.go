@@ -9,7 +9,7 @@ import (
 	contextv1 "github.com/pluggableharness/agent/pkg/context/proto/v1"
 )
 
-// ErrNonTextContent is returned when a ContextSection's wire content
+// ErrNonTextContent is returned when a Section's wire content
 // carries a non-text ContentBlock. v1 is text-only
 // (data-types.md#contextsection, conformance.md's summary matrix): the
 // kernel MUST reject a non-text block, not silently drop it, and this SDK
@@ -59,7 +59,7 @@ func contentBlocksToText(blocks []*contentv1.ContentBlock) (string, error) {
 }
 
 // textToContentBlocks wraps text into the single-element text-only
-// ContentBlock slice the wire ContextSection.Content field expects. Empty
+// ContentBlock slice the wire Section.Content field expects. Empty
 // text produces a nil (empty) slice rather than a zero-length text block.
 func textToContentBlocks(text string) []*contentv1.ContentBlock {
 	if text == "" {
@@ -70,9 +70,9 @@ func textToContentBlocks(text string) []*contentv1.ContentBlock {
 	}
 }
 
-// sectionToProto converts a domain ContextSection to its wire
+// sectionToProto converts a domain Section to its wire
 // representation. Returns nil for a nil input.
-func sectionToProto(s *ContextSection) *contentv1.ContextSection {
+func sectionToProto(s *Section) *contentv1.ContextSection {
 	if s == nil {
 		return nil
 	}
@@ -86,10 +86,10 @@ func sectionToProto(s *ContextSection) *contentv1.ContextSection {
 	}
 }
 
-// sectionFromProto converts a wire ContextSection to its domain
+// sectionFromProto converts a wire Section to its domain
 // representation, rejecting a non-text content block per
 // data-types.md#contextsection. Returns nil, nil for a nil input.
-func sectionFromProto(s *contentv1.ContextSection) (*ContextSection, error) {
+func sectionFromProto(s *contentv1.ContextSection) (*Section, error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -97,7 +97,7 @@ func sectionFromProto(s *contentv1.ContextSection) (*ContextSection, error) {
 	if err != nil {
 		return nil, fmt.Errorf("context: section %q: %w", s.GetProvider(), err)
 	}
-	return &ContextSection{
+	return &Section{
 		Provider:  s.GetProvider(),
 		Label:     s.GetLabel(),
 		Content:   text,
@@ -107,9 +107,9 @@ func sectionFromProto(s *contentv1.ContextSection) (*ContextSection, error) {
 	}, nil
 }
 
-// sectionsToProto converts a domain ContextSection chain to its wire
+// sectionsToProto converts a domain Section chain to its wire
 // representation, in order.
-func sectionsToProto(sections []*ContextSection) []*contentv1.ContextSection {
+func sectionsToProto(sections []*Section) []*contentv1.ContextSection {
 	if sections == nil {
 		return nil
 	}
@@ -120,14 +120,14 @@ func sectionsToProto(sections []*ContextSection) []*contentv1.ContextSection {
 	return out
 }
 
-// sectionsFromProto converts a wire ContextSection chain to its domain
+// sectionsFromProto converts a wire Section chain to its domain
 // representation, in order, propagating the first ErrNonTextContent
 // found.
-func sectionsFromProto(sections []*contentv1.ContextSection) ([]*ContextSection, error) {
+func sectionsFromProto(sections []*contentv1.ContextSection) ([]*Section, error) {
 	if sections == nil {
 		return nil, nil
 	}
-	out := make([]*ContextSection, len(sections))
+	out := make([]*Section, len(sections))
 	for i, s := range sections {
 		converted, err := sectionFromProto(s)
 		if err != nil {
@@ -138,9 +138,9 @@ func sectionsFromProto(sections []*contentv1.ContextSection) ([]*ContextSection,
 	return out, nil
 }
 
-// capabilitiesToProto converts a domain ContextCapabilities to its wire
+// capabilitiesToProto converts a domain Capabilities to its wire
 // representation.
-func capabilitiesToProto(c *ContextCapabilities) *contextv1.ContextCapabilities {
+func capabilitiesToProto(c *Capabilities) *contextv1.ContextCapabilities {
 	if c == nil {
 		return nil
 	}
@@ -154,13 +154,13 @@ func capabilitiesToProto(c *ContextCapabilities) *contextv1.ContextCapabilities 
 	}
 }
 
-// capabilitiesFromProto converts a wire ContextCapabilities to its domain
+// capabilitiesFromProto converts a wire Capabilities to its domain
 // representation.
-func capabilitiesFromProto(c *contextv1.ContextCapabilities) *ContextCapabilities {
+func capabilitiesFromProto(c *contextv1.ContextCapabilities) *Capabilities {
 	if c == nil {
 		return nil
 	}
-	return &ContextCapabilities{
+	return &Capabilities{
 		DefaultTokenBudget:  c.GetDefaultTokenBudget(),
 		Stability:           stabilityFromProto(c.GetStability()),
 		Compactor:           c.GetCompactor(),
@@ -170,10 +170,10 @@ func capabilitiesFromProto(c *contextv1.ContextCapabilities) *ContextCapabilitie
 	}
 }
 
-// requestFromProto converts a wire ContextRequest to its domain
+// requestFromProto converts a wire Request to its domain
 // representation. CountTokens is left nil — Service.Contribute sets it
 // once it has dialed the kernel callback client.
-func requestFromProto(r *contextv1.ContextRequest) (*ContextRequest, error) {
+func requestFromProto(r *contextv1.ContextRequest) (*Request, error) {
 	if r == nil {
 		return nil, nil
 	}
@@ -181,7 +181,7 @@ func requestFromProto(r *contextv1.ContextRequest) (*ContextRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ContextRequest{
+	return &Request{
 		SessionID:               r.GetSessionId(),
 		ParentSessionID:         r.GetParentSessionId(),
 		TurnID:                  r.GetTurnId(),
@@ -196,11 +196,11 @@ func requestFromProto(r *contextv1.ContextRequest) (*ContextRequest, error) {
 	}, nil
 }
 
-// requestToProto converts a domain ContextRequest to its wire
+// requestToProto converts a domain Request to its wire
 // representation. Provided for symmetry and round-trip testing; server.go
-// itself only ever needs requestFromProto since ContextRequest arrives
+// itself only ever needs requestFromProto since Request arrives
 // off the wire, never leaves via it.
-func requestToProto(r *ContextRequest) *contextv1.ContextRequest {
+func requestToProto(r *Request) *contextv1.ContextRequest {
 	if r == nil {
 		return nil
 	}
@@ -219,11 +219,11 @@ func requestToProto(r *ContextRequest) *contextv1.ContextRequest {
 	}
 }
 
-// contributionToProto converts a domain ContextContribution to its wire
+// contributionToProto converts a domain Contribution to its wire
 // representation. A nil input converts to an empty, non-nil
 // *contextv1.ContextContribution so Service.Contribute never returns a
 // nil RPC response on a nil Provider.Contribute result.
-func contributionToProto(c *ContextContribution) *contextv1.ContextContribution {
+func contributionToProto(c *Contribution) *contextv1.ContextContribution {
 	if c == nil {
 		return &contextv1.ContextContribution{}
 	}
@@ -233,9 +233,9 @@ func contributionToProto(c *ContextContribution) *contextv1.ContextContribution 
 	}
 }
 
-// contributionFromProto converts a wire ContextContribution to its domain
+// contributionFromProto converts a wire Contribution to its domain
 // representation. Provided for symmetry and round-trip testing.
-func contributionFromProto(c *contextv1.ContextContribution) (*ContextContribution, error) {
+func contributionFromProto(c *contextv1.ContextContribution) (*Contribution, error) {
 	if c == nil {
 		return nil, nil
 	}
@@ -243,7 +243,7 @@ func contributionFromProto(c *contextv1.ContextContribution) (*ContextContributi
 	if err != nil {
 		return nil, err
 	}
-	return &ContextContribution{
+	return &Contribution{
 		Sections:         sections,
 		RewrittenHistory: c.GetRewrittenHistory(),
 	}, nil

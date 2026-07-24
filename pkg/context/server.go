@@ -94,7 +94,7 @@ func (s *Service) Contribute(ctx context.Context, req *contextv1.ContextRequest)
 // discard the response), not this SDK's, but a loud log gives a provider
 // author a fighting chance of noticing their own bug locally rather than
 // only discovering it via a silently-discarded production response.
-func (s *Service) contribute(ctx context.Context, req *contextv1.ContextRequest, domainReq *ContextRequest, client *kernel.Client) (*contextv1.ContextContribution, error) {
+func (s *Service) contribute(ctx context.Context, req *contextv1.ContextRequest, domainReq *Request, client *kernel.Client) (*contextv1.ContextContribution, error) {
 	domainReq.CountTokens = func(ctx context.Context, text string) (int64, error) {
 		return countTokens(ctx, client, nil, text)
 	}
@@ -114,7 +114,7 @@ func (s *Service) contribute(ctx context.Context, req *contextv1.ContextRequest,
 // its token budget (data-types.md#budget-mechanics). GetCapabilities MUST
 // be cheap and side-effect-free per protocol.md, so calling it here to
 // learn Compactor is within the spec's own stated cost expectation.
-func (s *Service) checkContribution(ctx context.Context, prior []*ContextSection, contribution *ContextContribution, tokenBudget int64) {
+func (s *Service) checkContribution(ctx context.Context, prior []*Section, contribution *Contribution, tokenBudget int64) {
 	if contribution == nil {
 		return
 	}

@@ -43,7 +43,7 @@ func TestToStatusError_categoryMapping(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxErr := &ContextError{Category: tt.category, Message: "boom", Retryable: true}
+			ctxErr := &Error{Category: tt.category, Message: "boom", Retryable: true}
 			wrapped := toStatusError(ctxErr)
 			st, ok := status.FromError(wrapped)
 			if !ok {

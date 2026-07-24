@@ -23,16 +23,16 @@ import (
 // (distinct from context_test.go's fakeProvider, which lives in the
 // black-box package context_test and isn't visible here).
 type stubProvider struct {
-	contribute func(*ContextRequest) (*ContextContribution, error)
+	contribute func(*Request) (*Contribution, error)
 }
 
-func (s *stubProvider) GetCapabilities(context.Context) (*ContextCapabilities, error) {
-	return &ContextCapabilities{}, nil
+func (s *stubProvider) GetCapabilities(context.Context) (*Capabilities, error) {
+	return &Capabilities{}, nil
 }
 
 func (s *stubProvider) Configure(context.Context, *structpb.Struct) error { return nil }
 
-func (s *stubProvider) Contribute(_ context.Context, req *ContextRequest) (*ContextContribution, error) {
+func (s *stubProvider) Contribute(_ context.Context, req *Request) (*Contribution, error) {
 	return s.contribute(req)
 }
 
@@ -72,7 +72,7 @@ func TestService_contribute_fullChainAndCountTokensWiring(t *testing.T) {
 
 	var sawCountTokens bool
 	provider := &stubProvider{
-		contribute: func(req *ContextRequest) (*ContextContribution, error) {
+		contribute: func(req *Request) (*Contribution, error) {
 			if req.CountTokens == nil {
 				t.Fatal("req.CountTokens = nil, want a bound closure")
 			}
@@ -88,8 +88,8 @@ func TestService_contribute_fullChainAndCountTokensWiring(t *testing.T) {
 			// Deliberately exceeds the request's token_budget (10) to
 			// exercise Service.checkContribution's budget-warning branch
 			// — it MUST log, not fail the RPC.
-			return &ContextContribution{
-				Sections: append(req.PriorSections, &ContextSection{
+			return &Contribution{
+				Sections: append(req.PriorSections, &Section{
 					Provider: "claude-md", Label: "CLAUDE.md", Content: "way too much", Tokens: 999,
 				}),
 			}, nil
@@ -128,9 +128,9 @@ func TestService_contribute_fullChainNotDelta(t *testing.T) {
 	})
 
 	provider := &stubProvider{
-		contribute: func(req *ContextRequest) (*ContextContribution, error) {
-			return &ContextContribution{
-				Sections: append(req.PriorSections, &ContextSection{Provider: "agents-md", Label: "AGENTS.md (src/auth)"}),
+		contribute: func(req *Request) (*Contribution, error) {
+			return &Contribution{
+				Sections: append(req.PriorSections, &Section{Provider: "agents-md", Label: "AGENTS.md (src/auth)"}),
 			}, nil
 		},
 	}
@@ -170,13 +170,13 @@ func TestService_contribute_scopeViolationLoggedNotFailed(t *testing.T) {
 	})
 
 	provider := &stubProvider{
-		contribute: func(*ContextRequest) (*ContextContribution, error) {
+		contribute: func(*Request) (*Contribution, error) {
 			// Mutates a section it doesn't own without declaring
 			// compactor — a scope violation. Service.contribute MUST NOT
 			// fail the RPC for this (the kernel is the enforcement
 			// authority); it only logs.
-			return &ContextContribution{
-				Sections: []*ContextSection{{Provider: "someone-else", Label: "hijacked"}},
+			return &Contribution{
+				Sections: []*Section{{Provider: "someone-else", Label: "hijacked"}},
 			}, nil
 		},
 	}

@@ -38,16 +38,16 @@ func TestStability_String(t *testing.T) {
 // fakeProvider is a hand-written pluggablecontext.Provider fake
 // (go-testing.md: fakes, not mocking frameworks).
 type fakeProvider struct {
-	getCapabilitiesFunc func() (*pluggablecontext.ContextCapabilities, error)
+	getCapabilitiesFunc func() (*pluggablecontext.Capabilities, error)
 	configureFunc       func(*structpb.Struct) error
-	contributeFunc      func(*pluggablecontext.ContextRequest) (*pluggablecontext.ContextContribution, error)
+	contributeFunc      func(*pluggablecontext.Request) (*pluggablecontext.Contribution, error)
 }
 
-func (f *fakeProvider) GetCapabilities(context.Context) (*pluggablecontext.ContextCapabilities, error) {
+func (f *fakeProvider) GetCapabilities(context.Context) (*pluggablecontext.Capabilities, error) {
 	if f.getCapabilitiesFunc != nil {
 		return f.getCapabilitiesFunc()
 	}
-	return &pluggablecontext.ContextCapabilities{}, nil
+	return &pluggablecontext.Capabilities{}, nil
 }
 
 func (f *fakeProvider) Configure(_ context.Context, cfg *structpb.Struct) error {
@@ -57,11 +57,11 @@ func (f *fakeProvider) Configure(_ context.Context, cfg *structpb.Struct) error 
 	return nil
 }
 
-func (f *fakeProvider) Contribute(_ context.Context, req *pluggablecontext.ContextRequest) (*pluggablecontext.ContextContribution, error) {
+func (f *fakeProvider) Contribute(_ context.Context, req *pluggablecontext.Request) (*pluggablecontext.Contribution, error) {
 	if f.contributeFunc != nil {
 		return f.contributeFunc(req)
 	}
-	return &pluggablecontext.ContextContribution{}, nil
+	return &pluggablecontext.Contribution{}, nil
 }
 
 var _ pluggablecontext.Provider = (*fakeProvider)(nil)
@@ -69,50 +69,50 @@ var _ pluggablecontext.Provider = (*fakeProvider)(nil)
 func TestCheckOwnSectionOnly(t *testing.T) {
 	t.Parallel()
 
-	own := func(label string) *pluggablecontext.ContextSection {
-		return &pluggablecontext.ContextSection{Provider: "agents-md", Label: label, Content: "c"}
+	own := func(label string) *pluggablecontext.Section {
+		return &pluggablecontext.Section{Provider: "agents-md", Label: label, Content: "c"}
 	}
-	foreign := &pluggablecontext.ContextSection{Provider: "claude-md", Label: "CLAUDE.md", Content: "conventions"}
+	foreign := &pluggablecontext.Section{Provider: "claude-md", Label: "CLAUDE.md", Content: "conventions"}
 
 	tests := []struct {
 		name      string
-		prior     []*pluggablecontext.ContextSection
-		chain     []*pluggablecontext.ContextSection
+		prior     []*pluggablecontext.Section
+		chain     []*pluggablecontext.Section
 		compactor bool
 		wantErr   bool
 	}{
 		{
 			name:  "valid append",
-			prior: []*pluggablecontext.ContextSection{foreign},
-			chain: []*pluggablecontext.ContextSection{foreign, own("root")},
+			prior: []*pluggablecontext.Section{foreign},
+			chain: []*pluggablecontext.Section{foreign, own("root")},
 		},
 		{
 			name:  "valid edit of own section",
-			prior: []*pluggablecontext.ContextSection{foreign, own("root")},
-			chain: []*pluggablecontext.ContextSection{foreign, own("root-edited")},
+			prior: []*pluggablecontext.Section{foreign, own("root")},
+			chain: []*pluggablecontext.Section{foreign, own("root-edited")},
 		},
 		{
 			name:    "foreign section mutated",
-			prior:   []*pluggablecontext.ContextSection{foreign},
-			chain:   []*pluggablecontext.ContextSection{{Provider: "claude-md", Label: "changed", Content: "x"}},
+			prior:   []*pluggablecontext.Section{foreign},
+			chain:   []*pluggablecontext.Section{{Provider: "claude-md", Label: "changed", Content: "x"}},
 			wantErr: true,
 		},
 		{
 			name:    "chain drops a prior section",
-			prior:   []*pluggablecontext.ContextSection{foreign, own("root")},
-			chain:   []*pluggablecontext.ContextSection{own("root")},
+			prior:   []*pluggablecontext.Section{foreign, own("root")},
+			chain:   []*pluggablecontext.Section{own("root")},
 			wantErr: true,
 		},
 		{
 			name:    "appended section has wrong provider",
-			prior:   []*pluggablecontext.ContextSection{foreign},
-			chain:   []*pluggablecontext.ContextSection{foreign, {Provider: "someone-else", Label: "x"}},
+			prior:   []*pluggablecontext.Section{foreign},
+			chain:   []*pluggablecontext.Section{foreign, {Provider: "someone-else", Label: "x"}},
 			wantErr: true,
 		},
 		{
 			name:      "compactor may rewrite anything",
-			prior:     []*pluggablecontext.ContextSection{foreign, own("root")},
-			chain:     []*pluggablecontext.ContextSection{{Provider: "claude-md", Label: "rewritten"}},
+			prior:     []*pluggablecontext.Section{foreign, own("root")},
+			chain:     []*pluggablecontext.Section{{Provider: "claude-md", Label: "rewritten"}},
 			compactor: true,
 		},
 	}
@@ -125,9 +125,9 @@ func TestCheckOwnSectionOnly(t *testing.T) {
 				t.Errorf("CheckOwnSectionOnly() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err != nil {
-				var ctxErr *pluggablecontext.ContextError
+				var ctxErr *pluggablecontext.Error
 				if !errors.As(err, &ctxErr) {
-					t.Fatalf("CheckOwnSectionOnly() error type = %T, want *ContextError", err)
+					t.Fatalf("CheckOwnSectionOnly() error type = %T, want *Error", err)
 				}
 				if ctxErr.Category != pluggablecontext.ErrorCategoryScopeViolation {
 					t.Errorf("CheckOwnSectionOnly() error category = %v, want ErrorCategoryScopeViolation", ctxErr.Category)

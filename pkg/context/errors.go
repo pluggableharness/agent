@@ -19,23 +19,23 @@ const (
 	// ErrorCategoryUnspecified is the zero value. Never valid on an
 	// error a provider actually returns.
 	ErrorCategoryUnspecified ErrorCategory = iota
-	// ErrorCategorySourceUnavailable: a declared file/glob/source was
+	// ErrorCategorySourceUnavailable means a declared file/glob/source was
 	// unreadable at call time. Kernel reaction: drop the section for
 	// this turn, log; do not fail the turn.
 	ErrorCategorySourceUnavailable
-	// ErrorCategoryBudgetExceeded: this provider's own section (or, for
+	// ErrorCategoryBudgetExceeded means this provider's own section (or, for
 	// a compactor, its whole returned chain) exceeds token_budget.
 	// Kernel reaction: reject the section; do not fail the turn for a
 	// non-compactor violator.
 	ErrorCategoryBudgetExceeded
-	// ErrorCategoryScopeViolation: a non-compactor provider mutated a
+	// ErrorCategoryScopeViolation means a non-compactor provider mutated a
 	// section it doesn't own. Kernel reaction: discard the entire
 	// response, restore the prior chain, log.
 	ErrorCategoryScopeViolation
-	// ErrorCategoryInvalidRequest: a malformed request — a kernel/adapter
+	// ErrorCategoryInvalidRequest means a malformed request — a kernel/adapter
 	// bug. MUST NOT be retried as-is.
 	ErrorCategoryInvalidRequest
-	// ErrorCategoryUnknown: anything else. The message MUST include the
+	// ErrorCategoryUnknown covers anything else. The message MUST include the
 	// raw plugin error message for debugging.
 	ErrorCategoryUnknown
 )
@@ -78,23 +78,23 @@ func (c ErrorCategory) code() codes.Code {
 	}
 }
 
-// ContextError is the structured error a Provider method returns to
+// Error is the structured error a Provider method returns to
 // classify a failure per conformance.md#error-taxonomy. Category and
 // Message MUST be set; Retryable MUST be an honest signal — the kernel
 // may use it to decide whether to retry the call that produced this
 // error.
-type ContextError struct {
+type Error struct {
 	Category  ErrorCategory
 	Message   string
 	Retryable bool
 }
 
 // Error implements the error interface.
-func (e *ContextError) Error() string {
+func (e *Error) Error() string {
 	return e.Message
 }
 
-// errorDomain is the google.rpc.ErrorInfo.Domain every ContextError this
+// errorDomain is the google.rpc.ErrorInfo.Domain every Error this
 // package translates carries, per .claude/rules/grpc.md's "domain is the
 // calling category's own error-taxonomy name" convention.
 const errorDomain = "context.pluggableharness.dev"
@@ -103,8 +103,8 @@ const errorDomain = "context.pluggableharness.dev"
 // gRPC status error suitable for an RPC handler to return. Cancellation
 // (context.Canceled / context.DeadlineExceeded) is normal control flow,
 // never an application error (.claude/rules/grpc.md), and is mapped to
-// its matching gRPC code directly rather than through the ContextError
-// taxonomy. A *ContextError is mapped via its own Category; any other
+// its matching gRPC code directly rather than through the Error
+// taxonomy. A *Error is mapped via its own Category; any other
 // error is treated as ErrorCategoryUnknown (codes.Internal, never
 // codes.Unknown), with the original error's message preserved for
 // debugging per conformance.md's "unknown" row.
@@ -120,7 +120,7 @@ func toStatusError(err error) error {
 		return plugin.StatusError(codes.DeadlineExceeded, errorDomain, "deadline_exceeded", err.Error(), nil)
 	}
 
-	var ctxErr *ContextError
+	var ctxErr *Error
 	if errors.As(err, &ctxErr) {
 		return plugin.StatusError(ctxErr.Category.code(), errorDomain, ctxErr.Category.reason(), ctxErr.Message, map[string]string{
 			"retryable": strconv.FormatBool(ctxErr.Retryable),

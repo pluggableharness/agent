@@ -115,7 +115,7 @@ func TestSectionRoundTrip(t *testing.T) {
 		t.Errorf("sectionFromProto(nil) = %v, %v, want nil, nil", got, err)
 	}
 
-	section := &ContextSection{
+	section := &Section{
 		Provider:  "claude-md",
 		Label:     "Project conventions (CLAUDE.md)",
 		Content:   "This repo uses...",
@@ -165,7 +165,7 @@ func TestSectionsRoundTrip(t *testing.T) {
 		t.Errorf("sectionsFromProto(nil) = %v, %v, want nil, nil", got, err)
 	}
 
-	sections := []*ContextSection{
+	sections := []*Section{
 		{Provider: "a", Label: "A", Content: "one", Tokens: 1, Stability: StabilityStatic},
 		{Provider: "b", Label: "B", Content: "two", Tokens: 2, Stability: StabilityDynamic},
 	}
@@ -208,7 +208,7 @@ func TestCapabilitiesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("configSchemaForTest() error = %v", err)
 	}
-	caps := &ContextCapabilities{
+	caps := &Capabilities{
 		DefaultTokenBudget:  2000,
 		Stability:           StabilityStatic,
 		Compactor:           true,
@@ -240,7 +240,7 @@ func TestRequestRoundTrip(t *testing.T) {
 		t.Errorf("requestToProto(nil) = %v, want nil", got)
 	}
 
-	req := &ContextRequest{
+	req := &Request{
 		SessionID:        "sess_01",
 		ParentSessionID:  "sess_00",
 		TurnID:           "turn_01",
@@ -248,7 +248,7 @@ func TestRequestRoundTrip(t *testing.T) {
 		ModelTarget:      &modelv1.ModelTarget{Id: "claude-opus-5", ContextWindow: 200000, EffectiveCeiling: 176000},
 		FilesTouched:     []string{"src/auth/validator.py"},
 		WorkingDirectory: "/repo",
-		PriorSections: []*ContextSection{
+		PriorSections: []*Section{
 			{Provider: "claude-md", Label: "CLAUDE.md", Content: "conventions", Tokens: 10, Stability: StabilityStatic},
 		},
 		HistoryTokens:           500,
@@ -294,8 +294,8 @@ func TestContributionRoundTrip(t *testing.T) {
 		t.Errorf("contributionFromProto(nil) = %v, %v, want nil, nil", got, err)
 	}
 
-	contribution := &ContextContribution{
-		Sections: []*ContextSection{
+	contribution := &Contribution{
+		Sections: []*Section{
 			{Provider: "claude-md", Label: "CLAUDE.md", Content: "conventions", Tokens: 10, Stability: StabilityStatic},
 		},
 	}
