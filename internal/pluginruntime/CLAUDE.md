@@ -127,5 +127,12 @@
   It exists purely to give `launch_integration_test.go` something real to
   dial — build-tagged `integration` so it's excluded from the default
   build, and living under `testdata/` so `go build ./...` skips it
-  regardless. Don't mistake it for the start of a real plugin-side SDK;
-  that's explicitly out of scope for this package (see README.md).
+  regardless. It is built entirely on `pkg/plugin`/`pkg/tool`/`pkg/hook` —
+  the real, third-party-consumable plugin-side SDK, which now exists — not
+  a hand-rolled `hashicorp/go-plugin` adapter; a passing
+  `TestLaunch_realSubprocess` is therefore this package's own end-to-end
+  proof that SDK actually round-trips through a real subprocess launch.
+  Still don't grow it into a second, parallel plugin SDK inside this
+  package, though: any new SDK ergonomics belong in `pkg/plugin` (or a
+  category's own `pkg/<category>`) so every plugin author benefits, not
+  just this fixture.

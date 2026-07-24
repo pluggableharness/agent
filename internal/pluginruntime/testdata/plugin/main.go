@@ -7,27 +7,34 @@
 // KernelCallbackService.Log over the fixed callback broker ID
 // (pkg/common.CallbackBrokerID), proving the reverse channel.
 //
-// This is the one place in internal/pluginruntime that implements the
-// plugin *side* of the go-plugin adapter — purely for this fixture, never
-// a template for a real plugin SDK (see ../../CLAUDE.md). Build-tagged
-// integration so it never enters the default `go build ./...` (which
-// already skips testdata/ regardless).
+// Built on pkg/plugin and pkg/tool — the plugin-author SDK a real
+// third-party plugin also imports — rather than hand-rolling the
+// hashicorp/go-plugin adapter directly. This is the SDK's own
+// end-to-end acceptance test: if this fixture, built with nothing but the
+// public pkg/plugin/pkg/tool/pkg/hook surface, still round-trips through
+// this package's real launch sequence, the SDK genuinely works. It also
+// registers hook.Service alongside tool.Service on the same
+// plugin.Config.Services slice, proving pkg/plugin's multi-service muxing
+// (agent-loop/hook-dispatch.md's "one shared connection, more than one
+// gRPC service") doesn't break a real subprocess launch — this fixture
+// does not itself call DispatchHook, since internal/pluginruntime.Plugin
+// deliberately dispenses only the primary category client (Dispensed()),
+// not the raw *grpc.ClientConn a second service client would need; see
+// this package's CLAUDE.md on why that boundary exists.
+//
+// Build-tagged integration so it never enters the default `go build ./...`
+// (which already skips testdata/ regardless).
 package main
 
 import (
 	"context"
-	"errors"
-	"time"
+	"log/slog"
 
-	"github.com/hashicorp/go-plugin"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/pluggableharness/agent/pkg/common"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
-	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
-	logv1 "github.com/pluggableharness/agent/pkg/log/proto/v1"
-	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
+	"github.com/pluggableharness/agent/pkg/hook"
+	"github.com/pluggableharness/agent/pkg/plugin"
+	"github.com/pluggableharness/agent/pkg/schema"
+	"github.com/pluggableharness/agent/pkg/tool"
 )
 
 // fixtureToolName is the single tool GetSchema reports — checked by
@@ -36,77 +43,86 @@ import (
 // other way.
 const fixtureToolName = "fixture_echo"
 
-// toolServer is the canned ToolServiceServer this fixture serves.
-type toolServer struct {
-	toolv1.UnimplementedToolServiceServer
+// fixtureIdentity is this fixture's own self-reported plugin.Identity, per
+// pkg/plugin.Identity's doc comment — used both for Describe (not
+// exercised by this fixture's test) and for building tool.Service.
+var fixtureIdentity = plugin.Identity{
+	Name:    "fixture",
+	Version: "0.0.0",
+	Source:  "internal/pluginruntime/testdata/plugin",
 }
 
-// GetSchema returns a single, fixed ToolSchema — the "one canned RPC"
-// this fixture exists to round-trip.
-func (toolServer) GetSchema(context.Context, *toolv1.GetSchemaRequest) (*toolv1.GetSchemaResponse, error) {
-	return &toolv1.GetSchemaResponse{
-		Tools: []*toolv1.ToolSchema{
-			{
-				Name:        fixtureToolName,
-				Kind:        toolv1.ToolKind_TOOL_KIND_RESOURCE,
-				Risk:        toolv1.RiskClass_RISK_CLASS_LOW,
-				Description: "internal/pluginruntime integration fixture",
-			},
+// fixtureProvider implements tool.Provider — the ToolService this fixture
+// serves — and hook.Observer, muxed onto the same connection via
+// plugin.Config.Services to prove multi-service registration works.
+type fixtureProvider struct {
+	callback *plugin.Callback
+}
+
+var (
+	_ tool.Provider = (*fixtureProvider)(nil)
+	_ hook.Observer = (*fixtureProvider)(nil)
+)
+
+// Schema returns a single, fixed tool.Schema — the "one canned RPC" this
+// fixture exists to round-trip — and, on its way out, calls back into
+// KernelCallbackService.Log via the SDK's own NewSlogHandler. This is the
+// sanctioned call site for callback.Client per pkg/plugin's "callback-
+// timing trap" doc comment: an RPC handler, invoked only once go-plugin
+// has already begun dispensing this process's client to the kernel, never
+// eagerly from a background goroutine at process start.
+func (p *fixtureProvider) Schema(ctx context.Context) ([]*tool.Schema, error) {
+	if client, err := p.callback.Client(ctx); err == nil {
+		slog.New(client.NewSlogHandler()).Info("fixture plugin started")
+	}
+
+	empty, err := schema.Object(nil)
+	if err != nil {
+		return nil, err
+	}
+	return []*tool.Schema{
+		{
+			Name:         fixtureToolName,
+			Kind:         tool.KindResource,
+			Risk:         tool.RiskClassLow,
+			Description:  "internal/pluginruntime integration fixture",
+			InputSchema:  empty,
+			OutputSchema: empty,
+			Concurrency:  &tool.ConcurrencySpec{Safe: true},
+			Idempotent:   true,
 		},
 	}, nil
 }
 
-// toolPlugin is the plugin-side half of the go-plugin adapter for
-// ToolService.
-type toolPlugin struct {
-	plugin.Plugin
-}
-
-var _ plugin.GRPCPlugin = (*toolPlugin)(nil)
-
-// GRPCServer registers toolServer, then — in the background, since the
-// kernel doesn't start serving the callback broker until it dispenses
-// this plugin's client, which happens after GRPCServer must have already
-// returned — dials the fixed callback broker ID and calls Log once.
-func (toolPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	s.RegisterService(&toolv1.ToolService_ServiceDesc, toolServer{})
-
-	go func() {
-		conn, err := broker.Dial(common.CallbackBrokerID)
-		if err != nil {
-			return
-		}
-		defer func() { _ = conn.Close() }()
-
-		client := kernelv1.NewKernelCallbackServiceClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_, _ = client.Log(ctx, &kernelv1.LogRequest{
-			Entries: []*logv1.LogEntry{
-				{
-					Level:   logv1.LogLevel_LOG_LEVEL_INFO,
-					Logger:  "pluginruntime.testdata.plugin",
-					Message: "fixture plugin started",
-					Time:    timestamppb.Now(),
-				},
-			},
-		})
-	}()
-
+// Configure accepts any config; this fixture takes none.
+func (p *fixtureProvider) Configure(context.Context, map[string]any) error {
 	return nil
 }
 
-// GRPCClient is never called plugin-side; this fixture only serves.
-func (toolPlugin) GRPCClient(context.Context, *plugin.GRPCBroker, *grpc.ClientConn) (any, error) {
-	return nil, errors.New("testdata/plugin: GRPCClient is not used plugin-side")
+// Invoke is never called by this fixture's test but must exist to satisfy
+// tool.Provider.
+func (p *fixtureProvider) Invoke(_ context.Context, call *tool.Call, stream *tool.Stream) error {
+	return stream.Send(tool.NewResultEvent(map[string]any{"echo": call.Arguments}))
+}
+
+// Observe implements hook.Observer as a no-op — this fixture's test never
+// dispatches a hook; the point is only that hook.NewService(p) can be
+// registered alongside tool.NewService(p) without breaking the launch.
+func (p *fixtureProvider) Observe(context.Context, *hook.Payload) error {
+	return nil
 }
 
 func main() {
-	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: common.Handshake,
-		Plugins: plugin.PluginSet{
-			common.PluginKey(commonv1.Category_CATEGORY_TOOL): &toolPlugin{},
+	callback := plugin.NewCallback()
+	provider := &fixtureProvider{callback: callback}
+
+	plugin.Serve(plugin.Config{
+		Identity: fixtureIdentity,
+		Category: commonv1.Category_CATEGORY_TOOL,
+		Callback: callback,
+		Services: []plugin.Service{
+			tool.NewService(provider, fixtureIdentity, callback),
+			hook.NewService(provider),
 		},
-		GRPCServer: plugin.DefaultGRPCServer,
 	})
 }

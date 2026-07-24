@@ -53,7 +53,8 @@ to a hard subprocess-tree teardown only if that window is exceeded.
 
 - `pkg/common` — the shared handshake config, protocol version constant,
   callback broker ID, and category→plugin-map-key helper this package (and
-  a future plugin-side SDK) both compile against.
+  `pkg/plugin` and the per-category `pkg/<category>` SDKs, on the plugin
+  side) both compile against.
 - `internal/kernelcallback` — the composed `KernelCallbackServiceServer`
   this package serves on the callback broker.
 - `internal/telemetry` — the gRPC stats handlers wired onto both halves of
