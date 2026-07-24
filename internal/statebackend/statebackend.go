@@ -325,18 +325,11 @@ func (st *Store) populateCreatedFile(ctx context.Context, path string, meta Sess
 	return &Session{id: meta.SessionID, db: db, path: path, logger: st.logger, telemetry: st.telemetry}, nil
 }
 
-// checkIntegrity is a seam for Stage 3's
-// docs/specifications/state-backend.md#corruption-recovery flow
-// (PRAGMA integrity_check plus salvage-and-rename on failure). It is a
-// no-op in Stage 1/2 so Open's structure does not need to change when
-// recovery is added.
-func (st *Store) checkIntegrity(_ context.Context, _ string, _ *sql.DB) error {
-	return nil
-}
-
 // Open opens an existing session file for sessionID. It validates
-// sessionID, runs the (currently no-op) corruption-recovery seam, then
-// checks PRAGMA user_version before any other operation touches the file
+// sessionID, then runs the corruption-recovery check
+// (docs/specifications/state-backend.md#corruption-recovery — see
+// integrity.go's checkIntegrity), then checks PRAGMA user_version before
+// any other operation touches the file
 // (docs/specifications/state-backend.md#schema-migration): newer than
 // currentSchemaVersion returns ErrSchemaTooNew; older applies the ordered
 // migrations slice. sessionID not found returns ErrNotFound.
@@ -360,14 +353,8 @@ func (st *Store) Open(ctx context.Context, sessionID string) (_ *Session, err er
 		return nil, err
 	}
 
-	db, openErr := openDB(ctx, path)
-	if openErr != nil {
-		err = fmt.Errorf("statebackend: open %s: %w", sessionID, openErr)
-		return nil, err
-	}
-
-	if icErr := st.checkIntegrity(ctx, path, db); icErr != nil {
-		_ = db.Close()
+	db, icErr := st.checkIntegrity(ctx, path, sessionID)
+	if icErr != nil {
 		err = fmt.Errorf("statebackend: open %s: %w", sessionID, icErr)
 		return nil, err
 	}

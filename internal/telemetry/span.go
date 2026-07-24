@@ -27,13 +27,20 @@ const (
 	spanNameChecksumVerify   = "registry.checksum.verify"
 	spanNamePluginLaunch     = "plugin.launch"
 
-	spanNameStateBackendSessionCreate = "statebackend.session.create"
-	spanNameStateBackendSessionOpen   = "statebackend.session.open"
-	spanNameStateBackendEventAppend   = "statebackend.event.append"
-	spanNameStateBackendMessageAppend = "statebackend.message.append"
-	spanNameStateBackendPlanAppend    = "statebackend.plan.append"
-	spanNameStateBackendStatusSet     = "statebackend.session.set_status"
-	spanNameStateBackendSessionClose  = "statebackend.session.close"
+	spanNameStateBackendSessionCreate   = "statebackend.session.create"
+	spanNameStateBackendSessionOpen     = "statebackend.session.open"
+	spanNameStateBackendEventAppend     = "statebackend.event.append"
+	spanNameStateBackendMessageAppend   = "statebackend.message.append"
+	spanNameStateBackendPlanAppend      = "statebackend.plan.append"
+	spanNameStateBackendStatusSet       = "statebackend.session.set_status"
+	spanNameStateBackendSessionClose    = "statebackend.session.close"
+	spanNameStateBackendIntegrityCheck  = "statebackend.session.integrity_check"
+	spanNameStateBackendMetaQuery       = "statebackend.query.meta"
+	spanNameStateBackendEventsQuery     = "statebackend.query.events"
+	spanNameStateBackendProducersQuery  = "statebackend.query.producers"
+	spanNameStateBackendCostQuery       = "statebackend.query.total_cost"
+	spanNameStateBackendCostLedgerQuery = "statebackend.query.cost_ledger"
+	spanNameStateBackendPlanItemsQuery  = "statebackend.query.plan_items"
 )
 
 // SessionSpan describes the session a StartSession call is opening
@@ -214,6 +221,58 @@ func (p *Provider) StartStateBackendStatusSet(ctx context.Context, sessionID str
 // underlying *sql.DB, for use by statebackend.Session.Close.
 func (p *Provider) StartStateBackendSessionClose(ctx context.Context, sessionID string) (context.Context, trace.Span) {
 	return p.tracer.Start(ctx, spanNameStateBackendSessionClose, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendIntegrityCheck opens the span covering one session
+// file's PRAGMA integrity_check on open, plus any salvage recovery it
+// triggers (docs/specifications/state-backend.md#corruption-recovery), for
+// use by statebackend.Store's Open-time integrity check.
+func (p *Provider) StartStateBackendIntegrityCheck(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendIntegrityCheck, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendMetaQuery opens the span covering one session_meta read
+// (docs/specifications/state-backend.md#session_meta), for use by
+// statebackend.Session.Meta.
+func (p *Provider) StartStateBackendMetaQuery(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendMetaQuery, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendEventsQuery opens the span covering one full,
+// sequence-ordered events replay read
+// (docs/specifications/state-backend.md#events), for use by
+// statebackend.Session.Events. The span stays open for the whole
+// iter.Seq2 iteration, not just the initial query.
+func (p *Provider) StartStateBackendEventsQuery(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendEventsQuery, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendProducersQuery opens the span covering one distinct
+// producers read (docs/specifications/state-backend.md#producers), for use
+// by statebackend.Session.Producers.
+func (p *Provider) StartStateBackendProducersQuery(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendProducersQuery, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendCostQuery opens the span covering one cost_ledger
+// SUM(cost_usd) rollup read (docs/specifications/state-backend.md#cost_ledger),
+// for use by statebackend.Session.TotalCostUSD.
+func (p *Provider) StartStateBackendCostQuery(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendCostQuery, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendCostLedgerQuery opens the span covering one full
+// cost_ledger read (docs/specifications/state-backend.md#cost_ledger), for
+// use by statebackend.Session.CostLedger.
+func (p *Provider) StartStateBackendCostLedgerQuery(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendCostLedgerQuery, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartStateBackendPlanItemsQuery opens the span covering one full
+// plan_items read (docs/specifications/state-backend.md#plan_items), for
+// use by statebackend.Session.PlanItems.
+func (p *Provider) StartStateBackendPlanItemsQuery(ctx context.Context, sessionID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameStateBackendPlanItemsQuery, trace.WithAttributes(SessionIDKey.String(sessionID)))
 }
 
 // EndSpan ends span, recording err onto it first if non-nil (RecordError
