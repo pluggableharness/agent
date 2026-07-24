@@ -40,7 +40,7 @@ func TestService_GetCapabilities_Error(t *testing.T) {
 
 	provider := &fakeProvider{
 		capabilitiesFunc: func(context.Context) (*frontend.Capabilities, error) {
-			return nil, &frontend.FrontendError{
+			return nil, &frontend.Error{
 				Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNKNOWN,
 				Message:  "boom",
 			}
@@ -83,7 +83,7 @@ func TestService_Configure_InvalidArgument(t *testing.T) {
 
 	provider := &fakeProvider{
 		configureFunc: func(context.Context, *structpb.Struct) error {
-			return &frontend.FrontendError{
+			return &frontend.Error{
 				Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT,
 				Message:  "malformed theme",
 			}

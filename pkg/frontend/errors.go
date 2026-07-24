@@ -11,11 +11,11 @@ import (
 )
 
 // errorDomain is the google.rpc.ErrorInfo domain passed to
-// plugin.StatusError for every FrontendError this package surfaces as a
+// plugin.StatusError for every Error this package surfaces as a
 // gRPC status, per .claude/rules/grpc.md's error taxonomy.
 const errorDomain = "frontend.pluggableharness.dev"
 
-// FrontendError is the domain form of frontendv1.FrontendError — the
+// Error is the domain form of frontendv1.FrontendError — the
 // structured error type for this category, carried in ServerEvent.error
 // mid-Attach and in the structured detail of a Configure-time gRPC status
 // (doc.go's "Error handling is two distinct paths, not one").
@@ -35,19 +35,19 @@ const errorDomain = "frontend.pluggableharness.dev"
 //	FRONTEND_ERROR_CATEGORY_SESSION_BUSY            codes.FailedPrecondition (reserved; no variant in this protocol revision currently triggers it)
 //	FRONTEND_ERROR_CATEGORY_SCHEMA_TOO_NEW          codes.FailedPrecondition (resume_session named a session file newer than this kernel understands)
 //	FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY     codes.FailedPrecondition (a new-turn-inducing event targeted a session attached replay-only)
-type FrontendError struct {
+type Error struct {
 	Category frontendv1.FrontendErrorCategory
 	Message  string
 }
 
 // Error implements the error interface.
-func (e *FrontendError) Error() string {
+func (e *Error) Error() string {
 	return fmt.Sprintf("frontend: %s: %s", e.Category, e.Message)
 }
 
 // grpcCode maps e.Category to the grpc/codes.Code a Configure-time status
-// built from e carries, per the table on FrontendError's own doc comment.
-func (e *FrontendError) grpcCode() codes.Code {
+// built from e carries, per the table on Error's own doc comment.
+func (e *Error) grpcCode() codes.Code {
 	switch e.Category {
 	case frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT,
 		frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED:
@@ -70,45 +70,45 @@ func (e *FrontendError) grpcCode() codes.Code {
 
 // StatusErr builds the gRPC status a Configure-time e surfaces as, per
 // frontend-protocol.md's "ConfigureResponse errors surface as a gRPC
-// status carrying a FrontendError in its structured detail."
-func (e *FrontendError) StatusErr() error {
+// status carrying a Error in its structured detail."
+func (e *Error) StatusErr() error {
 	return plugin.StatusError(e.grpcCode(), errorDomain, e.Category.String(), e.Message, nil)
 }
 
 // statusErr converts an arbitrary error returned by Provider.Capabilities
 // or Provider.Configure into the gRPC status NewService's unary handlers
-// return: err's own FrontendError when it carries one, or a generic
+// return: err's own Error when it carries one, or a generic
 // FRONTEND_ERROR_CATEGORY_UNKNOWN status otherwise.
 func statusErr(err error) error {
-	var fe *FrontendError
+	var fe *Error
 	if errors.As(err, &fe) {
 		return fe.StatusErr()
 	}
-	return (&FrontendError{
+	return (&Error{
 		Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNKNOWN,
 		Message:  err.Error(),
 	}).StatusErr()
 }
 
 // inBandError converts an arbitrary error returned by Provider.HandleEvent
-// into the FrontendError attach.go reports in-band via ErrorEvent: err's
-// own FrontendError when it carries one, or a generic
+// into the Error attach.go reports in-band via ErrorEvent: err's
+// own Error when it carries one, or a generic
 // FRONTEND_ERROR_CATEGORY_UNKNOWN otherwise.
-func inBandError(err error) *FrontendError {
-	var fe *FrontendError
+func inBandError(err error) *Error {
+	var fe *Error
 	if errors.As(err, &fe) {
 		return fe
 	}
-	return &FrontendError{
+	return &Error{
 		Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNKNOWN,
 		Message:  err.Error(),
 	}
 }
 
-// FatalErr, returned by Fatal, signals attach.go's dispatch loop that Err
-// represents a genuinely fatal condition — the plugin process itself
-// failing — so the Attach stream MUST close with a gRPC status rather than
-// take the ordinary in-band ServerEvent.error path every other
+// FatalErr signals, when returned by Fatal, that attach.go's dispatch loop
+// should treat Err as a genuinely fatal condition — the plugin process
+// itself failing — so the Attach stream MUST close with a gRPC status
+// rather than take the ordinary in-band ServerEvent.error path every other
 // Provider.HandleEvent error takes (doc.go's "Error handling is two
 // distinct paths, not one"; frontend-protocol.md's error-taxonomy
 // asymmetry).

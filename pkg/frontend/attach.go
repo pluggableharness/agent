@@ -41,7 +41,7 @@ func (svc *Service) Attach(stream frontendv1.FrontendService_AttachServer) error
 
 		event, convErr := fromClientEventProto(in)
 		if convErr != nil {
-			if sendErr := conn.emitError(nil, &FrontendError{
+			if sendErr := conn.emitError(nil, &Error{
 				Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT,
 				Message:  convErr.Error(),
 			}); sendErr != nil {
@@ -107,7 +107,7 @@ func (c *connection) Emit(event ServerEvent) error {
 // two distinct paths, not one"). Its own Send failure is returned
 // unwrapped so Attach's dispatch loop treats it exactly like any other
 // broken-stream condition: fatal, closing the RPC with a gRPC status.
-func (c *connection) emitError(requestID *string, fe *FrontendError) error {
+func (c *connection) emitError(requestID *string, fe *Error) error {
 	return c.Emit(ServerEvent{RequestID: requestID, Payload: ErrorEvent{Err: fe}})
 }
 

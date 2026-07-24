@@ -84,9 +84,9 @@
 // # Error handling is two distinct paths, not one
 //
 // A Configure-time error surfaces as a gRPC status carrying a
-// [FrontendError] in structured detail, built via
+// [Error] in structured detail, built via
 // github.com/pluggableharness/agent/pkg/plugin's StatusError — see
-// [FrontendError.StatusErr]. An error encountered mid-Attach (a bad
+// [Error.StatusErr]. An error encountered mid-Attach (a bad
 // render, a malformed ClientEvent, a Provider.HandleEvent failure) instead
 // surfaces in-band as ServerEvent.error, keeping the long-lived stream
 // open, since tearing down the whole connection over one recoverable

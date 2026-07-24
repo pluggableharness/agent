@@ -14,7 +14,7 @@ import (
 func TestFrontendError_Error(t *testing.T) {
 	t.Parallel()
 
-	fe := &frontend.FrontendError{
+	fe := &frontend.Error{
 		Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND,
 		Message:  "boom",
 	}
@@ -49,7 +49,7 @@ func TestFrontendError_StatusErr(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fe := &frontend.FrontendError{Category: tt.category, Message: "detail"}
+			fe := &frontend.Error{Category: tt.category, Message: "detail"}
 			err := fe.StatusErr()
 
 			st, ok := status.FromError(err)

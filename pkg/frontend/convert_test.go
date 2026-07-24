@@ -144,7 +144,7 @@ func TestServerEventRoundTrip(t *testing.T) {
 			ParentSessionID: "p1", ChildSessionID: "c1", Status: sessionv1.SessionStatus_SESSION_STATUS_RUNNING,
 		}}},
 		{"error", ServerEvent{SessionID: "s1", RequestID: requestID, Payload: ErrorEvent{
-			Err: &FrontendError{Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_RENDER_FAILED, Message: "bad diff"},
+			Err: &Error{Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_RENDER_FAILED, Message: "bad diff"},
 		}}},
 		{"session_created", ServerEvent{SessionID: "s1", RequestID: requestID, Payload: SessionCreated{Info: &sessionv1.SessionInfo{SessionId: "s1"}}}},
 		{"session_attached", ServerEvent{SessionID: "s1", RequestID: requestID, Payload: SessionAttached{Info: &sessionv1.SessionInfo{SessionId: "s1"}}}},

@@ -49,8 +49,8 @@ type Provider interface {
 	Capabilities(ctx context.Context) (*Capabilities, error)
 	// Configure applies this provider's agent.hcl configuration, already
 	// validated by the kernel against the ConfigSchema Capabilities
-	// returned. A returned *FrontendError becomes the structured detail
-	// of the resulting gRPC status (see FrontendError.StatusErr); any
+	// returned. A returned *Error becomes the structured detail
+	// of the resulting gRPC status (see Error.StatusErr); any
 	// other error is wrapped as FRONTEND_ERROR_CATEGORY_UNKNOWN.
 	Configure(ctx context.Context, config *structpb.Struct) error
 	// HandleEvent is invoked once per ClientEvent this connection's
@@ -367,11 +367,11 @@ type SessionTreeUpdate struct {
 
 func (SessionTreeUpdate) isServerEventPayload() {}
 
-// ErrorEvent carries a structured, non-fatal FrontendError for display —
+// ErrorEvent carries a structured, non-fatal Error for display —
 // the in-band error path (doc.go's "Error handling is two distinct paths,
 // not one").
 type ErrorEvent struct {
-	Err *FrontendError
+	Err *Error
 }
 
 func (ErrorEvent) isServerEventPayload() {}

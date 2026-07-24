@@ -40,9 +40,9 @@ func userMessageEvent(sessionID, text string) *frontendv1.ClientEvent {
 	}
 }
 
-func interruptEvent(sessionID string) *frontendv1.ClientEvent {
+func interruptEvent() *frontendv1.ClientEvent {
 	return &frontendv1.ClientEvent{
-		SessionId: sessionID,
+		SessionId: "sess-1",
 		Event:     &frontendv1.ClientEvent_Interrupt_{Interrupt: &frontendv1.ClientEvent_Interrupt{}},
 	}
 }
@@ -183,7 +183,7 @@ func TestAttach_InBandErrorKeepsStreamOpen(t *testing.T) {
 
 	stream := attachClient(t, provider)
 
-	if err := stream.Send(interruptEvent("sess-1")); err != nil {
+	if err := stream.Send(interruptEvent()); err != nil {
 		t.Fatalf("Send() (first) error = %v", err)
 	}
 	resp1, err := stream.Recv()
@@ -199,7 +199,7 @@ func TestAttach_InBandErrorKeepsStreamOpen(t *testing.T) {
 	}
 
 	// The stream stays open: a second event is still handled normally.
-	if err := stream.Send(interruptEvent("sess-1")); err != nil {
+	if err := stream.Send(interruptEvent()); err != nil {
 		t.Fatalf("Send() (second) error = %v", err)
 	}
 	resp2, err := stream.Recv()
@@ -224,7 +224,7 @@ func TestAttach_FatalClosesStream(t *testing.T) {
 
 	stream := attachClient(t, provider)
 
-	if err := stream.Send(interruptEvent("sess-1")); err != nil {
+	if err := stream.Send(interruptEvent()); err != nil {
 		t.Fatalf("Send() error = %v", err)
 	}
 
@@ -303,7 +303,7 @@ func TestAttach_UnicastNotBroadcast(t *testing.T) {
 		t.Fatalf("Attach() (B) error = %v", err)
 	}
 
-	if err := streamA.Send(interruptEvent("sess-1")); err != nil {
+	if err := streamA.Send(interruptEvent()); err != nil {
 		t.Fatalf("Send() error = %v", err)
 	}
 

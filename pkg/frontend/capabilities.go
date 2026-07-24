@@ -56,15 +56,3 @@ func capabilitiesToProto(c *Capabilities) *frontendv1.FrontendCapabilities {
 		SupportedHookPoints: c.SupportedHookPoints,
 	}
 }
-
-// capabilitiesFromProto converts the generated FrontendCapabilities back
-// into its domain form — the inverse of capabilitiesToProto, provided for
-// symmetry and round-trip testability.
-func capabilitiesFromProto(in *frontendv1.FrontendCapabilities) *Capabilities {
-	return &Capabilities{
-		SlashCommands:       in.GetSlashCommands(),
-		ConfigSchema:        in.GetConfigSchema(),
-		SupportedRegions:    in.GetSupportedRegions(),
-		SupportedHookPoints: in.GetSupportedHookPoints(),
-	}
-}

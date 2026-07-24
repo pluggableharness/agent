@@ -29,7 +29,7 @@ var (
 	// ErrNilFrontendError is returned when an ErrorEvent's Err field is
 	// nil — a caller-constructed ServerEvent that skipped the one field
 	// ErrorEvent exists to carry.
-	ErrNilFrontendError = errors.New("frontend: error event carries no FrontendError")
+	ErrNilFrontendError = errors.New("frontend: error event carries no Error")
 )
 
 // fromClientEventProto converts in into its domain form, validating the
@@ -272,7 +272,7 @@ func fromServerEventProto(in *frontendv1.ServerEvent) (ServerEvent, error) {
 		}
 	case *frontendv1.ServerEvent_Error_:
 		fe := ev.Error.GetError()
-		out.Payload = ErrorEvent{Err: &FrontendError{Category: fe.GetCategory(), Message: fe.GetMessage()}}
+		out.Payload = ErrorEvent{Err: &Error{Category: fe.GetCategory(), Message: fe.GetMessage()}}
 	case *frontendv1.ServerEvent_SessionCreated_:
 		out.Payload = SessionCreated{Info: ev.SessionCreated.GetInfo()}
 	case *frontendv1.ServerEvent_SessionAttached_:

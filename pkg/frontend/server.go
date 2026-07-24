@@ -56,7 +56,7 @@ func (svc *Service) GetCapabilities(ctx context.Context, _ *frontendv1.GetCapabi
 }
 
 // Configure applies this provider's agent.hcl configuration. Unary. A
-// returned error surfaces as a gRPC status carrying a FrontendError in its
+// returned error surfaces as a gRPC status carrying a Error in its
 // structured detail, never as an in-band field on ConfigureResponse
 // (doc.go's "Error handling is two distinct paths, not one").
 func (svc *Service) Configure(ctx context.Context, req *frontendv1.ConfigureRequest) (*frontendv1.ConfigureResponse, error) {
