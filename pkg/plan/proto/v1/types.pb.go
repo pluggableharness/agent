@@ -568,7 +568,7 @@ var File_pluggableharness_plan_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_plan_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"$pluggableharness/plan/v1/types.proto\x12\x18pluggableharness.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/render/v1/types.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xed\x03\n" +
+	"$pluggableharness/plan/v1/types.proto\x12\x18pluggableharness.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/render/v1/types.proto\x1a%pluggableharness/tool/v1/errors.proto\x1a$pluggableharness/tool/v1/types.proto\"\xed\x03\n" +
 	"\bPlanItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\ftool_call_id\x18\x02 \x01(\tR\n" +

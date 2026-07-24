@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+// Package pluggableharness.tool.v1 defines the tool provider plugin protocol
+// described in specifications/tool.md — the wire contract for file I/O,
+// shell execution, search, web access, task tracking, sub-agent spawning,
+// and similar operations.
+package pluggableharness.tool.v1;
+
+import "pluggableharness/tool/v1/events.proto";
+import "pluggableharness/tool/v1/rpc_request.proto";
+import "pluggableharness/tool/v1/rpc_response.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1";
+
+// ToolService is the tool provider plugin protocol described in
+// specifications/tool.md §1-§8. A tool provider plugin exposes GetSchema,
+// Configure, and Invoke; it MAY additionally implement Render.
+service ToolService {
+  // GetSchema returns the ToolSchema for every operation this plugin
+  // exposes, per tool.md §2. MUST be cheaply re-queryable and MUST NOT
+  // require a network call — a provider wrapping a hosted service declares
+  // its schema statically; only Invoke talks to the network.
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+
+  // Configure decodes this provider's agent.hcl block, per tool.md §3. The
+  // request is already-decoded JSON (the schema-to-cty bridge is
+  // kernel-internal and never crosses the wire). Errors surface as a gRPC
+  // status carrying a ToolError in its structured detail, per grpc.md — not
+  // an in-band field on ConfigureResponse.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // Invoke executes one tool call and streams back its events, per
+  // tool.md §4. Server-streaming, reusing model.md §1's shape verbatim —
+  // a non-incremental operation MUST still implement this shape, emitting
+  // exactly one terminal `result` or `error`. Cancellation is the kernel
+  // closing the gRPC stream; the plugin MUST treat this as normal control
+  // flow (kill any child process, release handles), never as an error.
+  rpc Invoke(InvokeRequest) returns (stream InvokeResponse);
+
+  // Render returns a RenderTree for a previously-emitted opaque payload,
+  // per tool.md §7. MAY be implemented; if absent, the kernel falls back to
+  // its generic default (pretty-printed JSON payload).
+  rpc Render(RenderRequest) returns (RenderResponse);
+
+  // Preview returns a dry-run, human-readable description of what Invoke
+  // would do for the given call, without performing it — per
+  // protocol.md#preview. MAY be implemented; a kernel MUST tolerate its
+  // absence and fall back to showing the call's raw arguments in the
+  // plan/apply gate's permission UI.
+  rpc Preview(PreviewRequest) returns (PreviewResponse);
+
+  // Describe reports this plugin build's own identity — per
+  // protocol.md#describe and configuration/lock-file.md's dev_overrides
+  // note, this is how the kernel learns a dev_overrides-resolved plugin's
+  // {name, version, source, category, protocol_version} when there is no
+  // lock-file entry to read it from.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+}

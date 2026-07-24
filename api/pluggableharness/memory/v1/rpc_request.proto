@@ -1,0 +1,184 @@
+syntax = "proto3";
+
+package pluggableharness.memory.v1;
+
+import "google/protobuf/struct.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/memory/v1/types.proto";
+import "pluggableharness/model/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1";
+
+// Request messages for MemoryService's unary RPCs.
+
+// GetCapabilitiesRequest carries no fields; GetCapabilities takes no
+// parameters beyond the plugin handshake already having occurred.
+message GetCapabilitiesRequest {}
+
+// ConfigureRequest wraps this provider's already-decoded agent.hcl config
+// block. memory.md §5.
+message ConfigureRequest {
+  // The decoded config, per the schema this provider advertised in
+  // MemoryCapabilities.config_schema (configuration.md §4). Already
+  // decoded from HCL/cty by the kernel — this is a Struct because the
+  // shape is genuinely provider-defined at the proto level (see
+  // .claude/rules/proto.md's Struct carve-out), not because the value
+  // itself is untyped.
+  google.protobuf.Struct config = 1;
+}
+
+// RecallRequest is the read-side query, issued at context-assemble time.
+// memory.md §6.
+message RecallRequest {
+  // The requesting session's id.
+  string session_id = 1;
+
+  // The current turn within that session. A ULID, standardized across the
+  // whole protocol (matches plan.v1's turn_id field and context.v1's
+  // ContextRequest.turn_id, same treatment). Same field number as the
+  // retired int64 turn-number predecessor field; the rename is a
+  // sanctioned pre-release wire change, not a v2 bump.
+  string turn_id = 2;
+
+  // The token budget this Recall call MUST self-truncate its returned
+  // records to. Competes for the same budget pool as context providers,
+  // resolved the same way context.md §6 resolves a context provider's cap.
+  int64 token_budget = 3;
+
+  // The model this recall is being assembled for, mirroring context.md
+  // §4's ContextRequest field. Lets a provider pass a precise model
+  // reference into the CountTokens kernel callback (kernel-callbacks.md
+  // §2) — added per kernel-callbacks.md §6's correction. MUST be set.
+  pluggableharness.model.v1.ModelTarget model_target = 4;
+
+  // Paths of files touched so far this turn, mirroring context.md §4's
+  // field of the same name. MAY be empty.
+  repeated string files_touched = 5;
+
+  // The session's current working directory.
+  string working_directory = 6;
+
+  // Restricts results to these MemoryTypes. MAY be empty, meaning all
+  // types this provider supports.
+  repeated MemoryType type_filter = 7;
+
+  // Restricts results to these MemoryScopes. MAY be empty, meaning all
+  // scopes this provider supports.
+  repeated MemoryScope scope_filter = 8;
+
+  // Whether PENDING-status records may be included in the response. MUST
+  // default to false — a PENDING record MUST NOT surface through ordinary
+  // recall unless this is true (memory.md §6, §8).
+  bool include_pending = 9;
+}
+
+// RecordRequest creates a new record. memory.md §7.
+message RecordRequest {
+  // This record's fixed taxonomy classification. MUST be set.
+  MemoryType type = 1;
+
+  // This record's visibility scope. MUST be set.
+  MemoryScope scope = 2;
+
+  // An author-suggested slug. MAY be omitted, in which case the provider
+  // derives one from content; the kernel disambiguates collisions with a
+  // numeric suffix (memory.md §7) rather than overwriting or rejecting.
+  optional string id = 3;
+
+  // Human-readable title.
+  string title = 4;
+
+  // The record's content.
+  repeated pluggableharness.content.v1.ContentBlock content = 5;
+}
+
+// UpdateRecordRequest replaces an existing record's title/content
+// wholesale. memory.md §7.
+message UpdateRecordRequest {
+  // The existing record's id. MUST match an existing record, or the call
+  // fails with a structured MemoryError.
+  string id = 1;
+
+  // The record's new title. Unset leaves the existing title unchanged.
+  optional string title = 2;
+
+  // The record's new content, replacing the existing content wholesale —
+  // not a patch. MUST be set.
+  repeated pluggableharness.content.v1.ContentBlock content = 3;
+}
+
+// DeleteRecordRequest identifies the record to remove. memory.md §7.
+message DeleteRecordRequest {
+  // The existing record's id. MUST match an existing record, or the call
+  // fails with a structured MemoryError.
+  string id = 1;
+}
+
+// ApproveRecordRequest identifies the pending record to transition to
+// CANONICAL. memory.md §8.
+message ApproveRecordRequest {
+  // The pending record's id.
+  string id = 1;
+}
+
+// RejectRecordRequest identifies the pending record to discard entirely.
+// memory.md §8.
+message RejectRecordRequest {
+  // The pending record's id.
+  string id = 1;
+}
+
+// RenderRequest carries the opaque payload to render. memory.md §10.
+message RenderRequest {
+  // The opaque emitted payload to render — see grpc.md's Emit->Render->
+  // Paint carve-out; this is the one field in this file that is
+  // deliberately untyped bytes rather than a concrete message.
+  bytes payload = 1;
+
+  // The schema version this payload was emitted against, so a Render
+  // implementation can detect drift between the version it was built
+  // against and the version live in a running session. See
+  // ../frontend/render-tree.md#schema-versioning for the canonical
+  // definition of this field's semantics (owned by the frontend/widget
+  // workstream; this field just carries the same value).
+  string schema_version = 2;
+}
+
+// ListRecordsRequest is the enumeration/audit query: paginated browsing of
+// this provider's records, filterable by type/scope/status. Unlike
+// RecallRequest, there is no include_pending gate — this is the
+// review-inbox path (e.g. a ratification review UI or generic record
+// browsing), where PENDING records ARE listable, not the budget-constrained
+// per-turn recall path. memory.md §7.
+message ListRecordsRequest {
+  // Restricts results to these MemoryTypes. MAY be empty, meaning all
+  // types this provider supports.
+  repeated MemoryType type_filter = 1;
+
+  // Restricts results to these MemoryScopes. MAY be empty, meaning all
+  // scopes this provider supports.
+  repeated MemoryScope scope_filter = 2;
+
+  // Restricts results to this RecordStatus. Unset means both CANONICAL and
+  // PENDING records are eligible — this is the one path where a PENDING
+  // record is listable without any include_pending-style gate.
+  optional RecordStatus status_filter = 3;
+
+  // Maximum number of records to return in one page.
+  int32 page_size = 4;
+
+  // Opaque continuation token from a prior ListRecordsResponse.
+  // next_page_token. Empty on the first page.
+  string page_token = 5;
+}
+
+// GetRecordRequest identifies exactly one record to fetch by id.
+message GetRecordRequest {
+  // The record's id. MUST match an existing record, or the call fails with
+  // a structured MemoryError (category NOT_FOUND).
+  string id = 1;
+}
+
+// DescribeRequest carries no fields — Describe takes no request-scoped
+// parameters.
+message DescribeRequest {}

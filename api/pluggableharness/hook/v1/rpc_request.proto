@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package pluggableharness.hook.v1;
+
+import "pluggableharness/hook/v1/events.proto";
+import "pluggableharness/hook/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1";
+
+// Request message for the hook-dispatch protocol's RPC.
+
+// DispatchHookRequest is one hook-point firing delivered to one
+// subscriber.
+message DispatchHookRequest {
+  // The payload for this firing. MUST be set; the set oneof variant
+  // implicitly identifies the hook point.
+  HookPayload payload = 1;
+  // The operator-configured mode this subscription runs under
+  // (agent.hcl's hook{} block). MUST be set — tells the subscriber which
+  // of DispatchHookResponse's three outcome shapes is expected back.
+  HookMode mode = 2;
+  // Disambiguates a plugin declaring more than one hook{} block at the
+  // same HookPoint. Absent when a plugin has exactly one subscription at
+  // this point.
+  optional string subscription_id = 3;
+}

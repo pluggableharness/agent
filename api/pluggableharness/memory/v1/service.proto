@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+// Package pluggableharness.memory.v1 defines the memory provider plugin protocol
+// described in specifications/memory.md — plugins that persist knowledge
+// across sessions (the write side) and recall it into future ones (the
+// read side). A distinct plugin category with its own protocol, not a
+// reuse of context.md's Contribute RPC, so record-specific data (type,
+// scope, provenance, ratification status) stays first-class through a
+// dedicated Recall RPC; the kernel adapts results into ContextSections
+// before merging them into the assembled prompt (memory.md §6).
+package pluggableharness.memory.v1;
+
+import "pluggableharness/memory/v1/rpc_request.proto";
+import "pluggableharness/memory/v1/rpc_response.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1";
+
+// MemoryService implements the memory provider protocol described in
+// specifications/memory.md §2-11.
+service MemoryService {
+  // GetCapabilities reports what this provider supports before any other
+  // RPC is issued. Unary. memory.md §3.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+
+  // Configure decodes this provider's agent.hcl config block, per the
+  // same schema-to-cty bridge contract as the rest of this spec series
+  // (model.md §3). Unary. memory.md §5.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // Recall is the read side: it fires at context-assemble time, competing
+  // for the same token budget pool as context providers, and returns the
+  // records this provider judges relevant. Unary. memory.md §6.
+  rpc Recall(RecallRequest) returns (RecallResponse);
+
+  // Record is the write side: it creates a new record. Unary. memory.md §7.
+  rpc Record(RecordRequest) returns (RecordResponse);
+
+  // UpdateRecord replaces an existing record's title/content wholesale
+  // (not a patch). MUST fail with a structured MemoryError (memory.md §11)
+  // if `id` doesn't match an existing record, rather than silently
+  // no-op'ing. Unary. memory.md §7.
+  rpc UpdateRecord(UpdateRecordRequest) returns (UpdateRecordResponse);
+
+  // DeleteRecord removes an existing record. MUST fail with a structured
+  // MemoryError (memory.md §11) if `id` doesn't match an existing record,
+  // rather than silently no-op'ing. Unary. memory.md §7.
+  rpc DeleteRecord(DeleteRecordRequest) returns (DeleteRecordResponse);
+
+  // ApproveRecord transitions a record from PENDING to CANONICAL. MAY be
+  // implemented; a provider declaring ratification_supported = true MUST
+  // implement it. Unary. memory.md §8.
+  rpc ApproveRecord(ApproveRecordRequest) returns (ApproveRecordResponse);
+
+  // RejectRecord discards a pending draft entirely — not a soft delete.
+  // MAY be implemented, under the same ratification_supported = true
+  // requirement as ApproveRecord. Unary. memory.md §8.
+  rpc RejectRecord(RejectRecordRequest) returns (RejectRecordResponse);
+
+  // Render returns this provider's own RenderTree for its content (e.g. a
+  // review-inbox view distinct from ordinary recall), in place of the
+  // kernel's generic fallback. MAY be implemented. Unary. memory.md §10.
+  rpc Render(RenderRequest) returns (RenderResponse);
+
+  // ListRecords is the enumeration/audit path: paginated browsing of this
+  // provider's records, filterable by type/scope/status. Unlike Recall,
+  // PENDING records ARE listable here without any include_pending-style
+  // gate — this is the review-inbox path (e.g. a ratification review UI),
+  // not the budget-constrained per-turn recall path. MUST be implemented;
+  // cheap for any real backend. memory.md §7.
+  rpc ListRecords(ListRecordsRequest) returns (ListRecordsResponse);
+
+  // GetRecord fetches exactly one record by id. MUST fail with a
+  // structured MemoryError (category NOT_FOUND) if `id` doesn't match an
+  // existing record, rather than returning an empty result. MUST be
+  // implemented; cheap for any real backend. memory.md §7.
+  rpc GetRecord(GetRecordRequest) returns (GetRecordResponse);
+
+  // Describe reports this plugin build's own identity — {name, version,
+  // source, category, protocol_version} via ProducerRef — independent of
+  // any lock-file entry. This is the mechanism a dev_overrides-resolved
+  // binary (which has no provider {} lock entry to read identity from)
+  // uses to self-report at connection time; see
+  // docs/specifications/configuration/lock-file.md's dev_overrides note,
+  // which is the canonical explanation for this RPC across every plugin
+  // category that gains it in this protocol revision.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+}

@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package pluggableharness.widget.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1";
+
+// The widget provider protocol's error taxonomy.
+
+// WidgetErrorCategory classifies a WidgetError, mirroring
+// FrontendErrorCategory's shape (frontend/v1/errors.proto) for the widget category —
+// resolves frontend/conformance.md's prior open question of whether
+// widgets need a structured error type of their own.
+enum WidgetErrorCategory {
+  // Zero value. Never valid for a real error; its presence on the wire
+  // means a caller forgot to set the field.
+  WIDGET_ERROR_CATEGORY_UNSPECIFIED = 0;
+  // A RenderTree or WidgetUpdate could not be displayed.
+  WIDGET_ERROR_CATEGORY_RENDER_FAILED = 1;
+  // A WidgetUpdate named a Region this widget's frontend cannot honor.
+  WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED = 2;
+  // An error that does not fit any other category.
+  WIDGET_ERROR_CATEGORY_UNKNOWN = 3;
+}
+
+// WidgetError is the structured error type for the widget category,
+// mirroring FrontendError (frontend/v1/errors.proto). Unlike the frontend category
+// (whose Attach errors surface in-band via ServerEvent.Error), widget
+// Attach has no return channel other than the stream itself — WidgetError
+// is carried in the structured detail of a gRPC status on Configure or
+// Attach, per .claude/rules/grpc.md's error-taxonomy discipline, not as an
+// in-band stream message.
+message WidgetError {
+  // The error's category.
+  WidgetErrorCategory category = 1;
+  // A human-readable message.
+  string message = 2;
+}

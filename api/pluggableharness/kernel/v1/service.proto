@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+// Package pluggableharness.kernel.v1 defines the kernel-callback service described
+// in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
+// Log) — the plugin-to-kernel calling direction every plugin category gets
+// at handshake, the reverse of every other category's protocol in this
+// series. Unlike a category plugin protocol, this service carries no
+// GetCapabilities/Configure RPCs: it isn't something the kernel dials into
+// a plugin, it's the connection every plugin subprocess is handed back to
+// call into the kernel.
+package pluggableharness.kernel.v1;
+
+import "pluggableharness/kernel/v1/rpc_request.proto";
+import "pluggableharness/kernel/v1/rpc_response.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
+
+// KernelCallbackService is the plugin-to-kernel callback channel described
+// in specifications/kernel-callbacks.md §1. hashicorp/go-plugin natively
+// supports bidirectional plugins, and this is that mechanism: every plugin
+// subprocess, for every category defined across this series, MUST be given
+// a client connection to this service at handshake time, unconditionally.
+// A plugin that never calls back simply never uses it, but the channel's
+// presence is not gated on category — a context provider needing
+// CountTokens is just as valid a caller as a tool provider needing
+// RunSession.
+service KernelCallbackService {
+  // RunSession dispatches a nested sub-agent session under a named
+  // agent.hcl profile. Full semantics — profile resolution, budget
+  // inheritance, visibility of intermediate turns — are defined in
+  // agent-loop.md §7 and are not repeated here; kernel-callbacks.md §1
+  // gives this RPC's calling contract.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "RunSessionResult", the exact name agent-loop.md §7.1
+  // uses in its own data-type definition. Not a uniqueness violation:
+  // RunSessionResult is used by exactly this one RPC.
+  rpc RunSession(RunSessionRequest) returns (RunSessionResult);
+
+  // CountTokens resolves the token-counting gap independently flagged by
+  // context.md §12, configuration.md §12, memory.md §13, and frontend.md
+  // §10: exactly one kernel-owned implementation, so that `tokens` figures
+  // produced by different providers stay mutually comparable and additive
+  // for configuration.md §6's budget-sum arithmetic. See
+  // kernel-callbacks.md §2 for the resolution algorithm and §3 for the
+  // single documented fallback formula.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "CountTokensResult", the exact name kernel-callbacks.md
+  // §2 uses. Not a uniqueness violation: used by exactly this one RPC.
+  rpc CountTokens(CountTokensRequest) returns (CountTokensResult);
+
+  // Emit is how a plugin persists anything into the session's state
+  // backend. The kernel is the state backend's sole writer
+  // (state-backend.md §3) — a plugin never opens or writes the sqlite file
+  // directly; it calls Emit and the kernel performs the actual write,
+  // assigning the ordering-authoritative sequence number and the stable
+  // event id itself. See kernel-callbacks.md §4.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "EmitResult", the exact name kernel-callbacks.md §4
+  // uses. Not a uniqueness violation: used by exactly this one RPC.
+  rpc Emit(EmitRequest) returns (EmitResult);
+
+  // Log carries a plugin's own log output into the kernel's centralized
+  // logging, so it doesn't vanish into an unread subprocess stderr.
+  // Unlike Emit, a Log call is not tied to an active session — a plugin
+  // MAY call Log before any session exists (process startup, or from
+  // within Configure) or after one has ended (during shutdown). See
+  // kernel-callbacks.md §5.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "LogResult", the exact name kernel-callbacks.md §5
+  // uses. Not a uniqueness violation: used by exactly this one RPC.
+  rpc Log(LogRequest) returns (LogResult);
+}

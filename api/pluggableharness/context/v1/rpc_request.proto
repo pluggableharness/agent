@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package pluggableharness.context.v1;
+
+import "google/protobuf/struct.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/model/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1";
+
+// Request messages for the context provider protocol's RPCs.
+
+// GetCapabilitiesRequest carries no fields — GetCapabilities takes no
+// request-scoped parameters.
+message GetCapabilitiesRequest {}
+
+// ConfigureRequest wraps the provider's agent.hcl config block, already
+// decoded via the schema-to-cty bridge, for the Configure RPC.
+message ConfigureRequest {
+  // The decoded config object. Field contents are provider-specific — which
+  // file(s)/globs to read, max-hop @import depth, whether to strip HTML
+  // comments, etc. (context.md §3).
+  google.protobuf.Struct config = 1;
+}
+
+// ContextRequest is the context-assemble RPC's request, delivered to
+// Contribute once per firing. context.md §4.
+message ContextRequest {
+  // The current session's identifier.
+  string session_id = 1;
+
+  // The parent session's identifier, when this session is a sub-agent
+  // session. Empty for a top-level session.
+  string parent_session_id = 2;
+
+  // Which turn of the session this firing is for. A ULID, standardized
+  // across the whole protocol (matches plan.v1's turn_id field). Same field
+  // number as the retired int64 turn-number predecessor field; the rename
+  // is a sanctioned pre-release wire change, not a v2 bump.
+  string turn_id = 3;
+
+  // The kernel's computed token allocation for this provider on this call.
+  // MUST be set. A returned section MUST NOT exceed this. context.md §4,
+  // §6.
+  int64 token_budget = 4;
+
+  // The model this contribution is being assembled for, so the provider can
+  // tailor content (and compute tokens against the right budget) for the
+  // model that will actually consume it. MUST be set. context.md §4.
+  pluggableharness.model.v1.ModelTarget model_target = 5;
+
+  // Paths touched so far this session, enabling JIT-scoped contributions
+  // (e.g. a subdirectory-scoped convention-file reader). MAY be empty, e.g.
+  // at turn 0 / session start. context.md §4, §8.
+  repeated string files_touched = 6;
+
+  // The session's current working directory.
+  string working_directory = 7;
+
+  // The accumulated output of earlier providers in this hook's
+  // declaration-order chain. MUST be set (MAY be empty on the first
+  // provider in the chain). context.md §4, §5.
+  repeated pluggableharness.content.v1.ContextSection prior_sections = 8;
+
+  // The session's conversation history. Populated ONLY for a provider whose
+  // ContextCapabilities.compactor == true; a non-compactor provider MUST
+  // NOT receive this — for those providers this field arrives empty, which
+  // is indistinguishable from (and semantically equivalent to) "not
+  // provided". context.md §5.1.
+  repeated pluggableharness.content.v1.Message conversation_history = 9;
+
+  // The current conversation-history token total, kernel-computed. One of
+  // the two signals a compactor provider needs to decide WHEN to compact
+  // without re-counting history itself — see data-types.md's compactor
+  // workflow discussion in the orbit of §5.1.
+  int64 history_tokens = 10;
+
+  // The total assembled context size of the previous turn (all providers'
+  // sections combined), kernel-computed. The second compact-timing signal,
+  // alongside history_tokens above.
+  int64 assembled_tokens_last_turn = 11;
+}
+
+// RenderRequest carries the opaque payload for the optional Render RPC.
+message RenderRequest {
+  // The opaque emitted payload to render — see .claude/rules/grpc.md's
+  // Emit->Render->Paint carve-out. Never interpreted by the kernel or any
+  // other plugin; only the producing provider's own Render implementation
+  // understands its shape.
+  bytes payload = 1;
+
+  // The schema version this payload was emitted against, so a Render
+  // implementation can detect drift between the version it was built
+  // against and the version live in a running session. See
+  // ../frontend/render-tree.md#schema-versioning for the canonical
+  // definition of this field's semantics (owned by the frontend/widget
+  // workstream; this field just carries the same value).
+  string schema_version = 2;
+}
+
+// DescribeRequest carries no fields — Describe takes no request-scoped
+// parameters.
+message DescribeRequest {}

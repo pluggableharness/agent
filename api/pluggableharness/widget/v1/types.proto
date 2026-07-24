@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pluggableharness.widget.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1";
+
+// Domain types for the widget provider protocol.
+
+// WidgetCapabilities is this widget provider's complete capability
+// advertisement, per frontend.md §4.1.
+message WidgetCapabilities {
+  // MUST — the regions this widget intends to contribute to.
+  repeated pluggableharness.render.v1.Region regions = 1;
+
+  // This provider's agent.hcl config schema, per configuration.md §4 —
+  // what fields Configure's request may be decoded from.
+  pluggableharness.config.v1.ConfigSchema config_schema = 2;
+
+  // Hook points this widget can subscribe to in observe mode
+  // (agent-loop/hook-dispatch.md), so a mis-declared agent.hcl hook{}
+  // block naming an unsupported point can be rejected at config-load
+  // time rather than failing at first dispatch.
+  repeated pluggableharness.common.v1.HookPoint supported_hook_points = 3;
+}

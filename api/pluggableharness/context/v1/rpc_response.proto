@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package pluggableharness.context.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/context/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1";
+
+// Unary response messages for the context provider protocol's RPCs.
+
+// GetCapabilitiesResponse wraps ContextCapabilities for the RPC signature,
+// per this repo's per-RPC envelope convention (.claude/rules/proto.md).
+message GetCapabilitiesResponse {
+  ContextCapabilities capabilities = 1;
+}
+
+// ConfigureResponse is empty on success. A Configure failure (e.g. a
+// declared source path/glob resolving to nothing) surfaces as a gRPC status
+// carrying a ContextError in its structured detail, per
+// .claude/rules/grpc.md — not as an in-band field on this message.
+message ConfigureResponse {}
+
+// ContextContribution is Contribute's response: the full, possibly-modified
+// section chain, with this provider's own section appended — never a
+// delta. context.md §4.
+message ContextContribution {
+  // The full accumulated chain, in declaration order, including this
+  // provider's own new or updated section(s).
+  repeated pluggableharness.content.v1.ContextSection sections = 1;
+
+  // The session's conversation history, rewritten to replace what was sent
+  // in ContextRequest.conversation_history. MAY be included by a compactor
+  // provider (ContextCapabilities.compactor == true) alongside its section
+  // contribution. When present, the kernel MUST replace the turn's
+  // conversation history with this before the next model call. context.md
+  // §5.1.
+  repeated pluggableharness.content.v1.Message rewritten_history = 2;
+}
+
+// RenderResponse wraps the rendered output of the optional Render RPC.
+message RenderResponse {
+  // The rendered tree, per the general Emit->Render->Paint pipeline
+  // (frontend.md §1). context.md §9.
+  pluggableharness.render.v1.RenderTree tree = 1;
+}
+
+// DescribeResponse reports this plugin build's own identity. See the
+// Describe RPC comment on ContextService above.
+message DescribeResponse {
+  // This plugin build's identity: name, version, source, category,
+  // protocol_version.
+  pluggableharness.common.v1.ProducerRef producer = 1;
+}

@@ -615,7 +615,7 @@ var File_pluggableharness_event_v1_events_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_event_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"&pluggableharness/event/v1/events.proto\x12\x19pluggableharness.event.v1\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a#pluggableharness/hook/v1/hook.proto\x1a%pluggableharness/model/v1/model.proto\x1a$pluggableharness/plan/v1/types.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xe0\x01\n" +
+	"&pluggableharness/event/v1/events.proto\x12\x19pluggableharness.event.v1\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a%pluggableharness/hook/v1/errors.proto\x1a%pluggableharness/model/v1/types.proto\x1a$pluggableharness/plan/v1/types.proto\x1a%pluggableharness/tool/v1/errors.proto\x1a$pluggableharness/tool/v1/types.proto\"\xe0\x01\n" +
 	"\fMessageEvent\x12>\n" +
 	"\amessage\x18\x01 \x01(\v2$.pluggableharness.content.v1.MessageR\amessage\x12=\n" +
 	"\x05model\x18\x02 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\x05model\x126\n" +

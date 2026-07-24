@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pluggableharness.widget.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1";
+
+// Request messages for WidgetService's RPCs.
+
+// DescribeRequest carries no fields — Describe takes no parameters.
+message DescribeRequest {}
+
+// GetCapabilitiesRequest carries no fields — GetCapabilities takes no
+// parameters.
+message GetCapabilitiesRequest {}
+
+// ConfigureRequest carries this provider's already-decoded agent.hcl block.
+message ConfigureRequest {
+  // The provider's already-decoded config, per frontend.md §4.1.
+  google.protobuf.Struct config = 1;
+}
+
+// AttachRequest identifies which session's widget instance to attach to.
+message AttachRequest {
+  // The session this widget instance is attaching to.
+  string session_id = 1;
+}

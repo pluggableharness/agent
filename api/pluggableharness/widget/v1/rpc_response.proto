@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pluggableharness.widget.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/widget/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1";
+
+// Unary response messages for WidgetService's RPCs.
+
+// DescribeResponse reports this plugin build's own identity, obtained
+// directly from the running process rather than a lock-file row —
+// configuration/lock-file.md's "dev_overrides and identity without a lock
+// entry".
+message DescribeResponse {
+  pluggableharness.common.v1.ProducerRef producer = 1;
+}
+
+// GetCapabilitiesResponse wraps WidgetCapabilities for the RPC signature,
+// per this repo's per-RPC envelope convention (.claude/rules/proto.md).
+message GetCapabilitiesResponse {
+  WidgetCapabilities capabilities = 1;
+}
+
+// ConfigureResponse is empty on success. Errors surface as a gRPC status
+// per grpc.md — not an in-band field here.
+message ConfigureResponse {}

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package pluggableharness.kernel.v1;
+
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/session/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
+
+// Response messages for every KernelCallbackService RPC.
+
+// RunSessionResult carries the child session's outcome back to the
+// calling plugin once the child has reached a terminal state.
+message RunSessionResult {
+  // The id of the child session that was created and run.
+  string session_id = 1;
+
+  // The child session's final message — the only thing that crosses the
+  // session boundary back to the parent turn. Intermediate turns
+  // produced by the child are never visible to the parent's model
+  // context (agent-loop.md §7.2), though they remain queryable in the
+  // state backend for replay and audit.
+  pluggableharness.content.v1.Message final_message = 2;
+
+  // The child session's terminal lifecycle status. Never
+  // SESSION_STATUS_RUNNING — a RunSession call only returns once the
+  // child session has reached a terminal state.
+  pluggableharness.session.v1.SessionStatus status = 3;
+
+  // The child session's aggregate cost, in USD, summed across every turn
+  // it ran, including any of its own descendant sub-agent sessions. MUST
+  // be set. Deliberately a flat field, not a
+  // pluggableharness.model.v1.Usage-shaped reference — this is a
+  // whole-session rollup (state-backend.md's cost_ledger SUM, per
+  // .claude/rules/determinism.md's "Cost and budget rollup"), a different
+  // shape from one completion call's per-call Usage. Lets an orchestrator
+  // plugin do budget-aware fan-out (spend-check a child's outcome before
+  // deciding whether to spawn another) without needing to separately sum
+  // the child's own event history itself.
+  double total_cost_usd = 4;
+
+  // The child session's aggregate input token count, summed across every
+  // turn it ran, including descendants. MUST be set. Same flat,
+  // aggregate-not-per-call rationale as total_cost_usd.
+  int64 total_input_tokens = 5;
+
+  // The child session's aggregate output token count, summed across
+  // every turn it ran, including descendants. MUST be set. Same flat,
+  // aggregate-not-per-call rationale as total_cost_usd.
+  int64 total_output_tokens = 6;
+}
+
+// CountTokensResult carries the resolved token count and whether it came
+// from a real vendor tokenizer or the kernel's fallback heuristic.
+message CountTokensResult {
+  // The resolved token count.
+  int64 count = 1;
+
+  // MUST be set. True if a real vendor tokenizer produced this count
+  // (that model provider's own optional CountTokens RPC); false if the
+  // kernel's single documented fallback heuristic did
+  // (kernel-callbacks.md §3: ceil(total_utf8_byte_length(text)/4)).
+  bool exact = 2;
+}
+
+// EmitResult carries the identifiers the kernel assigned to a persisted
+// event.
+message EmitResult {
+  // The assigned, storage-independent event id.
+  string id = 1;
+
+  // The assigned, ordering-authoritative sequence number.
+  int64 sequence = 2;
+}
+
+// LogResult is empty: a Log call either succeeds or the RPC itself
+// returns a gRPC error status. There is nothing else to report back.
+message LogResult {}

@@ -55,10 +55,11 @@ package pluggableharness.event.v1;
 
 import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/content/v1/types.proto";
-import "pluggableharness/hook/v1/hook.proto";
-import "pluggableharness/model/v1/model.proto";
+import "pluggableharness/hook/v1/errors.proto";
+import "pluggableharness/model/v1/types.proto";
 import "pluggableharness/plan/v1/types.proto";
-import "pluggableharness/tool/v1/tool.proto";
+import "pluggableharness/tool/v1/errors.proto";
+import "pluggableharness/tool/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/event/proto/v1;eventv1";
 

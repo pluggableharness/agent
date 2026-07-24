@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package pluggableharness.kernel.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
+
+// Domain types shared across KernelCallbackService RPCs.
+
+// EventKind identifies the shape of an EmitRequest's opaque payload. This
+// is state-backend.md §5's authoritative kind enum, restated here only
+// because it is the wire-level type Emit actually carries —
+// state-backend.md §5 remains authoritative if the two ever need
+// reconciling again. Usage/cost figures, Render() output, and
+// session_start/session_end deliberately do NOT get their own EventKind;
+// see state-backend.md §5 for why.
+enum EventKind {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  EVENT_KIND_UNSPECIFIED = 0;
+
+  // A completed model turn's canonical message (model.md §5). Usage
+  // and cost figures live inside this payload, not as separate fields or
+  // a separate EventKind (state-backend.md §5).
+  EVENT_KIND_MESSAGE = 1;
+
+  // A tool invocation's call.
+  EVENT_KIND_TOOL_CALL = 2;
+
+  // A tool invocation's result.
+  EVENT_KIND_TOOL_RESULT = 3;
+
+  // A built Plan, prior to plan-ready dispatch.
+  EVENT_KIND_PLAN = 4;
+
+  // The outcome of applying a Plan.
+  EVENT_KIND_APPLY = 5;
+
+  // A context provider's Contribute output, or a memory provider's
+  // Recall output after kernel translation (memory.md §6).
+  EVENT_KIND_CONTEXT_CONTRIBUTION = 6;
+
+  // A memory provider's write of a new record.
+  EVENT_KIND_MEMORY_WRITE = 7;
+
+  // A memory provider's update of an existing record.
+  EVENT_KIND_MEMORY_UPDATE = 8;
+
+  // A memory provider's deletion of an existing record.
+  EVENT_KIND_MEMORY_DELETE = 9;
+
+  // Kernel-synthesized when a transform or veto hook subscriber fails
+  // (agent-loop/hook-dispatch.md#subscriber-error-handling) — never
+  // emitted by a plugin's own Emit call, only by the kernel itself
+  // dispatching a hook. Payload shape is
+  // pluggableharness.hook.v1.HookError, wrapped by the forthcoming
+  // event.v1 package's HookErrorEvent (state-backend.md §5).
+  EVENT_KIND_HOOK_ERROR = 10;
+}

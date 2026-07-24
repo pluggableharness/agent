@@ -1,0 +1,206 @@
+syntax = "proto3";
+
+package pluggableharness.memory.v1;
+
+import "google/protobuf/timestamp.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1";
+
+// Domain types shared across MemoryService's requests and responses.
+
+// MemoryType is the record taxonomy, fixed at the protocol level rather
+// than provider-defined (memory.md §4). A record MUST declare exactly one
+// MemoryType, and it is immutable after creation — recategorizing means
+// DeleteRecord followed by a new Record call, not UpdateRecord.
+enum MemoryType {
+  // Zero value. Never valid for a real record; its presence on the wire
+  // means a caller forgot to set the field.
+  MEMORY_TYPE_UNSPECIFIED = 0;
+  // The subject's role, goals, responsibilities, and knowledge. Tailors
+  // future behavior to who they are and what they already know.
+  MEMORY_TYPE_USER = 1;
+  // Guidance on how to approach work, captured from both corrections
+  // ("stop doing X") and confirmations ("yes, keep doing that") — both
+  // directions matter equally.
+  MEMORY_TYPE_FEEDBACK = 2;
+  // Ongoing work, goals, decisions, and incidents not otherwise derivable
+  // from code or git history. Decays faster than the other three types; a
+  // provider SHOULD weight recency more heavily for this type.
+  MEMORY_TYPE_PROJECT = 3;
+  // Pointers to where information lives in external systems (an issue
+  // tracker, a dashboard, a channel) — not the information itself.
+  MEMORY_TYPE_REFERENCE = 4;
+}
+
+// MemoryScope is the visibility taxonomy a record declares, fixed at the
+// protocol level (memory.md §4.1). Immutable per record once set, same as
+// MemoryType.
+enum MemoryScope {
+  // Zero value. Never valid for a real record; its presence on the wire
+  // means a caller forgot to set the field.
+  MEMORY_SCOPE_UNSPECIFIED = 0;
+  // Visible only within the session (and its descendants) that wrote it —
+  // not recalled by unrelated future sessions, though still durably
+  // logged to the state backend for audit.
+  MEMORY_SCOPE_SESSION = 1;
+  // Scoped to the current working directory/project, recalled by any
+  // session operating in that project.
+  MEMORY_SCOPE_PROJECT = 2;
+  // Recalled across every project, mirroring a memory system that spans
+  // all of a subject's work.
+  MEMORY_SCOPE_GLOBAL = 3;
+}
+
+// RecordStatus distinguishes a fully-persisted record from one awaiting
+// review under the optional ratification pattern (memory.md §8).
+enum RecordStatus {
+  // Zero value. Never valid for a real record; its presence on the wire
+  // means a caller forgot to set the field.
+  RECORD_STATUS_UNSPECIFIED = 0;
+  // The record is part of what Recall normally surfaces.
+  RECORD_STATUS_CANONICAL = 1;
+  // The record is a drafted-but-not-yet-reviewed write. A provider with
+  // ratification_supported == false MUST NEVER return this status
+  // (memory.md §8).
+  RECORD_STATUS_PENDING = 2;
+}
+
+// MemoryCapabilities is this provider's capability advertisement, returned
+// by GetCapabilities. memory.md §3.
+message MemoryCapabilities {
+  // The default token budget this provider requests for its Recall
+  // contributions, absent any override — same convention as context.md
+  // §6's reserved token_budget config field. MUST be set.
+  int64 default_token_budget = 1;
+
+  // Which MemoryTypes this provider handles. MUST be set; MAY be a subset
+  // of the full MemoryType enum.
+  repeated MemoryType supported_types = 2;
+
+  // Which MemoryScopes this provider handles. MUST be set; MAY be a
+  // subset of the full MemoryScope enum (e.g. project-only).
+  repeated MemoryScope supported_scopes = 3;
+
+  // Whether this provider implements the ApproveRecord/RejectRecord
+  // ratification pattern (memory.md §8). MUST be set; defaults to false.
+  bool ratification_supported = 4;
+
+  // Slash commands this provider contributes, per frontend.md §5. MAY be
+  // empty — the reference tools (memory.md §9.2) already cover the common
+  // remember/forget/search cases via the ordinary tool-provider path.
+  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 5;
+
+  // This provider's agent.hcl config schema, per configuration.md §4.
+  pluggableharness.config.v1.ConfigSchema config_schema = 6;
+
+  // Which hook points (agent-loop/hook-dispatch.md) this provider declares
+  // HookSubscriberService.DispatchHook subscriptions for. Note: this
+  // category's implicit post_model_response (observe, every turn) and
+  // session_end (fires once) write triggers (memory.md §Write triggers)
+  // now ride the hook.v1 HookSubscriberService.DispatchHook surface — see
+  // protocol.md's Write triggers section for the payload shapes. The
+  // HookPoint enum itself lives in common.v1, not hook.v1 — hook.v1
+  // imports this package's model/tool/plan dependencies, so a category
+  // capability message importing hook.v1 directly would cycle back
+  // through it; common.v1 is the shared leaf package instead.
+  repeated pluggableharness.common.v1.HookPoint supported_hook_points = 7;
+}
+
+// MemoryRecord is one persisted unit of memory. memory.md §6.
+message MemoryRecord {
+  // A slug, unique within this provider. Kernel-enforced uniqueness per
+  // memory.md §7.
+  string id = 1;
+
+  // This record's fixed taxonomy classification. Immutable after
+  // creation.
+  MemoryType type = 2;
+
+  // This record's visibility scope. MUST be set; immutable after
+  // creation, like `type`.
+  MemoryScope scope = 3;
+
+  // Human-readable title.
+  string title = 4;
+
+  // The record's content. Text-only in v1, same constraint as context.md
+  // §4.
+  repeated pluggableharness.content.v1.ContentBlock content = 5;
+
+  // This record's size, computed via the kernel's CountTokens callback
+  // (kernel-callbacks.md §2), never a provider-local heuristic.
+  int64 tokens = 6;
+
+  // Whether this record is fully persisted or awaiting ratification.
+  RecordStatus status = 7;
+
+  // Record ids this record references. MUST be set — kernel-parsed from
+  // "[[name]]" syntax in `content` at Record/UpdateRecord time
+  // (memory.md §7.1), not provider-populated.
+  repeated string links = 8;
+
+  // When this record was first created.
+  google.protobuf.Timestamp created_at = 9;
+
+  // When this record was last modified.
+  google.protobuf.Timestamp updated_at = 10;
+
+  // Where this record came from and who wrote it. Kernel-populated at
+  // Record time, immutable thereafter — never provider-supplied or
+  // provider-mutable. memory.md's README already frames provenance as
+  // first-class; this is where the record shape finally carries it.
+  Provenance provenance = 11;
+
+  // This record's recall-time relevance, in [0, 1]. Set only on
+  // Recall/ListRecords responses — never persisted, never present on a
+  // Record/UpdateRecord request or response. Lets the kernel merge
+  // multiple memory providers' results under one shared budget
+  // (data-types.md#recallrequest--memoryrecord) using a comparable score
+  // rather than provider-opaque ordering alone. A provider setting this
+  // MUST normalize it to [0, 1]; scores from different providers are only
+  // meaningfully comparable if each normalizes to the same range.
+  optional double relevance_score = 12;
+}
+
+// Provenance records where a MemoryRecord came from and who wrote it.
+// Kernel-populated at Record time; immutable afterward, like the rest of a
+// record's write-time metadata.
+message Provenance {
+  // The session id that produced this record.
+  string source_session_id = 1;
+
+  // The turn id (ULID, see ContextRequest.turn_id) within source_session_id
+  // that produced this record, when known. Absent for a record written
+  // outside normal turn flow (e.g. a backfill/import).
+  optional string source_turn_id = 2;
+
+  // The producing plugin's declared name, or the reference tool path that
+  // wrote it (e.g. "memory.remember"). Kernel-populated from the calling
+  // context, not provider-supplied.
+  string recorded_by = 3;
+}
+
+// RecordResult is the shared outcome shape for Record (via
+// RecordResponse), UpdateRecord (via UpdateRecordResponse), and
+// ApproveRecord (via ApproveRecordResponse) — a reusable domain type, not
+// itself an RPC response type for more than one RPC.
+message RecordResult {
+  // The final assigned slug. MUST be set.
+  string id = 1;
+
+  // Whether the write is fully persisted or awaiting ratification.
+  RecordStatus status = 2;
+}
+
+// DeleteResult is the shared outcome shape for DeleteRecord (via
+// DeleteRecordResponse) and RejectRecord (via RejectRecordResponse) — a
+// reusable domain type, not itself an RPC response type for more than one
+// RPC.
+message DeleteResult {
+  // True if a record was actually removed.
+  bool deleted = 1;
+}

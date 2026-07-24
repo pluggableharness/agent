@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package pluggableharness.widget.v1;
+
+import "pluggableharness/render/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1";
+
+// Occurrence-shaped messages streamed by Attach.
+
+// WidgetUpdate is one pushed update to this widget's rendered content, per
+// frontend.md §4.1.
+message WidgetUpdate {
+  // Which region this update places content into.
+  pluggableharness.render.v1.Region region = 1;
+
+  // The content to place.
+  pluggableharness.render.v1.RenderTree content = 2;
+
+  // True: replace this widget's prior content in `region`. False: append.
+  bool replace = 3;
+}

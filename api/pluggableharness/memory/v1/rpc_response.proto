@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package pluggableharness.memory.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/memory/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1";
+
+// Response messages for MemoryService's unary RPCs.
+
+// GetCapabilitiesResponse wraps this provider's capability advertisement.
+message GetCapabilitiesResponse {
+  // This provider's capabilities.
+  MemoryCapabilities capabilities = 1;
+}
+
+// ConfigureResponse is empty on success. Errors surface as a gRPC status
+// carrying a MemoryError in its structured detail, per grpc.md — not an
+// in-band field on this message.
+message ConfigureResponse {}
+
+// RecallResponse carries the records this provider judges relevant to the
+// requesting RecallRequest.
+message RecallResponse {
+  // The recalled records, in this provider's own relevance order.
+  repeated MemoryRecord records = 1;
+}
+
+// RecordResponse wraps Record's outcome.
+message RecordResponse {
+  // The newly created record's outcome.
+  RecordResult result = 1;
+}
+
+// UpdateRecordResponse wraps UpdateRecord's outcome, which is the same
+// shape as Record's (memory.md §7) but kept as its own per-RPC response
+// type — RecordResult itself stays a reusable domain type, not an RPC
+// response type shared across RPCs.
+message UpdateRecordResponse {
+  // The updated record's outcome.
+  RecordResult result = 1;
+}
+
+// DeleteRecordResponse wraps DeleteRecord's outcome.
+message DeleteRecordResponse {
+  // Whether the record was actually removed.
+  DeleteResult result = 1;
+}
+
+// ApproveRecordResponse wraps ApproveRecord's outcome, which is the same
+// shape as Record's (memory.md §8) but kept as its own per-RPC response
+// type — RecordResult itself stays a reusable domain type, not an RPC
+// response type shared across RPCs.
+message ApproveRecordResponse {
+  // The now-canonical record's outcome.
+  RecordResult result = 1;
+}
+
+// RejectRecordResponse wraps RejectRecord's outcome, which is the same
+// shape as DeleteRecord's (memory.md §8) but kept as its own per-RPC
+// response type — DeleteResult itself stays a reusable domain type, not an
+// RPC response type shared across RPCs.
+message RejectRecordResponse {
+  // Whether the pending draft was actually discarded.
+  DeleteResult result = 1;
+}
+
+// RenderResponse wraps this provider's rendered output. memory.md §10.
+message RenderResponse {
+  // The rendered tree, per frontend.md §1.
+  pluggableharness.render.v1.RenderTree tree = 1;
+}
+
+// ListRecordsResponse carries one page of matching records.
+message ListRecordsResponse {
+  // This page's records.
+  repeated MemoryRecord records = 1;
+
+  // Opaque continuation token for the next page. Empty when this is the
+  // last page.
+  string next_page_token = 2;
+}
+
+// GetRecordResponse wraps the fetched record.
+message GetRecordResponse {
+  // The fetched record.
+  MemoryRecord record = 1;
+}
+
+// DescribeResponse reports this plugin build's own identity. See the
+// Describe RPC comment on MemoryService above.
+message DescribeResponse {
+  // This plugin build's identity: name, version, source, category,
+  // protocol_version.
+  pluggableharness.common.v1.ProducerRef producer = 1;
+}

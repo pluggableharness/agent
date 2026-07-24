@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+// Package pluggableharness.frontend.v1 defines the frontend provider plugin protocol
+// described in specifications/frontend.md §3 (Attach, ServerEvent,
+// ClientEvent, ...).
+package pluggableharness.frontend.v1;
+
+import "pluggableharness/frontend/v1/events.proto";
+import "pluggableharness/frontend/v1/rpc_request.proto";
+import "pluggableharness/frontend/v1/rpc_response.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1";
+
+// FrontendService implements the frontend provider protocol described in
+// specifications/frontend.md §3.
+service FrontendService {
+  // GetCapabilities returns this frontend's slash commands and config
+  // schema. Unary. frontend.md §3.1.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+
+  // Configure applies this provider's `agent.hcl` configuration, validated
+  // against the schema returned by GetCapabilities (configuration.md §4).
+  // Unary. frontend.md §3.1.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // Attach opens ONE multiplexed, connection-scoped bidirectional event
+  // channel between the kernel and this frontend connection — not a
+  // per-session stream. A frontend subscribes individual sessions onto
+  // this one stream via the session-control ClientEvent variants
+  // (create_session/attach_session/resume_session/detach_session), and
+  // unsubscribes the same way; connection-level operations
+  // (list_sessions, the aggregate slash-command registry) have a natural
+  // home here precisely because the stream isn't tied to one session.
+  // ServerEvents flow from kernel to frontend, ClientEvents flow from
+  // frontend to kernel, both directions live for the duration of the
+  // stream. Bidirectional streaming — frontend.md §"Transport", and
+  // (along with the kernel callback channel) one of only two genuinely
+  // bidirectional RPCs in this protocol series (see .claude/rules/grpc.md).
+  //
+  // Multiple frontends MAY subscribe to the same session concurrently on
+  // their own Attach streams (frontend.md §"Session scope"): every
+  // ServerEvent for a given session broadcasts identically to every
+  // frontend subscribed to that session, with no partitioning and no
+  // "primary" frontend. ClientEvents are processed in kernel arrival
+  // order; for ClientEvent.plan_decision and
+  // ClientEvent.interactive_response specifically, which name a pending
+  // item by id within a session, the kernel applies first-response-wins
+  // arbitration per session and MUST reject any later response for an
+  // already-resolved item with a distinct error back to its sender.
+  //
+  // buf:lint:ignore RPC_REQUEST_STANDARD_NAME
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Stream element types are the bare "ClientEvent"/"ServerEvent" per
+  // frontend.md §3.2's literal spec — names used throughout this project's
+  // specs and rules, not just here. Neither is reused by another RPC (no
+  // uniqueness violation); renaming to Attach*Request/Response would only
+  // satisfy a style convention while discarding real spec traceability.
+  rpc Attach(stream ClientEvent) returns (stream ServerEvent);
+
+  // Describe reports this plugin build's own identity — {name, version,
+  // source, category, protocol_version} — directly from the running
+  // process, rather than the kernel inferring it from a lock-file row.
+  // Every one of the six category protocols gains this identical RPC in
+  // this protocol revision; it exists specifically for a
+  // `dev_overrides`-resolved binary (configuration/lock-file.md's
+  // "dev_overrides and identity without a lock entry"), which has no
+  // provider {} lock-file entry to read identity from at all.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+}

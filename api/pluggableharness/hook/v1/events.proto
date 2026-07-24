@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package pluggableharness.hook.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/model/v1/types.proto";
+import "pluggableharness/plan/v1/types.proto";
+import "pluggableharness/session/v1/types.proto";
+import "pluggableharness/tool/v1/errors.proto";
+import "pluggableharness/tool/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1";
+
+// The HookPayload event envelope and its per-hook-point payload variants.
+
+// The HookPoint enum itself lives in common.v1 (common/v1/types.proto),
+// not here: hook.v1 imports several category packages (model, tool, plan,
+// session) for its typed payloads, so a category package advertising
+// `supported_hook_points` in its capability message could not import this
+// package back without a cycle. common.v1 is the import-nothing leaf both
+// sides can safely share.
+
+// HookPayload carries one hook point's data. Exactly one oneof variant is
+// set; which variant is set *is* the point being dispatched — the
+// parallel common.v1.HookPoint enum exists only for contexts (HookError)
+// that have no oneof to infer the point from.
+message HookPayload {
+  oneof payload {
+    // Fires at HOOK_POINT_SESSION_START.
+    SessionStartPayload session_start = 1;
+    // Fires at HOOK_POINT_PRE_MODEL_CALL.
+    PreModelCallPayload pre_model_call = 2;
+    // Fires at HOOK_POINT_POST_MODEL_RESPONSE.
+    PostModelResponsePayload post_model_response = 3;
+    // Fires at HOOK_POINT_PRE_TOOL_CALL.
+    PreToolCallPayload pre_tool_call = 4;
+    // Fires at HOOK_POINT_PLAN_READY.
+    PlanReadyPayload plan_ready = 5;
+    // Fires at HOOK_POINT_POST_TOOL_CALL.
+    PostToolCallPayload post_tool_call = 6;
+    // Fires at HOOK_POINT_POST_APPLY.
+    PostApplyPayload post_apply = 7;
+    // Fires at HOOK_POINT_SESSION_END.
+    SessionEndPayload session_end = 8;
+  }
+}
+
+// SessionStartPayload fires once, at session creation. No field here is
+// transform-mutable per agent-loop/hook-dispatch.md's per-point mutable-
+// field table — session identity and startup parameters are fixed by the
+// time this hook fires.
+message SessionStartPayload {
+  // The new session's id. MUST be set. Immutable.
+  string session_id = 1;
+  // The agent.hcl profile this session was created under. MUST be set.
+  // Immutable.
+  string profile = 2;
+  // The parent session's id, when this is a sub-agent session
+  // (agent-loop/subagents.md). Absent for a root session. Immutable.
+  optional string parent_session_id = 3;
+  // The session's working directory. MUST be set. Immutable.
+  string working_directory = 4;
+}
+
+// PreModelCallPayload fires immediately before a model provider's
+// StreamCompletion is invoked. A transform subscriber MAY rewrite
+// `messages` (e.g. redaction, injection of an additional instruction); it
+// MUST NOT alter `model` — a hook subscriber does not get to silently
+// reroute a turn to a different model than the one the turn algorithm
+// already resolved.
+message PreModelCallPayload {
+  // The messages about to be sent to the model. Transform-mutable.
+  repeated pluggableharness.content.v1.Message messages = 1;
+  // The model this call targets. Immutable.
+  pluggableharness.model.v1.ModelRef model = 2;
+}
+
+// PostModelResponsePayload fires immediately after a model turn's
+// canonical message has been assembled, before it is persisted
+// (EVENT_KIND_MESSAGE). Primarily an observe-mode point (memory providers
+// recording the turn, widgets displaying live usage) — no field here is
+// documented transform-mutable in agent-loop/hook-dispatch.md's per-point
+// table; a transform subscriber at this point MUST return the payload
+// unchanged.
+message PostModelResponsePayload {
+  // The assembled assistant message. MUST be set.
+  pluggableharness.content.v1.Message message = 1;
+  // Which model-provider build produced `message`, for supersedes/replay
+  // attribution (architecture.md §Versioning & schema drift —
+  // "supersedes"). MUST be set.
+  pluggableharness.common.v1.ProducerRef model = 2;
+  // Token usage for the completion that produced `message`. MUST be set.
+  pluggableharness.model.v1.Usage usage = 3;
+  // The kernel-computed cost, in USD, of the completion that produced
+  // `message` (model/protocol.md#cost-computation — the provider never
+  // computes cost itself). MUST be set.
+  double cost_usd = 4;
+}
+
+// PreToolCallPayload fires immediately before an already-allowed plan
+// item's tool call is applied. No field here is documented transform-
+// mutable — a hook subscriber observes or vetoes an about-to-execute call,
+// it does not get to silently rewrite its arguments; argument mutation is
+// the plan/apply gate's own concern (agent-loop.md §5), not a general hook
+// capability.
+message PreToolCallPayload {
+  // The call about to be applied. MUST be set. Immutable.
+  pluggableharness.tool.v1.ToolCall call = 1;
+  // The originating plan item, carrying the policy decision that allowed
+  // this call through to apply. MUST be set. Immutable.
+  pluggableharness.plan.v1.PlanItem plan_item = 2;
+}
+
+// PlanReadyPayload fires once a turn's Plan has been fully built, before
+// the plan/apply gate dispatches it. This is the veto-bearing hook point:
+// the kernel-privileged policy subscriber (architecture.md §Policy —
+// first-party, not a plugin category) always runs here in HOOK_MODE_VETO.
+// No field here is transform-mutable — a hook subscriber does not rewrite
+// plan items; only the plan/apply gate itself and the policy veto affect
+// what applies.
+message PlanReadyPayload {
+  // The fully-built plan awaiting policy evaluation. MUST be set.
+  // Immutable.
+  pluggableharness.plan.v1.Plan plan = 1;
+}
+
+// PostToolCallPayload fires immediately after a plan item's tool call
+// reaches a terminal outcome. Observe-only in practice — no field here is
+// documented transform-mutable.
+message PostToolCallPayload {
+  // The call that completed. MUST be set. Immutable.
+  pluggableharness.tool.v1.ToolCall call = 1;
+  oneof outcome {
+    // The call's successful terminal result.
+    pluggableharness.tool.v1.ToolResult result = 2;
+    // The call's failed terminal result.
+    pluggableharness.tool.v1.ToolError error = 3;
+  }
+}
+
+// PostApplyPayload fires once a turn's whole Plan has finished applying —
+// every item has reached a terminal ApplyOutcome
+// (pluggableharness.plan.v1.ApplyResult.ApplyOutcome). Reuses
+// plan.v1.ApplyResult rather than defining its own per-item outcome shape,
+// so the post-apply hook's subject and the EVENT_KIND_APPLY event (the
+// forthcoming event.v1 package) are the exact same message. Observe-only —
+// applying has already happened by the time this fires, so there is
+// nothing left to transform.
+message PostApplyPayload {
+  // The turn's per-item apply outcomes. MUST be set.
+  pluggableharness.plan.v1.ApplyResult apply = 1;
+}
+
+// SessionEndPayload fires once, when a session reaches a terminal
+// SessionStatus. No field here is transform-mutable — a session's outcome
+// is already final by the time this fires.
+message SessionEndPayload {
+  // The session that ended. MUST be set. Immutable.
+  string session_id = 1;
+  // The session's terminal status. MUST be set (never
+  // SESSION_STATUS_RUNNING). Immutable.
+  pluggableharness.session.v1.SessionStatus status = 2;
+}

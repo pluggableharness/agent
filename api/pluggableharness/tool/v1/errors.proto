@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package pluggableharness.tool.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1";
+
+// The tool provider protocol's error taxonomy.
+
+// ToolErrorCategory classifies why an Invoke call failed, per tool.md §8.
+// Deliberately distinct from model.md §8's ModelErrorCategory — there
+// is no RATE_LIMITED or CONTEXT_LENGTH_EXCEEDED here, those are
+// model-vendor concepts. The two enums MUST NOT be merged even though the
+// surrounding error-envelope shape (category/message/retryable) is
+// parallel.
+enum ToolErrorCategory {
+  // Zero value. Never valid for a real error; its presence on the wire
+  // means a caller forgot to set the field.
+  TOOL_ERROR_CATEGORY_UNSPECIFIED = 0;
+
+  // Input failed input_schema validation.
+  TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS = 1;
+
+  // The target of the operation doesn't exist (path, URL, symbol, ...).
+  TOOL_ERROR_CATEGORY_NOT_FOUND = 2;
+
+  // OS/policy denied the underlying operation.
+  TOOL_ERROR_CATEGORY_PERMISSION_DENIED = 3;
+
+  // The operation ran but failed on its own terms (non-zero exit, compiler
+  // error, HTTP 4xx/5xx) — not a plugin bug.
+  TOOL_ERROR_CATEGORY_EXECUTION_FAILED = 4;
+
+  // Exceeded a plugin- or kernel-enforced deadline.
+  TOOL_ERROR_CATEGORY_TIMEOUT = 5;
+
+  // The provider detected a conflicting concurrent call it could not
+  // serialize itself (see ConcurrencySpec) — signals the kernel to retry
+  // serialized.
+  TOOL_ERROR_CATEGORY_CONCURRENCY_CONFLICT = 6;
+
+  // The stream was cancelled per tool.md §1 — not "an error" in the
+  // failure sense; kept distinct so the kernel doesn't surface it to the
+  // model as a tool failure when the whole turn is being aborted anyway.
+  TOOL_ERROR_CATEGORY_CANCELLED = 7;
+
+  // The plugin subprocess itself died mid-Invoke (transport error, not a
+  // graceful error event the plugin chose to emit). MUST be
+  // kernel-synthesized only — a plugin process that crashes obviously
+  // cannot emit this itself; the kernel detects the crash and synthesizes
+  // this category.
+  TOOL_ERROR_CATEGORY_PROCESS_CRASHED = 8;
+
+  // Anything else. MUST include the raw underlying error in
+  // ToolError.details.
+  TOOL_ERROR_CATEGORY_UNKNOWN = 9;
+}
+
+// ToolError is the terminal, failed outcome of an Invoke call.
+message ToolError {
+  // MUST.
+  ToolErrorCategory category = 1;
+
+  // MUST — human-readable.
+  string message = 2;
+
+  // MUST.
+  bool retryable = 3;
+
+  // MAY — provider-specific structured detail. MUST include the raw
+  // underlying error for category TOOL_ERROR_CATEGORY_UNKNOWN.
+  optional google.protobuf.Struct details = 4;
+}

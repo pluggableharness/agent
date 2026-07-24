@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package pluggableharness.model.v1;
+
+import "google/protobuf/struct.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/model/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
+
+// Every message in a ModelService rpc's input position.
+
+// GetCapabilitiesRequest is empty: model.md §2 defines GetCapabilities
+// as taking no request parameters.
+message GetCapabilitiesRequest {}
+
+// ConfigureRequest wraps the provider's agent.hcl config block, already
+// decoded from HCL/cty into a Struct by the kernel's schema-to-cty bridge,
+// per model.md §3.
+message ConfigureRequest {
+  // The decoded config value. Field contents are provider-specific (API
+  // key, base URL override, org/project IDs, etc.) — model.md §3
+  // doesn't mandate a shape beyond what ConfigSchema (Capabilities.
+  // config_schema) declares. A Struct because the shape is genuinely
+  // provider-defined, not fixed at the proto level (see
+  // .claude/rules/proto.md's Struct carve-out).
+  google.protobuf.Struct config = 1;
+}
+
+// DescribeRequest is empty: Describe takes no request parameters, per
+// configuration/lock-file.md's dev_overrides note.
+message DescribeRequest {}
+
+// StreamCompletionRequest is StreamCompletion's request: the full
+// canonical conversation, available tools, and generation params for one
+// completion, per model.md §4.
+message StreamCompletionRequest {
+  // The canonical conversation history, in emission order (model.md
+  // §5).
+  repeated pluggableharness.content.v1.Message messages = 1;
+
+  // Selects which of this provider's ModelSpec.id to use.
+  string model_id = 2;
+
+  // The tools available to the model on this turn, described in the
+  // shared JSON-Schema subset (model.md §6). MAY be empty.
+  repeated ToolDeclaration tools = 3;
+
+  // Generation-time overrides. Omitted means every param takes its
+  // model-specific default.
+  optional GenerationParams params = 4;
+
+  // The kernel-assembled context chain — the accumulated output of every
+  // context provider's Contribute call plus memory recall
+  // (context/protocol.md#contribute-the-context-assemble-rpc), in chain
+  // order (the same order context.md's ContextRequest.prior_sections/
+  // Contribute response chain uses: each provider appends after the
+  // sections it received). This is distinct from `messages` above: it is
+  // system-level/preamble content, never a conversational turn, which is
+  // why it's carried as its own field rather than folded into `messages`
+  // as a synthetic message — content.v1.Role deliberately has no SYSTEM
+  // value (content/v1/types.proto's Role comment) precisely because this content
+  // is never a Message with a role. Each model-provider adapter maps
+  // this chain to its vendor's own system/preamble mechanism (a top-level
+  // `system` string, a leading system-role message, etc.) — how that
+  // mapping happens is adapter-internal and not part of this wire
+  // contract.
+  repeated pluggableharness.content.v1.ContextSection assembled_context = 5;
+
+  // Session/turn/working-directory attribution for this call. MUST be set
+  // by the kernel on every StreamCompletionRequest. This is what the
+  // plugin passes back on its own KernelCallbackService.Emit and Log
+  // calls (kernel-callbacks.md#emit) for correlation, without having to
+  // separately thread session_id/turn_id through adapter-internal call
+  // sites by hand.
+  pluggableharness.common.v1.CallContext call_context = 6;
+
+  // Cache breakpoints for this request, wire-level and request-scoped —
+  // NOT carried on the persisted content.v1.ContentBlock, since a
+  // breakpoint's placement is a per-request optimization decision, not a
+  // durable property of the conversation history itself. Meaningful only
+  // when the target model's CachingSpec.mode ==
+  // CACHING_MODE_EXPLICIT_MARKERS; a model-provider adapter targeting a
+  // model whose CachingSpec.mode is CACHING_MODE_IMPLICIT_AUTOMATIC or
+  // CACHING_MODE_NONE MUST ignore this field rather than error on it.
+  // Placement is a kernel decision, not the plugin's: the kernel knows
+  // each assembled_context section's Stability (content/v1/types.proto's Stability
+  // enum) and each message's position, so it places breakpoints at
+  // natural stable-prefix boundaries — see
+  // model/protocol.md#cache-breakpoint-placement-policy.
+  repeated CacheBreakpoint cache_breakpoints = 7;
+}
+
+// CountTokensRequest is CountTokens' request: the raw text to count, per
+// model.md §2.1.
+message CountTokensRequest {
+  // The text to count tokens for.
+  string text = 1;
+
+  // Selects which of this provider's ModelSpec.id to count against — a
+  // provider serving several models MAY have distinct tokenizers per
+  // model. MUST be set.
+  string model_id = 2;
+}
+
+// RenderRequest carries the opaque payload to render, per model.md §7.
+message RenderRequest {
+  // The opaque emitted payload to render — the Emit->Render->Paint
+  // pipeline's deliberate carve-out from the strong-typing rule (see
+  // .claude/rules/grpc.md), never interpreted by the kernel.
+  bytes payload = 1;
+
+  // The schema_version `payload` was emitted under, per
+  // ../frontend/render-tree.md#schema-versioning. MUST be set — lets this
+  // Render implementation interpret a payload emitted by an older plugin
+  // version consistently across a replayed session, the same
+  // "supersedes" reasoning architecture.md applies elsewhere to
+  // schema-drift-sensitive persisted data.
+  string schema_version = 2;
+}

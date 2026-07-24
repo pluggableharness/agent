@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package pluggableharness.hook.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/hook/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1";
+
+// The hook-dispatch error taxonomy.
+
+// HookErrorCategory classifies why a hook dispatch to one subscriber
+// failed. Deliberately its own enum, not reused from tool.v1 or model.v1 —
+// per .claude/rules/proto.md, a category proto's error taxonomy is never
+// merged with another category's even where the surrounding shape is
+// parallel.
+enum HookErrorCategory {
+  // Zero value. Never valid for a real error; its presence on the wire
+  // means a caller forgot to set the field.
+  HOOK_ERROR_CATEGORY_UNSPECIFIED = 0;
+  // A transform subscriber raised an error or returned a malformed
+  // response. Aborts the remainder of that hook's chain
+  // (agent-loop/hook-dispatch.md#subscriber-error-handling).
+  HOOK_ERROR_CATEGORY_TRANSFORM_FAILED = 1;
+  // A veto subscriber raised an error. Treated identically to an
+  // explicit deny — fail-closed
+  // (agent-loop/hook-dispatch.md#subscriber-error-handling).
+  HOOK_ERROR_CATEGORY_VETO_FAILED = 2;
+  // The subscriber exceeded its per-subscriber deadline
+  // (agent-loop/hook-dispatch.md#timeout-behavior). For a veto
+  // subscriber, resolved identically to HOOK_ERROR_CATEGORY_VETO_FAILED —
+  // fail-closed deny.
+  HOOK_ERROR_CATEGORY_TIMEOUT = 3;
+  // The subscriber's DispatchHookResponse didn't match what its declared
+  // HookMode requires — wrong oneof variant, or (for transform) a
+  // payload variant that doesn't match the request's, or a mutation to a
+  // field this hook point doesn't document as transform-mutable.
+  HOOK_ERROR_CATEGORY_INVALID_RESPONSE = 4;
+  // The subscriber's plugin subprocess died mid-dispatch (transport
+  // error, not a graceful error the plugin chose to return). MUST be
+  // kernel-synthesized only, mirroring
+  // tool/conformance.md#error-taxonomy's TOOL_ERROR_CATEGORY_PROCESS_CRASHED
+  // — a plugin process that crashes obviously cannot emit this itself.
+  HOOK_ERROR_CATEGORY_PROCESS_CRASHED = 5;
+  // Anything else.
+  HOOK_ERROR_CATEGORY_UNKNOWN = 6;
+}
+
+// HookError is the structured detail describing one failed hook dispatch.
+// Also the payload shape the kernel-synthesized EVENT_KIND_HOOK_ERROR
+// event carries (kernel.v1.EventKind, state-backend.md §The kind enum) —
+// the forthcoming event.v1 package's HookErrorEvent wraps this same
+// message rather than redefining it.
+message HookError {
+  // Which hook point the failing dispatch was for. MUST be set.
+  pluggableharness.common.v1.HookPoint point = 1;
+  // Which plugin build the failing subscriber was. MUST be set.
+  pluggableharness.common.v1.ProducerRef subscriber = 2;
+  // The HookMode the failing subscription was declared under. MUST be
+  // set.
+  HookMode mode = 3;
+  // Which category of failure this is. MUST be set.
+  HookErrorCategory category = 4;
+  // Human-readable detail, e.g. the raw subscriber error message.
+  string message = 5;
+}

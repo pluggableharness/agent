@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package pluggableharness.model.v1;
+
+import "pluggableharness/model/v1/errors.proto";
+import "pluggableharness/model/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
+
+// Occurrence-shaped messages streamed by ModelService.StreamCompletion.
+
+// StreamEvent is one message in the stream StreamCompletion returns, per
+// model.md §4. Exactly one variant is set.
+message StreamEvent {
+  oneof event {
+    // An incremental fragment of assistant text output.
+    TextDelta text_delta = 1;
+    // An incremental fragment of the model's reasoning output.
+    ThinkingDelta thinking_delta = 2;
+    // The vendor's opaque integrity token for the reasoning just emitted.
+    ThinkingSignature thinking_signature = 3;
+    // The model has begun requesting a tool invocation.
+    ToolCallStart tool_call_start = 4;
+    // An incremental fragment of a tool call's arguments.
+    ToolCallDelta tool_call_delta = 5;
+    // A tool call's arguments are complete.
+    ToolCallDone tool_call_done = 6;
+    // Token accounting for this completion.
+    Usage usage = 7;
+    // The completion has ended.
+    Stop stop = 8;
+    // The completion failed.
+    Error error = 9;
+  }
+
+  // TextDelta carries one incremental fragment of assistant text output.
+  // MUST be supported by every plugin, both directions (model.md §5).
+  message TextDelta {
+    // The text fragment.
+    string text = 1;
+  }
+
+  // ThinkingDelta carries one incremental fragment of the model's
+  // reasoning output. Only emitted when the target model's
+  // ThinkingSpec.supported is true.
+  message ThinkingDelta {
+    // The reasoning-text fragment.
+    string text = 1;
+  }
+
+  // ThinkingSignature carries the vendor's opaque integrity token for the
+  // reasoning block just completed. MUST be emitted if the vendor's
+  // thinking blocks carry an integrity signature (model.md §4/§5); the
+  // kernel MUST store and round-trip this verbatim, never inspecting or
+  // reformatting it, into ContentBlock's ThinkingBlock.signature.
+  message ThinkingSignature {
+    // The opaque, vendor-specific signature bytes.
+    bytes signature = 1;
+  }
+
+  // ToolCallStart announces the model has begun requesting a tool
+  // invocation.
+  message ToolCallStart {
+    // Correlation id for the matching ToolCallDelta/ToolCallDone events
+    // and the resulting ToolUseBlock.id.
+    string id = 1;
+    // The tool's declared name (ToolDeclaration.name).
+    string name = 2;
+  }
+
+  // ToolCallDelta carries one incremental fragment of a tool call's
+  // arguments, accumulated by the kernel across deltas into the final
+  // parsed JSON.
+  message ToolCallDelta {
+    // The id from the matching ToolCallStart.
+    string id = 1;
+    // A partial-JSON fragment of the call's arguments.
+    string arguments_fragment = 2;
+  }
+
+  // ToolCallDone signals a tool call's arguments are complete and ready
+  // for the kernel to parse and dispatch.
+  message ToolCallDone {
+    // The id from the matching ToolCallStart.
+    string id = 1;
+  }
+
+  // Stop signals the completion has ended.
+  message Stop {
+    // Why the completion ended.
+    StopReason reason = 1;
+
+    // Which GenerationParams.stop_sequences entry was matched. Set iff
+    // reason == STOP_REASON_STOP_SEQUENCE; MUST be omitted for every
+    // other reason.
+    optional string matched_stop_sequence = 2;
+  }
+
+  // Error signals the completion failed.
+  message Error {
+    // The structured error, classified per model.md §8.
+    ModelError error = 1;
+  }
+}
+
+// StopReason classifies why a StreamCompletion ended, per model.md §4.
+enum StopReason {
+  // Zero value. Never valid on a real Stop event; its presence on the
+  // wire means a caller forgot to set the field.
+  STOP_REASON_UNSPECIFIED = 0;
+  // The model completed its turn normally.
+  STOP_REASON_END_TURN = 1;
+  // The model stopped to request one or more tool invocations.
+  STOP_REASON_TOOL_USE = 2;
+  // The model hit its output token limit before completing its turn.
+  STOP_REASON_MAX_TOKENS = 3;
+  // The vendor's content filter stopped generation.
+  STOP_REASON_CONTENT_FILTERED = 4;
+  // The kernel cancelled the stream (user interrupt, timeout, turn
+  // abort). MUST be treated by the plugin as normal control flow, never
+  // as an error (model.md §1, .claude/rules/grpc.md).
+  STOP_REASON_CANCELLED = 5;
+  // The model or vendor refused to continue generating — distinct from
+  // STOP_REASON_CONTENT_FILTERED, which is the vendor's automated content
+  // filter stopping generation; REFUSAL is the model itself declining
+  // (e.g. a safety-trained refusal message), a semantically different
+  // event even though both are policy-driven stops.
+  STOP_REASON_REFUSAL = 6;
+  // The model stopped because it generated one of
+  // GenerationParams.stop_sequences. Stop.matched_stop_sequence carries
+  // which one.
+  STOP_REASON_STOP_SEQUENCE = 7;
+}

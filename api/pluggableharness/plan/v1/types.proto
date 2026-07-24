@@ -11,7 +11,8 @@ package pluggableharness.plan.v1;
 
 import "google/protobuf/struct.proto";
 import "pluggableharness/render/v1/types.proto";
-import "pluggableharness/tool/v1/tool.proto";
+import "pluggableharness/tool/v1/errors.proto";
+import "pluggableharness/tool/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/plan/proto/v1;planv1";
 

@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package pluggableharness.frontend.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1";
+
+// Request messages for the frontend provider protocol's RPCs.
+
+// GetCapabilitiesRequest carries no fields; capability discovery is not
+// parameterized.
+message GetCapabilitiesRequest {}
+
+// ConfigureRequest carries this provider's `agent.hcl` configuration as a
+// dynamic Struct, shaped per the ConfigSchema returned by GetCapabilities
+// (configuration.md §4).
+message ConfigureRequest {
+  // The configuration value, validated against this provider's ConfigSchema.
+  google.protobuf.Struct config = 1;
+}
+
+// DescribeRequest carries no fields — Describe takes no parameters.
+message DescribeRequest {}

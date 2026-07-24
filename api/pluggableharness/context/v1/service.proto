@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+// Package pluggableharness.context.v1 defines the context provider plugin protocol
+// described in specifications/context.md — plugins that hook
+// context-assemble and contribute content to the prompt before each model
+// call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/file-tree
+// summarizer). See .claude/rules/proto.md.
+//
+// ContextSection and Stability — the section chain this protocol assembles
+// and the turn-to-turn-change hint each section carries — are defined in
+// pluggableharness.content.v1, not here: that chain is consumed by
+// both this protocol and the model provider's completion request
+// (forthcoming), so it's homed alongside content.v1's other shared content
+// shapes rather than duplicated or owned by only one consumer.
+package pluggableharness.context.v1;
+
+import "pluggableharness/context/v1/rpc_request.proto";
+import "pluggableharness/context/v1/rpc_response.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1";
+
+// ContextService is the context provider plugin protocol described in
+// specifications/context.md. A context provider plugin exposes
+// GetCapabilities, Configure, and Contribute (context.md §1, all MUST); it
+// MAY additionally implement Render (§9).
+service ContextService {
+  // GetCapabilities reports this provider's static properties — its
+  // requested token budget, content stability, whether it acts as a
+  // compactor, and any slash commands or config schema it declares.
+  // context.md §2.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+
+  // Configure delivers this provider's agent.hcl config block, already
+  // decoded via the schema-to-cty bridge. context.md §3. MUST reject with a
+  // structured error (surfaced as a ContextError in the gRPC status detail,
+  // per .claude/rules/grpc.md) if a declared source path/glob resolves to
+  // nothing on disk, rather than deferring to a silent-empty Contribute at
+  // first call.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // Contribute is the context-assemble RPC: the kernel invokes it at least
+  // once per turn, before each model call, and the provider returns the
+  // full accumulated ContextSection chain with its own section appended.
+  // context.md §1 and §4 (both MUST). Deliberately unary, not streamed —
+  // unlike a model provider's StreamCompletion, context assembly happens
+  // before the model call starts and convention-file/orientation content is
+  // small enough not to need token-level streaming. Contribute MUST return
+  // the full accumulated section chain (this provider's own section
+  // appended to prior_sections), never a delta.
+  //
+  // buf:lint:ignore RPC_REQUEST_STANDARD_NAME
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Request/response are the bare "ContextRequest"/"ContextContribution"
+  // per context.md §4's literal spec. Neither is reused by another RPC in
+  // this file (no uniqueness violation) — this is purely a naming-style
+  // preference, and the spec's own names carry real documentation value.
+  rpc Contribute(ContextRequest) returns (ContextContribution);
+
+  // Render optionally renders this provider's contribution via the general
+  // Emit->Render->Paint pipeline, e.g. to display an injected CLAUDE.md
+  // section collapsed by default in a transcript view. context.md §9. MAY
+  // be implemented; if not, the kernel falls back to its generic default
+  // rendering.
+  rpc Render(RenderRequest) returns (RenderResponse);
+
+  // Describe reports this plugin build's own identity — {name, version,
+  // source, category, protocol_version} via ProducerRef — independent of
+  // any lock-file entry. This is the mechanism a dev_overrides-resolved
+  // binary (which has no provider {} lock entry to read identity from)
+  // uses to self-report at connection time; see
+  // docs/specifications/configuration/lock-file.md's dev_overrides note,
+  // which is the canonical explanation for this RPC across every plugin
+  // category that gains it in this protocol revision.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+}

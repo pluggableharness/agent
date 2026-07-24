@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package pluggableharness.model.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/model/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
+
+// Every message in an rpc's unary return position.
+
+// GetCapabilitiesResponse wraps Capabilities for the RPC signature, per
+// this repo's per-RPC envelope convention (.claude/rules/proto.md).
+message GetCapabilitiesResponse {
+  Capabilities capabilities = 1;
+}
+
+// ConfigureResponse is empty on success. A Configure failure (e.g. a
+// missing required field) surfaces as a gRPC status carrying a
+// ModelError in its structured detail, per .claude/rules/grpc.md's
+// error-taxonomy convention — there is no in-band error field on this
+// message.
+message ConfigureResponse {}
+
+// DescribeResponse reports this plugin build's own identity, per
+// configuration/lock-file.md's dev_overrides note.
+message DescribeResponse {
+  // This plugin build's identity, as it would otherwise appear in a
+  // lock-file provider "<name>" { ... } entry.
+  pluggableharness.common.v1.ProducerRef producer = 1;
+}
+
+// CountTokensResponse is CountTokens' response.
+message CountTokensResponse {
+  // The exact token count, per this model's real vendor tokenizer.
+  int64 count = 1;
+}
+
+// RenderResponse wraps the resulting RenderTree, per model.md §7.
+message RenderResponse {
+  // The rendered tree, formally defined in frontend.md §1 and shared
+  // verbatim across every category's Render RPC (tool.md §7, context.md
+  // §9, memory.md §10) — one RenderTree type for the whole
+  // Emit->Render->Paint pipeline, not a per-category variant.
+  pluggableharness.render.v1.RenderTree tree = 1;
+}

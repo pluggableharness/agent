@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package pluggableharness.tool.v1;
+
+import "google/protobuf/struct.proto";
+import "pluggableharness/tool/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1";
+
+// Request messages for the tool provider protocol's RPCs.
+
+// GetSchemaRequest carries no fields — GetSchema takes no parameters.
+message GetSchemaRequest {}
+
+// ConfigureRequest wraps this provider's already-decoded agent.hcl config.
+message ConfigureRequest {
+  // The provider-specific config, decoded from agent.hcl via the
+  // schema-to-cty bridge before crossing the wire.
+  google.protobuf.Struct config = 1;
+}
+
+// InvokeRequest wraps the call to execute. A thin per-RPC envelope around
+// ToolCall, which keeps its own rich structure independent of the RPC
+// signature.
+message InvokeRequest {
+  // The call to execute.
+  ToolCall call = 1;
+}
+
+// RenderRequest carries the opaque payload to render, per tool.md §7. See
+// grpc.md's Emit->Render->Paint carve-out for why this field stays `bytes`
+// rather than a strongly-typed message.
+message RenderRequest {
+  // The opaque emitted payload to render.
+  bytes payload = 1;
+
+  // The schema version the payload was emitted under, per
+  // ../frontend/render-tree.md#schema-versioning. Lets a Render
+  // implementation decode a payload emitted by an older build of this
+  // same plugin.
+  string schema_version = 2;
+}
+
+// PreviewRequest wraps the call to describe, per protocol.md#preview.
+message PreviewRequest {
+  // The call Preview describes a dry run of. Same shape as an Invoke
+  // request; Preview MUST NOT execute it.
+  ToolCall call = 1;
+}
+
+// DescribeRequest carries no fields — Describe takes no parameters.
+message DescribeRequest {}

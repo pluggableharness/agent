@@ -1,0 +1,473 @@
+syntax = "proto3";
+
+package pluggableharness.model.v1;
+
+import "google/protobuf/timestamp.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/schema/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
+
+// Domain messages and enums shared across ModelService's requests, responses, and events.
+
+// Capabilities is GetCapabilities' response payload: every model this
+// plugin can serve, plus provider-wide declarations that apply once, not
+// per model.
+message Capabilities {
+  // One ModelSpec per model the plugin can serve. MUST have at least one
+  // entry.
+  repeated ModelSpec models = 1;
+
+  // Slash commands this provider contributes, declared once for the
+  // provider as a whole (not per model), per model.md §2 and
+  // configuration.md §5 / frontend.md §5. MAY be empty.
+  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 2;
+
+  // The provider's agent.hcl config schema, returned alongside
+  // capabilities so the kernel knows what fields Configure expects, per
+  // configuration.md §4.
+  pluggableharness.config.v1.ConfigSchema config_schema = 3;
+
+  // Which hook points (agent-loop/hook-dispatch.md) this plugin can serve
+  // via HookSubscriberService.DispatchHook. The kernel MUST reject an
+  // agent.hcl hook{} block naming a point not present here, at
+  // config-load time.
+  //
+  // Typed as common.v1.HookPoint, not hook.v1.HookPoint: hook/v1/events.proto
+  // imports model/v1/types.proto (for ModelRef/Usage on its PreModelCall/
+  // PostModelResponse hook payloads), so model/v1/types.proto importing
+  // anything from hook.v1 for this field would be a cyclic file dependency — confirmed via
+  // `buf build`, which rejects it outright ("detected cyclic import").
+  // HookPoint itself lives in common.v1 for exactly this reason (see
+  // common/v1/types.proto), already imported here for CallContext/Describe.
+  repeated pluggableharness.common.v1.HookPoint supported_hook_points = 4;
+}
+
+// ModelSpec describes one model this provider can serve, per
+// model.md §2. Every field below is MUST unless its comment says
+// otherwise.
+message ModelSpec {
+  // The vendor's exact model identifier, used to select this model in
+  // StreamCompletionRequest.model_id.
+  string id = 1;
+
+  // The model's input token budget.
+  int64 context_window = 2;
+
+  // The model's maximum output tokens per response.
+  int64 max_output_tokens = 3;
+
+  // Whether this model can accept tool declarations and emit tool_use
+  // content blocks.
+  bool supports_tool_use = 4;
+
+  // Whether this model can accept image content blocks.
+  bool supports_vision = 5;
+
+  // Whether the vendor's own backend streams responses. A UX hint only
+  // (e.g. "don't render a live-typing cursor" when false) — the
+  // StreamCompletion RPC shape is always server-streaming regardless of
+  // this value, per model.md §1/§4.
+  bool supports_streaming = 6;
+
+  // Whether this model can return multiple tool_use blocks in a single
+  // turn. SHOULD be set accurately; a false or absent value means the
+  // kernel MUST serialize tool calls for this model.
+  optional bool supports_parallel_tool_calls = 7;
+
+  // This model's extended-reasoning capability. MUST be present even when
+  // unsupported — use { supported: false } rather than omitting the
+  // message, so a caller never has to distinguish "unset" from "no
+  // thinking mode".
+  ThinkingSpec thinking = 8;
+
+  // This model's prompt-caching capability. MUST be present even when
+  // unsupported — use { supported: false } rather than omitting the
+  // message.
+  CachingSpec caching = 9;
+
+  // This model's pricing. MUST be present even for a free model (set
+  // Pricing.free = true).
+  Pricing pricing = 10;
+
+  // Which GenerationParams.tool_choice.mode values this model accepts.
+  // SHOULD declare precisely which subset a vendor supports rather than
+  // collapsing to a bool, mirroring ThinkingSpec/CachingSpec's sum-type
+  // rationale above — vendors differ in which of AUTO/ANY/NONE/SPECIFIC
+  // they expose. Empty means this model does not support constraining
+  // tool choice at all (only free-form model-decides behavior); the
+  // kernel MUST NOT send a GenerationParams.tool_choice with a mode
+  // absent from this list.
+  repeated ToolChoiceMode supported_tool_choice_modes = 11;
+
+  // Whether this model can accept document content blocks (content.v1
+  // DocumentBlock, e.g. inline PDFs). Mirrors supports_vision's rule:
+  // the kernel MUST reject a DocumentBlock sent to a model where this is
+  // false, with invalid_request, rather than silently dropping it.
+  bool supports_documents = 12;
+}
+
+// ThinkingMode enumerates the shapes of extended-reasoning control found
+// across researched vendors (model.md §2) — a plain supports_thinking
+// bool would lose information the kernel needs to build a correct
+// request, since some vendors (e.g. Anthropic) expose more than one mode
+// across their own model lineup.
+enum ThinkingMode {
+  // Zero value. Never valid when ThinkingSpec.supported is true; its
+  // presence on the wire means a caller forgot to set the field.
+  THINKING_MODE_UNSPECIFIED = 0;
+  // The model has no extended-reasoning capability. Pairs with
+  // ThinkingSpec.supported == false.
+  THINKING_MODE_NONE = 1;
+  // The model always reasons, adaptively, with no caller-selectable
+  // effort level or budget.
+  THINKING_MODE_ALWAYS_ON_ADAPTIVE = 2;
+  // The caller selects one of a fixed set of named effort levels
+  // (ThinkingSpec.effort_levels).
+  THINKING_MODE_DISCRETE_EFFORT = 3;
+  // The caller selects a token budget within ThinkingSpec.budget_range.
+  THINKING_MODE_CONTINUOUS_BUDGET = 4;
+}
+
+// ThinkingBudgetRange bounds the token budget a caller may request when
+// ThinkingMode is THINKING_MODE_CONTINUOUS_BUDGET.
+message ThinkingBudgetRange {
+  // The smallest thinking-token budget this model accepts.
+  int64 min = 1;
+  // The largest thinking-token budget this model accepts.
+  int64 max = 2;
+}
+
+// ThinkingSpec describes one model's extended-reasoning capability, per
+// model.md §2.
+message ThinkingSpec {
+  // Whether this model has any extended-reasoning capability at all.
+  bool supported = 1;
+
+  // Which reasoning-control shape this model uses. MUST be
+  // THINKING_MODE_NONE when supported == false.
+  ThinkingMode mode = 2;
+
+  // The selectable effort levels, e.g. ["low","medium","high","xhigh",
+  // "max"]. MUST be non-empty when mode == THINKING_MODE_DISCRETE_EFFORT;
+  // meaningless otherwise.
+  repeated string effort_levels = 3;
+
+  // The selectable token-budget range. MUST be present when mode ==
+  // THINKING_MODE_CONTINUOUS_BUDGET; meaningless otherwise.
+  optional ThinkingBudgetRange budget_range = 4;
+
+  // Whether reasoning can be turned off once enabled. MUST be set
+  // accurately — some vendors' reasoning cannot be disabled (e.g. a
+  // researched Grok model defaults reasoning on with no off switch).
+  bool can_disable = 5;
+
+  // The effort level (discrete_effort) or budget-token value
+  // (continuous_budget), as a string, the vendor applies when a request
+  // omits thinking config entirely. MUST be set when mode !=
+  // THINKING_MODE_NONE — makes the vendor's actual default behavior
+  // visible/auditable via GetCapabilities rather than hidden in adapter
+  // code, so a kernel wanting deterministic behavior can always send an
+  // explicit override.
+  optional string default = 6;
+}
+
+// CachingMode enumerates the prompt-caching mechanics found across
+// researched vendors (model.md §2).
+enum CachingMode {
+  // Zero value. Never valid when CachingSpec.supported is true; its
+  // presence on the wire means a caller forgot to set the field.
+  CACHING_MODE_UNSPECIFIED = 0;
+  // The model has no prompt-caching capability. Pairs with
+  // CachingSpec.supported == false.
+  CACHING_MODE_NONE = 1;
+  // The caller must place cache breakpoints on content blocks explicitly
+  // (Anthropic/Mistral-style).
+  CACHING_MODE_EXPLICIT_MARKERS = 2;
+  // The vendor applies caching transparently above a token threshold, no
+  // caller action required.
+  CACHING_MODE_IMPLICIT_AUTOMATIC = 3;
+}
+
+// CachingSpec describes one model's prompt-caching capability, per
+// model.md §2.
+message CachingSpec {
+  // Whether this model has any prompt-caching capability at all.
+  bool supported = 1;
+
+  // Which caching mechanic this model uses. MUST be CACHING_MODE_NONE
+  // when supported == false.
+  CachingMode mode = 2;
+
+  // Whether this provider runs its own cache-keepalive loop (e.g. a
+  // background goroutine re-pinging before a cache TTL expires, so a long
+  // tool-execution gap doesn't let the cache go cold). MUST be set,
+  // default false. Cache TTL mechanics are vendor-specific, so per
+  // operator decision this is a provider-owned behavior the kernel never
+  // drives — this field only tells the kernel/operator whether a given
+  // provider implements the optimization (model.md §2).
+  bool keepalive_supported = 3;
+}
+
+// PricingTier is one time-bounded, input-size-bounded rate within a
+// model's Pricing, per model.md §2. Exactly one tier MUST match at any
+// given (timestamp, input_token_count) pair — timestamp resolved against
+// effective_from/effective_until (an omitted bound unbounded on that
+// side) AND input_token_count resolved against input_tokens_from/
+// input_tokens_until (likewise unbounded when omitted) simultaneously;
+// the kernel MUST reject a Pricing value at capability-load time if its
+// tiers overlap or leave a gap across either dimension, exactly as it
+// already does for the time dimension alone.
+message PricingTier {
+  // The moment this tier becomes active. Omitted means "since this plugin
+  // version was published". Refines model.md §2's "ISO 8601
+  // date/timestamp" into the native well-known type.
+  optional google.protobuf.Timestamp effective_from = 1;
+
+  // The moment this tier stops being active. Omitted means "still
+  // current" — an omitted effective_until marks the currently active
+  // tier. Refines model.md §2's "ISO 8601" into the native well-known
+  // type.
+  optional google.protobuf.Timestamp effective_until = 2;
+
+  // Cost per million input tokens, realtime rate.
+  double input_per_mtok = 3;
+
+  // Cost per million output tokens, realtime rate.
+  double output_per_mtok = 4;
+
+  // Cost per million cache-write tokens. MUST be present iff
+  // CachingSpec.supported.
+  optional double cache_write_per_mtok = 5;
+
+  // Cost per million cache-read tokens, typically far cheaper than
+  // input_per_mtok — the entire point of caching. MUST be present iff
+  // CachingSpec.supported.
+  optional double cache_read_per_mtok = 6;
+
+  // A vendor's discounted batch/async input rate, where one exists (e.g.
+  // a researched Gemini batch tier). MAY be present.
+  optional double batch_input_per_mtok = 7;
+
+  // A vendor's discounted batch/async output rate, paired with
+  // batch_input_per_mtok. MAY be present.
+  optional double batch_output_per_mtok = 8;
+
+  // The smallest accumulated-input-token count this tier applies to,
+  // inclusive. Omitted means unbounded below (matches any input size down
+  // to zero). Real vendors price by input size as well as by time — e.g.
+  // a distinct, higher rate once a request's input exceeds 200k tokens —
+  // and this field lets a tier declare that dimension alongside the
+  // existing effective_from/effective_until time bounds. Refines
+  // model/data-types.md#pricing's tier-matching rule into two dimensions.
+  optional int64 input_tokens_from = 9;
+
+  // The input-token count this tier stops applying to, exclusive.
+  // Omitted means unbounded above. Half-open with input_tokens_from,
+  // matching effective_from/effective_until's half-open convention.
+  optional int64 input_tokens_until = 10;
+}
+
+// Pricing describes one model's cost structure, per model.md §2. MUST
+// be present on every ModelSpec, even a free one.
+message Pricing {
+  // The pricing currency. MUST be "USD" for v1; reserved for future
+  // multi-currency support, not acted on by the kernel yet.
+  string currency = 1;
+
+  // True for a local/free-to-run model (e.g. an Ollama-served model).
+  // When true, tiers MAY be omitted entirely.
+  bool free = 2;
+
+  // This model's rate tiers, ordered or not — resolution is by
+  // effective_from/effective_until, not array position. MUST have at
+  // least one entry unless free == true. Exactly one tier MUST match any
+  // given timestamp; the kernel MUST reject overlapping or gapped tiers
+  // at capability-load time.
+  repeated PricingTier tiers = 3;
+}
+
+// CacheBreakpoint marks one position in a StreamCompletionRequest where
+// the kernel wants the adapter to insert a vendor-native cache-control
+// marker, per StreamCompletionRequest.cache_breakpoints above.
+message CacheBreakpoint {
+  // The position this breakpoint marks. Exactly one variant is set.
+  oneof position {
+    // Immediately after the assembled_context chain — the kernel's most
+    // common choice, since assembled_context is usually the longest
+    // stable prefix (context/data-types.md#ordering--chaining orders
+    // STABILITY_STATIC sections before STABILITY_DYNAMIC ones).
+    AfterAssembledContext after_assembled_context = 1;
+
+    // Immediately after the tools declaration list.
+    AfterTools after_tools = 2;
+
+    // Immediately after the message at this zero-based index within
+    // `messages`.
+    int64 after_message_index = 3;
+  }
+
+  // AfterAssembledContext is an empty marker message: its presence as the
+  // set oneof variant is the entire signal, no further data needed.
+  message AfterAssembledContext {}
+
+  // AfterTools is an empty marker message: its presence as the set oneof
+  // variant is the entire signal, no further data needed.
+  message AfterTools {}
+}
+
+// ToolDeclaration is one tool the model may call on this turn, per
+// model.md §6. Each model-provider adapter translates this into its
+// vendor's own tool-definition wire format.
+message ToolDeclaration {
+  // The tool's name, as the model must reference it in a ToolUseBlock.
+  string name = 1;
+
+  // Human-readable description shown to the model to help it decide
+  // whether and how to call this tool.
+  string description = 2;
+
+  // The tool's input shape, in the restricted JSON-Schema subset shared
+  // across categories (model.md §6, pluggableharness.schema.v1.Schema).
+  pluggableharness.schema.v1.Schema input_schema = 3;
+}
+
+// GenerationParams carries per-request overrides of otherwise
+// model-default generation behavior.
+message GenerationParams {
+  // Selects one of ThinkingSpec.effort_levels. Meaningful only when the
+  // target model's ThinkingSpec.mode == THINKING_MODE_DISCRETE_EFFORT.
+  optional string thinking_effort = 1;
+
+  // Selects a token budget within ThinkingSpec.budget_range. Meaningful
+  // only when the target model's ThinkingSpec.mode ==
+  // THINKING_MODE_CONTINUOUS_BUDGET.
+  optional int64 thinking_budget_tokens = 2;
+
+  // Per-request override of ModelSpec.max_output_tokens. Omitted means
+  // use the model's default.
+  optional int64 max_output_tokens = 3;
+
+  // Sampling temperature. Omitted means use the model's default. Range
+  // and exact semantics are vendor-specific; the kernel does not clamp
+  // or reinterpret this value, it is passed through to the adapter as
+  // given.
+  optional double temperature = 4;
+
+  // Sequences that, if generated, MUST cause the model to stop before
+  // producing them. Omitted/empty means no caller-supplied stop
+  // sequences. When a vendor honors one of these, the plugin MUST report
+  // it back via StreamEvent.Stop.matched_stop_sequence with StopReason
+  // STOP_REASON_STOP_SEQUENCE.
+  repeated string stop_sequences = 5;
+
+  // Constrains whether/how the model must use a tool this turn. Omitted
+  // means the model decides freely (equivalent to
+  // TOOL_CHOICE_MODE_AUTO). Meaningful only when the target model's
+  // ModelSpec.supported_tool_choice_modes is non-empty; the kernel MUST
+  // NOT send a mode absent from that list, mirroring
+  // thinking_effort/thinking_budget_tokens' ThinkingSpec-validation rule
+  // above — an unsupported mode is a kernel-level reject-or-fallback, not
+  // something forwarded to the vendor.
+  optional ToolChoice tool_choice = 6;
+}
+
+// ToolChoiceMode enumerates the tool-invocation constraint shapes found
+// across researched vendors, per the same "declare precisely, don't
+// collapse to a bool" reasoning as ThinkingMode/CachingMode above.
+enum ToolChoiceMode {
+  // Zero value. Never valid on a real ToolChoice; its presence on the
+  // wire means a caller forgot to set the field.
+  TOOL_CHOICE_MODE_UNSPECIFIED = 0;
+  // The model decides freely whether and which tool to call. Equivalent
+  // to omitting GenerationParams.tool_choice entirely.
+  TOOL_CHOICE_MODE_AUTO = 1;
+  // The model MUST call some tool this turn, but may pick which one.
+  TOOL_CHOICE_MODE_ANY = 2;
+  // The model MUST NOT call any tool this turn, even if tools were
+  // declared.
+  TOOL_CHOICE_MODE_NONE = 3;
+  // The model MUST call the specific tool named in ToolChoice.tool_name.
+  TOOL_CHOICE_MODE_SPECIFIC = 4;
+}
+
+// ToolChoice carries one request's tool-invocation constraint, per
+// GenerationParams.tool_choice above.
+message ToolChoice {
+  // Which constraint shape applies. MUST be set.
+  ToolChoiceMode mode = 1;
+
+  // The tool the model MUST call. MUST be set, and MUST name a tool
+  // present in StreamCompletionRequest.tools, when mode ==
+  // TOOL_CHOICE_MODE_SPECIFIC; meaningless and MUST be omitted for every
+  // other mode.
+  optional string tool_name = 2;
+}
+
+// Usage carries token accounting for one completion, per model.md §4.1.
+// The kernel computes and persists cost_usd from these counts plus the
+// matching PricingTier — the plugin never computes cost itself. Promoted
+// to a top-level message, rather than nested under StreamEvent, because
+// it is reused outside the stream (event payloads, frontend usage
+// updates — forthcoming).
+message Usage {
+  // Input tokens consumed by this completion.
+  int64 input_tokens = 1;
+  // Output tokens produced by this completion.
+  int64 output_tokens = 2;
+  // Tokens read from cache, if the model supports caching. Never also
+  // counted in input_tokens.
+  optional int64 cache_read_tokens = 3;
+  // Tokens written to cache, if the model supports caching. Never also
+  // counted in input_tokens.
+  optional int64 cache_write_tokens = 4;
+  // Thinking/reasoning tokens, when the vendor reports them as a
+  // distinct count (ThinkingSpec.supported models only). Never also
+  // counted in output_tokens — a vendor that folds reasoning tokens into
+  // its reported output_tokens has no separate figure to report here, so
+  // this stays unset in that case rather than being derived/subtracted.
+  // Billed at the output rate (PricingTier.output_per_mtok) unless a
+  // future Pricing revision declares a distinct reasoning rate — there is
+  // none as of this revision.
+  optional int64 reasoning_tokens = 5;
+  // Deliberately no cost field: the kernel computes and persists
+  // cost_usd from these token counts plus the matching PricingTier, per
+  // model.md §4.1 — the provider never computes cost itself.
+}
+
+// ModelTarget describes the model a context or memory contribution is
+// being assembled for, derived from that model's ModelSpec
+// (model.md §2). Carried on context.md's ContextRequest and memory.md's
+// RecallRequest so a provider can tailor its contribution (and compute
+// tokens against the right budget) for the model that will actually
+// consume it.
+message ModelTarget {
+  // The target model's ModelSpec.id (model.md §2) — the vendor's exact
+  // model identifier.
+  string id = 1;
+
+  // The target model's total input token budget (model.md §2
+  // ModelSpec.context_window).
+  int64 context_window = 2;
+
+  // The usable portion of context_window after the kernel reserves space
+  // for expected output, tool schemas, and other fixed overhead for this
+  // turn — the number a context/memory provider should actually budget
+  // its contribution against, rather than the raw context_window.
+  int64 effective_ceiling = 3;
+}
+
+// ModelRef narrowly selects a model for token-counting purposes
+// (kernel-callbacks.md §2 CountTokensRequest.model_ref). Optional on the
+// request it's embedded in — omitted means "use the kernel's fallback
+// heuristic," never "count against an unspecified model."
+message ModelRef {
+  // The declared name of the model provider plugin (common.v1.ProducerRef
+  // or ProviderRef's name field), e.g. "anthropic".
+  string provider = 1;
+
+  // The model's ModelSpec.id within that provider.
+  string id = 2;
+}

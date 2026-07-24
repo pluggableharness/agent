@@ -156,7 +156,7 @@ kind = enum {
 }
 ```
 
-Each `kind` above decodes to exactly one concrete message in `pluggableharness.event.v1` (`api/pluggableharness/event/v1/event.proto`) — that package defines no enum of its own; this table, together with `kernel-callbacks.md#emit`'s restatement of the same enum, is the sole source of the kind → message mapping:
+Each `kind` above decodes to exactly one concrete message in `pluggableharness.event.v1` (`api/pluggableharness/event/v1/events.proto`) — that package defines no enum of its own; this table, together with `kernel-callbacks.md#emit`'s restatement of the same enum, is the sole source of the kind → message mapping:
 
 | `kind` | `event.v1` message |
 |---|---|

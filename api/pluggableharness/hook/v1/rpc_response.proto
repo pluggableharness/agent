@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package pluggableharness.hook.v1;
+
+import "pluggableharness/hook/v1/events.proto";
+import "pluggableharness/hook/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1";
+
+// Response message for the hook-dispatch protocol's RPC.
+
+// DispatchHookResponse carries a subscriber's outcome, shaped by the
+// HookMode the request declared. The kernel MUST reject (surfacing a
+// hook_error, per agent-loop/hook-dispatch.md#subscriber-error-handling)
+// a response whose oneof variant doesn't match the request's declared
+// mode — HOOK_ERROR_CATEGORY_INVALID_RESPONSE.
+message DispatchHookResponse {
+  oneof outcome {
+    // The subscriber's acknowledgment, for a HOOK_MODE_OBSERVE request.
+    ObserveAck observe = 1;
+    // The subscriber's modified payload, for a HOOK_MODE_TRANSFORM
+    // request.
+    TransformResult transform = 2;
+    // The subscriber's allow/deny verdict, for a HOOK_MODE_VETO request.
+    VetoResult veto = 3;
+  }
+
+  // ObserveAck is empty. The kernel discards it (and any payload an
+  // observe subscriber mistakenly returns) unconditionally — observe mode
+  // can never alter the payload, per
+  // agent-loop/hook-dispatch.md#subscriber-error-handling.
+  message ObserveAck {}
+
+  // TransformResult carries a transform subscriber's modified payload.
+  message TransformResult {
+    // MUST be the same oneof variant as the request's payload. MUST only
+    // mutate the fields this hook point documents as transform-mutable
+    // (see each *Payload message's own comment) — the kernel MUST reject
+    // a response that changes an immutable field or the variant itself,
+    // per agent-loop/hook-dispatch.md#subscriber-error-handling.
+    HookPayload payload = 1;
+  }
+
+  // VetoResult carries a veto subscriber's allow/deny verdict.
+  message VetoResult {
+    // MUST be set. HOOK_DECISION_UNSPECIFIED is treated as an invalid
+    // response (HOOK_ERROR_CATEGORY_INVALID_RESPONSE), not as an implicit
+    // deny — the fail-closed behavior for a genuinely absent/erroring
+    // response is handled at the gRPC-status level, not by this enum's
+    // zero value.
+    HookDecision decision = 1;
+  }
+}

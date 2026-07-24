@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+// Package pluggableharness.hook.v1 defines the hook-dispatch RPC surface
+// described in agent-loop/hook-dispatch.md and architecture.md §Hook
+// dispatch semantics: the wire contract the kernel uses to invoke any
+// plugin (of any of the six categories) that declares a `hook{}` block in
+// agent.hcl. This is deliberately one shared service rather than a
+// per-category RPC — hashicorp/go-plugin (.claude/rules/plugin-runtime.md)
+// muxes multiple gRPC services over one broker connection, so the kernel
+// dials HookSubscriberService on the same subprocess that already serves
+// that plugin's own category service. A plugin with no `hook{}` blocks in
+// agent.hcl simply never has it called.
+//
+// context-assemble is deliberately absent from this surface's hook-point
+// vocabulary (common.v1.HookPoint) — it stays on ContextService.Contribute
+// (context/protocol.md#contribute-the-context-assemble-rpc; architecture.md
+// §Hook dispatch semantics), which already carries the full accumulated
+// ContextSection chain and doesn't need a second, competing dispatch path.
+// This surface serves the other eight hook points only.
+package pluggableharness.hook.v1;
+
+import "pluggableharness/hook/v1/rpc_request.proto";
+import "pluggableharness/hook/v1/rpc_response.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1";
+
+// HookSubscriberService is the hook-dispatch protocol described in
+// agent-loop/hook-dispatch.md: the kernel invokes a subscribing plugin
+// once per hook-point firing it's declared for, in agent.hcl declaration
+// order alongside every other subscriber at that point
+// (agent-loop/hook-dispatch.md#dispatch-order-and-payload-flow). Every
+// plugin category MAY implement this service; whether the kernel ever
+// dials it for a given plugin process is entirely a function of that
+// plugin's own agent.hcl `hook{}` declarations, not its category.
+service HookSubscriberService {
+  // DispatchHook delivers one hook-point firing to one subscriber. Unary,
+  // not streaming: one invocation is one request/one response
+  // (agent-loop/hook-dispatch.md#dispatch-order-and-payload-flow). Per-
+  // subscriber timeout is a ctx deadline the kernel sets
+  // (.claude/rules/grpc.md "Context and deadlines";
+  // agent-loop/hook-dispatch.md#timeout-behavior), not a wire field on
+  // this request. Cancellation (the kernel closing the call because the
+  // turn is being aborted) is normal control flow, per
+  // .claude/rules/grpc.md — never logged as a failure.
+  rpc DispatchHook(DispatchHookRequest) returns (DispatchHookResponse);
+}

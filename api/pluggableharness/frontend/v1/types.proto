@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package pluggableharness.frontend.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1";
+
+// Domain messages for the frontend provider protocol.
+
+// FrontendCapabilities is this frontend's static self-description, returned
+// by GetCapabilities (frontend.md §3.1).
+message FrontendCapabilities {
+  // Slash commands this frontend contributes. MAY be empty.
+  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 1;
+  // This provider's `agent.hcl` configuration schema (configuration.md §4).
+  pluggableharness.config.v1.ConfigSchema config_schema = 2;
+  // Regions this frontend proactively declares it can render into. A
+  // complement to, not a replacement for, the reactive
+  // FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED error a placement the
+  // frontend can't honor still produces — this lets a producer route
+  // content preferentially without waiting to find out the hard way.
+  repeated pluggableharness.render.v1.Region supported_regions = 3;
+  // Hook points this frontend can subscribe to (agent-loop/hook-dispatch.md),
+  // so a mis-declared agent.hcl hook{} block naming an unsupported point
+  // can be rejected at config-load time rather than failing at first
+  // dispatch.
+  repeated pluggableharness.common.v1.HookPoint supported_hook_points = 4;
+}

@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package pluggableharness.model.v1;
+
+import "google/protobuf/duration.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
+
+// The model category's structured error taxonomy.
+
+// ModelErrorCategory classifies every StreamCompletion/Configure
+// failure, per model.md §8. A plugin MUST classify every failure into
+// exactly one of these categories and MUST NOT collapse them into a
+// single generic error — the kernel's routing/fallback/retry behavior
+// depends on telling these apart.
+enum ModelErrorCategory {
+  // Zero value. Never valid on a real ModelError; its presence on the
+  // wire means a caller forgot to set the field.
+  MODEL_ERROR_CATEGORY_UNSPECIFIED = 0;
+  // The request (or accumulated conversation) exceeds the model's context
+  // window. The kernel MUST NOT blindly retry as-is.
+  MODEL_ERROR_CATEGORY_CONTEXT_LENGTH_EXCEEDED = 1;
+  // A vendor-side rate limit was hit. The kernel retries with backoff,
+  // honoring retry_after if supplied.
+  MODEL_ERROR_CATEGORY_RATE_LIMITED = 2;
+  // Transient vendor unavailability (5xx-equivalent). The kernel retries
+  // with backoff; a candidate for capability-aware fallback.
+  MODEL_ERROR_CATEGORY_OVERLOADED = 3;
+  // Bad, expired, or missing credentials. The kernel MUST NOT retry or
+  // silently fall back; this surfaces to a human.
+  MODEL_ERROR_CATEGORY_AUTH_ERROR = 4;
+  // A malformed request — almost always a kernel/adapter bug. The kernel
+  // MUST NOT retry as-is.
+  MODEL_ERROR_CATEGORY_INVALID_REQUEST = 5;
+  // The vendor refused or filtered the content. Surfaced distinctly from
+  // a generic failure so policy/UX can handle it differently.
+  MODEL_ERROR_CATEGORY_CONTENT_FILTERED = 6;
+  // Anything else. MUST include raw_detail for debugging; treated as
+  // non-retryable by default.
+  MODEL_ERROR_CATEGORY_UNKNOWN = 7;
+}
+
+// ModelError is the structured error every failure crossing this
+// plugin boundary carries, per model.md §8.
+message ModelError {
+  // This failure's category. MUST be set.
+  ModelErrorCategory category = 1;
+
+  // Human-readable description of the failure.
+  string message = 2;
+
+  // Whether the kernel may retry this request as-is.
+  bool retryable = 3;
+
+  // How long the kernel should wait before retrying, when the vendor
+  // supplies one (typically alongside MODEL_ERROR_CATEGORY_RATE_LIMITED).
+  // SHOULD be set when available. Refines model.md §8's
+  // "retry_after_seconds" into the native well-known type.
+  optional google.protobuf.Duration retry_after = 4;
+
+  // The raw vendor-provided error code or body, for debugging. SHOULD be
+  // set.
+  optional string raw_detail = 5;
+}

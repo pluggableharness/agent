@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+// Package pluggableharness.model.v1 defines the model (LLM vendor) provider
+// plugin protocol described in specifications/model.md — see
+// .claude/rules/proto.md — plus the two distinct model-identity shapes used
+// across the other specs. The identity shapes are deliberately NOT unified
+// into one message: ModelTarget is a rich "what am I generating context
+// for" descriptor (context.md §4, memory.md §6); ModelRef is a narrow
+// "which model's tokenizer" selector (kernel-callbacks.md §2). Merging them
+// would force every CountTokens caller to populate fields it doesn't have
+// and doesn't need.
+package pluggableharness.model.v1;
+
+import "pluggableharness/model/v1/events.proto";
+import "pluggableharness/model/v1/rpc_request.proto";
+import "pluggableharness/model/v1/rpc_response.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
+
+// ModelService is the model provider plugin protocol described in
+// specifications/model.md §1: a subprocess + gRPC plugin (via
+// hashicorp/go-plugin) fronting one LLM vendor. Every plugin exposes
+// GetCapabilities, Configure, and StreamCompletion (all MUST); CountTokens
+// SHOULD be implemented; Render MAY be implemented.
+service ModelService {
+  // GetCapabilities returns one ModelSpec per model this plugin can serve,
+  // per model.md §2. MUST be cheap to call repeatedly (the kernel MAY
+  // call it before every routing decision) and MUST NOT require a network
+  // call to the vendor if avoidable.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+
+  // Configure delivers the provider's agent.hcl config block, already
+  // decoded from HCL/cty into a Struct by the kernel's schema-to-cty
+  // bridge, per model.md §3. MUST reject missing required fields (e.g.
+  // no API key) with a structured error at Configure time rather than
+  // deferring the failure to the first StreamCompletion call. A plugin
+  // MUST NOT echo any received secret value into an Emit'd event, a Render
+  // output, a log line, or an error message.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // StreamCompletion is server-streaming, never bidirectional — this
+  // matches how a real vendor API actually works: one request in, one
+  // chunked/SSE response out. The kernel sends one request (full message
+  // history + tool declarations + generation params) and receives a
+  // stream of StreamEvents back. A backend whose vendor API is not natively
+  // streaming (batch-only) MUST still implement this RPC shape, emitting
+  // its full response as a single terminal burst of events followed by a
+  // `stop` event (model.md §4). Cancellation is the kernel closing the
+  // gRPC stream; the plugin MUST treat this as normal control flow — stop
+  // generating and release resources — surfacing StopReason
+  // STOP_REASON_CANCELLED, never treating it as an error condition
+  // (model.md §1, .claude/rules/grpc.md's cancellation rule).
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Stream element type is the bare "StreamEvent" per model.md §4's
+  // literal spec, naming the streamed domain concept rather than the RPC.
+  rpc StreamCompletion(StreamCompletionRequest) returns (stream StreamEvent);
+
+  // CountTokens returns an exact token count for the given text, using the
+  // vendor's real tokenizer. SHOULD be implemented per model provider
+  // (model.md §2.1) — upgraded from an initial MAY per operator
+  // decision. A model provider that implements this gets its counts
+  // marked exact when the kernel resolves a CountTokens call against it
+  // (kernel-callbacks.md §2); a provider that doesn't falls back to the
+  // heuristic in kernel-callbacks.md §3, a genuine last resort.
+  rpc CountTokens(CountTokensRequest) returns (CountTokensResponse);
+
+  // Render is the model-provider side of the Emit->Render->Paint pipeline
+  // (see docs/specifications/architecture.md), returning a RenderTree for an opaque
+  // emitted payload — e.g. to render a `thinking` block collapsed by
+  // default, or usage/cost info specially. MAY be implemented; model.md
+  // §7 notes most model-provider payloads (plain text, tool calls) render
+  // fine under the kernel's generic fallback when this RPC is absent.
+  rpc Render(RenderRequest) returns (RenderResponse);
+
+  // Describe reports this plugin build's own identity — {name, version,
+  // source, category, protocol_version} — directly from the running
+  // process, rather than the kernel inferring it from a lock-file row.
+  // This matters specifically for a dev_overrides binary
+  // (configuration/settings-and-global.md#dev_overrides), which bypasses
+  // the registry/lock-file resolution path entirely and so has no
+  // provider "<name>" { ... } lock entry to read identity from; see
+  // configuration/lock-file.md's dev_overrides note for the canonical
+  // explanation, shared verbatim across all six category protocols that
+  // gain this RPC in this same protocol revision.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+}

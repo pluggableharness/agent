@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package pluggableharness.tool.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
+import "pluggableharness/tool/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1";
+
+// Unary response messages for the tool provider protocol's RPCs.
+
+// GetSchemaResponse is this provider's complete capability advertisement.
+message GetSchemaResponse {
+  // One entry per operation this plugin exposes.
+  repeated ToolSchema tools = 1;
+
+  // Slash commands this provider contributes, per tool.md §2.1. MAY be
+  // empty. Each entry's tool_name MUST reference one of this same
+  // provider's own operations declared in `tools` above — a provider
+  // cannot declare a slash command that invokes another provider's tool.
+  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 2;
+
+  // This provider's agent.hcl config schema, per configuration.md §4 —
+  // what fields Configure's request may be decoded from.
+  pluggableharness.config.v1.ConfigSchema config_schema = 3;
+
+  // Which of the eight dispatchable hook points (hook/v1.HookPoint) this
+  // provider subscribes a HookSubscriberService to, per this provider's own
+  // agent.hcl hook{} blocks. Lets the kernel validate a hook{} declaration
+  // at config-load time instead of discovering an unsupported subscription
+  // only when that hook point first fires.
+  repeated pluggableharness.common.v1.HookPoint supported_hook_points = 4;
+}
+
+// ConfigureResponse is empty on success. Errors surface as a gRPC status
+// carrying a ToolError in its detail, per grpc.md — not an in-band field
+// here.
+message ConfigureResponse {}
+
+// RenderResponse wraps the rendered tree. A thin per-RPC envelope around
+// RenderTree, which keeps its own rich structure independent of the RPC
+// signature.
+message RenderResponse {
+  // The rendered tree.
+  pluggableharness.render.v1.RenderTree tree = 1;
+}
+
+// PreviewResponse carries a dry-run, human-readable description of what
+// Invoke(call) would do, per protocol.md#preview — e.g. an edit tool
+// returns the diff it would apply. Rendered into the plan/apply gate's
+// permission UI via PlanItem.preview (pluggableharness.plan.v1,
+// a sibling protocol revision) — that field and this response share the
+// same pluggableharness.render.v1.RenderTree type by design, so a
+// Preview call's output and a plan item's stored preview are
+// interchangeable.
+message PreviewResponse {
+  // The dry-run preview, rendered as a RenderTree. Producing this MUST NOT
+  // mutate anything and MUST be side-effect-free — the same guarantee
+  // TOOL_KIND_DATA_SOURCE operations make, but unconditionally, regardless
+  // of the call's actual ToolKind.
+  pluggableharness.render.v1.RenderTree preview = 1;
+}
+
+// DescribeResponse reports this plugin build's own identity, per
+// configuration/lock-file.md's dev_overrides note: a dev_overrides-resolved
+// plugin has no lock-file entry for the kernel to read {name, version,
+// source, category, protocol_version} from, so the kernel obtains it
+// directly from the running process via this RPC instead.
+message DescribeResponse {
+  // This plugin build's identity.
+  pluggableharness.common.v1.ProducerRef producer = 1;
+}

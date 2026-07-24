@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package pluggableharness.context.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1";
+
+// Domain messages for the context provider protocol.
+
+// ContextCapabilities reports a context provider's static properties.
+// context.md §2. stability and compactor MUST be re-queryable cheaply and
+// MUST NOT depend on a live read of the content source — a provider reading
+// CLAUDE.md declares stability as a fixed property of the plugin, not a
+// per-call judgment.
+message ContextCapabilities {
+  // The token cap this provider requests if agent.hcl does not override it.
+  // MUST be set. context.md §2, §6.
+  int64 default_token_budget = 1;
+
+  // Whether this provider's contributed content changes turn to turn. MUST
+  // be set. context.md §2, §7.
+  pluggableharness.content.v1.Stability stability = 2;
+
+  // Whether this provider acts as a compactor: MAY rewrite, merge, or drop
+  // other providers' sections in the chain it receives, and MAY receive
+  // conversation_history on ContextRequest and return rewritten_history.
+  // MUST be set; defaults to false. context.md §5, §5.1.
+  bool compactor = 3;
+
+  // Slash commands this provider contributes. MAY be empty.
+  // context.md §2, configuration.md §5.
+  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 4;
+
+  // This provider's agent.hcl config schema, advertised so the kernel knows
+  // what fields Configure accepts. configuration.md §4.
+  pluggableharness.config.v1.ConfigSchema config_schema = 5;
+
+  // Which hook points (agent-loop/hook-dispatch.md) this provider declares
+  // HookSubscriberService.DispatchHook subscriptions for, advertised
+  // up front alongside its other static properties. MAY be empty — a
+  // context provider with no hook{} blocks in agent.hcl never has
+  // DispatchHook called on it. The enum itself lives in common.v1, not
+  // hook.v1 — hook.v1 imports this package's model/tool/plan dependencies,
+  // so a category capability message importing hook.v1 directly would
+  // cycle back through it; common.v1 is the shared leaf package instead.
+  repeated pluggableharness.common.v1.HookPoint supported_hook_points = 6;
+}

@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package pluggableharness.hook.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1";
+
+// Enums shared by the hook-dispatch protocol's request and response shapes.
+
+// HookMode is the operator-declared subscription mode for one plugin's
+// hook{} block, per architecture.md §Hook dispatch semantics and
+// agent-loop/hook-dispatch.md#dispatch-order-and-payload-flow. Mode is
+// per-subscription (agent.hcl-declared), not per-payload — it is not
+// carried in HookPayload itself, only echoed on DispatchHookRequest so the
+// subscriber knows which of DispatchHookResponse's three outcome shapes is
+// expected of it.
+enum HookMode {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  HOOK_MODE_UNSPECIFIED = 0;
+  // Read-only, fire-and-forget. A raised error or malformed response is
+  // logged and dispatch continues; an observe subscriber can never alter
+  // the payload or abort the chain
+  // (agent-loop/hook-dispatch.md#subscriber-error-handling).
+  HOOK_MODE_OBSERVE = 1;
+  // Sequential chain member: receives the prior stage's payload, returns
+  // a modified version of the same variant. An error or malformed
+  // response aborts the remainder of that hook's chain and surfaces a
+  // hook_error event (agent-loop/hook-dispatch.md#subscriber-error-handling).
+  HOOK_MODE_TRANSFORM = 2;
+  // Returns an explicit allow/deny verdict. An error or timeout is
+  // treated identically to an explicit deny — fail-closed
+  // (agent-loop/hook-dispatch.md#timeout-behavior).
+  HOOK_MODE_VETO = 3;
+}
+
+// HookDecision is a veto subscriber's coarse allow/deny verdict over a
+// whole HookPayload. Deliberately distinct from
+// pluggableharness.plan.v1.PlanDecision — that enum is per-plan-item
+// and carries PENDING/ASK, which are meaningless for a hook-level veto;
+// the two enums MUST NOT be merged, per .claude/rules/proto.md's
+// no-untyped-overload discipline (see also ToolErrorCategory vs
+// ModelErrorCategory for the same non-merge precedent).
+enum HookDecision {
+  // Zero value. Never valid as a deliberately-chosen verdict; its
+  // presence on the wire means a caller forgot to set the field.
+  HOOK_DECISION_UNSPECIFIED = 0;
+  // The dispatch chain proceeds normally.
+  HOOK_DECISION_ALLOW = 1;
+  // The kernel MUST NOT let the vetoed action proceed. What "the action"
+  // means is point-specific: at HOOK_POINT_PLAN_READY it means the whole
+  // plan (or, for the kernel-privileged policy subscriber, the
+  // per-item decisions policy itself produces directly — a third-party
+  // veto subscriber at plan-ready returns only this coarse ALLOW/DENY
+  // over the whole plan, per architecture.md §Policy — first-party, not a
+  // plugin category).
+  HOOK_DECISION_DENY = 2;
+}

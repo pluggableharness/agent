@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package pluggableharness.frontend.v1;
+
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/frontend/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1";
+
+// Unary response messages for the frontend provider protocol's RPCs.
+
+// GetCapabilitiesResponse wraps FrontendCapabilities for the RPC signature,
+// per this repo's per-RPC envelope convention (.claude/rules/proto.md).
+message GetCapabilitiesResponse {
+  FrontendCapabilities capabilities = 1;
+}
+
+// ConfigureResponse is empty on success. Configuration errors surface as a
+// gRPC status carrying a FrontendError in its structured detail
+// (.claude/rules/grpc.md), not as an in-band field on this message.
+message ConfigureResponse {}
+
+// DescribeResponse reports this plugin build's own identity, obtained
+// directly from the running process rather than a lock-file row —
+// configuration/lock-file.md's "dev_overrides and identity without a lock
+// entry".
+message DescribeResponse {
+  pluggableharness.common.v1.ProducerRef producer = 1;
+}

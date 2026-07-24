@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package pluggableharness.memory.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1";
+
+// Structured error taxonomy for the memory provider plugin boundary.
+
+// MemoryErrorCategory is the structured error taxonomy every MemoryError
+// classifies into. memory.md §11.
+enum MemoryErrorCategory {
+  // Zero value. Never valid for a real error; its presence on the wire
+  // means a caller forgot to set the field.
+  MEMORY_ERROR_CATEGORY_UNSPECIFIED = 0;
+  // UpdateRecord/DeleteRecord/ApproveRecord/RejectRecord referenced an id
+  // that doesn't exist.
+  MEMORY_ERROR_CATEGORY_NOT_FOUND = 1;
+  // Record specified a MemoryType this provider doesn't support (absent
+  // from GetCapabilities.supported_types).
+  MEMORY_ERROR_CATEGORY_INVALID_TYPE = 2;
+  // ApproveRecord/RejectRecord was called against a provider with
+  // ratification_supported == false.
+  MEMORY_ERROR_CATEGORY_RATIFICATION_UNSUPPORTED = 3;
+  // Recall's candidate records exceed token_budget even after this
+  // provider's own truncation — the same MUST-self-truncate principle as
+  // context.md §6.
+  MEMORY_ERROR_CATEGORY_BUDGET_EXCEEDED = 4;
+  // This provider's backend storage was unreachable at call time.
+  MEMORY_ERROR_CATEGORY_SOURCE_UNAVAILABLE = 5;
+  // Any error not covered by a more specific category above.
+  MEMORY_ERROR_CATEGORY_UNKNOWN = 6;
+  // Record specified a MemoryScope this provider doesn't support (absent
+  // from GetCapabilities.supported_scopes) — the scope-taxonomy mirror of
+  // MEMORY_ERROR_CATEGORY_INVALID_TYPE above.
+  MEMORY_ERROR_CATEGORY_INVALID_SCOPE = 7;
+}
+
+// MemoryError is the structured detail carried on a gRPC error status
+// crossing the memory provider plugin boundary. memory.md §11.
+message MemoryError {
+  // Which category of failure occurred.
+  MemoryErrorCategory category = 1;
+
+  // Human-readable error detail.
+  string message = 2;
+
+  // Whether the kernel MAY retry this call as-is.
+  bool retryable = 3;
+}
