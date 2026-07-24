@@ -41,6 +41,8 @@ const (
 	spanNameStateBackendCostQuery       = "statebackend.query.total_cost"
 	spanNameStateBackendCostLedgerQuery = "statebackend.query.cost_ledger"
 	spanNameStateBackendPlanItemsQuery  = "statebackend.query.plan_items"
+
+	spanNameEventBusPublish = "eventbus.publish"
 )
 
 // SessionSpan describes the session a StartSession call is opening
@@ -273,6 +275,15 @@ func (p *Provider) StartStateBackendCostLedgerQuery(ctx context.Context, session
 // use by statebackend.Session.PlanItems.
 func (p *Provider) StartStateBackendPlanItemsQuery(ctx context.Context, sessionID string) (context.Context, trace.Span) {
 	return p.tracer.Start(ctx, spanNameStateBackendPlanItemsQuery, trace.WithAttributes(SessionIDKey.String(sessionID)))
+}
+
+// StartEventBusPublish opens the span covering one internal/eventbus
+// Publish call's whole fan-out — enqueuing the event onto every current
+// subscriber of topic, not the (out-of-band, per-subscriber) delivery
+// that follows. topic is unbounded, so it is attached to this span only,
+// never to a metric (EventBusTopicKey's doc comment).
+func (p *Provider) StartEventBusPublish(ctx context.Context, topic string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameEventBusPublish, trace.WithAttributes(EventBusTopicKey.String(topic)))
 }
 
 // EndSpan ends span, recording err onto it first if non-nil (RecordError

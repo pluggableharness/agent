@@ -36,6 +36,10 @@ type Instruments struct {
 	HookDuration  metric.Float64Histogram
 
 	ActiveSessions metric.Int64UpDownCounter
+
+	EventBusEventsPublished     metric.Int64Counter
+	EventBusEventsDelivered     metric.Int64Counter
+	EventBusSubscriptionsActive metric.Int64UpDownCounter
 }
 
 // newInstruments registers every instrument against meter. An error here
@@ -111,6 +115,18 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		metric.WithDescription("Currently active sessions (root + sub-agent)."))
 	check("pluggableharness.agent.sessions.active", err)
 
+	eventBusEventsPublished, err := meter.Int64Counter("pluggableharness.agent.eventbus.events.published",
+		metric.WithDescription("internal/eventbus Publish calls that reached at least the fan-out step (topic is never an attribute here — see EventBusTopicKey's cardinality rule)."))
+	check("pluggableharness.agent.eventbus.events.published", err)
+
+	eventBusEventsDelivered, err := meter.Int64Counter("pluggableharness.agent.eventbus.events.delivered",
+		metric.WithDescription("internal/eventbus handler invocations — one per (event, subscriber) pair actually delivered."))
+	check("pluggableharness.agent.eventbus.events.delivered", err)
+
+	eventBusSubscriptionsActive, err := meter.Int64UpDownCounter("pluggableharness.agent.eventbus.subscriptions.active",
+		metric.WithDescription("Currently open internal/eventbus subscriptions, across all topics."))
+	check("pluggableharness.agent.eventbus.subscriptions.active", err)
+
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
@@ -130,5 +146,9 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		ToolDuration:    toolDuration,
 		HookDuration:    hookDuration,
 		ActiveSessions:  activeSessions,
+
+		EventBusEventsPublished:     eventBusEventsPublished,
+		EventBusEventsDelivered:     eventBusEventsDelivered,
+		EventBusSubscriptionsActive: eventBusSubscriptionsActive,
 	}, nil
 }
