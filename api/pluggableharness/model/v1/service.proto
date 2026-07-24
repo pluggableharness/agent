@@ -81,7 +81,7 @@ service ModelService {
   // the registry/lock-file resolution path entirely and so has no
   // provider "<name>" { ... } lock entry to read identity from; see
   // configuration/lock-file.md's dev_overrides note for the canonical
-  // explanation, shared verbatim across all six category protocols that
+  // explanation, shared verbatim across all seven category protocols that
   // gain this RPC in this same protocol revision.
   rpc Describe(DescribeRequest) returns (DescribeResponse);
 }

@@ -45,7 +45,7 @@ in a narrowly-named package that says what it does.
 
 ## Interfaces: the driver pattern
 
-Every pluggable concern (each of the six provider categories, plus internal
+Every pluggable concern (each of the seven provider categories, plus internal
 swappable backends like the memory store) follows the same shape:
 
 ```
@@ -77,9 +77,9 @@ vector — backend-agnostic by design, see `docs/specifications/memory/README.md
 is `internal/memory/` (interface) with
 `internal/memory/drivers/{markdown,sqlite,vector}/`.
 
-This applies to internal swappable components. The six *plugin* categories
-themselves (model, tool, context, memory, frontend, widget) are out-of-process
-via `hashicorp/go-plugin` — see `plugin-runtime.md` — but the kernel-side code
+This applies to internal swappable components. The seven *plugin* categories
+themselves (model, tool, context, memory, frontend, widget, slashcommand) are
+out-of-process via `hashicorp/go-plugin` — see `plugin-runtime.md` — but the kernel-side code
 that talks to them (the client stub, the registry, the cache) still follows
 this same interface/driver shape internally.
 

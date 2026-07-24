@@ -24,7 +24,7 @@ The authoritative protocol contracts. RFC 2119 keywords are load-bearing; where 
 <div markdown>
 [Architecture](specifications/architecture.md)
 
-Microkernel philosophy, the six plugin categories, Emit → Render → Paint, transport, registry, policy.
+Microkernel philosophy, the seven plugin categories, Emit → Render → Paint, transport, registry, policy.
 </div>
 
 <div markdown>
@@ -67,6 +67,12 @@ Cross-session persistence and recall, plus the record taxonomy.
 [Frontend & widget](specifications/frontend/README.md)
 
 Frontend and widget plugin protocols and the shared render tree IR.
+</div>
+
+<div markdown>
+[Slashcommand provider](specifications/slashcommand/README.md)
+
+Direct-invoke commands: a tool-shaped operation declared and executed in its own right.
 </div>
 
 <div markdown>

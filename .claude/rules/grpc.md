@@ -19,6 +19,7 @@ dictated by the specs and MUST match exactly.
 | Tool | `Invoke` | server-streaming | `docs/specifications/tool/protocol.md` |
 | Frontend | `Attach` | **bidirectional** streaming | `docs/specifications/frontend/frontend-protocol.md` |
 | Widget | `Attach` | server-streaming only | `docs/specifications/frontend/widget-protocol.md` |
+| Slashcommand | `Invoke` | server-streaming | `docs/specifications/slashcommand/protocol.md` (same shape as Tool's `Invoke` — a direct-invoke command is a tool-shaped operation) |
 | Kernel callback | `RunSession`, `CountTokens` | bidirectional (go-plugin's native plugin→kernel channel) | `docs/specifications/kernel-callbacks.md` |
 
 Frontend `Attach` and the kernel-callback channel are the **only** two

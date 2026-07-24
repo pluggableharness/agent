@@ -1,7 +1,7 @@
 site_name: PluggableHarness Agent
 site_url: https://docs.pluggableharness.ai/
 site_description: >-
-  The AI coding harness you never have to fork. A small Go microkernel, six
+  The AI coding harness you never have to fork. A small Go microkernel, seven
   out-of-process plugin categories, one config file — protocol specifications
   and the first-party catalog.
 repo_url: https://github.com/pluggableharness/agent
@@ -126,10 +126,10 @@ plugins:
   - llmstxt:
       markdown_description: >-
         PluggableHarness Agent is a microkernel AI coding harness: a small Go
-        kernel plus six out-of-process plugin categories (model, tool, context,
-        memory, frontend, widget) declared in agent.hcl. These documents are
-        the authoritative protocol specifications and the first-party
-        provider/tool catalog.
+        kernel plus seven out-of-process plugin categories (model, tool, context,
+        memory, frontend, widget, slashcommand) declared in agent.hcl. These
+        documents are the authoritative protocol specifications and the
+        first-party provider/tool catalog.
       full_output: llms-full.txt
       sections:
         Specifications:
@@ -141,6 +141,7 @@ plugins:
           - specifications/context/*.md
           - specifications/memory/*.md
           - specifications/frontend/*.md
+          - specifications/slashcommand/*.md
         First-party catalog:
           - first-party/*.md
           - first-party/providers/*.md
@@ -206,6 +207,12 @@ nav:
           - Render tree: specifications/frontend/render-tree.md
           - Examples: specifications/frontend/examples.md
           - Conformance: specifications/frontend/conformance.md
+      - Slashcommand provider protocol:
+          - specifications/slashcommand/README.md
+          - Protocol: specifications/slashcommand/protocol.md
+          - Data types: specifications/slashcommand/data-types.md
+          - Examples: specifications/slashcommand/examples.md
+          - Conformance: specifications/slashcommand/conformance.md
   - First-party:
       - first-party/index.md
       - Model providers:

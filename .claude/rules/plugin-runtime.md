@@ -5,7 +5,7 @@ paths:
 
 # Plugin runtime (`hashicorp/go-plugin`) conventions
 
-Every one of the six plugin categories is a subprocess speaking gRPC over
+Every one of the seven plugin categories is a subprocess speaking gRPC over
 `hashicorp/go-plugin`. This file covers the lifecycle/runtime half; `grpc.md`
 covers RPC shape and `proto.md` covers wire typing.
 

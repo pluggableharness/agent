@@ -9,7 +9,7 @@
 // plugin author's part.
 //
 // Unlike the other pkg/<category> directories, this package has no
-// proto/ subdirectory: telemetry is not one of the six plugin categories
+// proto/ subdirectory: telemetry is not one of the seven plugin categories
 // and has no wire protocol of its own. It is a pure Go convenience
 // wrapper.
 package telemetry

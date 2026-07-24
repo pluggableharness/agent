@@ -2,7 +2,7 @@
 
 <p align="center"><strong>The AI coding harness you never have to fork.</strong></p>
 
-<p align="center">A real microkernel. Six plugin categories. One config file. Every opinion is swappable — and none of them are ours.</p>
+<p align="center">A real microkernel. Seven plugin categories. One config file. Every opinion is swappable — and none of them are ours.</p>
 
 <p align="center">
   <a href="https://github.com/pluggableharness/agent/releases"><img alt="Release" src="https://img.shields.io/github/v/release/pluggableharness/agent?style=flat-square"></a>
@@ -70,7 +70,7 @@ The kernel resolves every provider the profile needs — pinned, checksummed, lo
 
 ## Why this wins
 
-### 🧩 Six plugin categories. One shape. Learn it once.
+### 🧩 Seven plugin categories. One shape. Learn it once.
 
 | Category | What it owns |
 |---|---|
@@ -80,8 +80,9 @@ The kernel resolves every provider the profile needs — pinned, checksummed, lo
 | **Memory provider** | What persists across sessions — markdown, sqlite, vector, remote |
 | **Frontend provider** | How the session is painted — terminal, web, voice, all at once |
 | **Widget provider** | Persistent display state derived from the live event stream |
+| **Slashcommand provider** | Direct-invoke commands — a tool-shaped operation in its own right |
 
-Every category speaks the same protocol shape: declare what you do, accept your config, do your work. Master one, and you've mastered all six.
+Every category speaks the same protocol shape: declare what you do, accept your config, do your work. Master one, and you've mastered all seven.
 
 ### 🔒 A plan before anything mutates. No plugin can route around it.
 

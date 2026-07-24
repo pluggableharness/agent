@@ -100,7 +100,7 @@ type ModelServiceClient interface {
 	// the registry/lock-file resolution path entirely and so has no
 	// provider "<name>" { ... } lock entry to read identity from; see
 	// configuration/lock-file.md's dev_overrides note for the canonical
-	// explanation, shared verbatim across all six category protocols that
+	// explanation, shared verbatim across all seven category protocols that
 	// gain this RPC in this same protocol revision.
 	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
@@ -245,7 +245,7 @@ type ModelServiceServer interface {
 	// the registry/lock-file resolution path entirely and so has no
 	// provider "<name>" { ... } lock entry to read identity from; see
 	// configuration/lock-file.md's dev_overrides note for the canonical
-	// explanation, shared verbatim across all six category protocols that
+	// explanation, shared verbatim across all seven category protocols that
 	// gain this RPC in this same protocol revision.
 	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedModelServiceServer()

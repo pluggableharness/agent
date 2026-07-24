@@ -51,7 +51,7 @@ service WidgetService {
   // Describe reports this plugin build's own identity — {name, version,
   // source, category, protocol_version} — directly from the running
   // process, rather than the kernel inferring it from a lock-file row.
-  // Every one of the six category protocols gains this identical RPC in
+  // Every one of the seven category protocols gains this identical RPC in
   // this protocol revision; it exists specifically for a
   // `dev_overrides`-resolved binary (configuration/lock-file.md's
   // "dev_overrides and identity without a lock entry"), which has no
