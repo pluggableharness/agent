@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/hook/v1/hook.proto
+// source: pluggableharness/hook/v1/hook.proto
 
-// Package pluggableharness.agent.hook.v1 defines the hook-dispatch RPC surface
+// Package pluggableharness.hook.v1 defines the hook-dispatch RPC surface
 // described in agent-loop/hook-dispatch.md and architecture.md §Hook
 // dispatch semantics: the wire contract the kernel uses to invoke any
 // plugin (of any of the six categories) that declares a `hook{}` block in
@@ -37,7 +37,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	HookSubscriberService_DispatchHook_FullMethodName = "/pluggableharness.agent.hook.v1.HookSubscriberService/DispatchHook"
+	HookSubscriberService_DispatchHook_FullMethodName = "/pluggableharness.hook.v1.HookSubscriberService/DispatchHook"
 )
 
 // HookSubscriberServiceClient is the client API for HookSubscriberService service.
@@ -162,7 +162,7 @@ func _HookSubscriberService_DispatchHook_Handler(srv interface{}, ctx context.Co
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var HookSubscriberService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.hook.v1.HookSubscriberService",
+	ServiceName: "pluggableharness.hook.v1.HookSubscriberService",
 	HandlerType: (*HookSubscriberServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -171,5 +171,5 @@ var HookSubscriberService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pluggableharness/agent/hook/v1/hook.proto",
+	Metadata: "pluggableharness/hook/v1/hook.proto",
 }

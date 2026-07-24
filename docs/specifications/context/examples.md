@@ -22,11 +22,11 @@ message ContextRequest {
   string parent_session_id = 2;
   string turn_id = 3;
   int64 token_budget = 4;
-  pluggableharness.agent.model.v1.ModelTarget model_target = 5;
+  pluggableharness.model.v1.ModelTarget model_target = 5;
   repeated string files_touched = 6;
   string working_directory = 7;
   repeated ContextSection prior_sections = 8;
-  repeated pluggableharness.agent.content.v1.Message conversation_history = 9;
+  repeated pluggableharness.content.v1.Message conversation_history = 9;
   int64 history_tokens = 10;
   int64 assembled_tokens_last_turn = 11;
 }
@@ -34,7 +34,7 @@ message ContextRequest {
 message ContextSection {
   string provider = 1;
   string label = 2;
-  repeated pluggableharness.agent.content.v1.ContentBlock content = 3;
+  repeated pluggableharness.content.v1.ContentBlock content = 3;
   int64 tokens = 4;
   Stability stability = 5;
   bool truncated = 6;

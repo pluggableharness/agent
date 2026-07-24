@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/tool/v1/tool.proto
+// source: pluggableharness/tool/v1/tool.proto
 
-// Package pluggableharness.agent.tool.v1 defines the tool provider plugin protocol
+// Package pluggableharness.tool.v1 defines the tool provider plugin protocol
 // described in specifications/tool.md — the wire contract for file I/O,
 // shell execution, search, web access, task tracking, sub-agent spawning,
 // and similar operations.
@@ -79,11 +79,11 @@ func (x ToolKind) String() string {
 }
 
 func (ToolKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_tool_v1_tool_proto_enumTypes[0].Descriptor()
 }
 
 func (ToolKind) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[0]
+	return &file_pluggableharness_tool_v1_tool_proto_enumTypes[0]
 }
 
 func (x ToolKind) Number() protoreflect.EnumNumber {
@@ -92,7 +92,7 @@ func (x ToolKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ToolKind.Descriptor instead.
 func (ToolKind) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{0}
 }
 
 // RiskClass classifies an operation's blast radius, per tool.md §2. Orthogonal
@@ -158,11 +158,11 @@ func (x RiskClass) String() string {
 }
 
 func (RiskClass) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_tool_v1_tool_proto_enumTypes[1].Descriptor()
 }
 
 func (RiskClass) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[1]
+	return &file_pluggableharness_tool_v1_tool_proto_enumTypes[1]
 }
 
 func (x RiskClass) Number() protoreflect.EnumNumber {
@@ -171,7 +171,7 @@ func (x RiskClass) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RiskClass.Descriptor instead.
 func (RiskClass) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{1}
 }
 
 // OutputStream distinguishes which underlying stream an OutputChunk came
@@ -213,11 +213,11 @@ func (x OutputStream) String() string {
 }
 
 func (OutputStream) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[2].Descriptor()
+	return file_pluggableharness_tool_v1_tool_proto_enumTypes[2].Descriptor()
 }
 
 func (OutputStream) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[2]
+	return &file_pluggableharness_tool_v1_tool_proto_enumTypes[2]
 }
 
 func (x OutputStream) Number() protoreflect.EnumNumber {
@@ -226,7 +226,7 @@ func (x OutputStream) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OutputStream.Descriptor instead.
 func (OutputStream) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{2}
 }
 
 // ToolErrorCategory classifies why an Invoke call failed, per tool.md §8.
@@ -310,11 +310,11 @@ func (x ToolErrorCategory) String() string {
 }
 
 func (ToolErrorCategory) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[3].Descriptor()
+	return file_pluggableharness_tool_v1_tool_proto_enumTypes[3].Descriptor()
 }
 
 func (ToolErrorCategory) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_tool_v1_tool_proto_enumTypes[3]
+	return &file_pluggableharness_tool_v1_tool_proto_enumTypes[3]
 }
 
 func (x ToolErrorCategory) Number() protoreflect.EnumNumber {
@@ -323,7 +323,7 @@ func (x ToolErrorCategory) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ToolErrorCategory.Descriptor instead.
 func (ToolErrorCategory) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{3}
 }
 
 // GetSchemaRequest carries no fields — GetSchema takes no parameters.
@@ -335,7 +335,7 @@ type GetSchemaRequest struct {
 
 func (x *GetSchemaRequest) Reset() {
 	*x = GetSchemaRequest{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[0]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -347,7 +347,7 @@ func (x *GetSchemaRequest) String() string {
 func (*GetSchemaRequest) ProtoMessage() {}
 
 func (x *GetSchemaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[0]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -360,7 +360,7 @@ func (x *GetSchemaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSchemaRequest.ProtoReflect.Descriptor instead.
 func (*GetSchemaRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{0}
 }
 
 // GetSchemaResponse is this provider's complete capability advertisement.
@@ -381,14 +381,14 @@ type GetSchemaResponse struct {
 	// agent.hcl hook{} blocks. Lets the kernel validate a hook{} declaration
 	// at config-load time instead of discovering an unsupported subscription
 	// only when that hook point first fires.
-	SupportedHookPoints []v12.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v12.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GetSchemaResponse) Reset() {
 	*x = GetSchemaResponse{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[1]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -400,7 +400,7 @@ func (x *GetSchemaResponse) String() string {
 func (*GetSchemaResponse) ProtoMessage() {}
 
 func (x *GetSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[1]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -413,7 +413,7 @@ func (x *GetSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSchemaResponse.ProtoReflect.Descriptor instead.
 func (*GetSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetSchemaResponse) GetTools() []*ToolSchema {
@@ -456,7 +456,7 @@ type ConfigureRequest struct {
 
 func (x *ConfigureRequest) Reset() {
 	*x = ConfigureRequest{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[2]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -468,7 +468,7 @@ func (x *ConfigureRequest) String() string {
 func (*ConfigureRequest) ProtoMessage() {}
 
 func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[2]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -481,7 +481,7 @@ func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureRequest.ProtoReflect.Descriptor instead.
 func (*ConfigureRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ConfigureRequest) GetConfig() *structpb.Struct {
@@ -502,7 +502,7 @@ type ConfigureResponse struct {
 
 func (x *ConfigureResponse) Reset() {
 	*x = ConfigureResponse{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[3]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -514,7 +514,7 @@ func (x *ConfigureResponse) String() string {
 func (*ConfigureResponse) ProtoMessage() {}
 
 func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[3]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -527,7 +527,7 @@ func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureResponse.ProtoReflect.Descriptor instead.
 func (*ConfigureResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{3}
 }
 
 // ConcurrencySpec declares whether this operation's Invoke calls may run
@@ -557,7 +557,7 @@ type ConcurrencySpec struct {
 
 func (x *ConcurrencySpec) Reset() {
 	*x = ConcurrencySpec{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[4]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -569,7 +569,7 @@ func (x *ConcurrencySpec) String() string {
 func (*ConcurrencySpec) ProtoMessage() {}
 
 func (x *ConcurrencySpec) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[4]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -582,7 +582,7 @@ func (x *ConcurrencySpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConcurrencySpec.ProtoReflect.Descriptor instead.
 func (*ConcurrencySpec) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ConcurrencySpec) GetSafe() bool {
@@ -605,9 +605,9 @@ type ToolSchema struct {
 	// MUST — unique within this provider's namespace, e.g. "read_file".
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// MUST — drives the plan/apply gate.
-	Kind ToolKind `protobuf:"varint,2,opt,name=kind,proto3,enum=pluggableharness.agent.tool.v1.ToolKind" json:"kind,omitempty"`
+	Kind ToolKind `protobuf:"varint,2,opt,name=kind,proto3,enum=pluggableharness.tool.v1.ToolKind" json:"kind,omitempty"`
 	// MUST — see RiskClass.
-	Risk RiskClass `protobuf:"varint,3,opt,name=risk,proto3,enum=pluggableharness.agent.tool.v1.RiskClass" json:"risk,omitempty"`
+	Risk RiskClass `protobuf:"varint,3,opt,name=risk,proto3,enum=pluggableharness.tool.v1.RiskClass" json:"risk,omitempty"`
 	// MUST — shown to the model for tool selection and in plan diffs.
 	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
 	// MUST — the common JSON-Schema subset per model.md §6, describing the
@@ -639,7 +639,7 @@ type ToolSchema struct {
 
 func (x *ToolSchema) Reset() {
 	*x = ToolSchema{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[5]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -651,7 +651,7 @@ func (x *ToolSchema) String() string {
 func (*ToolSchema) ProtoMessage() {}
 
 func (x *ToolSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[5]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -664,7 +664,7 @@ func (x *ToolSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolSchema.ProtoReflect.Descriptor instead.
 func (*ToolSchema) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ToolSchema) GetName() string {
@@ -750,7 +750,7 @@ type InvokeRequest struct {
 
 func (x *InvokeRequest) Reset() {
 	*x = InvokeRequest{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[6]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -762,7 +762,7 @@ func (x *InvokeRequest) String() string {
 func (*InvokeRequest) ProtoMessage() {}
 
 func (x *InvokeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[6]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -775,7 +775,7 @@ func (x *InvokeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvokeRequest.ProtoReflect.Descriptor instead.
 func (*InvokeRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *InvokeRequest) GetCall() *ToolCall {
@@ -798,7 +798,7 @@ type InvokeResponse struct {
 
 func (x *InvokeResponse) Reset() {
 	*x = InvokeResponse{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[7]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -810,7 +810,7 @@ func (x *InvokeResponse) String() string {
 func (*InvokeResponse) ProtoMessage() {}
 
 func (x *InvokeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[7]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -823,7 +823,7 @@ func (x *InvokeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvokeResponse.ProtoReflect.Descriptor instead.
 func (*InvokeResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *InvokeResponse) GetEvent() *ToolEvent {
@@ -851,7 +851,7 @@ type ToolCall struct {
 	// session's working_directory, which any process-backed operation
 	// (the reference catalog's exec.bash, read_file, and similar) MUST
 	// resolve relative-path arguments against. See
-	// pluggableharness.agent.common.v1.CallContext.
+	// pluggableharness.common.v1.CallContext.
 	CallContext   *v12.CallContext `protobuf:"bytes,4,opt,name=call_context,json=callContext,proto3" json:"call_context,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -859,7 +859,7 @@ type ToolCall struct {
 
 func (x *ToolCall) Reset() {
 	*x = ToolCall{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[8]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -871,7 +871,7 @@ func (x *ToolCall) String() string {
 func (*ToolCall) ProtoMessage() {}
 
 func (x *ToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[8]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -884,7 +884,7 @@ func (x *ToolCall) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCall.ProtoReflect.Descriptor instead.
 func (*ToolCall) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ToolCall) GetId() string {
@@ -937,7 +937,7 @@ type ToolEvent struct {
 
 func (x *ToolEvent) Reset() {
 	*x = ToolEvent{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[9]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -949,7 +949,7 @@ func (x *ToolEvent) String() string {
 func (*ToolEvent) ProtoMessage() {}
 
 func (x *ToolEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[9]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -962,7 +962,7 @@ func (x *ToolEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolEvent.ProtoReflect.Descriptor instead.
 func (*ToolEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ToolEvent) GetEvent() isToolEvent_Event {
@@ -1086,7 +1086,7 @@ type ToolResult struct {
 
 func (x *ToolResult) Reset() {
 	*x = ToolResult{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[10]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1098,7 +1098,7 @@ func (x *ToolResult) String() string {
 func (*ToolResult) ProtoMessage() {}
 
 func (x *ToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[10]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1111,7 +1111,7 @@ func (x *ToolResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolResult.ProtoReflect.Descriptor instead.
 func (*ToolResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{10}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ToolResult) GetPayload() *structpb.Struct {
@@ -1125,7 +1125,7 @@ func (x *ToolResult) GetPayload() *structpb.Struct {
 type ToolError struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// MUST.
-	Category ToolErrorCategory `protobuf:"varint,1,opt,name=category,proto3,enum=pluggableharness.agent.tool.v1.ToolErrorCategory" json:"category,omitempty"`
+	Category ToolErrorCategory `protobuf:"varint,1,opt,name=category,proto3,enum=pluggableharness.tool.v1.ToolErrorCategory" json:"category,omitempty"`
 	// MUST — human-readable.
 	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	// MUST.
@@ -1139,7 +1139,7 @@ type ToolError struct {
 
 func (x *ToolError) Reset() {
 	*x = ToolError{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[11]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1151,7 +1151,7 @@ func (x *ToolError) String() string {
 func (*ToolError) ProtoMessage() {}
 
 func (x *ToolError) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[11]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1164,7 +1164,7 @@ func (x *ToolError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolError.ProtoReflect.Descriptor instead.
 func (*ToolError) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{11}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ToolError) GetCategory() ToolErrorCategory {
@@ -1213,7 +1213,7 @@ type RenderRequest struct {
 
 func (x *RenderRequest) Reset() {
 	*x = RenderRequest{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[12]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1225,7 +1225,7 @@ func (x *RenderRequest) String() string {
 func (*RenderRequest) ProtoMessage() {}
 
 func (x *RenderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[12]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1238,7 +1238,7 @@ func (x *RenderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderRequest.ProtoReflect.Descriptor instead.
 func (*RenderRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{12}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RenderRequest) GetPayload() []byte {
@@ -1268,7 +1268,7 @@ type RenderResponse struct {
 
 func (x *RenderResponse) Reset() {
 	*x = RenderResponse{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[13]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1280,7 +1280,7 @@ func (x *RenderResponse) String() string {
 func (*RenderResponse) ProtoMessage() {}
 
 func (x *RenderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[13]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1293,7 +1293,7 @@ func (x *RenderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderResponse.ProtoReflect.Descriptor instead.
 func (*RenderResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{13}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RenderResponse) GetTree() *v14.RenderTree {
@@ -1315,7 +1315,7 @@ type PreviewRequest struct {
 
 func (x *PreviewRequest) Reset() {
 	*x = PreviewRequest{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[14]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1327,7 +1327,7 @@ func (x *PreviewRequest) String() string {
 func (*PreviewRequest) ProtoMessage() {}
 
 func (x *PreviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[14]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1340,7 +1340,7 @@ func (x *PreviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewRequest.ProtoReflect.Descriptor instead.
 func (*PreviewRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{14}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *PreviewRequest) GetCall() *ToolCall {
@@ -1353,9 +1353,9 @@ func (x *PreviewRequest) GetCall() *ToolCall {
 // PreviewResponse carries a dry-run, human-readable description of what
 // Invoke(call) would do, per protocol.md#preview — e.g. an edit tool
 // returns the diff it would apply. Rendered into the plan/apply gate's
-// permission UI via PlanItem.preview (pluggableharness.agent.plan.v1,
+// permission UI via PlanItem.preview (pluggableharness.plan.v1,
 // a sibling protocol revision) — that field and this response share the
-// same pluggableharness.agent.render.v1.RenderTree type by design, so a
+// same pluggableharness.render.v1.RenderTree type by design, so a
 // Preview call's output and a plan item's stored preview are
 // interchangeable.
 type PreviewResponse struct {
@@ -1371,7 +1371,7 @@ type PreviewResponse struct {
 
 func (x *PreviewResponse) Reset() {
 	*x = PreviewResponse{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[15]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1383,7 +1383,7 @@ func (x *PreviewResponse) String() string {
 func (*PreviewResponse) ProtoMessage() {}
 
 func (x *PreviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[15]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1396,7 +1396,7 @@ func (x *PreviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewResponse.ProtoReflect.Descriptor instead.
 func (*PreviewResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{15}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PreviewResponse) GetPreview() *v14.RenderTree {
@@ -1415,7 +1415,7 @@ type DescribeRequest struct {
 
 func (x *DescribeRequest) Reset() {
 	*x = DescribeRequest{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[16]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1427,7 +1427,7 @@ func (x *DescribeRequest) String() string {
 func (*DescribeRequest) ProtoMessage() {}
 
 func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[16]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1440,7 +1440,7 @@ func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
 func (*DescribeRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{16}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{16}
 }
 
 // DescribeResponse reports this plugin build's own identity, per
@@ -1458,7 +1458,7 @@ type DescribeResponse struct {
 
 func (x *DescribeResponse) Reset() {
 	*x = DescribeResponse{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[17]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1470,7 +1470,7 @@ func (x *DescribeResponse) String() string {
 func (*DescribeResponse) ProtoMessage() {}
 
 func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[17]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1483,7 +1483,7 @@ func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeResponse.ProtoReflect.Descriptor instead.
 func (*DescribeResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{17}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DescribeResponse) GetProducer() *v12.ProducerRef {
@@ -1498,7 +1498,7 @@ func (x *DescribeResponse) GetProducer() *v12.ProducerRef {
 type ToolEvent_OutputChunk struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which stream this chunk came from.
-	Stream OutputStream `protobuf:"varint,1,opt,name=stream,proto3,enum=pluggableharness.agent.tool.v1.OutputStream" json:"stream,omitempty"`
+	Stream OutputStream `protobuf:"varint,1,opt,name=stream,proto3,enum=pluggableharness.tool.v1.OutputStream" json:"stream,omitempty"`
 	// The chunk's raw bytes.
 	Data          []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1507,7 +1507,7 @@ type ToolEvent_OutputChunk struct {
 
 func (x *ToolEvent_OutputChunk) Reset() {
 	*x = ToolEvent_OutputChunk{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[18]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1519,7 +1519,7 @@ func (x *ToolEvent_OutputChunk) String() string {
 func (*ToolEvent_OutputChunk) ProtoMessage() {}
 
 func (x *ToolEvent_OutputChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[18]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1532,7 +1532,7 @@ func (x *ToolEvent_OutputChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolEvent_OutputChunk.ProtoReflect.Descriptor instead.
 func (*ToolEvent_OutputChunk) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{9, 0}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{9, 0}
 }
 
 func (x *ToolEvent_OutputChunk) GetStream() OutputStream {
@@ -1564,7 +1564,7 @@ type ToolEvent_Progress struct {
 
 func (x *ToolEvent_Progress) Reset() {
 	*x = ToolEvent_Progress{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[19]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1576,7 +1576,7 @@ func (x *ToolEvent_Progress) String() string {
 func (*ToolEvent_Progress) ProtoMessage() {}
 
 func (x *ToolEvent_Progress) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[19]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1589,7 +1589,7 @@ func (x *ToolEvent_Progress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolEvent_Progress.ProtoReflect.Descriptor instead.
 func (*ToolEvent_Progress) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{9, 1}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{9, 1}
 }
 
 func (x *ToolEvent_Progress) GetMessage() string {
@@ -1618,7 +1618,7 @@ type ToolEvent_PartialResult struct {
 
 func (x *ToolEvent_PartialResult) Reset() {
 	*x = ToolEvent_PartialResult{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[20]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1630,7 +1630,7 @@ func (x *ToolEvent_PartialResult) String() string {
 func (*ToolEvent_PartialResult) ProtoMessage() {}
 
 func (x *ToolEvent_PartialResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[20]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1643,7 +1643,7 @@ func (x *ToolEvent_PartialResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolEvent_PartialResult.ProtoReflect.Descriptor instead.
 func (*ToolEvent_PartialResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{9, 2}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{9, 2}
 }
 
 func (x *ToolEvent_PartialResult) GetPayload() *structpb.Struct {
@@ -1670,7 +1670,7 @@ type ToolEvent_ExitStatus struct {
 
 func (x *ToolEvent_ExitStatus) Reset() {
 	*x = ToolEvent_ExitStatus{}
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[21]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1682,7 +1682,7 @@ func (x *ToolEvent_ExitStatus) String() string {
 func (*ToolEvent_ExitStatus) ProtoMessage() {}
 
 func (x *ToolEvent_ExitStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[21]
+	mi := &file_pluggableharness_tool_v1_tool_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1695,7 +1695,7 @@ func (x *ToolEvent_ExitStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolEvent_ExitStatus.ProtoReflect.Descriptor instead.
 func (*ToolEvent_ExitStatus) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP(), []int{9, 3}
+	return file_pluggableharness_tool_v1_tool_proto_rawDescGZIP(), []int{9, 3}
 }
 
 func (x *ToolEvent_ExitStatus) GetExitCode() int32 {
@@ -1712,59 +1712,59 @@ func (x *ToolEvent_ExitStatus) GetSignal() string {
 	return ""
 }
 
-var File_pluggableharness_agent_tool_v1_tool_proto protoreflect.FileDescriptor
+var File_pluggableharness_tool_v1_tool_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_tool_v1_tool_proto_rawDesc = "" +
+const file_pluggableharness_tool_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	")pluggableharness/agent/tool/v1/tool.proto\x12\x1epluggableharness.agent.tool.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/common/v1/common.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a-pluggableharness/agent/schema/v1/schema.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x12\n" +
-	"\x10GetSchemaRequest\"\xec\x02\n" +
-	"\x11GetSchemaResponse\x12@\n" +
-	"\x05tools\x18\x01 \x03(\v2*.pluggableharness.agent.tool.v1.ToolSchemaR\x05tools\x12_\n" +
-	"\x0eslash_commands\x18\x02 \x03(\v28.pluggableharness.agent.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12S\n" +
-	"\rconfig_schema\x18\x03 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\x12_\n" +
-	"\x15supported_hook_points\x18\x04 \x03(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x13supportedHookPoints\"C\n" +
+	"#pluggableharness/tool/v1/tool.proto\x12\x18pluggableharness.tool.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a'pluggableharness/render/v1/render.proto\x1a'pluggableharness/schema/v1/schema.proto\x1a3pluggableharness/slashcommand/v1/slashcommand.proto\"\x12\n" +
+	"\x10GetSchemaRequest\"\xd4\x02\n" +
+	"\x11GetSchemaResponse\x12:\n" +
+	"\x05tools\x18\x01 \x03(\v2$.pluggableharness.tool.v1.ToolSchemaR\x05tools\x12Y\n" +
+	"\x0eslash_commands\x18\x02 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12M\n" +
+	"\rconfig_schema\x18\x03 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
+	"\x15supported_hook_points\x18\x04 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPoints\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\x13\n" +
 	"\x11ConfigureResponse\"D\n" +
 	"\x0fConcurrencySpec\x12\x12\n" +
 	"\x04safe\x18\x01 \x01(\bR\x04safe\x12\x1d\n" +
 	"\n" +
-	"key_fields\x18\x02 \x03(\tR\tkeyFields\"\xc9\x04\n" +
+	"key_fields\x18\x02 \x03(\tR\tkeyFields\"\xab\x04\n" +
 	"\n" +
 	"ToolSchema\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12<\n" +
-	"\x04kind\x18\x02 \x01(\x0e2(.pluggableharness.agent.tool.v1.ToolKindR\x04kind\x12=\n" +
-	"\x04risk\x18\x03 \x01(\x0e2).pluggableharness.agent.tool.v1.RiskClassR\x04risk\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\x12K\n" +
-	"\finput_schema\x18\x05 \x01(\v2(.pluggableharness.agent.schema.v1.SchemaR\vinputSchema\x12M\n" +
-	"\routput_schema\x18\x06 \x01(\v2(.pluggableharness.agent.schema.v1.SchemaR\foutputSchema\x12\x1c\n" +
-	"\tstreaming\x18\a \x01(\bR\tstreaming\x12Q\n" +
-	"\vconcurrency\x18\b \x01(\v2/.pluggableharness.agent.tool.v1.ConcurrencySpecR\vconcurrency\x12G\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x126\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\".pluggableharness.tool.v1.ToolKindR\x04kind\x127\n" +
+	"\x04risk\x18\x03 \x01(\x0e2#.pluggableharness.tool.v1.RiskClassR\x04risk\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12E\n" +
+	"\finput_schema\x18\x05 \x01(\v2\".pluggableharness.schema.v1.SchemaR\vinputSchema\x12G\n" +
+	"\routput_schema\x18\x06 \x01(\v2\".pluggableharness.schema.v1.SchemaR\foutputSchema\x12\x1c\n" +
+	"\tstreaming\x18\a \x01(\bR\tstreaming\x12K\n" +
+	"\vconcurrency\x18\b \x01(\v2).pluggableharness.tool.v1.ConcurrencySpecR\vconcurrency\x12G\n" +
 	"\x0fdefault_timeout\x18\t \x01(\v2\x19.google.protobuf.DurationH\x00R\x0edefaultTimeout\x88\x01\x01\x12\x1e\n" +
 	"\n" +
 	"idempotent\x18\n" +
 	" \x01(\bR\n" +
 	"idempotentB\x12\n" +
-	"\x10_default_timeout\"M\n" +
-	"\rInvokeRequest\x12<\n" +
-	"\x04call\x18\x01 \x01(\v2(.pluggableharness.agent.tool.v1.ToolCallR\x04call\"Q\n" +
-	"\x0eInvokeResponse\x12?\n" +
-	"\x05event\x18\x01 \x01(\v2).pluggableharness.agent.tool.v1.ToolEventR\x05event\"\xc0\x01\n" +
+	"\x10_default_timeout\"G\n" +
+	"\rInvokeRequest\x126\n" +
+	"\x04call\x18\x01 \x01(\v2\".pluggableharness.tool.v1.ToolCallR\x04call\"K\n" +
+	"\x0eInvokeResponse\x129\n" +
+	"\x05event\x18\x01 \x01(\v2#.pluggableharness.tool.v1.ToolEventR\x05event\"\xba\x01\n" +
 	"\bToolCall\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x125\n" +
-	"\targuments\x18\x03 \x01(\v2\x17.google.protobuf.StructR\targuments\x12P\n" +
-	"\fcall_context\x18\x04 \x01(\v2-.pluggableharness.agent.common.v1.CallContextR\vcallContext\"\xf4\x06\n" +
-	"\tToolEvent\x12Z\n" +
-	"\foutput_chunk\x18\x01 \x01(\v25.pluggableharness.agent.tool.v1.ToolEvent.OutputChunkH\x00R\voutputChunk\x12P\n" +
-	"\bprogress\x18\x02 \x01(\v22.pluggableharness.agent.tool.v1.ToolEvent.ProgressH\x00R\bprogress\x12`\n" +
-	"\x0epartial_result\x18\x03 \x01(\v27.pluggableharness.agent.tool.v1.ToolEvent.PartialResultH\x00R\rpartialResult\x12W\n" +
-	"\vexit_status\x18\x04 \x01(\v24.pluggableharness.agent.tool.v1.ToolEvent.ExitStatusH\x00R\n" +
-	"exitStatus\x12D\n" +
-	"\x06result\x18\x05 \x01(\v2*.pluggableharness.agent.tool.v1.ToolResultH\x00R\x06result\x12A\n" +
-	"\x05error\x18\x06 \x01(\v2).pluggableharness.agent.tool.v1.ToolErrorH\x00R\x05error\x1ag\n" +
-	"\vOutputChunk\x12D\n" +
-	"\x06stream\x18\x01 \x01(\x0e2,.pluggableharness.agent.tool.v1.OutputStreamR\x06stream\x12\x12\n" +
+	"\targuments\x18\x03 \x01(\v2\x17.google.protobuf.StructR\targuments\x12J\n" +
+	"\fcall_context\x18\x04 \x01(\v2'.pluggableharness.common.v1.CallContextR\vcallContext\"\xca\x06\n" +
+	"\tToolEvent\x12T\n" +
+	"\foutput_chunk\x18\x01 \x01(\v2/.pluggableharness.tool.v1.ToolEvent.OutputChunkH\x00R\voutputChunk\x12J\n" +
+	"\bprogress\x18\x02 \x01(\v2,.pluggableharness.tool.v1.ToolEvent.ProgressH\x00R\bprogress\x12Z\n" +
+	"\x0epartial_result\x18\x03 \x01(\v21.pluggableharness.tool.v1.ToolEvent.PartialResultH\x00R\rpartialResult\x12Q\n" +
+	"\vexit_status\x18\x04 \x01(\v2..pluggableharness.tool.v1.ToolEvent.ExitStatusH\x00R\n" +
+	"exitStatus\x12>\n" +
+	"\x06result\x18\x05 \x01(\v2$.pluggableharness.tool.v1.ToolResultH\x00R\x06result\x12;\n" +
+	"\x05error\x18\x06 \x01(\v2#.pluggableharness.tool.v1.ToolErrorH\x00R\x05error\x1aa\n" +
+	"\vOutputChunk\x12>\n" +
+	"\x06stream\x18\x01 \x01(\x0e2&.pluggableharness.tool.v1.OutputStreamR\x06stream\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x1al\n" +
 	"\bProgress\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x120\n" +
@@ -1780,9 +1780,9 @@ const file_pluggableharness_agent_tool_v1_tool_proto_rawDesc = "" +
 	"\x05event\"?\n" +
 	"\n" +
 	"ToolResult\x121\n" +
-	"\apayload\x18\x01 \x01(\v2\x17.google.protobuf.StructR\apayload\"\xd6\x01\n" +
-	"\tToolError\x12M\n" +
-	"\bcategory\x18\x01 \x01(\x0e21.pluggableharness.agent.tool.v1.ToolErrorCategoryR\bcategory\x12\x18\n" +
+	"\apayload\x18\x01 \x01(\v2\x17.google.protobuf.StructR\apayload\"\xd0\x01\n" +
+	"\tToolError\x12G\n" +
+	"\bcategory\x18\x01 \x01(\x0e2+.pluggableharness.tool.v1.ToolErrorCategoryR\bcategory\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1c\n" +
 	"\tretryable\x18\x03 \x01(\bR\tretryable\x126\n" +
 	"\adetails\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\adetails\x88\x01\x01B\n" +
@@ -1790,16 +1790,16 @@ const file_pluggableharness_agent_tool_v1_tool_proto_rawDesc = "" +
 	"\b_details\"P\n" +
 	"\rRenderRequest\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12%\n" +
-	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersion\"R\n" +
-	"\x0eRenderResponse\x12@\n" +
-	"\x04tree\x18\x01 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\x04tree\"N\n" +
-	"\x0ePreviewRequest\x12<\n" +
-	"\x04call\x18\x01 \x01(\v2(.pluggableharness.agent.tool.v1.ToolCallR\x04call\"Y\n" +
-	"\x0fPreviewResponse\x12F\n" +
-	"\apreview\x18\x01 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\apreview\"\x11\n" +
-	"\x0fDescribeRequest\"]\n" +
-	"\x10DescribeResponse\x12I\n" +
-	"\bproducer\x18\x01 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\bproducer*s\n" +
+	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersion\"L\n" +
+	"\x0eRenderResponse\x12:\n" +
+	"\x04tree\x18\x01 \x01(\v2&.pluggableharness.render.v1.RenderTreeR\x04tree\"H\n" +
+	"\x0ePreviewRequest\x126\n" +
+	"\x04call\x18\x01 \x01(\v2\".pluggableharness.tool.v1.ToolCallR\x04call\"S\n" +
+	"\x0fPreviewResponse\x12@\n" +
+	"\apreview\x18\x01 \x01(\v2&.pluggableharness.render.v1.RenderTreeR\apreview\"\x11\n" +
+	"\x0fDescribeRequest\"W\n" +
+	"\x10DescribeResponse\x12C\n" +
+	"\bproducer\x18\x01 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\bproducer*s\n" +
 	"\bToolKind\x12\x19\n" +
 	"\x15TOOL_KIND_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12TOOL_KIND_RESOURCE\x10\x01\x12\x19\n" +
@@ -1826,109 +1826,109 @@ const file_pluggableharness_agent_tool_v1_tool_proto_rawDesc = "" +
 	"(TOOL_ERROR_CATEGORY_CONCURRENCY_CONFLICT\x10\x06\x12!\n" +
 	"\x1dTOOL_ERROR_CATEGORY_CANCELLED\x10\a\x12'\n" +
 	"#TOOL_ERROR_CATEGORY_PROCESS_CRASHED\x10\b\x12\x1f\n" +
-	"\x1bTOOL_ERROR_CATEGORY_UNKNOWN\x10\t2\xa0\x05\n" +
-	"\vToolService\x12p\n" +
-	"\tGetSchema\x120.pluggableharness.agent.tool.v1.GetSchemaRequest\x1a1.pluggableharness.agent.tool.v1.GetSchemaResponse\x12p\n" +
-	"\tConfigure\x120.pluggableharness.agent.tool.v1.ConfigureRequest\x1a1.pluggableharness.agent.tool.v1.ConfigureResponse\x12i\n" +
-	"\x06Invoke\x12-.pluggableharness.agent.tool.v1.InvokeRequest\x1a..pluggableharness.agent.tool.v1.InvokeResponse0\x01\x12g\n" +
-	"\x06Render\x12-.pluggableharness.agent.tool.v1.RenderRequest\x1a..pluggableharness.agent.tool.v1.RenderResponse\x12j\n" +
-	"\aPreview\x12..pluggableharness.agent.tool.v1.PreviewRequest\x1a/.pluggableharness.agent.tool.v1.PreviewResponse\x12m\n" +
-	"\bDescribe\x12/.pluggableharness.agent.tool.v1.DescribeRequest\x1a0.pluggableharness.agent.tool.v1.DescribeResponseB<Z:github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1b\x06proto3"
+	"\x1bTOOL_ERROR_CATEGORY_UNKNOWN\x10\t2\xd8\x04\n" +
+	"\vToolService\x12d\n" +
+	"\tGetSchema\x12*.pluggableharness.tool.v1.GetSchemaRequest\x1a+.pluggableharness.tool.v1.GetSchemaResponse\x12d\n" +
+	"\tConfigure\x12*.pluggableharness.tool.v1.ConfigureRequest\x1a+.pluggableharness.tool.v1.ConfigureResponse\x12]\n" +
+	"\x06Invoke\x12'.pluggableharness.tool.v1.InvokeRequest\x1a(.pluggableharness.tool.v1.InvokeResponse0\x01\x12[\n" +
+	"\x06Render\x12'.pluggableharness.tool.v1.RenderRequest\x1a(.pluggableharness.tool.v1.RenderResponse\x12^\n" +
+	"\aPreview\x12(.pluggableharness.tool.v1.PreviewRequest\x1a).pluggableharness.tool.v1.PreviewResponse\x12a\n" +
+	"\bDescribe\x12).pluggableharness.tool.v1.DescribeRequest\x1a*.pluggableharness.tool.v1.DescribeResponseB<Z:github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_tool_v1_tool_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_tool_v1_tool_proto_rawDescData []byte
+	file_pluggableharness_tool_v1_tool_proto_rawDescOnce sync.Once
+	file_pluggableharness_tool_v1_tool_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_tool_v1_tool_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_tool_v1_tool_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_tool_v1_tool_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_tool_v1_tool_proto_rawDesc), len(file_pluggableharness_agent_tool_v1_tool_proto_rawDesc)))
+func file_pluggableharness_tool_v1_tool_proto_rawDescGZIP() []byte {
+	file_pluggableharness_tool_v1_tool_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_tool_v1_tool_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_tool_v1_tool_proto_rawDesc), len(file_pluggableharness_tool_v1_tool_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_tool_v1_tool_proto_rawDescData
+	return file_pluggableharness_tool_v1_tool_proto_rawDescData
 }
 
-var file_pluggableharness_agent_tool_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pluggableharness_agent_tool_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
-var file_pluggableharness_agent_tool_v1_tool_proto_goTypes = []any{
-	(ToolKind)(0),                   // 0: pluggableharness.agent.tool.v1.ToolKind
-	(RiskClass)(0),                  // 1: pluggableharness.agent.tool.v1.RiskClass
-	(OutputStream)(0),               // 2: pluggableharness.agent.tool.v1.OutputStream
-	(ToolErrorCategory)(0),          // 3: pluggableharness.agent.tool.v1.ToolErrorCategory
-	(*GetSchemaRequest)(nil),        // 4: pluggableharness.agent.tool.v1.GetSchemaRequest
-	(*GetSchemaResponse)(nil),       // 5: pluggableharness.agent.tool.v1.GetSchemaResponse
-	(*ConfigureRequest)(nil),        // 6: pluggableharness.agent.tool.v1.ConfigureRequest
-	(*ConfigureResponse)(nil),       // 7: pluggableharness.agent.tool.v1.ConfigureResponse
-	(*ConcurrencySpec)(nil),         // 8: pluggableharness.agent.tool.v1.ConcurrencySpec
-	(*ToolSchema)(nil),              // 9: pluggableharness.agent.tool.v1.ToolSchema
-	(*InvokeRequest)(nil),           // 10: pluggableharness.agent.tool.v1.InvokeRequest
-	(*InvokeResponse)(nil),          // 11: pluggableharness.agent.tool.v1.InvokeResponse
-	(*ToolCall)(nil),                // 12: pluggableharness.agent.tool.v1.ToolCall
-	(*ToolEvent)(nil),               // 13: pluggableharness.agent.tool.v1.ToolEvent
-	(*ToolResult)(nil),              // 14: pluggableharness.agent.tool.v1.ToolResult
-	(*ToolError)(nil),               // 15: pluggableharness.agent.tool.v1.ToolError
-	(*RenderRequest)(nil),           // 16: pluggableharness.agent.tool.v1.RenderRequest
-	(*RenderResponse)(nil),          // 17: pluggableharness.agent.tool.v1.RenderResponse
-	(*PreviewRequest)(nil),          // 18: pluggableharness.agent.tool.v1.PreviewRequest
-	(*PreviewResponse)(nil),         // 19: pluggableharness.agent.tool.v1.PreviewResponse
-	(*DescribeRequest)(nil),         // 20: pluggableharness.agent.tool.v1.DescribeRequest
-	(*DescribeResponse)(nil),        // 21: pluggableharness.agent.tool.v1.DescribeResponse
-	(*ToolEvent_OutputChunk)(nil),   // 22: pluggableharness.agent.tool.v1.ToolEvent.OutputChunk
-	(*ToolEvent_Progress)(nil),      // 23: pluggableharness.agent.tool.v1.ToolEvent.Progress
-	(*ToolEvent_PartialResult)(nil), // 24: pluggableharness.agent.tool.v1.ToolEvent.PartialResult
-	(*ToolEvent_ExitStatus)(nil),    // 25: pluggableharness.agent.tool.v1.ToolEvent.ExitStatus
-	(*v1.SlashCommandSpec)(nil),     // 26: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	(*v11.ConfigSchema)(nil),        // 27: pluggableharness.agent.config.v1.ConfigSchema
-	(v12.HookPoint)(0),              // 28: pluggableharness.agent.common.v1.HookPoint
+var file_pluggableharness_tool_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_pluggableharness_tool_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_pluggableharness_tool_v1_tool_proto_goTypes = []any{
+	(ToolKind)(0),                   // 0: pluggableharness.tool.v1.ToolKind
+	(RiskClass)(0),                  // 1: pluggableharness.tool.v1.RiskClass
+	(OutputStream)(0),               // 2: pluggableharness.tool.v1.OutputStream
+	(ToolErrorCategory)(0),          // 3: pluggableharness.tool.v1.ToolErrorCategory
+	(*GetSchemaRequest)(nil),        // 4: pluggableharness.tool.v1.GetSchemaRequest
+	(*GetSchemaResponse)(nil),       // 5: pluggableharness.tool.v1.GetSchemaResponse
+	(*ConfigureRequest)(nil),        // 6: pluggableharness.tool.v1.ConfigureRequest
+	(*ConfigureResponse)(nil),       // 7: pluggableharness.tool.v1.ConfigureResponse
+	(*ConcurrencySpec)(nil),         // 8: pluggableharness.tool.v1.ConcurrencySpec
+	(*ToolSchema)(nil),              // 9: pluggableharness.tool.v1.ToolSchema
+	(*InvokeRequest)(nil),           // 10: pluggableharness.tool.v1.InvokeRequest
+	(*InvokeResponse)(nil),          // 11: pluggableharness.tool.v1.InvokeResponse
+	(*ToolCall)(nil),                // 12: pluggableharness.tool.v1.ToolCall
+	(*ToolEvent)(nil),               // 13: pluggableharness.tool.v1.ToolEvent
+	(*ToolResult)(nil),              // 14: pluggableharness.tool.v1.ToolResult
+	(*ToolError)(nil),               // 15: pluggableharness.tool.v1.ToolError
+	(*RenderRequest)(nil),           // 16: pluggableharness.tool.v1.RenderRequest
+	(*RenderResponse)(nil),          // 17: pluggableharness.tool.v1.RenderResponse
+	(*PreviewRequest)(nil),          // 18: pluggableharness.tool.v1.PreviewRequest
+	(*PreviewResponse)(nil),         // 19: pluggableharness.tool.v1.PreviewResponse
+	(*DescribeRequest)(nil),         // 20: pluggableharness.tool.v1.DescribeRequest
+	(*DescribeResponse)(nil),        // 21: pluggableharness.tool.v1.DescribeResponse
+	(*ToolEvent_OutputChunk)(nil),   // 22: pluggableharness.tool.v1.ToolEvent.OutputChunk
+	(*ToolEvent_Progress)(nil),      // 23: pluggableharness.tool.v1.ToolEvent.Progress
+	(*ToolEvent_PartialResult)(nil), // 24: pluggableharness.tool.v1.ToolEvent.PartialResult
+	(*ToolEvent_ExitStatus)(nil),    // 25: pluggableharness.tool.v1.ToolEvent.ExitStatus
+	(*v1.SlashCommandSpec)(nil),     // 26: pluggableharness.slashcommand.v1.SlashCommandSpec
+	(*v11.ConfigSchema)(nil),        // 27: pluggableharness.config.v1.ConfigSchema
+	(v12.HookPoint)(0),              // 28: pluggableharness.common.v1.HookPoint
 	(*structpb.Struct)(nil),         // 29: google.protobuf.Struct
-	(*v13.Schema)(nil),              // 30: pluggableharness.agent.schema.v1.Schema
+	(*v13.Schema)(nil),              // 30: pluggableharness.schema.v1.Schema
 	(*durationpb.Duration)(nil),     // 31: google.protobuf.Duration
-	(*v12.CallContext)(nil),         // 32: pluggableharness.agent.common.v1.CallContext
-	(*v14.RenderTree)(nil),          // 33: pluggableharness.agent.render.v1.RenderTree
-	(*v12.ProducerRef)(nil),         // 34: pluggableharness.agent.common.v1.ProducerRef
+	(*v12.CallContext)(nil),         // 32: pluggableharness.common.v1.CallContext
+	(*v14.RenderTree)(nil),          // 33: pluggableharness.render.v1.RenderTree
+	(*v12.ProducerRef)(nil),         // 34: pluggableharness.common.v1.ProducerRef
 }
-var file_pluggableharness_agent_tool_v1_tool_proto_depIdxs = []int32{
-	9,  // 0: pluggableharness.agent.tool.v1.GetSchemaResponse.tools:type_name -> pluggableharness.agent.tool.v1.ToolSchema
-	26, // 1: pluggableharness.agent.tool.v1.GetSchemaResponse.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	27, // 2: pluggableharness.agent.tool.v1.GetSchemaResponse.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
-	28, // 3: pluggableharness.agent.tool.v1.GetSchemaResponse.supported_hook_points:type_name -> pluggableharness.agent.common.v1.HookPoint
-	29, // 4: pluggableharness.agent.tool.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
-	0,  // 5: pluggableharness.agent.tool.v1.ToolSchema.kind:type_name -> pluggableharness.agent.tool.v1.ToolKind
-	1,  // 6: pluggableharness.agent.tool.v1.ToolSchema.risk:type_name -> pluggableharness.agent.tool.v1.RiskClass
-	30, // 7: pluggableharness.agent.tool.v1.ToolSchema.input_schema:type_name -> pluggableharness.agent.schema.v1.Schema
-	30, // 8: pluggableharness.agent.tool.v1.ToolSchema.output_schema:type_name -> pluggableharness.agent.schema.v1.Schema
-	8,  // 9: pluggableharness.agent.tool.v1.ToolSchema.concurrency:type_name -> pluggableharness.agent.tool.v1.ConcurrencySpec
-	31, // 10: pluggableharness.agent.tool.v1.ToolSchema.default_timeout:type_name -> google.protobuf.Duration
-	12, // 11: pluggableharness.agent.tool.v1.InvokeRequest.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
-	13, // 12: pluggableharness.agent.tool.v1.InvokeResponse.event:type_name -> pluggableharness.agent.tool.v1.ToolEvent
-	29, // 13: pluggableharness.agent.tool.v1.ToolCall.arguments:type_name -> google.protobuf.Struct
-	32, // 14: pluggableharness.agent.tool.v1.ToolCall.call_context:type_name -> pluggableharness.agent.common.v1.CallContext
-	22, // 15: pluggableharness.agent.tool.v1.ToolEvent.output_chunk:type_name -> pluggableharness.agent.tool.v1.ToolEvent.OutputChunk
-	23, // 16: pluggableharness.agent.tool.v1.ToolEvent.progress:type_name -> pluggableharness.agent.tool.v1.ToolEvent.Progress
-	24, // 17: pluggableharness.agent.tool.v1.ToolEvent.partial_result:type_name -> pluggableharness.agent.tool.v1.ToolEvent.PartialResult
-	25, // 18: pluggableharness.agent.tool.v1.ToolEvent.exit_status:type_name -> pluggableharness.agent.tool.v1.ToolEvent.ExitStatus
-	14, // 19: pluggableharness.agent.tool.v1.ToolEvent.result:type_name -> pluggableharness.agent.tool.v1.ToolResult
-	15, // 20: pluggableharness.agent.tool.v1.ToolEvent.error:type_name -> pluggableharness.agent.tool.v1.ToolError
-	29, // 21: pluggableharness.agent.tool.v1.ToolResult.payload:type_name -> google.protobuf.Struct
-	3,  // 22: pluggableharness.agent.tool.v1.ToolError.category:type_name -> pluggableharness.agent.tool.v1.ToolErrorCategory
-	29, // 23: pluggableharness.agent.tool.v1.ToolError.details:type_name -> google.protobuf.Struct
-	33, // 24: pluggableharness.agent.tool.v1.RenderResponse.tree:type_name -> pluggableharness.agent.render.v1.RenderTree
-	12, // 25: pluggableharness.agent.tool.v1.PreviewRequest.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
-	33, // 26: pluggableharness.agent.tool.v1.PreviewResponse.preview:type_name -> pluggableharness.agent.render.v1.RenderTree
-	34, // 27: pluggableharness.agent.tool.v1.DescribeResponse.producer:type_name -> pluggableharness.agent.common.v1.ProducerRef
-	2,  // 28: pluggableharness.agent.tool.v1.ToolEvent.OutputChunk.stream:type_name -> pluggableharness.agent.tool.v1.OutputStream
-	29, // 29: pluggableharness.agent.tool.v1.ToolEvent.PartialResult.payload:type_name -> google.protobuf.Struct
-	4,  // 30: pluggableharness.agent.tool.v1.ToolService.GetSchema:input_type -> pluggableharness.agent.tool.v1.GetSchemaRequest
-	6,  // 31: pluggableharness.agent.tool.v1.ToolService.Configure:input_type -> pluggableharness.agent.tool.v1.ConfigureRequest
-	10, // 32: pluggableharness.agent.tool.v1.ToolService.Invoke:input_type -> pluggableharness.agent.tool.v1.InvokeRequest
-	16, // 33: pluggableharness.agent.tool.v1.ToolService.Render:input_type -> pluggableharness.agent.tool.v1.RenderRequest
-	18, // 34: pluggableharness.agent.tool.v1.ToolService.Preview:input_type -> pluggableharness.agent.tool.v1.PreviewRequest
-	20, // 35: pluggableharness.agent.tool.v1.ToolService.Describe:input_type -> pluggableharness.agent.tool.v1.DescribeRequest
-	5,  // 36: pluggableharness.agent.tool.v1.ToolService.GetSchema:output_type -> pluggableharness.agent.tool.v1.GetSchemaResponse
-	7,  // 37: pluggableharness.agent.tool.v1.ToolService.Configure:output_type -> pluggableharness.agent.tool.v1.ConfigureResponse
-	11, // 38: pluggableharness.agent.tool.v1.ToolService.Invoke:output_type -> pluggableharness.agent.tool.v1.InvokeResponse
-	17, // 39: pluggableharness.agent.tool.v1.ToolService.Render:output_type -> pluggableharness.agent.tool.v1.RenderResponse
-	19, // 40: pluggableharness.agent.tool.v1.ToolService.Preview:output_type -> pluggableharness.agent.tool.v1.PreviewResponse
-	21, // 41: pluggableharness.agent.tool.v1.ToolService.Describe:output_type -> pluggableharness.agent.tool.v1.DescribeResponse
+var file_pluggableharness_tool_v1_tool_proto_depIdxs = []int32{
+	9,  // 0: pluggableharness.tool.v1.GetSchemaResponse.tools:type_name -> pluggableharness.tool.v1.ToolSchema
+	26, // 1: pluggableharness.tool.v1.GetSchemaResponse.slash_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	27, // 2: pluggableharness.tool.v1.GetSchemaResponse.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
+	28, // 3: pluggableharness.tool.v1.GetSchemaResponse.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	29, // 4: pluggableharness.tool.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
+	0,  // 5: pluggableharness.tool.v1.ToolSchema.kind:type_name -> pluggableharness.tool.v1.ToolKind
+	1,  // 6: pluggableharness.tool.v1.ToolSchema.risk:type_name -> pluggableharness.tool.v1.RiskClass
+	30, // 7: pluggableharness.tool.v1.ToolSchema.input_schema:type_name -> pluggableharness.schema.v1.Schema
+	30, // 8: pluggableharness.tool.v1.ToolSchema.output_schema:type_name -> pluggableharness.schema.v1.Schema
+	8,  // 9: pluggableharness.tool.v1.ToolSchema.concurrency:type_name -> pluggableharness.tool.v1.ConcurrencySpec
+	31, // 10: pluggableharness.tool.v1.ToolSchema.default_timeout:type_name -> google.protobuf.Duration
+	12, // 11: pluggableharness.tool.v1.InvokeRequest.call:type_name -> pluggableharness.tool.v1.ToolCall
+	13, // 12: pluggableharness.tool.v1.InvokeResponse.event:type_name -> pluggableharness.tool.v1.ToolEvent
+	29, // 13: pluggableharness.tool.v1.ToolCall.arguments:type_name -> google.protobuf.Struct
+	32, // 14: pluggableharness.tool.v1.ToolCall.call_context:type_name -> pluggableharness.common.v1.CallContext
+	22, // 15: pluggableharness.tool.v1.ToolEvent.output_chunk:type_name -> pluggableharness.tool.v1.ToolEvent.OutputChunk
+	23, // 16: pluggableharness.tool.v1.ToolEvent.progress:type_name -> pluggableharness.tool.v1.ToolEvent.Progress
+	24, // 17: pluggableharness.tool.v1.ToolEvent.partial_result:type_name -> pluggableharness.tool.v1.ToolEvent.PartialResult
+	25, // 18: pluggableharness.tool.v1.ToolEvent.exit_status:type_name -> pluggableharness.tool.v1.ToolEvent.ExitStatus
+	14, // 19: pluggableharness.tool.v1.ToolEvent.result:type_name -> pluggableharness.tool.v1.ToolResult
+	15, // 20: pluggableharness.tool.v1.ToolEvent.error:type_name -> pluggableharness.tool.v1.ToolError
+	29, // 21: pluggableharness.tool.v1.ToolResult.payload:type_name -> google.protobuf.Struct
+	3,  // 22: pluggableharness.tool.v1.ToolError.category:type_name -> pluggableharness.tool.v1.ToolErrorCategory
+	29, // 23: pluggableharness.tool.v1.ToolError.details:type_name -> google.protobuf.Struct
+	33, // 24: pluggableharness.tool.v1.RenderResponse.tree:type_name -> pluggableharness.render.v1.RenderTree
+	12, // 25: pluggableharness.tool.v1.PreviewRequest.call:type_name -> pluggableharness.tool.v1.ToolCall
+	33, // 26: pluggableharness.tool.v1.PreviewResponse.preview:type_name -> pluggableharness.render.v1.RenderTree
+	34, // 27: pluggableharness.tool.v1.DescribeResponse.producer:type_name -> pluggableharness.common.v1.ProducerRef
+	2,  // 28: pluggableharness.tool.v1.ToolEvent.OutputChunk.stream:type_name -> pluggableharness.tool.v1.OutputStream
+	29, // 29: pluggableharness.tool.v1.ToolEvent.PartialResult.payload:type_name -> google.protobuf.Struct
+	4,  // 30: pluggableharness.tool.v1.ToolService.GetSchema:input_type -> pluggableharness.tool.v1.GetSchemaRequest
+	6,  // 31: pluggableharness.tool.v1.ToolService.Configure:input_type -> pluggableharness.tool.v1.ConfigureRequest
+	10, // 32: pluggableharness.tool.v1.ToolService.Invoke:input_type -> pluggableharness.tool.v1.InvokeRequest
+	16, // 33: pluggableharness.tool.v1.ToolService.Render:input_type -> pluggableharness.tool.v1.RenderRequest
+	18, // 34: pluggableharness.tool.v1.ToolService.Preview:input_type -> pluggableharness.tool.v1.PreviewRequest
+	20, // 35: pluggableharness.tool.v1.ToolService.Describe:input_type -> pluggableharness.tool.v1.DescribeRequest
+	5,  // 36: pluggableharness.tool.v1.ToolService.GetSchema:output_type -> pluggableharness.tool.v1.GetSchemaResponse
+	7,  // 37: pluggableharness.tool.v1.ToolService.Configure:output_type -> pluggableharness.tool.v1.ConfigureResponse
+	11, // 38: pluggableharness.tool.v1.ToolService.Invoke:output_type -> pluggableharness.tool.v1.InvokeResponse
+	17, // 39: pluggableharness.tool.v1.ToolService.Render:output_type -> pluggableharness.tool.v1.RenderResponse
+	19, // 40: pluggableharness.tool.v1.ToolService.Preview:output_type -> pluggableharness.tool.v1.PreviewResponse
+	21, // 41: pluggableharness.tool.v1.ToolService.Describe:output_type -> pluggableharness.tool.v1.DescribeResponse
 	36, // [36:42] is the sub-list for method output_type
 	30, // [30:36] is the sub-list for method input_type
 	30, // [30:30] is the sub-list for extension type_name
@@ -1936,13 +1936,13 @@ var file_pluggableharness_agent_tool_v1_tool_proto_depIdxs = []int32{
 	0,  // [0:30] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_tool_v1_tool_proto_init() }
-func file_pluggableharness_agent_tool_v1_tool_proto_init() {
-	if File_pluggableharness_agent_tool_v1_tool_proto != nil {
+func init() { file_pluggableharness_tool_v1_tool_proto_init() }
+func file_pluggableharness_tool_v1_tool_proto_init() {
+	if File_pluggableharness_tool_v1_tool_proto != nil {
 		return
 	}
-	file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[5].OneofWrappers = []any{}
-	file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[9].OneofWrappers = []any{
+	file_pluggableharness_tool_v1_tool_proto_msgTypes[5].OneofWrappers = []any{}
+	file_pluggableharness_tool_v1_tool_proto_msgTypes[9].OneofWrappers = []any{
 		(*ToolEvent_OutputChunk_)(nil),
 		(*ToolEvent_Progress_)(nil),
 		(*ToolEvent_PartialResult_)(nil),
@@ -1950,25 +1950,25 @@ func file_pluggableharness_agent_tool_v1_tool_proto_init() {
 		(*ToolEvent_Result)(nil),
 		(*ToolEvent_Error)(nil),
 	}
-	file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[11].OneofWrappers = []any{}
-	file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[19].OneofWrappers = []any{}
-	file_pluggableharness_agent_tool_v1_tool_proto_msgTypes[21].OneofWrappers = []any{}
+	file_pluggableharness_tool_v1_tool_proto_msgTypes[11].OneofWrappers = []any{}
+	file_pluggableharness_tool_v1_tool_proto_msgTypes[19].OneofWrappers = []any{}
+	file_pluggableharness_tool_v1_tool_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_tool_v1_tool_proto_rawDesc), len(file_pluggableharness_agent_tool_v1_tool_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_tool_v1_tool_proto_rawDesc), len(file_pluggableharness_tool_v1_tool_proto_rawDesc)),
 			NumEnums:      4,
 			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_pluggableharness_agent_tool_v1_tool_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_tool_v1_tool_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_agent_tool_v1_tool_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_agent_tool_v1_tool_proto_msgTypes,
+		GoTypes:           file_pluggableharness_tool_v1_tool_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_tool_v1_tool_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_tool_v1_tool_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_tool_v1_tool_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_tool_v1_tool_proto = out.File
-	file_pluggableharness_agent_tool_v1_tool_proto_goTypes = nil
-	file_pluggableharness_agent_tool_v1_tool_proto_depIdxs = nil
+	File_pluggableharness_tool_v1_tool_proto = out.File
+	file_pluggableharness_tool_v1_tool_proto_goTypes = nil
+	file_pluggableharness_tool_v1_tool_proto_depIdxs = nil
 }

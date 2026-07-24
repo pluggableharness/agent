@@ -6,7 +6,7 @@ import (
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 )
 
-// Attribute keys specific to PluggableHarness Agent's kernel — namespaced pluggableharness.agent.* since
+// Attribute keys specific to PluggableHarness Agent's kernel — namespaced pluggableharness.* since
 // no existing OTel semantic-convention group covers them. Where a
 // semantic-convention key already exists (service.name, gen_ai.*), this
 // package uses it directly (resource.go, span.go, usage.go) instead of
@@ -22,76 +22,76 @@ var (
 	// which plugin a span concerns. The identity itself comes from the
 	// kernel-authenticated source described in kernel-callbacks.md §4/§5 —
 	// never a client-supplied field.
-	ProducerCategoryKey = attribute.Key("pluggableharness.agent.producer.category")
-	ProducerNameKey     = attribute.Key("pluggableharness.agent.producer.name")
-	ProducerVersionKey  = attribute.Key("pluggableharness.agent.producer.version")
+	ProducerCategoryKey = attribute.Key("pluggableharness.producer.category")
+	ProducerNameKey     = attribute.Key("pluggableharness.producer.name")
+	ProducerVersionKey  = attribute.Key("pluggableharness.producer.version")
 
 	// SessionIDKey, SessionParentIDKey, and SessionRootIDKey describe a
 	// session's place in the RunSession tree (agent-loop.md §7).
-	SessionIDKey       = attribute.Key("pluggableharness.agent.session.id")
-	SessionParentIDKey = attribute.Key("pluggableharness.agent.session.parent_id")
-	SessionRootIDKey   = attribute.Key("pluggableharness.agent.session.root_id")
+	SessionIDKey       = attribute.Key("pluggableharness.session.id")
+	SessionParentIDKey = attribute.Key("pluggableharness.session.parent_id")
+	SessionRootIDKey   = attribute.Key("pluggableharness.session.root_id")
 
 	// SessionDepthKey is the sub-agent nesting depth. Unlike the ID keys
 	// above, this is low-cardinality (bounded by max_depth) and is safe on
 	// metrics.
-	SessionDepthKey = attribute.Key("pluggableharness.agent.session.depth")
+	SessionDepthKey = attribute.Key("pluggableharness.session.depth")
 
-	AgentProfileKey = attribute.Key("pluggableharness.agent.agent.profile")
+	AgentProfileKey = attribute.Key("pluggableharness.agent.profile")
 
 	// TurnIndexKey is unbounded (see the cardinality rule above) — span
 	// attribute only.
-	TurnIndexKey = attribute.Key("pluggableharness.agent.turn.index")
+	TurnIndexKey = attribute.Key("pluggableharness.turn.index")
 
 	// HookPointKey is one of the 9 named hook points (agent-loop.md §1).
-	HookPointKey = attribute.Key("pluggableharness.agent.hook.point")
+	HookPointKey = attribute.Key("pluggableharness.hook.point")
 
 	// SubscriberModeKey is "observe", "transform", or "veto"
 	// (agent-loop.md §4).
-	SubscriberModeKey = attribute.Key("pluggableharness.agent.subscriber.mode")
+	SubscriberModeKey = attribute.Key("pluggableharness.subscriber.mode")
 
 	// ToolNameKey and ToolKindKey describe a resolved tool call. Both are
 	// bounded by the operator's configured tool set / the fixed ToolKind
 	// enum, so both are safe on metrics.
-	ToolNameKey = attribute.Key("pluggableharness.agent.tool.name")
-	ToolKindKey = attribute.Key("pluggableharness.agent.tool.kind")
+	ToolNameKey = attribute.Key("pluggableharness.tool.name")
+	ToolKindKey = attribute.Key("pluggableharness.tool.kind")
 
 	// ModelIDKey names the model a call targeted. Bounded by the
 	// operator's required_providers set, so it's safe on metrics too.
-	ModelIDKey = attribute.Key("pluggableharness.agent.model.id")
+	ModelIDKey = attribute.Key("pluggableharness.model.id")
 
 	// PolicyDecisionKey is one of "allow", "ask", "deny"
 	// (agent-loop.md §5.2).
-	PolicyDecisionKey = attribute.Key("pluggableharness.agent.policy.decision")
+	PolicyDecisionKey = attribute.Key("pluggableharness.policy.decision")
 
 	// BoundKey names which LoopBounds dimension fired (agent-loop.md
 	// §3.1).
-	BoundKey = attribute.Key("pluggableharness.agent.bound")
+	BoundKey = attribute.Key("pluggableharness.bound")
 
 	// OutcomeKey is a generic ok/error result classifier.
-	OutcomeKey = attribute.Key("pluggableharness.agent.outcome")
+	OutcomeKey = attribute.Key("pluggableharness.outcome")
 
 	// TokenTypeKey distinguishes input/output/cache_read/cache_write on
 	// the Tokens counter.
-	TokenTypeKey = attribute.Key("pluggableharness.agent.token.type")
+	TokenTypeKey = attribute.Key("pluggableharness.token.type")
 
 	// FilePathKey is the filesystem path a local file-load operation
 	// (config, global config, lock file, checksum) read from. Unbounded
 	// (see the cardinality rule above) — span attribute only, same
 	// reasoning as SessionIDKey.
-	FilePathKey = attribute.Key("pluggableharness.agent.file.path")
+	FilePathKey = attribute.Key("pluggableharness.file.path")
 
 	// PlatformKey is the OS/arch pair (e.g. "linux_amd64") a checksum
 	// verification targeted. Low-cardinality — bounded by the set of
 	// platforms a provider ships binaries for — so it's safe on both
 	// spans and metrics.
-	PlatformKey = attribute.Key("pluggableharness.agent.platform")
+	PlatformKey = attribute.Key("pluggableharness.platform")
 
 	// EventBusTopicKey is the topic an internal/eventbus.Event was
 	// published on. Unbounded — a topic is caller-chosen, arbitrary
 	// string — so, per the cardinality rule above, span attribute only,
 	// never a metric attribute.
-	EventBusTopicKey = attribute.Key("pluggableharness.agent.eventbus.topic")
+	EventBusTopicKey = attribute.Key("pluggableharness.eventbus.topic")
 )
 
 // Token type values for TokenTypeKey.

@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/plan/v1/plan.proto
+// source: pluggableharness/plan/v1/plan.proto
 
-// Package pluggableharness.agent.plan.v1 defines the plan/apply gate's data types
+// Package pluggableharness.plan.v1 defines the plan/apply gate's data types
 // (specifications/agent-loop.md §5.1). A Plan collects every resource call
 // identified in a turn; each PlanItem is evaluated independently against
 // policy (agent-loop.md §5.1: three resource calls against three
@@ -89,11 +89,11 @@ func (x PlanDecision) String() string {
 }
 
 func (PlanDecision) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_plan_v1_plan_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_plan_v1_plan_proto_enumTypes[0].Descriptor()
 }
 
 func (PlanDecision) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_plan_v1_plan_proto_enumTypes[0]
+	return &file_pluggableharness_plan_v1_plan_proto_enumTypes[0]
 }
 
 func (x PlanDecision) Number() protoreflect.EnumNumber {
@@ -102,7 +102,7 @@ func (x PlanDecision) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PlanDecision.Descriptor instead.
 func (PlanDecision) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_plan_v1_plan_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{0}
 }
 
 // ApplyOutcome classifies how one plan item's apply attempt concluded.
@@ -160,11 +160,11 @@ func (x ApplyResult_ApplyOutcome) String() string {
 }
 
 func (ApplyResult_ApplyOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_plan_v1_plan_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_plan_v1_plan_proto_enumTypes[1].Descriptor()
 }
 
 func (ApplyResult_ApplyOutcome) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_plan_v1_plan_proto_enumTypes[1]
+	return &file_pluggableharness_plan_v1_plan_proto_enumTypes[1]
 }
 
 func (x ApplyResult_ApplyOutcome) Number() protoreflect.EnumNumber {
@@ -173,7 +173,7 @@ func (x ApplyResult_ApplyOutcome) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ApplyResult_ApplyOutcome.Descriptor instead.
 func (ApplyResult_ApplyOutcome) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_plan_v1_plan_proto_rawDescGZIP(), []int{2, 0}
+	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{2, 0}
 }
 
 // PlanItem is one resource (or policy-checked data_source/interactive)
@@ -182,28 +182,28 @@ type PlanItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// This item's own id, stable within the plan.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The originating tool call's id (matches pluggableharness.agent.content.v1
-	// ToolUseBlock.id / pluggableharness.agent.tool.v1 ToolCall.id).
+	// The originating tool call's id (matches pluggableharness.content.v1
+	// ToolUseBlock.id / pluggableharness.tool.v1 ToolCall.id).
 	ToolCallId string `protobuf:"bytes,2,opt,name=tool_call_id,json=toolCallId,proto3" json:"tool_call_id,omitempty"`
 	// The declared name of the tool provider plugin this call targets.
 	Provider string `protobuf:"bytes,3,opt,name=provider,proto3" json:"provider,omitempty"`
 	// The tool operation being called (tool.md §2 ToolSchema.name).
 	ToolName string `protobuf:"bytes,4,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
 	// The call's parsed arguments — the kernel's canonical ToolCall
-	// representation (model.md §6 / pluggableharness.agent.schema.v1's subset governs
+	// representation (model.md §6 / pluggableharness.schema.v1's subset governs
 	// its shape). A Struct per .claude/rules/proto.md's runtime-JSON
 	// carve-out.
 	Input *structpb.Struct `protobuf:"bytes,5,opt,name=input,proto3" json:"input,omitempty"`
 	// This item's current decision.
-	Decision PlanDecision `protobuf:"varint,6,opt,name=decision,proto3,enum=pluggableharness.agent.plan.v1.PlanDecision" json:"decision,omitempty"`
+	Decision PlanDecision `protobuf:"varint,6,opt,name=decision,proto3,enum=pluggableharness.plan.v1.PlanDecision" json:"decision,omitempty"`
 	// The name of the policy rule or subscriber that produced `decision`,
 	// for audit (state-backend.md §4.4 plan_items.decided_by).
 	DecidedBy string `protobuf:"bytes,7,opt,name=decided_by,json=decidedBy,proto3" json:"decided_by,omitempty"`
 	// Snapshot of ToolSchema.kind (tool/data-types.md#toolschema) for the
 	// operation this item calls, at plan-construction time.
-	Kind v1.ToolKind `protobuf:"varint,8,opt,name=kind,proto3,enum=pluggableharness.agent.tool.v1.ToolKind" json:"kind,omitempty"`
+	Kind v1.ToolKind `protobuf:"varint,8,opt,name=kind,proto3,enum=pluggableharness.tool.v1.ToolKind" json:"kind,omitempty"`
 	// Snapshot of ToolSchema.risk, at plan-construction time.
-	Risk v1.RiskClass `protobuf:"varint,9,opt,name=risk,proto3,enum=pluggableharness.agent.tool.v1.RiskClass" json:"risk,omitempty"`
+	Risk v1.RiskClass `protobuf:"varint,9,opt,name=risk,proto3,enum=pluggableharness.tool.v1.RiskClass" json:"risk,omitempty"`
 	// Snapshot of ToolSchema.description, at plan-construction time.
 	Description string `protobuf:"bytes,10,opt,name=description,proto3" json:"description,omitempty"`
 	// The tool provider's dry-run preview of this call's effect, when the
@@ -222,7 +222,7 @@ type PlanItem struct {
 
 func (x *PlanItem) Reset() {
 	*x = PlanItem{}
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[0]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -234,7 +234,7 @@ func (x *PlanItem) String() string {
 func (*PlanItem) ProtoMessage() {}
 
 func (x *PlanItem) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[0]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -247,7 +247,7 @@ func (x *PlanItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanItem.ProtoReflect.Descriptor instead.
 func (*PlanItem) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_plan_v1_plan_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *PlanItem) GetId() string {
@@ -340,7 +340,7 @@ type Plan struct {
 
 func (x *Plan) Reset() {
 	*x = Plan{}
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[1]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -352,7 +352,7 @@ func (x *Plan) String() string {
 func (*Plan) ProtoMessage() {}
 
 func (x *Plan) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[1]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -365,7 +365,7 @@ func (x *Plan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Plan.ProtoReflect.Descriptor instead.
 func (*Plan) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_plan_v1_plan_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Plan) GetTurnId() string {
@@ -386,7 +386,7 @@ func (x *Plan) GetItems() []*PlanItem {
 // once every item in its Plan has reached a terminal ApplyOutcome, per
 // agent-loop.md §5.2. Homed in plan.v1 (rather than the forthcoming
 // event.v1 package that would otherwise seem the more obvious owner) so
-// both pluggableharness.agent.hook.v1's PostApplyPayload and event.v1's
+// both pluggableharness.hook.v1's PostApplyPayload and event.v1's
 // future EVENT_KIND_APPLY payload can reference this exact message
 // without either importing the other — plan.v1 has no dependency on
 // either, keeping the graph acyclic.
@@ -403,7 +403,7 @@ type ApplyResult struct {
 
 func (x *ApplyResult) Reset() {
 	*x = ApplyResult{}
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[2]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -415,7 +415,7 @@ func (x *ApplyResult) String() string {
 func (*ApplyResult) ProtoMessage() {}
 
 func (x *ApplyResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[2]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -428,7 +428,7 @@ func (x *ApplyResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResult.ProtoReflect.Descriptor instead.
 func (*ApplyResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_plan_v1_plan_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ApplyResult) GetTurnId() string {
@@ -455,7 +455,7 @@ type ApplyResult_ApplyItem struct {
 	ToolCallId string `protobuf:"bytes,2,opt,name=tool_call_id,json=toolCallId,proto3" json:"tool_call_id,omitempty"`
 	// How this item's apply attempt concluded. MUST be set (never
 	// APPLY_OUTCOME_UNSPECIFIED).
-	Outcome ApplyResult_ApplyOutcome `protobuf:"varint,3,opt,name=outcome,proto3,enum=pluggableharness.agent.plan.v1.ApplyResult_ApplyOutcome" json:"outcome,omitempty"`
+	Outcome ApplyResult_ApplyOutcome `protobuf:"varint,3,opt,name=outcome,proto3,enum=pluggableharness.plan.v1.ApplyResult_ApplyOutcome" json:"outcome,omitempty"`
 	// Absent for APPLY_OUTCOME_DENIED and APPLY_OUTCOME_SKIPPED —
 	// neither outcome executes the underlying tool call, so neither has
 	// a ToolResult/ToolError to carry.
@@ -471,7 +471,7 @@ type ApplyResult_ApplyItem struct {
 
 func (x *ApplyResult_ApplyItem) Reset() {
 	*x = ApplyResult_ApplyItem{}
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[3]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -483,7 +483,7 @@ func (x *ApplyResult_ApplyItem) String() string {
 func (*ApplyResult_ApplyItem) ProtoMessage() {}
 
 func (x *ApplyResult_ApplyItem) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[3]
+	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -496,7 +496,7 @@ func (x *ApplyResult_ApplyItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResult_ApplyItem.ProtoReflect.Descriptor instead.
 func (*ApplyResult_ApplyItem) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_plan_v1_plan_proto_rawDescGZIP(), []int{2, 0}
+	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{2, 0}
 }
 
 func (x *ApplyResult_ApplyItem) GetPlanItemId() string {
@@ -564,44 +564,44 @@ func (*ApplyResult_ApplyItem_ToolResult) isApplyResult_ApplyItem_Result() {}
 
 func (*ApplyResult_ApplyItem_ToolError) isApplyResult_ApplyItem_Result() {}
 
-var File_pluggableharness_agent_plan_v1_plan_proto protoreflect.FileDescriptor
+var File_pluggableharness_plan_v1_plan_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_plan_v1_plan_proto_rawDesc = "" +
+const file_pluggableharness_plan_v1_plan_proto_rawDesc = "" +
 	"\n" +
-	")pluggableharness/agent/plan/v1/plan.proto\x12\x1epluggableharness.agent.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a)pluggableharness/agent/tool/v1/tool.proto\"\x85\x04\n" +
+	"#pluggableharness/plan/v1/plan.proto\x12\x18pluggableharness.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/render/v1/render.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xed\x03\n" +
 	"\bPlanItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\ftool_call_id\x18\x02 \x01(\tR\n" +
 	"toolCallId\x12\x1a\n" +
 	"\bprovider\x18\x03 \x01(\tR\bprovider\x12\x1b\n" +
 	"\ttool_name\x18\x04 \x01(\tR\btoolName\x12-\n" +
-	"\x05input\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x05input\x12H\n" +
-	"\bdecision\x18\x06 \x01(\x0e2,.pluggableharness.agent.plan.v1.PlanDecisionR\bdecision\x12\x1d\n" +
+	"\x05input\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x05input\x12B\n" +
+	"\bdecision\x18\x06 \x01(\x0e2&.pluggableharness.plan.v1.PlanDecisionR\bdecision\x12\x1d\n" +
 	"\n" +
-	"decided_by\x18\a \x01(\tR\tdecidedBy\x12<\n" +
-	"\x04kind\x18\b \x01(\x0e2(.pluggableharness.agent.tool.v1.ToolKindR\x04kind\x12=\n" +
-	"\x04risk\x18\t \x01(\x0e2).pluggableharness.agent.tool.v1.RiskClassR\x04risk\x12 \n" +
+	"decided_by\x18\a \x01(\tR\tdecidedBy\x126\n" +
+	"\x04kind\x18\b \x01(\x0e2\".pluggableharness.tool.v1.ToolKindR\x04kind\x127\n" +
+	"\x04risk\x18\t \x01(\x0e2#.pluggableharness.tool.v1.RiskClassR\x04risk\x12 \n" +
 	"\vdescription\x18\n" +
-	" \x01(\tR\vdescription\x12K\n" +
-	"\apreview\x18\v \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeH\x00R\apreview\x88\x01\x01B\n" +
+	" \x01(\tR\vdescription\x12E\n" +
+	"\apreview\x18\v \x01(\v2&.pluggableharness.render.v1.RenderTreeH\x00R\apreview\x88\x01\x01B\n" +
 	"\n" +
-	"\b_preview\"_\n" +
+	"\b_preview\"Y\n" +
 	"\x04Plan\x12\x17\n" +
-	"\aturn_id\x18\x01 \x01(\tR\x06turnId\x12>\n" +
-	"\x05items\x18\x02 \x03(\v2(.pluggableharness.agent.plan.v1.PlanItemR\x05items\"\xd8\x04\n" +
+	"\aturn_id\x18\x01 \x01(\tR\x06turnId\x128\n" +
+	"\x05items\x18\x02 \x03(\v2\".pluggableharness.plan.v1.PlanItemR\x05items\"\xc0\x04\n" +
 	"\vApplyResult\x12\x17\n" +
-	"\aturn_id\x18\x01 \x01(\tR\x06turnId\x12K\n" +
-	"\x05items\x18\x02 \x03(\v25.pluggableharness.agent.plan.v1.ApplyResult.ApplyItemR\x05items\x1a\xc8\x02\n" +
+	"\aturn_id\x18\x01 \x01(\tR\x06turnId\x12E\n" +
+	"\x05items\x18\x02 \x03(\v2/.pluggableharness.plan.v1.ApplyResult.ApplyItemR\x05items\x1a\xb6\x02\n" +
 	"\tApplyItem\x12 \n" +
 	"\fplan_item_id\x18\x01 \x01(\tR\n" +
 	"planItemId\x12 \n" +
 	"\ftool_call_id\x18\x02 \x01(\tR\n" +
-	"toolCallId\x12R\n" +
-	"\aoutcome\x18\x03 \x01(\x0e28.pluggableharness.agent.plan.v1.ApplyResult.ApplyOutcomeR\aoutcome\x12M\n" +
-	"\vtool_result\x18\x04 \x01(\v2*.pluggableharness.agent.tool.v1.ToolResultH\x00R\n" +
-	"toolResult\x12J\n" +
+	"toolCallId\x12L\n" +
+	"\aoutcome\x18\x03 \x01(\x0e22.pluggableharness.plan.v1.ApplyResult.ApplyOutcomeR\aoutcome\x12G\n" +
+	"\vtool_result\x18\x04 \x01(\v2$.pluggableharness.tool.v1.ToolResultH\x00R\n" +
+	"toolResult\x12D\n" +
 	"\n" +
-	"tool_error\x18\x05 \x01(\v2).pluggableharness.agent.tool.v1.ToolErrorH\x00R\ttoolErrorB\b\n" +
+	"tool_error\x18\x05 \x01(\v2#.pluggableharness.tool.v1.ToolErrorH\x00R\ttoolErrorB\b\n" +
 	"\x06result\"\x97\x01\n" +
 	"\fApplyOutcome\x12\x1d\n" +
 	"\x19APPLY_OUTCOME_UNSPECIFIED\x10\x00\x12\x19\n" +
@@ -617,44 +617,44 @@ const file_pluggableharness_agent_plan_v1_plan_proto_rawDesc = "" +
 	"\x12PLAN_DECISION_DENY\x10\x04B<Z:github.com/pluggableharness/agent/pkg/plan/proto/v1;planv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_plan_v1_plan_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_plan_v1_plan_proto_rawDescData []byte
+	file_pluggableharness_plan_v1_plan_proto_rawDescOnce sync.Once
+	file_pluggableharness_plan_v1_plan_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_plan_v1_plan_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_plan_v1_plan_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_plan_v1_plan_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_plan_v1_plan_proto_rawDesc), len(file_pluggableharness_agent_plan_v1_plan_proto_rawDesc)))
+func file_pluggableharness_plan_v1_plan_proto_rawDescGZIP() []byte {
+	file_pluggableharness_plan_v1_plan_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_plan_v1_plan_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_plan_v1_plan_proto_rawDesc), len(file_pluggableharness_plan_v1_plan_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_plan_v1_plan_proto_rawDescData
+	return file_pluggableharness_plan_v1_plan_proto_rawDescData
 }
 
-var file_pluggableharness_agent_plan_v1_plan_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_agent_plan_v1_plan_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_pluggableharness_agent_plan_v1_plan_proto_goTypes = []any{
-	(PlanDecision)(0),             // 0: pluggableharness.agent.plan.v1.PlanDecision
-	(ApplyResult_ApplyOutcome)(0), // 1: pluggableharness.agent.plan.v1.ApplyResult.ApplyOutcome
-	(*PlanItem)(nil),              // 2: pluggableharness.agent.plan.v1.PlanItem
-	(*Plan)(nil),                  // 3: pluggableharness.agent.plan.v1.Plan
-	(*ApplyResult)(nil),           // 4: pluggableharness.agent.plan.v1.ApplyResult
-	(*ApplyResult_ApplyItem)(nil), // 5: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem
+var file_pluggableharness_plan_v1_plan_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_plan_v1_plan_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_pluggableharness_plan_v1_plan_proto_goTypes = []any{
+	(PlanDecision)(0),             // 0: pluggableharness.plan.v1.PlanDecision
+	(ApplyResult_ApplyOutcome)(0), // 1: pluggableharness.plan.v1.ApplyResult.ApplyOutcome
+	(*PlanItem)(nil),              // 2: pluggableharness.plan.v1.PlanItem
+	(*Plan)(nil),                  // 3: pluggableharness.plan.v1.Plan
+	(*ApplyResult)(nil),           // 4: pluggableharness.plan.v1.ApplyResult
+	(*ApplyResult_ApplyItem)(nil), // 5: pluggableharness.plan.v1.ApplyResult.ApplyItem
 	(*structpb.Struct)(nil),       // 6: google.protobuf.Struct
-	(v1.ToolKind)(0),              // 7: pluggableharness.agent.tool.v1.ToolKind
-	(v1.RiskClass)(0),             // 8: pluggableharness.agent.tool.v1.RiskClass
-	(*v11.RenderTree)(nil),        // 9: pluggableharness.agent.render.v1.RenderTree
-	(*v1.ToolResult)(nil),         // 10: pluggableharness.agent.tool.v1.ToolResult
-	(*v1.ToolError)(nil),          // 11: pluggableharness.agent.tool.v1.ToolError
+	(v1.ToolKind)(0),              // 7: pluggableharness.tool.v1.ToolKind
+	(v1.RiskClass)(0),             // 8: pluggableharness.tool.v1.RiskClass
+	(*v11.RenderTree)(nil),        // 9: pluggableharness.render.v1.RenderTree
+	(*v1.ToolResult)(nil),         // 10: pluggableharness.tool.v1.ToolResult
+	(*v1.ToolError)(nil),          // 11: pluggableharness.tool.v1.ToolError
 }
-var file_pluggableharness_agent_plan_v1_plan_proto_depIdxs = []int32{
-	6,  // 0: pluggableharness.agent.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
-	0,  // 1: pluggableharness.agent.plan.v1.PlanItem.decision:type_name -> pluggableharness.agent.plan.v1.PlanDecision
-	7,  // 2: pluggableharness.agent.plan.v1.PlanItem.kind:type_name -> pluggableharness.agent.tool.v1.ToolKind
-	8,  // 3: pluggableharness.agent.plan.v1.PlanItem.risk:type_name -> pluggableharness.agent.tool.v1.RiskClass
-	9,  // 4: pluggableharness.agent.plan.v1.PlanItem.preview:type_name -> pluggableharness.agent.render.v1.RenderTree
-	2,  // 5: pluggableharness.agent.plan.v1.Plan.items:type_name -> pluggableharness.agent.plan.v1.PlanItem
-	5,  // 6: pluggableharness.agent.plan.v1.ApplyResult.items:type_name -> pluggableharness.agent.plan.v1.ApplyResult.ApplyItem
-	1,  // 7: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.agent.plan.v1.ApplyResult.ApplyOutcome
-	10, // 8: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.agent.tool.v1.ToolResult
-	11, // 9: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.agent.tool.v1.ToolError
+var file_pluggableharness_plan_v1_plan_proto_depIdxs = []int32{
+	6,  // 0: pluggableharness.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
+	0,  // 1: pluggableharness.plan.v1.PlanItem.decision:type_name -> pluggableharness.plan.v1.PlanDecision
+	7,  // 2: pluggableharness.plan.v1.PlanItem.kind:type_name -> pluggableharness.tool.v1.ToolKind
+	8,  // 3: pluggableharness.plan.v1.PlanItem.risk:type_name -> pluggableharness.tool.v1.RiskClass
+	9,  // 4: pluggableharness.plan.v1.PlanItem.preview:type_name -> pluggableharness.render.v1.RenderTree
+	2,  // 5: pluggableharness.plan.v1.Plan.items:type_name -> pluggableharness.plan.v1.PlanItem
+	5,  // 6: pluggableharness.plan.v1.ApplyResult.items:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyItem
+	1,  // 7: pluggableharness.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyOutcome
+	10, // 8: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.tool.v1.ToolResult
+	11, // 9: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.tool.v1.ToolError
 	10, // [10:10] is the sub-list for method output_type
 	10, // [10:10] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
@@ -662,13 +662,13 @@ var file_pluggableharness_agent_plan_v1_plan_proto_depIdxs = []int32{
 	0,  // [0:10] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_plan_v1_plan_proto_init() }
-func file_pluggableharness_agent_plan_v1_plan_proto_init() {
-	if File_pluggableharness_agent_plan_v1_plan_proto != nil {
+func init() { file_pluggableharness_plan_v1_plan_proto_init() }
+func file_pluggableharness_plan_v1_plan_proto_init() {
+	if File_pluggableharness_plan_v1_plan_proto != nil {
 		return
 	}
-	file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[0].OneofWrappers = []any{}
-	file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[3].OneofWrappers = []any{
+	file_pluggableharness_plan_v1_plan_proto_msgTypes[0].OneofWrappers = []any{}
+	file_pluggableharness_plan_v1_plan_proto_msgTypes[3].OneofWrappers = []any{
 		(*ApplyResult_ApplyItem_ToolResult)(nil),
 		(*ApplyResult_ApplyItem_ToolError)(nil),
 	}
@@ -676,18 +676,18 @@ func file_pluggableharness_agent_plan_v1_plan_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_plan_v1_plan_proto_rawDesc), len(file_pluggableharness_agent_plan_v1_plan_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_plan_v1_plan_proto_rawDesc), len(file_pluggableharness_plan_v1_plan_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_agent_plan_v1_plan_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_plan_v1_plan_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_agent_plan_v1_plan_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_agent_plan_v1_plan_proto_msgTypes,
+		GoTypes:           file_pluggableharness_plan_v1_plan_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_plan_v1_plan_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_plan_v1_plan_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_plan_v1_plan_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_plan_v1_plan_proto = out.File
-	file_pluggableharness_agent_plan_v1_plan_proto_goTypes = nil
-	file_pluggableharness_agent_plan_v1_plan_proto_depIdxs = nil
+	File_pluggableharness_plan_v1_plan_proto = out.File
+	file_pluggableharness_plan_v1_plan_proto_goTypes = nil
+	file_pluggableharness_plan_v1_plan_proto_depIdxs = nil
 }

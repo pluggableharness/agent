@@ -35,7 +35,7 @@ message ToolCall {
   string id = 1;
   string tool_name = 2;
   google.protobuf.Struct arguments = 3;
-  pluggableharness.agent.common.v1.CallContext call_context = 4;
+  pluggableharness.common.v1.CallContext call_context = 4;
 }
 
 message PreviewRequest {
@@ -43,13 +43,13 @@ message PreviewRequest {
 }
 
 message PreviewResponse {
-  pluggableharness.agent.render.v1.RenderTree preview = 1;
+  pluggableharness.render.v1.RenderTree preview = 1;
 }
 
 message DescribeRequest {}
 
 message DescribeResponse {
-  pluggableharness.agent.common.v1.ProducerRef producer = 1;
+  pluggableharness.common.v1.ProducerRef producer = 1;
 }
 
 message ToolEvent {

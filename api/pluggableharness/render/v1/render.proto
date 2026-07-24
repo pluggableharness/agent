@@ -1,0 +1,260 @@
+syntax = "proto3";
+
+// Package pluggableharness.render.v1 defines the Emit->Render->Paint intermediate
+// representation described in specifications/frontend.md §1. Every plugin
+// category's optional Render() RPC (model.md §7, tool.md §7,
+// context.md §9, memory.md §10) returns this; every frontend/widget Paints
+// it. frontend.md §1 MUST: a frontend must render every RenderNode variant
+// gracefully with a generic fallback (e.g. an unrecognized-in-practice
+// future variant, or `diff` on a frontend with no diff view -> plain
+// before/after text) — never error, never silently drop a node.
+package pluggableharness.render.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/render/proto/v1;renderv1";
+
+// RenderTree is the return type of every category's Render() RPC.
+// frontend.md §1 treats "RenderTree" and "RenderNode" as equivalent (the
+// tree root is just a node) — this wraps a single root RenderNode so every
+// Render() RPC across every category shares one stable, named response
+// type, with room to grow (e.g. a schema_version) without changing
+// RenderNode itself.
+message RenderTree {
+  // The tree's root node.
+  RenderNode root = 1;
+}
+
+// Region is the placement vocabulary for where a RenderTree gets shown,
+// described in specifications/frontend.md §2. Every region is
+// plugin-contributable; a placement is a hint the frontend MAY drop or
+// re-fold under space constraints. Lives here (not in frontend/v1) because
+// both the frontend provider protocol AND the widget provider protocol
+// place content into these same regions (frontend.md §4.1's WidgetUpdate),
+// and neither category's package should depend on the other's.
+enum Region {
+  // Zero value. Never valid for a real placement; its presence on the wire
+  // means a caller forgot to set the field.
+  REGION_UNSPECIFIED = 0;
+  // The main conversation transcript. The default region when a producer
+  // doesn't specify one.
+  REGION_MAIN_CHAT = 1;
+  // A persistent side panel.
+  REGION_SIDEBAR = 2;
+  // A persistent header bar.
+  REGION_TOP_BAR = 3;
+  // The area around the user's input box.
+  REGION_INPUT_BAR = 4;
+  // Contextual hotkey/command hints.
+  REGION_HOTKEY_HINTS = 5;
+  // A modal or floating layer. MUST be visually distinct from the rest of
+  // the interface (frontend.md §2).
+  REGION_OVERLAY = 6;
+}
+
+// PlacedContent pairs a RenderTree with where it should be shown and how
+// it interacts with that region's prior content from the same producer.
+// Used by frontend.md §3.2's ServerEvent.render variant.
+message PlacedContent {
+  // Where this content should be placed.
+  Region region = 1;
+
+  // The content to place.
+  RenderTree content = 2;
+
+  // True: replace this producer's prior content in `region`. False:
+  // append (the default behavior for REGION_MAIN_CHAT).
+  bool replace = 3;
+
+  // Ordering/eviction hint for space-constrained regions. Unset means
+  // "declaration order".
+  optional int32 priority = 4;
+}
+
+// TextStyle is a hint for how a TextNode's content should be presented.
+// Distinct from "unset": TEXT_STYLE_NORMAL is a producer explicitly
+// requesting plain styling (overriding any inherited formatting context),
+// while TEXT_STYLE_UNSPECIFIED means the producer didn't express a
+// preference and the frontend should use its own default.
+enum TextStyle {
+  // Zero value / unset. The frontend applies its own default styling.
+  TEXT_STYLE_UNSPECIFIED = 0;
+  TEXT_STYLE_NORMAL = 1;
+  TEXT_STYLE_BOLD = 2;
+  TEXT_STYLE_ITALIC = 3;
+  TEXT_STYLE_CODE = 4;
+  TEXT_STYLE_DIM = 5;
+  TEXT_STYLE_ERROR = 6;
+  TEXT_STYLE_WARNING = 7;
+  TEXT_STYLE_SUCCESS = 8;
+}
+
+// DiffLineOp classifies one line of a DiffHunk, mirroring unified diff's
+// three line prefixes (' ', '+', '-').
+enum DiffLineOp {
+  // Zero value. Never valid for a real line; its presence on the wire
+  // means a caller forgot to set the field.
+  DIFF_LINE_OP_UNSPECIFIED = 0;
+  // Unchanged context line, present in both old and new.
+  DIFF_LINE_OP_CONTEXT = 1;
+  // A line added in the new version.
+  DIFF_LINE_OP_ADD = 2;
+  // A line removed from the old version.
+  DIFF_LINE_OP_REMOVE = 3;
+}
+
+// DiffLine is one line within a DiffHunk.
+message DiffLine {
+  // How this line relates to the old/new versions.
+  DiffLineOp op = 1;
+  // The line's text, without a diff-marker prefix (that's `op`'s job).
+  string text = 2;
+}
+
+// DiffHunk is one unified-diff-shaped hunk. frontend.md §1 names
+// `diff.hunks` as "unified-diff shaped" but does not define this message's
+// fields; this shape mirrors a standard unified diff hunk header
+// (`@@ -old_start,old_lines +new_start,new_lines @@`) plus its lines. See
+// .claude/rules/proto.md's authoring notes for this file.
+message DiffHunk {
+  // 1-indexed starting line number in the old version.
+  int32 old_start = 1;
+  // Number of lines from the old version this hunk spans.
+  int32 old_lines = 2;
+  // 1-indexed starting line number in the new version.
+  int32 new_start = 3;
+  // Number of lines from the new version this hunk spans.
+  int32 new_lines = 4;
+  // The hunk's lines, in display order.
+  repeated DiffLine lines = 5;
+}
+
+// RenderNode is one node of a RenderTree. Exactly one variant is set.
+// Recursion happens via ListNode.items, GroupNode.children, and
+// CollapsibleNode.children; every other variant is a leaf.
+message RenderNode {
+  oneof node {
+    TextNode text = 1;
+    CodeBlockNode code_block = 2;
+    DiffNode diff = 3;
+    TableNode table = 4;
+    LinkNode link = 5;
+    ListNode list = 6;
+    GroupNode group = 7;
+    CollapsibleNode collapsible = 8;
+    SubSessionNode sub_session = 9;
+    ActionNode action = 10;
+  }
+}
+
+// TextNode is plain or styled text — the most common leaf node.
+message TextNode {
+  // The text content.
+  string content = 1;
+  // Optional presentation hint. Unset means "frontend's default style".
+  optional TextStyle style = 2;
+}
+
+// CodeBlockNode is a block of source code, optionally syntax-highlighted
+// by `language`.
+message CodeBlockNode {
+  // Syntax-highlighting hint, e.g. "go". Unset means no highlighting.
+  optional string language = 1;
+  // The code's raw text.
+  string content = 2;
+}
+
+// DiffNode presents a set of unified-diff hunks. frontend.md §1 requires a
+// frontend with no diff view to gracefully fall back to plain before/after
+// text rather than dropping this node.
+message DiffNode {
+  // The hunks making up this diff, in file order.
+  repeated DiffHunk hunks = 1;
+}
+
+// TableRow is one row of a TableNode. A wrapper message because proto3
+// does not support a directly-nested repeated-of-repeated field.
+message TableRow {
+  // The row's cell values, aligned to TableNode.headers by index.
+  repeated string cells = 1;
+}
+
+// TableNode is tabular data. Deliberately flat (string cells only, no
+// nested RenderNodes per cell) per frontend.md §1.
+message TableNode {
+  // Column headers.
+  repeated string headers = 1;
+  // The table's rows.
+  repeated TableRow rows = 2;
+}
+
+// LinkNode is a hyperlink.
+message LinkNode {
+  // The link's display text.
+  string text = 1;
+  // The link's target URL.
+  string url = 2;
+}
+
+// ListNode is an ordered or unordered list of child nodes.
+message ListNode {
+  // The list's items, in display order.
+  repeated RenderNode items = 1;
+  // True for a numbered list, false for a bulleted one.
+  bool ordered = 2;
+}
+
+// GroupNode is a plain, transparent container — no implied wrapper
+// (border, indentation, label) beyond what the frontend chooses to apply.
+message GroupNode {
+  // The group's children, in display order.
+  repeated RenderNode children = 1;
+}
+
+// CollapsibleNode is a container with a summary label and a default
+// expanded/collapsed state.
+message CollapsibleNode {
+  // The always-visible summary label.
+  string summary = 1;
+  // The children shown when expanded.
+  repeated RenderNode children = 2;
+  // Whether this node starts collapsed.
+  bool collapsed_by_default = 3;
+}
+
+// SubSessionNode is the reserved node for a nested agent transcript
+// reference (e.g. a RunSession-spawned child), rendered as a pointer to
+// that session rather than inlining its full content.
+message SubSessionNode {
+  // The referenced child session's id.
+  string session_id = 1;
+  // A short human-readable summary of what happened in that session.
+  string summary = 2;
+}
+
+// ActionNode is interactive/clickable content — the widget action channel
+// (frontend.md §5.1). A frontend MUST make this node interactive and, on
+// activation, dispatch a ClientEvent.action_trigger carrying `tool_name`
+// and `args` unchanged. The kernel handles the resulting action_trigger
+// identically to a direct_invoke slash command: the normal Invoke/
+// plan-apply pipeline including policy evaluation, with no model turn.
+message ActionNode {
+  // Identifies this action node within its RenderTree, echoed back in the
+  // resulting ClientEvent so the frontend (and kernel) can correlate.
+  string id = 1;
+  // The clickable label shown to the user.
+  string label = 2;
+  // The tool operation to invoke on activation (tool.md §2 ToolSchema.name).
+  string tool_name = 3;
+  // The arguments to invoke it with. A Struct because the shape is
+  // runtime-defined per tool (see .claude/rules/proto.md's Struct
+  // carve-out) — validated against the tool's input_schema on dispatch,
+  // same as any other Invoke call.
+  google.protobuf.Struct args = 4;
+  // The declared name of the tool provider plugin `tool_name` belongs to.
+  // tool_name is only unique per provider (matching plan.v1.PlanItem's own
+  // provider/tool_name pairing), so this disambiguates which provider's
+  // operation to invoke on activation. Echoed unchanged onto the resulting
+  // ClientEvent.ActionTrigger.provider (frontend.md §"Client events").
+  string provider = 5;
+}

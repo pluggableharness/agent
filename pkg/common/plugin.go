@@ -2,7 +2,7 @@
 // PluggableHarness Agent plugin category (provider, tool, context, memory, frontend,
 // widget) and the kernel-side plugin runtime compile against identically:
 // the go-plugin handshake, the shared callback broker ID, and small helpers
-// derived from the generated pluggableharness.agent.common.v1 types in ./proto/v1. It is
+// derived from the generated pluggableharness.common.v1 types in ./proto/v1. It is
 // deliberately tiny — anything category-specific belongs in that category's
 // own pkg/<category> package, not here.
 package common

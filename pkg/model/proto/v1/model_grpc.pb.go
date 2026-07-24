@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/model/v1/model.proto
+// source: pluggableharness/model/v1/model.proto
 
-// Package pluggableharness.agent.model.v1 defines the model (LLM vendor) provider
+// Package pluggableharness.model.v1 defines the model (LLM vendor) provider
 // plugin protocol described in specifications/model.md — see
 // .claude/rules/proto.md — plus the two distinct model-identity shapes used
 // across the other specs. The identity shapes are deliberately NOT unified
@@ -29,12 +29,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ModelService_GetCapabilities_FullMethodName  = "/pluggableharness.agent.model.v1.ModelService/GetCapabilities"
-	ModelService_Configure_FullMethodName        = "/pluggableharness.agent.model.v1.ModelService/Configure"
-	ModelService_StreamCompletion_FullMethodName = "/pluggableharness.agent.model.v1.ModelService/StreamCompletion"
-	ModelService_CountTokens_FullMethodName      = "/pluggableharness.agent.model.v1.ModelService/CountTokens"
-	ModelService_Render_FullMethodName           = "/pluggableharness.agent.model.v1.ModelService/Render"
-	ModelService_Describe_FullMethodName         = "/pluggableharness.agent.model.v1.ModelService/Describe"
+	ModelService_GetCapabilities_FullMethodName  = "/pluggableharness.model.v1.ModelService/GetCapabilities"
+	ModelService_Configure_FullMethodName        = "/pluggableharness.model.v1.ModelService/Configure"
+	ModelService_StreamCompletion_FullMethodName = "/pluggableharness.model.v1.ModelService/StreamCompletion"
+	ModelService_CountTokens_FullMethodName      = "/pluggableharness.model.v1.ModelService/CountTokens"
+	ModelService_Render_FullMethodName           = "/pluggableharness.model.v1.ModelService/Render"
+	ModelService_Describe_FullMethodName         = "/pluggableharness.model.v1.ModelService/Describe"
 )
 
 // ModelServiceClient is the client API for ModelService service.
@@ -402,7 +402,7 @@ func _ModelService_Describe_Handler(srv interface{}, ctx context.Context, dec fu
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ModelService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.model.v1.ModelService",
+	ServiceName: "pluggableharness.model.v1.ModelService",
 	HandlerType: (*ModelServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -433,5 +433,5 @@ var ModelService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "pluggableharness/agent/model/v1/model.proto",
+	Metadata: "pluggableharness/model/v1/model.proto",
 }

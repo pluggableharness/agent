@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/session/v1/session.proto
+// source: pluggableharness/session/v1/session.proto
 
-// Package pluggableharness.agent.session.v1 defines the session lifecycle status enum
+// Package pluggableharness.session.v1 defines the session lifecycle status enum
 // shared by kernel-callbacks.md §1's RunSessionResult, state-backend.md
 // §4.2's session_meta.status column, and frontend.md §3.2's
 // session_tree_update ServerEvent.
@@ -92,11 +92,11 @@ func (x SessionStatus) String() string {
 }
 
 func (SessionStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_session_v1_session_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_session_v1_session_proto_enumTypes[0].Descriptor()
 }
 
 func (SessionStatus) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_session_v1_session_proto_enumTypes[0]
+	return &file_pluggableharness_session_v1_session_proto_enumTypes[0]
 }
 
 func (x SessionStatus) Number() protoreflect.EnumNumber {
@@ -105,7 +105,7 @@ func (x SessionStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SessionStatus.Descriptor instead.
 func (SessionStatus) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_session_v1_session_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_session_v1_session_proto_rawDescGZIP(), []int{0}
 }
 
 // SessionInfo is a session's shareable summary, mirroring
@@ -125,7 +125,7 @@ type SessionInfo struct {
 	// The agent.hcl profile this session was created under.
 	Profile string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
 	// The session's current lifecycle status.
-	Status SessionStatus `protobuf:"varint,4,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
+	Status SessionStatus `protobuf:"varint,4,opt,name=status,proto3,enum=pluggableharness.session.v1.SessionStatus" json:"status,omitempty"`
 	// The session's depth in its ancestor chain — mirrors
 	// session_meta.depth (agent-loop/subagents.md#depth-limits).
 	Depth int32 `protobuf:"varint,5,opt,name=depth,proto3" json:"depth,omitempty"`
@@ -144,7 +144,7 @@ type SessionInfo struct {
 
 func (x *SessionInfo) Reset() {
 	*x = SessionInfo{}
-	mi := &file_pluggableharness_agent_session_v1_session_proto_msgTypes[0]
+	mi := &file_pluggableharness_session_v1_session_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -156,7 +156,7 @@ func (x *SessionInfo) String() string {
 func (*SessionInfo) ProtoMessage() {}
 
 func (x *SessionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_session_v1_session_proto_msgTypes[0]
+	mi := &file_pluggableharness_session_v1_session_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -169,7 +169,7 @@ func (x *SessionInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionInfo.ProtoReflect.Descriptor instead.
 func (*SessionInfo) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_session_v1_session_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_session_v1_session_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SessionInfo) GetSessionId() string {
@@ -228,17 +228,17 @@ func (x *SessionInfo) GetCostUsd() float64 {
 	return 0
 }
 
-var File_pluggableharness_agent_session_v1_session_proto protoreflect.FileDescriptor
+var File_pluggableharness_session_v1_session_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_session_v1_session_proto_rawDesc = "" +
+const file_pluggableharness_session_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"/pluggableharness/agent/session/v1/session.proto\x12!pluggableharness.agent.session.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9e\x03\n" +
+	")pluggableharness/session/v1/session.proto\x12\x1bpluggableharness.session.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x03\n" +
 	"\vSessionInfo\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12/\n" +
 	"\x11parent_session_id\x18\x02 \x01(\tH\x00R\x0fparentSessionId\x88\x01\x01\x12\x18\n" +
-	"\aprofile\x18\x03 \x01(\tR\aprofile\x12H\n" +
-	"\x06status\x18\x04 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06status\x12\x14\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\x12B\n" +
+	"\x06status\x18\x04 \x01(\x0e2*.pluggableharness.session.v1.SessionStatusR\x06status\x12\x14\n" +
 	"\x05depth\x18\x05 \x01(\x05R\x05depth\x129\n" +
 	"\n" +
 	"started_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12:\n" +
@@ -258,28 +258,28 @@ const file_pluggableharness_agent_session_v1_session_proto_rawDesc = "" +
 	"\x15SESSION_STATUS_FAILED\x10\aBBZ@github.com/pluggableharness/agent/pkg/session/proto/v1;sessionv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_session_v1_session_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_session_v1_session_proto_rawDescData []byte
+	file_pluggableharness_session_v1_session_proto_rawDescOnce sync.Once
+	file_pluggableharness_session_v1_session_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_session_v1_session_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_session_v1_session_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_session_v1_session_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_session_v1_session_proto_rawDesc), len(file_pluggableharness_agent_session_v1_session_proto_rawDesc)))
+func file_pluggableharness_session_v1_session_proto_rawDescGZIP() []byte {
+	file_pluggableharness_session_v1_session_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_session_v1_session_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_session_v1_session_proto_rawDesc), len(file_pluggableharness_session_v1_session_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_session_v1_session_proto_rawDescData
+	return file_pluggableharness_session_v1_session_proto_rawDescData
 }
 
-var file_pluggableharness_agent_session_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_agent_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_pluggableharness_agent_session_v1_session_proto_goTypes = []any{
-	(SessionStatus)(0),            // 0: pluggableharness.agent.session.v1.SessionStatus
-	(*SessionInfo)(nil),           // 1: pluggableharness.agent.session.v1.SessionInfo
+var file_pluggableharness_session_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_pluggableharness_session_v1_session_proto_goTypes = []any{
+	(SessionStatus)(0),            // 0: pluggableharness.session.v1.SessionStatus
+	(*SessionInfo)(nil),           // 1: pluggableharness.session.v1.SessionInfo
 	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
-var file_pluggableharness_agent_session_v1_session_proto_depIdxs = []int32{
-	0, // 0: pluggableharness.agent.session.v1.SessionInfo.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
-	2, // 1: pluggableharness.agent.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
-	2, // 2: pluggableharness.agent.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
+var file_pluggableharness_session_v1_session_proto_depIdxs = []int32{
+	0, // 0: pluggableharness.session.v1.SessionInfo.status:type_name -> pluggableharness.session.v1.SessionStatus
+	2, // 1: pluggableharness.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
+	2, // 2: pluggableharness.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -287,28 +287,28 @@ var file_pluggableharness_agent_session_v1_session_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_session_v1_session_proto_init() }
-func file_pluggableharness_agent_session_v1_session_proto_init() {
-	if File_pluggableharness_agent_session_v1_session_proto != nil {
+func init() { file_pluggableharness_session_v1_session_proto_init() }
+func file_pluggableharness_session_v1_session_proto_init() {
+	if File_pluggableharness_session_v1_session_proto != nil {
 		return
 	}
-	file_pluggableharness_agent_session_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
+	file_pluggableharness_session_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_session_v1_session_proto_rawDesc), len(file_pluggableharness_agent_session_v1_session_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_session_v1_session_proto_rawDesc), len(file_pluggableharness_session_v1_session_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_agent_session_v1_session_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_session_v1_session_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_agent_session_v1_session_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_agent_session_v1_session_proto_msgTypes,
+		GoTypes:           file_pluggableharness_session_v1_session_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_session_v1_session_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_session_v1_session_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_session_v1_session_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_session_v1_session_proto = out.File
-	file_pluggableharness_agent_session_v1_session_proto_goTypes = nil
-	file_pluggableharness_agent_session_v1_session_proto_depIdxs = nil
+	File_pluggableharness_session_v1_session_proto = out.File
+	file_pluggableharness_session_v1_session_proto_goTypes = nil
+	file_pluggableharness_session_v1_session_proto_depIdxs = nil
 }

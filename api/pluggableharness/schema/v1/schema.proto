@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+// Package pluggableharness.schema.v1 defines the restricted JSON-Schema subset
+// described in specifications/model.md §6, shared by tool input/output
+// schemas (specifications/tool.md §2) and model tool-calling declarations
+// (specifications/model.md §6). Deliberately NOT full JSON Schema: no
+// oneOf/anyOf/allOf, no $ref, no pattern, no format, no non-trivial
+// additionalProperties. Every adapter across every category MUST support
+// exactly this subset — see .claude/rules/proto.md.
+package pluggableharness.schema.v1;
+
+option go_package = "github.com/pluggableharness/agent/pkg/schema/proto/v1;schemav1";
+
+// SchemaType is the JSON type a Schema node describes. There is no
+// dedicated ENUM value here: JSON Schema's `enum` keyword is a value
+// constraint, not a distinct type, and in this subset it applies to a
+// STRING-typed node via Schema.enum_values (the overwhelmingly common
+// case for tool argument enums) — see model.md §6.
+enum SchemaType {
+  // Zero value. Never valid for a real schema node; its presence on the
+  // wire means a caller forgot to set the field.
+  SCHEMA_TYPE_UNSPECIFIED = 0;
+  // A JSON object with named properties.
+  SCHEMA_TYPE_OBJECT = 1;
+  // A JSON string.
+  SCHEMA_TYPE_STRING = 2;
+  // A JSON number (integer or floating point — the subset does not
+  // distinguish the two, per model.md §6).
+  SCHEMA_TYPE_NUMBER = 3;
+  // A JSON boolean.
+  SCHEMA_TYPE_BOOLEAN = 4;
+  // A JSON array, whose element shape is Schema.items.
+  SCHEMA_TYPE_ARRAY = 5;
+}
+
+// Schema is one node of the restricted JSON-Schema subset. It is
+// self-recursive: an OBJECT node's properties and an ARRAY node's items
+// are themselves Schema nodes. This message is used both as a tool's
+// input_schema/output_schema (tool.md §2) and embedded in a model
+// provider's tool-calling declarations (model.md §6) — the same wire
+// type in both places, by design, so a kernel-side validator has exactly
+// one Schema implementation to maintain.
+message Schema {
+  // The JSON type this node describes. MUST be set.
+  SchemaType type = 1;
+
+  // Human-readable description of what this node represents. Shown to the
+  // model (as part of a tool's declared schema) and in plan-diff UI.
+  string description = 2;
+
+  // OBJECT only: named sub-schemas. A map is appropriate here (not a
+  // violation of the "no untyped map" rule in .claude/rules/proto.md) —
+  // property names are genuinely open-ended, and each value is itself a
+  // strongly-typed Schema, not an untyped blob.
+  map<string, Schema> properties = 3;
+
+  // OBJECT only: which of `properties`' keys are required. Names not
+  // present in `properties` are invalid.
+  repeated string required = 4;
+
+  // ARRAY only: the schema every element of the array must satisfy.
+  Schema items = 5;
+
+  // Constrains this node's value to one of the given strings. Meaningful
+  // when `type == SCHEMA_TYPE_STRING`; empty means unconstrained. See the
+  // SchemaType doc comment for why this isn't a distinct type value.
+  repeated string enum_values = 6;
+}

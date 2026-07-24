@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/kernel/v1/kernel.proto
+// source: pluggableharness/kernel/v1/kernel.proto
 
-// Package pluggableharness.agent.kernel.v1 defines the kernel-callback service described
+// Package pluggableharness.kernel.v1 defines the kernel-callback service described
 // in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
 // Log) — the plugin-to-kernel calling direction every plugin category gets
 // at handshake, the reverse of every other category's protocol in this
@@ -28,10 +28,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KernelCallbackService_RunSession_FullMethodName  = "/pluggableharness.agent.kernel.v1.KernelCallbackService/RunSession"
-	KernelCallbackService_CountTokens_FullMethodName = "/pluggableharness.agent.kernel.v1.KernelCallbackService/CountTokens"
-	KernelCallbackService_Emit_FullMethodName        = "/pluggableharness.agent.kernel.v1.KernelCallbackService/Emit"
-	KernelCallbackService_Log_FullMethodName         = "/pluggableharness.agent.kernel.v1.KernelCallbackService/Log"
+	KernelCallbackService_RunSession_FullMethodName  = "/pluggableharness.kernel.v1.KernelCallbackService/RunSession"
+	KernelCallbackService_CountTokens_FullMethodName = "/pluggableharness.kernel.v1.KernelCallbackService/CountTokens"
+	KernelCallbackService_Emit_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/Emit"
+	KernelCallbackService_Log_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/Log"
 )
 
 // KernelCallbackServiceClient is the client API for KernelCallbackService service.
@@ -321,7 +321,7 @@ func _KernelCallbackService_Log_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var KernelCallbackService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.kernel.v1.KernelCallbackService",
+	ServiceName: "pluggableharness.kernel.v1.KernelCallbackService",
 	HandlerType: (*KernelCallbackServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -342,5 +342,5 @@ var KernelCallbackService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pluggableharness/agent/kernel/v1/kernel.proto",
+	Metadata: "pluggableharness/kernel/v1/kernel.proto",
 }

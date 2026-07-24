@@ -34,7 +34,7 @@ ContextRequest {
 
 ## `ContextSection`
 
-Canonically defined on the wire as `pluggableharness.agent.content.v1.ContextSection` (alongside `Stability` below) rather than in this protocol's own package — it's a shared content shape a second consumer besides context assembly needs to reference; the semantics below remain this document's, unchanged by where the message lives on the wire.
+Canonically defined on the wire as `pluggableharness.content.v1.ContextSection` (alongside `Stability` below) rather than in this protocol's own package — it's a shared content shape a second consumer besides context assembly needs to reference; the semantics below remain this document's, unchanged by where the message lives on the wire.
 
 One provider's contribution to the assembled prompt context:
 

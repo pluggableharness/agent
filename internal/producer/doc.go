@@ -1,5 +1,5 @@
 // Package producer carries server-derived plugin-identity attribution
-// (pluggableharness.agent.common.v1.ProducerRef) across a context.Context.
+// (pluggableharness.common.v1.ProducerRef) across a context.Context.
 //
 // Producer identity MUST be set only by trusted, kernel-side code —
 // specifications/kernel-callbacks.md §4 and §5 both require it to be

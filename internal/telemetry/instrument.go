@@ -54,78 +54,78 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		}
 	}
 
-	turns, err := meter.Int64Counter("pluggableharness.agent.turns",
+	turns, err := meter.Int64Counter("pluggableharness.turns",
 		metric.WithDescription("Turns executed."))
-	check("pluggableharness.agent.turns", err)
+	check("pluggableharness.turns", err)
 
-	tokens, err := meter.Int64Counter("pluggableharness.agent.tokens",
+	tokens, err := meter.Int64Counter("pluggableharness.tokens",
 		metric.WithDescription("Model tokens consumed, by token.type."))
-	check("pluggableharness.agent.tokens", err)
+	check("pluggableharness.tokens", err)
 
-	costUSD, err := meter.Float64Counter("pluggableharness.agent.cost.usd",
+	costUSD, err := meter.Float64Counter("pluggableharness.cost.usd",
 		metric.WithDescription("Modeled spend in USD."),
 		metric.WithUnit("{USD}"))
-	check("pluggableharness.agent.cost.usd", err)
+	check("pluggableharness.cost.usd", err)
 
-	toolCalls, err := meter.Int64Counter("pluggableharness.agent.tool.calls",
+	toolCalls, err := meter.Int64Counter("pluggableharness.tool.calls",
 		metric.WithDescription("Tool calls executed."))
-	check("pluggableharness.agent.tool.calls", err)
+	check("pluggableharness.tool.calls", err)
 
-	boundsFired, err := meter.Int64Counter("pluggableharness.agent.bounds.fired",
+	boundsFired, err := meter.Int64Counter("pluggableharness.bounds.fired",
 		metric.WithDescription("Loop bounds tripped (agent-loop.md §3.1)."))
-	check("pluggableharness.agent.bounds.fired", err)
+	check("pluggableharness.bounds.fired", err)
 
-	doomLoops, err := meter.Int64Counter("pluggableharness.agent.doomloop.detected",
+	doomLoops, err := meter.Int64Counter("pluggableharness.doomloop.detected",
 		metric.WithDescription("Doom-loop detections."))
-	check("pluggableharness.agent.doomloop.detected", err)
+	check("pluggableharness.doomloop.detected", err)
 
-	policyDecisions, err := meter.Int64Counter("pluggableharness.agent.policy.decisions",
+	policyDecisions, err := meter.Int64Counter("pluggableharness.policy.decisions",
 		metric.WithDescription("Policy decisions, by decision."))
-	check("pluggableharness.agent.policy.decisions", err)
+	check("pluggableharness.policy.decisions", err)
 
-	hookErrors, err := meter.Int64Counter("pluggableharness.agent.hook.errors",
+	hookErrors, err := meter.Int64Counter("pluggableharness.hook.errors",
 		metric.WithDescription("Hook subscriber errors (observe mode never aborts the loop, but errors are still counted)."))
-	check("pluggableharness.agent.hook.errors", err)
+	check("pluggableharness.hook.errors", err)
 
-	pluginCrashes, err := meter.Int64Counter("pluggableharness.agent.plugin.crashes",
+	pluginCrashes, err := meter.Int64Counter("pluggableharness.plugin.crashes",
 		metric.WithDescription("Plugin subprocess crashes, by producer."))
-	check("pluggableharness.agent.plugin.crashes", err)
+	check("pluggableharness.plugin.crashes", err)
 
-	turnDuration, err := meter.Float64Histogram("pluggableharness.agent.turn.duration",
+	turnDuration, err := meter.Float64Histogram("pluggableharness.turn.duration",
 		metric.WithDescription("Turn wall-clock duration."),
 		metric.WithUnit("s"))
-	check("pluggableharness.agent.turn.duration", err)
+	check("pluggableharness.turn.duration", err)
 
-	modelDuration, err := meter.Float64Histogram("pluggableharness.agent.model.call.duration",
+	modelDuration, err := meter.Float64Histogram("pluggableharness.model.call.duration",
 		metric.WithDescription("StreamCompletion call duration."),
 		metric.WithUnit("s"))
-	check("pluggableharness.agent.model.call.duration", err)
+	check("pluggableharness.model.call.duration", err)
 
-	toolDuration, err := meter.Float64Histogram("pluggableharness.agent.tool.duration",
+	toolDuration, err := meter.Float64Histogram("pluggableharness.tool.duration",
 		metric.WithDescription("Tool Invoke call duration."),
 		metric.WithUnit("s"))
-	check("pluggableharness.agent.tool.duration", err)
+	check("pluggableharness.tool.duration", err)
 
-	hookDuration, err := meter.Float64Histogram("pluggableharness.agent.hook.dispatch.duration",
+	hookDuration, err := meter.Float64Histogram("pluggableharness.hook.dispatch.duration",
 		metric.WithDescription("Hook dispatch duration, by hook.point."),
 		metric.WithUnit("s"))
-	check("pluggableharness.agent.hook.dispatch.duration", err)
+	check("pluggableharness.hook.dispatch.duration", err)
 
-	activeSessions, err := meter.Int64UpDownCounter("pluggableharness.agent.sessions.active",
+	activeSessions, err := meter.Int64UpDownCounter("pluggableharness.sessions.active",
 		metric.WithDescription("Currently active sessions (root + sub-agent)."))
-	check("pluggableharness.agent.sessions.active", err)
+	check("pluggableharness.sessions.active", err)
 
-	eventBusEventsPublished, err := meter.Int64Counter("pluggableharness.agent.eventbus.events.published",
+	eventBusEventsPublished, err := meter.Int64Counter("pluggableharness.eventbus.events.published",
 		metric.WithDescription("internal/eventbus Publish calls that reached at least the fan-out step (topic is never an attribute here — see EventBusTopicKey's cardinality rule)."))
-	check("pluggableharness.agent.eventbus.events.published", err)
+	check("pluggableharness.eventbus.events.published", err)
 
-	eventBusEventsDelivered, err := meter.Int64Counter("pluggableharness.agent.eventbus.events.delivered",
+	eventBusEventsDelivered, err := meter.Int64Counter("pluggableharness.eventbus.events.delivered",
 		metric.WithDescription("internal/eventbus handler invocations — one per (event, subscriber) pair actually delivered."))
-	check("pluggableharness.agent.eventbus.events.delivered", err)
+	check("pluggableharness.eventbus.events.delivered", err)
 
-	eventBusSubscriptionsActive, err := meter.Int64UpDownCounter("pluggableharness.agent.eventbus.subscriptions.active",
+	eventBusSubscriptionsActive, err := meter.Int64UpDownCounter("pluggableharness.eventbus.subscriptions.active",
 		metric.WithDescription("Currently open internal/eventbus subscriptions, across all topics."))
-	check("pluggableharness.agent.eventbus.subscriptions.active", err)
+	check("pluggableharness.eventbus.subscriptions.active", err)
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)

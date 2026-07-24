@@ -2,10 +2,10 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/event/v1/event.proto
+// source: pluggableharness/event/v1/event.proto
 
-// Package pluggableharness.agent.event.v1 defines the decoded payload shape
-// for every pluggableharness.agent.kernel.v1.EventKind — the concrete
+// Package pluggableharness.event.v1 defines the decoded payload shape
+// for every pluggableharness.kernel.v1.EventKind — the concrete
 // message that a kernel.v1.EmitRequest.payload / the state backend's
 // events.payload column (state-backend.md §The kind enum) actually
 // contains, once schema_version identifies it. This package defines no
@@ -112,7 +112,7 @@ type MessageEvent struct {
 
 func (x *MessageEvent) Reset() {
 	*x = MessageEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[0]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -124,7 +124,7 @@ func (x *MessageEvent) String() string {
 func (*MessageEvent) ProtoMessage() {}
 
 func (x *MessageEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[0]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -137,7 +137,7 @@ func (x *MessageEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageEvent.ProtoReflect.Descriptor instead.
 func (*MessageEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *MessageEvent) GetMessage() *v1.Message {
@@ -179,7 +179,7 @@ type ToolCallEvent struct {
 
 func (x *ToolCallEvent) Reset() {
 	*x = ToolCallEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[1]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -191,7 +191,7 @@ func (x *ToolCallEvent) String() string {
 func (*ToolCallEvent) ProtoMessage() {}
 
 func (x *ToolCallEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[1]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -204,7 +204,7 @@ func (x *ToolCallEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCallEvent.ProtoReflect.Descriptor instead.
 func (*ToolCallEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ToolCallEvent) GetCall() *v13.ToolCall {
@@ -232,7 +232,7 @@ type ToolResultEvent struct {
 
 func (x *ToolResultEvent) Reset() {
 	*x = ToolResultEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[2]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -244,7 +244,7 @@ func (x *ToolResultEvent) String() string {
 func (*ToolResultEvent) ProtoMessage() {}
 
 func (x *ToolResultEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[2]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -257,7 +257,7 @@ func (x *ToolResultEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolResultEvent.ProtoReflect.Descriptor instead.
 func (*ToolResultEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ToolResultEvent) GetToolCallId() string {
@@ -323,7 +323,7 @@ type PlanEvent struct {
 
 func (x *PlanEvent) Reset() {
 	*x = PlanEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[3]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -335,7 +335,7 @@ func (x *PlanEvent) String() string {
 func (*PlanEvent) ProtoMessage() {}
 
 func (x *PlanEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[3]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -348,7 +348,7 @@ func (x *PlanEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanEvent.ProtoReflect.Descriptor instead.
 func (*PlanEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PlanEvent) GetPlan() *v14.Plan {
@@ -376,7 +376,7 @@ type ApplyEvent struct {
 
 func (x *ApplyEvent) Reset() {
 	*x = ApplyEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[4]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -388,7 +388,7 @@ func (x *ApplyEvent) String() string {
 func (*ApplyEvent) ProtoMessage() {}
 
 func (x *ApplyEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[4]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -401,7 +401,7 @@ func (x *ApplyEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyEvent.ProtoReflect.Descriptor instead.
 func (*ApplyEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ApplyEvent) GetResult() *v14.ApplyResult {
@@ -437,7 +437,7 @@ type ContextContributionEvent struct {
 
 func (x *ContextContributionEvent) Reset() {
 	*x = ContextContributionEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[5]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -449,7 +449,7 @@ func (x *ContextContributionEvent) String() string {
 func (*ContextContributionEvent) ProtoMessage() {}
 
 func (x *ContextContributionEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[5]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -462,7 +462,7 @@ func (x *ContextContributionEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextContributionEvent.ProtoReflect.Descriptor instead.
 func (*ContextContributionEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ContextContributionEvent) GetContent() []*v1.ContentBlock {
@@ -510,7 +510,7 @@ type MemoryMutationEvent struct {
 
 func (x *MemoryMutationEvent) Reset() {
 	*x = MemoryMutationEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[6]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -522,7 +522,7 @@ func (x *MemoryMutationEvent) String() string {
 func (*MemoryMutationEvent) ProtoMessage() {}
 
 func (x *MemoryMutationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[6]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -535,7 +535,7 @@ func (x *MemoryMutationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryMutationEvent.ProtoReflect.Descriptor instead.
 func (*MemoryMutationEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *MemoryMutationEvent) GetRecordId() string {
@@ -576,7 +576,7 @@ type HookErrorEvent struct {
 
 func (x *HookErrorEvent) Reset() {
 	*x = HookErrorEvent{}
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[7]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -588,7 +588,7 @@ func (x *HookErrorEvent) String() string {
 func (*HookErrorEvent) ProtoMessage() {}
 
 func (x *HookErrorEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_event_v1_event_proto_msgTypes[7]
+	mi := &file_pluggableharness_event_v1_event_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -601,7 +601,7 @@ func (x *HookErrorEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookErrorEvent.ProtoReflect.Descriptor instead.
 func (*HookErrorEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_event_v1_event_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HookErrorEvent) GetError() *v15.HookError {
@@ -611,95 +611,95 @@ func (x *HookErrorEvent) GetError() *v15.HookError {
 	return nil
 }
 
-var File_pluggableharness_agent_event_v1_event_proto protoreflect.FileDescriptor
+var File_pluggableharness_event_v1_event_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_event_v1_event_proto_rawDesc = "" +
+const file_pluggableharness_event_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"+pluggableharness/agent/event/v1/event.proto\x12\x1fpluggableharness.agent.event.v1\x1a-pluggableharness/agent/common/v1/common.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a)pluggableharness/agent/hook/v1/hook.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a)pluggableharness/agent/plan/v1/plan.proto\x1a)pluggableharness/agent/tool/v1/tool.proto\"\xf2\x01\n" +
-	"\fMessageEvent\x12D\n" +
-	"\amessage\x18\x01 \x01(\v2*.pluggableharness.agent.content.v1.MessageR\amessage\x12C\n" +
-	"\x05model\x18\x02 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\x05model\x12<\n" +
-	"\x05usage\x18\x03 \x01(\v2&.pluggableharness.agent.model.v1.UsageR\x05usage\x12\x19\n" +
-	"\bcost_usd\x18\x04 \x01(\x01R\acostUsd\"M\n" +
-	"\rToolCallEvent\x12<\n" +
-	"\x04call\x18\x01 \x01(\v2(.pluggableharness.agent.tool.v1.ToolCallR\x04call\"\xc7\x01\n" +
+	"%pluggableharness/event/v1/event.proto\x12\x19pluggableharness.event.v1\x1a'pluggableharness/common/v1/common.proto\x1a)pluggableharness/content/v1/content.proto\x1a#pluggableharness/hook/v1/hook.proto\x1a%pluggableharness/model/v1/model.proto\x1a#pluggableharness/plan/v1/plan.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xe0\x01\n" +
+	"\fMessageEvent\x12>\n" +
+	"\amessage\x18\x01 \x01(\v2$.pluggableharness.content.v1.MessageR\amessage\x12=\n" +
+	"\x05model\x18\x02 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\x05model\x126\n" +
+	"\x05usage\x18\x03 \x01(\v2 .pluggableharness.model.v1.UsageR\x05usage\x12\x19\n" +
+	"\bcost_usd\x18\x04 \x01(\x01R\acostUsd\"G\n" +
+	"\rToolCallEvent\x126\n" +
+	"\x04call\x18\x01 \x01(\v2\".pluggableharness.tool.v1.ToolCallR\x04call\"\xbb\x01\n" +
 	"\x0fToolResultEvent\x12 \n" +
 	"\ftool_call_id\x18\x01 \x01(\tR\n" +
-	"toolCallId\x12D\n" +
-	"\x06result\x18\x02 \x01(\v2*.pluggableharness.agent.tool.v1.ToolResultH\x00R\x06result\x12A\n" +
-	"\x05error\x18\x03 \x01(\v2).pluggableharness.agent.tool.v1.ToolErrorH\x00R\x05errorB\t\n" +
-	"\aoutcome\"E\n" +
-	"\tPlanEvent\x128\n" +
-	"\x04plan\x18\x01 \x01(\v2$.pluggableharness.agent.plan.v1.PlanR\x04plan\"Q\n" +
+	"toolCallId\x12>\n" +
+	"\x06result\x18\x02 \x01(\v2$.pluggableharness.tool.v1.ToolResultH\x00R\x06result\x12;\n" +
+	"\x05error\x18\x03 \x01(\v2#.pluggableharness.tool.v1.ToolErrorH\x00R\x05errorB\t\n" +
+	"\aoutcome\"?\n" +
+	"\tPlanEvent\x122\n" +
+	"\x04plan\x18\x01 \x01(\v2\x1e.pluggableharness.plan.v1.PlanR\x04plan\"K\n" +
 	"\n" +
-	"ApplyEvent\x12C\n" +
-	"\x06result\x18\x01 \x01(\v2+.pluggableharness.agent.plan.v1.ApplyResultR\x06result\"\xd3\x01\n" +
-	"\x18ContextContributionEvent\x12I\n" +
-	"\acontent\x18\x01 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\x12\x16\n" +
-	"\x06tokens\x18\x02 \x01(\x03R\x06tokens\x12I\n" +
-	"\x06target\x18\x03 \x01(\v2,.pluggableharness.agent.model.v1.ModelTargetH\x00R\x06target\x88\x01\x01B\t\n" +
-	"\a_target\"\xa2\x02\n" +
+	"ApplyEvent\x12=\n" +
+	"\x06result\x18\x01 \x01(\v2%.pluggableharness.plan.v1.ApplyResultR\x06result\"\xc7\x01\n" +
+	"\x18ContextContributionEvent\x12C\n" +
+	"\acontent\x18\x01 \x03(\v2).pluggableharness.content.v1.ContentBlockR\acontent\x12\x16\n" +
+	"\x06tokens\x18\x02 \x01(\x03R\x06tokens\x12C\n" +
+	"\x06target\x18\x03 \x01(\v2&.pluggableharness.model.v1.ModelTargetH\x00R\x06target\x88\x01\x01B\t\n" +
+	"\a_target\"\x96\x02\n" +
 	"\x13MemoryMutationEvent\x12\x1b\n" +
-	"\trecord_id\x18\x01 \x01(\tR\brecordId\x12I\n" +
-	"\acontent\x18\x02 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\x12d\n" +
+	"\trecord_id\x18\x01 \x01(\tR\brecordId\x12C\n" +
+	"\acontent\x18\x02 \x03(\v2).pluggableharness.content.v1.ContentBlockR\acontent\x12^\n" +
 	"\n" +
-	"attributes\x18\x03 \x03(\v2D.pluggableharness.agent.event.v1.MemoryMutationEvent.AttributesEntryR\n" +
+	"attributes\x18\x03 \x03(\v2>.pluggableharness.event.v1.MemoryMutationEvent.AttributesEntryR\n" +
 	"attributes\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Q\n" +
-	"\x0eHookErrorEvent\x12?\n" +
-	"\x05error\x18\x01 \x01(\v2).pluggableharness.agent.hook.v1.HookErrorR\x05errorB>Z<github.com/pluggableharness/agent/pkg/event/proto/v1;eventv1b\x06proto3"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"K\n" +
+	"\x0eHookErrorEvent\x129\n" +
+	"\x05error\x18\x01 \x01(\v2#.pluggableharness.hook.v1.HookErrorR\x05errorB>Z<github.com/pluggableharness/agent/pkg/event/proto/v1;eventv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_event_v1_event_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_event_v1_event_proto_rawDescData []byte
+	file_pluggableharness_event_v1_event_proto_rawDescOnce sync.Once
+	file_pluggableharness_event_v1_event_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_event_v1_event_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_event_v1_event_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_event_v1_event_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_event_v1_event_proto_rawDesc), len(file_pluggableharness_agent_event_v1_event_proto_rawDesc)))
+func file_pluggableharness_event_v1_event_proto_rawDescGZIP() []byte {
+	file_pluggableharness_event_v1_event_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_event_v1_event_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_event_v1_event_proto_rawDesc), len(file_pluggableharness_event_v1_event_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_event_v1_event_proto_rawDescData
+	return file_pluggableharness_event_v1_event_proto_rawDescData
 }
 
-var file_pluggableharness_agent_event_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
-var file_pluggableharness_agent_event_v1_event_proto_goTypes = []any{
-	(*MessageEvent)(nil),             // 0: pluggableharness.agent.event.v1.MessageEvent
-	(*ToolCallEvent)(nil),            // 1: pluggableharness.agent.event.v1.ToolCallEvent
-	(*ToolResultEvent)(nil),          // 2: pluggableharness.agent.event.v1.ToolResultEvent
-	(*PlanEvent)(nil),                // 3: pluggableharness.agent.event.v1.PlanEvent
-	(*ApplyEvent)(nil),               // 4: pluggableharness.agent.event.v1.ApplyEvent
-	(*ContextContributionEvent)(nil), // 5: pluggableharness.agent.event.v1.ContextContributionEvent
-	(*MemoryMutationEvent)(nil),      // 6: pluggableharness.agent.event.v1.MemoryMutationEvent
-	(*HookErrorEvent)(nil),           // 7: pluggableharness.agent.event.v1.HookErrorEvent
-	nil,                              // 8: pluggableharness.agent.event.v1.MemoryMutationEvent.AttributesEntry
-	(*v1.Message)(nil),               // 9: pluggableharness.agent.content.v1.Message
-	(*v11.ProducerRef)(nil),          // 10: pluggableharness.agent.common.v1.ProducerRef
-	(*v12.Usage)(nil),                // 11: pluggableharness.agent.model.v1.Usage
-	(*v13.ToolCall)(nil),             // 12: pluggableharness.agent.tool.v1.ToolCall
-	(*v13.ToolResult)(nil),           // 13: pluggableharness.agent.tool.v1.ToolResult
-	(*v13.ToolError)(nil),            // 14: pluggableharness.agent.tool.v1.ToolError
-	(*v14.Plan)(nil),                 // 15: pluggableharness.agent.plan.v1.Plan
-	(*v14.ApplyResult)(nil),          // 16: pluggableharness.agent.plan.v1.ApplyResult
-	(*v1.ContentBlock)(nil),          // 17: pluggableharness.agent.content.v1.ContentBlock
-	(*v12.ModelTarget)(nil),          // 18: pluggableharness.agent.model.v1.ModelTarget
-	(*v15.HookError)(nil),            // 19: pluggableharness.agent.hook.v1.HookError
+var file_pluggableharness_event_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_pluggableharness_event_v1_event_proto_goTypes = []any{
+	(*MessageEvent)(nil),             // 0: pluggableharness.event.v1.MessageEvent
+	(*ToolCallEvent)(nil),            // 1: pluggableharness.event.v1.ToolCallEvent
+	(*ToolResultEvent)(nil),          // 2: pluggableharness.event.v1.ToolResultEvent
+	(*PlanEvent)(nil),                // 3: pluggableharness.event.v1.PlanEvent
+	(*ApplyEvent)(nil),               // 4: pluggableharness.event.v1.ApplyEvent
+	(*ContextContributionEvent)(nil), // 5: pluggableharness.event.v1.ContextContributionEvent
+	(*MemoryMutationEvent)(nil),      // 6: pluggableharness.event.v1.MemoryMutationEvent
+	(*HookErrorEvent)(nil),           // 7: pluggableharness.event.v1.HookErrorEvent
+	nil,                              // 8: pluggableharness.event.v1.MemoryMutationEvent.AttributesEntry
+	(*v1.Message)(nil),               // 9: pluggableharness.content.v1.Message
+	(*v11.ProducerRef)(nil),          // 10: pluggableharness.common.v1.ProducerRef
+	(*v12.Usage)(nil),                // 11: pluggableharness.model.v1.Usage
+	(*v13.ToolCall)(nil),             // 12: pluggableharness.tool.v1.ToolCall
+	(*v13.ToolResult)(nil),           // 13: pluggableharness.tool.v1.ToolResult
+	(*v13.ToolError)(nil),            // 14: pluggableharness.tool.v1.ToolError
+	(*v14.Plan)(nil),                 // 15: pluggableharness.plan.v1.Plan
+	(*v14.ApplyResult)(nil),          // 16: pluggableharness.plan.v1.ApplyResult
+	(*v1.ContentBlock)(nil),          // 17: pluggableharness.content.v1.ContentBlock
+	(*v12.ModelTarget)(nil),          // 18: pluggableharness.model.v1.ModelTarget
+	(*v15.HookError)(nil),            // 19: pluggableharness.hook.v1.HookError
 }
-var file_pluggableharness_agent_event_v1_event_proto_depIdxs = []int32{
-	9,  // 0: pluggableharness.agent.event.v1.MessageEvent.message:type_name -> pluggableharness.agent.content.v1.Message
-	10, // 1: pluggableharness.agent.event.v1.MessageEvent.model:type_name -> pluggableharness.agent.common.v1.ProducerRef
-	11, // 2: pluggableharness.agent.event.v1.MessageEvent.usage:type_name -> pluggableharness.agent.model.v1.Usage
-	12, // 3: pluggableharness.agent.event.v1.ToolCallEvent.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
-	13, // 4: pluggableharness.agent.event.v1.ToolResultEvent.result:type_name -> pluggableharness.agent.tool.v1.ToolResult
-	14, // 5: pluggableharness.agent.event.v1.ToolResultEvent.error:type_name -> pluggableharness.agent.tool.v1.ToolError
-	15, // 6: pluggableharness.agent.event.v1.PlanEvent.plan:type_name -> pluggableharness.agent.plan.v1.Plan
-	16, // 7: pluggableharness.agent.event.v1.ApplyEvent.result:type_name -> pluggableharness.agent.plan.v1.ApplyResult
-	17, // 8: pluggableharness.agent.event.v1.ContextContributionEvent.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	18, // 9: pluggableharness.agent.event.v1.ContextContributionEvent.target:type_name -> pluggableharness.agent.model.v1.ModelTarget
-	17, // 10: pluggableharness.agent.event.v1.MemoryMutationEvent.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	8,  // 11: pluggableharness.agent.event.v1.MemoryMutationEvent.attributes:type_name -> pluggableharness.agent.event.v1.MemoryMutationEvent.AttributesEntry
-	19, // 12: pluggableharness.agent.event.v1.HookErrorEvent.error:type_name -> pluggableharness.agent.hook.v1.HookError
+var file_pluggableharness_event_v1_event_proto_depIdxs = []int32{
+	9,  // 0: pluggableharness.event.v1.MessageEvent.message:type_name -> pluggableharness.content.v1.Message
+	10, // 1: pluggableharness.event.v1.MessageEvent.model:type_name -> pluggableharness.common.v1.ProducerRef
+	11, // 2: pluggableharness.event.v1.MessageEvent.usage:type_name -> pluggableharness.model.v1.Usage
+	12, // 3: pluggableharness.event.v1.ToolCallEvent.call:type_name -> pluggableharness.tool.v1.ToolCall
+	13, // 4: pluggableharness.event.v1.ToolResultEvent.result:type_name -> pluggableharness.tool.v1.ToolResult
+	14, // 5: pluggableharness.event.v1.ToolResultEvent.error:type_name -> pluggableharness.tool.v1.ToolError
+	15, // 6: pluggableharness.event.v1.PlanEvent.plan:type_name -> pluggableharness.plan.v1.Plan
+	16, // 7: pluggableharness.event.v1.ApplyEvent.result:type_name -> pluggableharness.plan.v1.ApplyResult
+	17, // 8: pluggableharness.event.v1.ContextContributionEvent.content:type_name -> pluggableharness.content.v1.ContentBlock
+	18, // 9: pluggableharness.event.v1.ContextContributionEvent.target:type_name -> pluggableharness.model.v1.ModelTarget
+	17, // 10: pluggableharness.event.v1.MemoryMutationEvent.content:type_name -> pluggableharness.content.v1.ContentBlock
+	8,  // 11: pluggableharness.event.v1.MemoryMutationEvent.attributes:type_name -> pluggableharness.event.v1.MemoryMutationEvent.AttributesEntry
+	19, // 12: pluggableharness.event.v1.HookErrorEvent.error:type_name -> pluggableharness.hook.v1.HookError
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
@@ -707,31 +707,31 @@ var file_pluggableharness_agent_event_v1_event_proto_depIdxs = []int32{
 	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_event_v1_event_proto_init() }
-func file_pluggableharness_agent_event_v1_event_proto_init() {
-	if File_pluggableharness_agent_event_v1_event_proto != nil {
+func init() { file_pluggableharness_event_v1_event_proto_init() }
+func file_pluggableharness_event_v1_event_proto_init() {
+	if File_pluggableharness_event_v1_event_proto != nil {
 		return
 	}
-	file_pluggableharness_agent_event_v1_event_proto_msgTypes[2].OneofWrappers = []any{
+	file_pluggableharness_event_v1_event_proto_msgTypes[2].OneofWrappers = []any{
 		(*ToolResultEvent_Result)(nil),
 		(*ToolResultEvent_Error)(nil),
 	}
-	file_pluggableharness_agent_event_v1_event_proto_msgTypes[5].OneofWrappers = []any{}
+	file_pluggableharness_event_v1_event_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_event_v1_event_proto_rawDesc), len(file_pluggableharness_agent_event_v1_event_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_event_v1_event_proto_rawDesc), len(file_pluggableharness_event_v1_event_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_agent_event_v1_event_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_event_v1_event_proto_depIdxs,
-		MessageInfos:      file_pluggableharness_agent_event_v1_event_proto_msgTypes,
+		GoTypes:           file_pluggableharness_event_v1_event_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_event_v1_event_proto_depIdxs,
+		MessageInfos:      file_pluggableharness_event_v1_event_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_event_v1_event_proto = out.File
-	file_pluggableharness_agent_event_v1_event_proto_goTypes = nil
-	file_pluggableharness_agent_event_v1_event_proto_depIdxs = nil
+	File_pluggableharness_event_v1_event_proto = out.File
+	file_pluggableharness_event_v1_event_proto_goTypes = nil
+	file_pluggableharness_event_v1_event_proto_depIdxs = nil
 }

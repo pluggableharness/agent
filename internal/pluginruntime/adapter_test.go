@@ -184,7 +184,7 @@ func TestCategoryPlugin_newCallbackServer(t *testing.T) {
 	if server == nil {
 		t.Fatal("newCallbackServer returned nil")
 	}
-	if _, ok := server.GetServiceInfo()["pluggableharness.agent.kernel.v1.KernelCallbackService"]; !ok {
+	if _, ok := server.GetServiceInfo()["pluggableharness.kernel.v1.KernelCallbackService"]; !ok {
 		t.Fatalf("KernelCallbackService not registered: %v", server.GetServiceInfo())
 	}
 }

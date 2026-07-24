@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/hook/v1/hook.proto
+// source: pluggableharness/hook/v1/hook.proto
 
-// Package pluggableharness.agent.hook.v1 defines the hook-dispatch RPC surface
+// Package pluggableharness.hook.v1 defines the hook-dispatch RPC surface
 // described in agent-loop/hook-dispatch.md and architecture.md §Hook
 // dispatch semantics: the wire contract the kernel uses to invoke any
 // plugin (of any of the six categories) that declares a `hook{}` block in
@@ -101,11 +101,11 @@ func (x HookMode) String() string {
 }
 
 func (HookMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_hook_v1_hook_proto_enumTypes[0].Descriptor()
 }
 
 func (HookMode) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[0]
+	return &file_pluggableharness_hook_v1_hook_proto_enumTypes[0]
 }
 
 func (x HookMode) Number() protoreflect.EnumNumber {
@@ -114,12 +114,12 @@ func (x HookMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HookMode.Descriptor instead.
 func (HookMode) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{0}
 }
 
 // HookDecision is a veto subscriber's coarse allow/deny verdict over a
 // whole HookPayload. Deliberately distinct from
-// pluggableharness.agent.plan.v1.PlanDecision — that enum is per-plan-item
+// pluggableharness.plan.v1.PlanDecision — that enum is per-plan-item
 // and carries PENDING/ASK, which are meaningless for a hook-level veto;
 // the two enums MUST NOT be merged, per .claude/rules/proto.md's
 // no-untyped-overload discipline (see also ToolErrorCategory vs
@@ -167,11 +167,11 @@ func (x HookDecision) String() string {
 }
 
 func (HookDecision) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_hook_v1_hook_proto_enumTypes[1].Descriptor()
 }
 
 func (HookDecision) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[1]
+	return &file_pluggableharness_hook_v1_hook_proto_enumTypes[1]
 }
 
 func (x HookDecision) Number() protoreflect.EnumNumber {
@@ -180,7 +180,7 @@ func (x HookDecision) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HookDecision.Descriptor instead.
 func (HookDecision) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{1}
 }
 
 // HookErrorCategory classifies why a hook dispatch to one subscriber
@@ -255,11 +255,11 @@ func (x HookErrorCategory) String() string {
 }
 
 func (HookErrorCategory) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[2].Descriptor()
+	return file_pluggableharness_hook_v1_hook_proto_enumTypes[2].Descriptor()
 }
 
 func (HookErrorCategory) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_hook_v1_hook_proto_enumTypes[2]
+	return &file_pluggableharness_hook_v1_hook_proto_enumTypes[2]
 }
 
 func (x HookErrorCategory) Number() protoreflect.EnumNumber {
@@ -268,7 +268,7 @@ func (x HookErrorCategory) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HookErrorCategory.Descriptor instead.
 func (HookErrorCategory) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{2}
 }
 
 // HookPayload carries one hook point's data. Exactly one oneof variant is
@@ -294,7 +294,7 @@ type HookPayload struct {
 
 func (x *HookPayload) Reset() {
 	*x = HookPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[0]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -306,7 +306,7 @@ func (x *HookPayload) String() string {
 func (*HookPayload) ProtoMessage() {}
 
 func (x *HookPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[0]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -319,7 +319,7 @@ func (x *HookPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookPayload.ProtoReflect.Descriptor instead.
 func (*HookPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *HookPayload) GetPayload() isHookPayload_Payload {
@@ -483,7 +483,7 @@ type SessionStartPayload struct {
 
 func (x *SessionStartPayload) Reset() {
 	*x = SessionStartPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[1]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -495,7 +495,7 @@ func (x *SessionStartPayload) String() string {
 func (*SessionStartPayload) ProtoMessage() {}
 
 func (x *SessionStartPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[1]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -508,7 +508,7 @@ func (x *SessionStartPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStartPayload.ProtoReflect.Descriptor instead.
 func (*SessionStartPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SessionStartPayload) GetSessionId() string {
@@ -557,7 +557,7 @@ type PreModelCallPayload struct {
 
 func (x *PreModelCallPayload) Reset() {
 	*x = PreModelCallPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[2]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -569,7 +569,7 @@ func (x *PreModelCallPayload) String() string {
 func (*PreModelCallPayload) ProtoMessage() {}
 
 func (x *PreModelCallPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[2]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -582,7 +582,7 @@ func (x *PreModelCallPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreModelCallPayload.ProtoReflect.Descriptor instead.
 func (*PreModelCallPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PreModelCallPayload) GetMessages() []*v1.Message {
@@ -626,7 +626,7 @@ type PostModelResponsePayload struct {
 
 func (x *PostModelResponsePayload) Reset() {
 	*x = PostModelResponsePayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[3]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -638,7 +638,7 @@ func (x *PostModelResponsePayload) String() string {
 func (*PostModelResponsePayload) ProtoMessage() {}
 
 func (x *PostModelResponsePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[3]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -651,7 +651,7 @@ func (x *PostModelResponsePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PostModelResponsePayload.ProtoReflect.Descriptor instead.
 func (*PostModelResponsePayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PostModelResponsePayload) GetMessage() *v1.Message {
@@ -701,7 +701,7 @@ type PreToolCallPayload struct {
 
 func (x *PreToolCallPayload) Reset() {
 	*x = PreToolCallPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[4]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -713,7 +713,7 @@ func (x *PreToolCallPayload) String() string {
 func (*PreToolCallPayload) ProtoMessage() {}
 
 func (x *PreToolCallPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[4]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -726,7 +726,7 @@ func (x *PreToolCallPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreToolCallPayload.ProtoReflect.Descriptor instead.
 func (*PreToolCallPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PreToolCallPayload) GetCall() *v13.ToolCall {
@@ -761,7 +761,7 @@ type PlanReadyPayload struct {
 
 func (x *PlanReadyPayload) Reset() {
 	*x = PlanReadyPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[5]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -773,7 +773,7 @@ func (x *PlanReadyPayload) String() string {
 func (*PlanReadyPayload) ProtoMessage() {}
 
 func (x *PlanReadyPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[5]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -786,7 +786,7 @@ func (x *PlanReadyPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanReadyPayload.ProtoReflect.Descriptor instead.
 func (*PlanReadyPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *PlanReadyPayload) GetPlan() *v14.Plan {
@@ -814,7 +814,7 @@ type PostToolCallPayload struct {
 
 func (x *PostToolCallPayload) Reset() {
 	*x = PostToolCallPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[6]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -826,7 +826,7 @@ func (x *PostToolCallPayload) String() string {
 func (*PostToolCallPayload) ProtoMessage() {}
 
 func (x *PostToolCallPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[6]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -839,7 +839,7 @@ func (x *PostToolCallPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PostToolCallPayload.ProtoReflect.Descriptor instead.
 func (*PostToolCallPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PostToolCallPayload) GetCall() *v13.ToolCall {
@@ -894,7 +894,7 @@ func (*PostToolCallPayload_Error) isPostToolCallPayload_Outcome() {}
 
 // PostApplyPayload fires once a turn's whole Plan has finished applying —
 // every item has reached a terminal ApplyOutcome
-// (pluggableharness.agent.plan.v1.ApplyResult.ApplyOutcome). Reuses
+// (pluggableharness.plan.v1.ApplyResult.ApplyOutcome). Reuses
 // plan.v1.ApplyResult rather than defining its own per-item outcome shape,
 // so the post-apply hook's subject and the EVENT_KIND_APPLY event (the
 // forthcoming event.v1 package) are the exact same message. Observe-only —
@@ -910,7 +910,7 @@ type PostApplyPayload struct {
 
 func (x *PostApplyPayload) Reset() {
 	*x = PostApplyPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[7]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -922,7 +922,7 @@ func (x *PostApplyPayload) String() string {
 func (*PostApplyPayload) ProtoMessage() {}
 
 func (x *PostApplyPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[7]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -935,7 +935,7 @@ func (x *PostApplyPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PostApplyPayload.ProtoReflect.Descriptor instead.
 func (*PostApplyPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PostApplyPayload) GetApply() *v14.ApplyResult {
@@ -954,14 +954,14 @@ type SessionEndPayload struct {
 	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// The session's terminal status. MUST be set (never
 	// SESSION_STATUS_RUNNING). Immutable.
-	Status        v15.SessionStatus `protobuf:"varint,2,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
+	Status        v15.SessionStatus `protobuf:"varint,2,opt,name=status,proto3,enum=pluggableharness.session.v1.SessionStatus" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionEndPayload) Reset() {
 	*x = SessionEndPayload{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[8]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -973,7 +973,7 @@ func (x *SessionEndPayload) String() string {
 func (*SessionEndPayload) ProtoMessage() {}
 
 func (x *SessionEndPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[8]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -986,7 +986,7 @@ func (x *SessionEndPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionEndPayload.ProtoReflect.Descriptor instead.
 func (*SessionEndPayload) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SessionEndPayload) GetSessionId() string {
@@ -1013,7 +1013,7 @@ type DispatchHookRequest struct {
 	// The operator-configured mode this subscription runs under
 	// (agent.hcl's hook{} block). MUST be set — tells the subscriber which
 	// of DispatchHookResponse's three outcome shapes is expected back.
-	Mode HookMode `protobuf:"varint,2,opt,name=mode,proto3,enum=pluggableharness.agent.hook.v1.HookMode" json:"mode,omitempty"`
+	Mode HookMode `protobuf:"varint,2,opt,name=mode,proto3,enum=pluggableharness.hook.v1.HookMode" json:"mode,omitempty"`
 	// Disambiguates a plugin declaring more than one hook{} block at the
 	// same HookPoint. Absent when a plugin has exactly one subscription at
 	// this point.
@@ -1024,7 +1024,7 @@ type DispatchHookRequest struct {
 
 func (x *DispatchHookRequest) Reset() {
 	*x = DispatchHookRequest{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[9]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1036,7 +1036,7 @@ func (x *DispatchHookRequest) String() string {
 func (*DispatchHookRequest) ProtoMessage() {}
 
 func (x *DispatchHookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[9]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1049,7 +1049,7 @@ func (x *DispatchHookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchHookRequest.ProtoReflect.Descriptor instead.
 func (*DispatchHookRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DispatchHookRequest) GetPayload() *HookPayload {
@@ -1092,7 +1092,7 @@ type DispatchHookResponse struct {
 
 func (x *DispatchHookResponse) Reset() {
 	*x = DispatchHookResponse{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[10]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1104,7 +1104,7 @@ func (x *DispatchHookResponse) String() string {
 func (*DispatchHookResponse) ProtoMessage() {}
 
 func (x *DispatchHookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[10]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1117,7 +1117,7 @@ func (x *DispatchHookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchHookResponse.ProtoReflect.Descriptor instead.
 func (*DispatchHookResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{10}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DispatchHookResponse) GetOutcome() isDispatchHookResponse_Outcome {
@@ -1188,14 +1188,14 @@ func (*DispatchHookResponse_Veto) isDispatchHookResponse_Outcome() {}
 type HookError struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which hook point the failing dispatch was for. MUST be set.
-	Point v12.HookPoint `protobuf:"varint,1,opt,name=point,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"point,omitempty"`
+	Point v12.HookPoint `protobuf:"varint,1,opt,name=point,proto3,enum=pluggableharness.common.v1.HookPoint" json:"point,omitempty"`
 	// Which plugin build the failing subscriber was. MUST be set.
 	Subscriber *v12.ProducerRef `protobuf:"bytes,2,opt,name=subscriber,proto3" json:"subscriber,omitempty"`
 	// The HookMode the failing subscription was declared under. MUST be
 	// set.
-	Mode HookMode `protobuf:"varint,3,opt,name=mode,proto3,enum=pluggableharness.agent.hook.v1.HookMode" json:"mode,omitempty"`
+	Mode HookMode `protobuf:"varint,3,opt,name=mode,proto3,enum=pluggableharness.hook.v1.HookMode" json:"mode,omitempty"`
 	// Which category of failure this is. MUST be set.
-	Category HookErrorCategory `protobuf:"varint,4,opt,name=category,proto3,enum=pluggableharness.agent.hook.v1.HookErrorCategory" json:"category,omitempty"`
+	Category HookErrorCategory `protobuf:"varint,4,opt,name=category,proto3,enum=pluggableharness.hook.v1.HookErrorCategory" json:"category,omitempty"`
 	// Human-readable detail, e.g. the raw subscriber error message.
 	Message       string `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1204,7 +1204,7 @@ type HookError struct {
 
 func (x *HookError) Reset() {
 	*x = HookError{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[11]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1216,7 +1216,7 @@ func (x *HookError) String() string {
 func (*HookError) ProtoMessage() {}
 
 func (x *HookError) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[11]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1229,7 +1229,7 @@ func (x *HookError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookError.ProtoReflect.Descriptor instead.
 func (*HookError) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{11}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *HookError) GetPoint() v12.HookPoint {
@@ -1279,7 +1279,7 @@ type DispatchHookResponse_ObserveAck struct {
 
 func (x *DispatchHookResponse_ObserveAck) Reset() {
 	*x = DispatchHookResponse_ObserveAck{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[12]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1291,7 +1291,7 @@ func (x *DispatchHookResponse_ObserveAck) String() string {
 func (*DispatchHookResponse_ObserveAck) ProtoMessage() {}
 
 func (x *DispatchHookResponse_ObserveAck) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[12]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1304,7 @@ func (x *DispatchHookResponse_ObserveAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchHookResponse_ObserveAck.ProtoReflect.Descriptor instead.
 func (*DispatchHookResponse_ObserveAck) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{10, 0}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{10, 0}
 }
 
 // TransformResult carries a transform subscriber's modified payload.
@@ -1322,7 +1322,7 @@ type DispatchHookResponse_TransformResult struct {
 
 func (x *DispatchHookResponse_TransformResult) Reset() {
 	*x = DispatchHookResponse_TransformResult{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[13]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1334,7 +1334,7 @@ func (x *DispatchHookResponse_TransformResult) String() string {
 func (*DispatchHookResponse_TransformResult) ProtoMessage() {}
 
 func (x *DispatchHookResponse_TransformResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[13]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1347,7 +1347,7 @@ func (x *DispatchHookResponse_TransformResult) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use DispatchHookResponse_TransformResult.ProtoReflect.Descriptor instead.
 func (*DispatchHookResponse_TransformResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{10, 1}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{10, 1}
 }
 
 func (x *DispatchHookResponse_TransformResult) GetPayload() *HookPayload {
@@ -1365,14 +1365,14 @@ type DispatchHookResponse_VetoResult struct {
 	// deny — the fail-closed behavior for a genuinely absent/erroring
 	// response is handled at the gRPC-status level, not by this enum's
 	// zero value.
-	Decision      HookDecision `protobuf:"varint,1,opt,name=decision,proto3,enum=pluggableharness.agent.hook.v1.HookDecision" json:"decision,omitempty"`
+	Decision      HookDecision `protobuf:"varint,1,opt,name=decision,proto3,enum=pluggableharness.hook.v1.HookDecision" json:"decision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DispatchHookResponse_VetoResult) Reset() {
 	*x = DispatchHookResponse_VetoResult{}
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[14]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1384,7 +1384,7 @@ func (x *DispatchHookResponse_VetoResult) String() string {
 func (*DispatchHookResponse_VetoResult) ProtoMessage() {}
 
 func (x *DispatchHookResponse_VetoResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[14]
+	mi := &file_pluggableharness_hook_v1_hook_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1397,7 +1397,7 @@ func (x *DispatchHookResponse_VetoResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchHookResponse_VetoResult.ProtoReflect.Descriptor instead.
 func (*DispatchHookResponse_VetoResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP(), []int{10, 2}
+	return file_pluggableharness_hook_v1_hook_proto_rawDescGZIP(), []int{10, 2}
 }
 
 func (x *DispatchHookResponse_VetoResult) GetDecision() HookDecision {
@@ -1407,22 +1407,22 @@ func (x *DispatchHookResponse_VetoResult) GetDecision() HookDecision {
 	return HookDecision_HOOK_DECISION_UNSPECIFIED
 }
 
-var File_pluggableharness_agent_hook_v1_hook_proto protoreflect.FileDescriptor
+var File_pluggableharness_hook_v1_hook_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_hook_v1_hook_proto_rawDesc = "" +
+const file_pluggableharness_hook_v1_hook_proto_rawDesc = "" +
 	"\n" +
-	")pluggableharness/agent/hook/v1/hook.proto\x12\x1epluggableharness.agent.hook.v1\x1a-pluggableharness/agent/common/v1/common.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a)pluggableharness/agent/plan/v1/plan.proto\x1a/pluggableharness/agent/session/v1/session.proto\x1a)pluggableharness/agent/tool/v1/tool.proto\"\xf0\x05\n" +
-	"\vHookPayload\x12Z\n" +
-	"\rsession_start\x18\x01 \x01(\v23.pluggableharness.agent.hook.v1.SessionStartPayloadH\x00R\fsessionStart\x12[\n" +
-	"\x0epre_model_call\x18\x02 \x01(\v23.pluggableharness.agent.hook.v1.PreModelCallPayloadH\x00R\fpreModelCall\x12j\n" +
-	"\x13post_model_response\x18\x03 \x01(\v28.pluggableharness.agent.hook.v1.PostModelResponsePayloadH\x00R\x11postModelResponse\x12X\n" +
-	"\rpre_tool_call\x18\x04 \x01(\v22.pluggableharness.agent.hook.v1.PreToolCallPayloadH\x00R\vpreToolCall\x12Q\n" +
+	"#pluggableharness/hook/v1/hook.proto\x12\x18pluggableharness.hook.v1\x1a'pluggableharness/common/v1/common.proto\x1a)pluggableharness/content/v1/content.proto\x1a%pluggableharness/model/v1/model.proto\x1a#pluggableharness/plan/v1/plan.proto\x1a)pluggableharness/session/v1/session.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xc0\x05\n" +
+	"\vHookPayload\x12T\n" +
+	"\rsession_start\x18\x01 \x01(\v2-.pluggableharness.hook.v1.SessionStartPayloadH\x00R\fsessionStart\x12U\n" +
+	"\x0epre_model_call\x18\x02 \x01(\v2-.pluggableharness.hook.v1.PreModelCallPayloadH\x00R\fpreModelCall\x12d\n" +
+	"\x13post_model_response\x18\x03 \x01(\v22.pluggableharness.hook.v1.PostModelResponsePayloadH\x00R\x11postModelResponse\x12R\n" +
+	"\rpre_tool_call\x18\x04 \x01(\v2,.pluggableharness.hook.v1.PreToolCallPayloadH\x00R\vpreToolCall\x12K\n" +
 	"\n" +
-	"plan_ready\x18\x05 \x01(\v20.pluggableharness.agent.hook.v1.PlanReadyPayloadH\x00R\tplanReady\x12[\n" +
-	"\x0epost_tool_call\x18\x06 \x01(\v23.pluggableharness.agent.hook.v1.PostToolCallPayloadH\x00R\fpostToolCall\x12Q\n" +
+	"plan_ready\x18\x05 \x01(\v2*.pluggableharness.hook.v1.PlanReadyPayloadH\x00R\tplanReady\x12U\n" +
+	"\x0epost_tool_call\x18\x06 \x01(\v2-.pluggableharness.hook.v1.PostToolCallPayloadH\x00R\fpostToolCall\x12K\n" +
 	"\n" +
-	"post_apply\x18\a \x01(\v20.pluggableharness.agent.hook.v1.PostApplyPayloadH\x00R\tpostApply\x12T\n" +
-	"\vsession_end\x18\b \x01(\v21.pluggableharness.agent.hook.v1.SessionEndPayloadH\x00R\n" +
+	"post_apply\x18\a \x01(\v2*.pluggableharness.hook.v1.PostApplyPayloadH\x00R\tpostApply\x12N\n" +
+	"\vsession_end\x18\b \x01(\v2+.pluggableharness.hook.v1.SessionEndPayloadH\x00R\n" +
 	"sessionEndB\t\n" +
 	"\apayload\"\xc2\x01\n" +
 	"\x13SessionStartPayload\x12\x1d\n" +
@@ -1431,55 +1431,55 @@ const file_pluggableharness_agent_hook_v1_hook_proto_rawDesc = "" +
 	"\aprofile\x18\x02 \x01(\tR\aprofile\x12/\n" +
 	"\x11parent_session_id\x18\x03 \x01(\tH\x00R\x0fparentSessionId\x88\x01\x01\x12+\n" +
 	"\x11working_directory\x18\x04 \x01(\tR\x10workingDirectoryB\x14\n" +
-	"\x12_parent_session_id\"\x9e\x01\n" +
-	"\x13PreModelCallPayload\x12F\n" +
-	"\bmessages\x18\x01 \x03(\v2*.pluggableharness.agent.content.v1.MessageR\bmessages\x12?\n" +
-	"\x05model\x18\x02 \x01(\v2).pluggableharness.agent.model.v1.ModelRefR\x05model\"\xfe\x01\n" +
-	"\x18PostModelResponsePayload\x12D\n" +
-	"\amessage\x18\x01 \x01(\v2*.pluggableharness.agent.content.v1.MessageR\amessage\x12C\n" +
-	"\x05model\x18\x02 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\x05model\x12<\n" +
-	"\x05usage\x18\x03 \x01(\v2&.pluggableharness.agent.model.v1.UsageR\x05usage\x12\x19\n" +
-	"\bcost_usd\x18\x04 \x01(\x01R\acostUsd\"\x99\x01\n" +
-	"\x12PreToolCallPayload\x12<\n" +
-	"\x04call\x18\x01 \x01(\v2(.pluggableharness.agent.tool.v1.ToolCallR\x04call\x12E\n" +
-	"\tplan_item\x18\x02 \x01(\v2(.pluggableharness.agent.plan.v1.PlanItemR\bplanItem\"L\n" +
-	"\x10PlanReadyPayload\x128\n" +
-	"\x04plan\x18\x01 \x01(\v2$.pluggableharness.agent.plan.v1.PlanR\x04plan\"\xe7\x01\n" +
-	"\x13PostToolCallPayload\x12<\n" +
-	"\x04call\x18\x01 \x01(\v2(.pluggableharness.agent.tool.v1.ToolCallR\x04call\x12D\n" +
-	"\x06result\x18\x02 \x01(\v2*.pluggableharness.agent.tool.v1.ToolResultH\x00R\x06result\x12A\n" +
-	"\x05error\x18\x03 \x01(\v2).pluggableharness.agent.tool.v1.ToolErrorH\x00R\x05errorB\t\n" +
-	"\aoutcome\"U\n" +
-	"\x10PostApplyPayload\x12A\n" +
-	"\x05apply\x18\x01 \x01(\v2+.pluggableharness.agent.plan.v1.ApplyResultR\x05apply\"|\n" +
+	"\x12_parent_session_id\"\x92\x01\n" +
+	"\x13PreModelCallPayload\x12@\n" +
+	"\bmessages\x18\x01 \x03(\v2$.pluggableharness.content.v1.MessageR\bmessages\x129\n" +
+	"\x05model\x18\x02 \x01(\v2#.pluggableharness.model.v1.ModelRefR\x05model\"\xec\x01\n" +
+	"\x18PostModelResponsePayload\x12>\n" +
+	"\amessage\x18\x01 \x01(\v2$.pluggableharness.content.v1.MessageR\amessage\x12=\n" +
+	"\x05model\x18\x02 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\x05model\x126\n" +
+	"\x05usage\x18\x03 \x01(\v2 .pluggableharness.model.v1.UsageR\x05usage\x12\x19\n" +
+	"\bcost_usd\x18\x04 \x01(\x01R\acostUsd\"\x8d\x01\n" +
+	"\x12PreToolCallPayload\x126\n" +
+	"\x04call\x18\x01 \x01(\v2\".pluggableharness.tool.v1.ToolCallR\x04call\x12?\n" +
+	"\tplan_item\x18\x02 \x01(\v2\".pluggableharness.plan.v1.PlanItemR\bplanItem\"F\n" +
+	"\x10PlanReadyPayload\x122\n" +
+	"\x04plan\x18\x01 \x01(\v2\x1e.pluggableharness.plan.v1.PlanR\x04plan\"\xd5\x01\n" +
+	"\x13PostToolCallPayload\x126\n" +
+	"\x04call\x18\x01 \x01(\v2\".pluggableharness.tool.v1.ToolCallR\x04call\x12>\n" +
+	"\x06result\x18\x02 \x01(\v2$.pluggableharness.tool.v1.ToolResultH\x00R\x06result\x12;\n" +
+	"\x05error\x18\x03 \x01(\v2#.pluggableharness.tool.v1.ToolErrorH\x00R\x05errorB\t\n" +
+	"\aoutcome\"O\n" +
+	"\x10PostApplyPayload\x12;\n" +
+	"\x05apply\x18\x01 \x01(\v2%.pluggableharness.plan.v1.ApplyResultR\x05apply\"v\n" +
 	"\x11SessionEndPayload\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12H\n" +
-	"\x06status\x18\x02 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06status\"\xdc\x01\n" +
-	"\x13DispatchHookRequest\x12E\n" +
-	"\apayload\x18\x01 \x01(\v2+.pluggableharness.agent.hook.v1.HookPayloadR\apayload\x12<\n" +
-	"\x04mode\x18\x02 \x01(\x0e2(.pluggableharness.agent.hook.v1.HookModeR\x04mode\x12,\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12B\n" +
+	"\x06status\x18\x02 \x01(\x0e2*.pluggableharness.session.v1.SessionStatusR\x06status\"\xd0\x01\n" +
+	"\x13DispatchHookRequest\x12?\n" +
+	"\apayload\x18\x01 \x01(\v2%.pluggableharness.hook.v1.HookPayloadR\apayload\x126\n" +
+	"\x04mode\x18\x02 \x01(\x0e2\".pluggableharness.hook.v1.HookModeR\x04mode\x12,\n" +
 	"\x0fsubscription_id\x18\x03 \x01(\tH\x00R\x0esubscriptionId\x88\x01\x01B\x12\n" +
-	"\x10_subscription_id\"\xfb\x03\n" +
-	"\x14DispatchHookResponse\x12[\n" +
-	"\aobserve\x18\x01 \x01(\v2?.pluggableharness.agent.hook.v1.DispatchHookResponse.ObserveAckH\x00R\aobserve\x12d\n" +
-	"\ttransform\x18\x02 \x01(\v2D.pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResultH\x00R\ttransform\x12U\n" +
-	"\x04veto\x18\x03 \x01(\v2?.pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResultH\x00R\x04veto\x1a\f\n" +
+	"\x10_subscription_id\"\xdd\x03\n" +
+	"\x14DispatchHookResponse\x12U\n" +
+	"\aobserve\x18\x01 \x01(\v29.pluggableharness.hook.v1.DispatchHookResponse.ObserveAckH\x00R\aobserve\x12^\n" +
+	"\ttransform\x18\x02 \x01(\v2>.pluggableharness.hook.v1.DispatchHookResponse.TransformResultH\x00R\ttransform\x12O\n" +
+	"\x04veto\x18\x03 \x01(\v29.pluggableharness.hook.v1.DispatchHookResponse.VetoResultH\x00R\x04veto\x1a\f\n" +
 	"\n" +
-	"ObserveAck\x1aX\n" +
-	"\x0fTransformResult\x12E\n" +
-	"\apayload\x18\x01 \x01(\v2+.pluggableharness.agent.hook.v1.HookPayloadR\apayload\x1aV\n" +
+	"ObserveAck\x1aR\n" +
+	"\x0fTransformResult\x12?\n" +
+	"\apayload\x18\x01 \x01(\v2%.pluggableharness.hook.v1.HookPayloadR\apayload\x1aP\n" +
 	"\n" +
-	"VetoResult\x12H\n" +
-	"\bdecision\x18\x01 \x01(\x0e2,.pluggableharness.agent.hook.v1.HookDecisionR\bdecisionB\t\n" +
-	"\aoutcome\"\xc4\x02\n" +
-	"\tHookError\x12A\n" +
-	"\x05point\x18\x01 \x01(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x05point\x12M\n" +
+	"VetoResult\x12B\n" +
+	"\bdecision\x18\x01 \x01(\x0e2&.pluggableharness.hook.v1.HookDecisionR\bdecisionB\t\n" +
+	"\aoutcome\"\xac\x02\n" +
+	"\tHookError\x12;\n" +
+	"\x05point\x18\x01 \x01(\x0e2%.pluggableharness.common.v1.HookPointR\x05point\x12G\n" +
 	"\n" +
-	"subscriber\x18\x02 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\n" +
-	"subscriber\x12<\n" +
-	"\x04mode\x18\x03 \x01(\x0e2(.pluggableharness.agent.hook.v1.HookModeR\x04mode\x12M\n" +
-	"\bcategory\x18\x04 \x01(\x0e21.pluggableharness.agent.hook.v1.HookErrorCategoryR\bcategory\x12\x18\n" +
+	"subscriber\x18\x02 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\n" +
+	"subscriber\x126\n" +
+	"\x04mode\x18\x03 \x01(\x0e2\".pluggableharness.hook.v1.HookModeR\x04mode\x12G\n" +
+	"\bcategory\x18\x04 \x01(\x0e2+.pluggableharness.hook.v1.HookErrorCategoryR\bcategory\x12\x18\n" +
 	"\amessage\x18\x05 \x01(\tR\amessage*i\n" +
 	"\bHookMode\x12\x19\n" +
 	"\x15HOOK_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
@@ -1497,91 +1497,91 @@ const file_pluggableharness_agent_hook_v1_hook_proto_rawDesc = "" +
 	"\x1bHOOK_ERROR_CATEGORY_TIMEOUT\x10\x03\x12(\n" +
 	"$HOOK_ERROR_CATEGORY_INVALID_RESPONSE\x10\x04\x12'\n" +
 	"#HOOK_ERROR_CATEGORY_PROCESS_CRASHED\x10\x05\x12\x1f\n" +
-	"\x1bHOOK_ERROR_CATEGORY_UNKNOWN\x10\x062\x92\x01\n" +
-	"\x15HookSubscriberService\x12y\n" +
-	"\fDispatchHook\x123.pluggableharness.agent.hook.v1.DispatchHookRequest\x1a4.pluggableharness.agent.hook.v1.DispatchHookResponseB<Z:github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1b\x06proto3"
+	"\x1bHOOK_ERROR_CATEGORY_UNKNOWN\x10\x062\x86\x01\n" +
+	"\x15HookSubscriberService\x12m\n" +
+	"\fDispatchHook\x12-.pluggableharness.hook.v1.DispatchHookRequest\x1a..pluggableharness.hook.v1.DispatchHookResponseB<Z:github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_hook_v1_hook_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_hook_v1_hook_proto_rawDescData []byte
+	file_pluggableharness_hook_v1_hook_proto_rawDescOnce sync.Once
+	file_pluggableharness_hook_v1_hook_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_hook_v1_hook_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_hook_v1_hook_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_hook_v1_hook_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_hook_v1_hook_proto_rawDesc), len(file_pluggableharness_agent_hook_v1_hook_proto_rawDesc)))
+func file_pluggableharness_hook_v1_hook_proto_rawDescGZIP() []byte {
+	file_pluggableharness_hook_v1_hook_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_hook_v1_hook_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_hook_v1_hook_proto_rawDesc), len(file_pluggableharness_hook_v1_hook_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_hook_v1_hook_proto_rawDescData
+	return file_pluggableharness_hook_v1_hook_proto_rawDescData
 }
 
-var file_pluggableharness_agent_hook_v1_hook_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_pluggableharness_agent_hook_v1_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
-var file_pluggableharness_agent_hook_v1_hook_proto_goTypes = []any{
-	(HookMode)(0),                                // 0: pluggableharness.agent.hook.v1.HookMode
-	(HookDecision)(0),                            // 1: pluggableharness.agent.hook.v1.HookDecision
-	(HookErrorCategory)(0),                       // 2: pluggableharness.agent.hook.v1.HookErrorCategory
-	(*HookPayload)(nil),                          // 3: pluggableharness.agent.hook.v1.HookPayload
-	(*SessionStartPayload)(nil),                  // 4: pluggableharness.agent.hook.v1.SessionStartPayload
-	(*PreModelCallPayload)(nil),                  // 5: pluggableharness.agent.hook.v1.PreModelCallPayload
-	(*PostModelResponsePayload)(nil),             // 6: pluggableharness.agent.hook.v1.PostModelResponsePayload
-	(*PreToolCallPayload)(nil),                   // 7: pluggableharness.agent.hook.v1.PreToolCallPayload
-	(*PlanReadyPayload)(nil),                     // 8: pluggableharness.agent.hook.v1.PlanReadyPayload
-	(*PostToolCallPayload)(nil),                  // 9: pluggableharness.agent.hook.v1.PostToolCallPayload
-	(*PostApplyPayload)(nil),                     // 10: pluggableharness.agent.hook.v1.PostApplyPayload
-	(*SessionEndPayload)(nil),                    // 11: pluggableharness.agent.hook.v1.SessionEndPayload
-	(*DispatchHookRequest)(nil),                  // 12: pluggableharness.agent.hook.v1.DispatchHookRequest
-	(*DispatchHookResponse)(nil),                 // 13: pluggableharness.agent.hook.v1.DispatchHookResponse
-	(*HookError)(nil),                            // 14: pluggableharness.agent.hook.v1.HookError
-	(*DispatchHookResponse_ObserveAck)(nil),      // 15: pluggableharness.agent.hook.v1.DispatchHookResponse.ObserveAck
-	(*DispatchHookResponse_TransformResult)(nil), // 16: pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult
-	(*DispatchHookResponse_VetoResult)(nil),      // 17: pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult
-	(*v1.Message)(nil),                           // 18: pluggableharness.agent.content.v1.Message
-	(*v11.ModelRef)(nil),                         // 19: pluggableharness.agent.model.v1.ModelRef
-	(*v12.ProducerRef)(nil),                      // 20: pluggableharness.agent.common.v1.ProducerRef
-	(*v11.Usage)(nil),                            // 21: pluggableharness.agent.model.v1.Usage
-	(*v13.ToolCall)(nil),                         // 22: pluggableharness.agent.tool.v1.ToolCall
-	(*v14.PlanItem)(nil),                         // 23: pluggableharness.agent.plan.v1.PlanItem
-	(*v14.Plan)(nil),                             // 24: pluggableharness.agent.plan.v1.Plan
-	(*v13.ToolResult)(nil),                       // 25: pluggableharness.agent.tool.v1.ToolResult
-	(*v13.ToolError)(nil),                        // 26: pluggableharness.agent.tool.v1.ToolError
-	(*v14.ApplyResult)(nil),                      // 27: pluggableharness.agent.plan.v1.ApplyResult
-	(v15.SessionStatus)(0),                       // 28: pluggableharness.agent.session.v1.SessionStatus
-	(v12.HookPoint)(0),                           // 29: pluggableharness.agent.common.v1.HookPoint
+var file_pluggableharness_hook_v1_hook_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_pluggableharness_hook_v1_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_pluggableharness_hook_v1_hook_proto_goTypes = []any{
+	(HookMode)(0),                                // 0: pluggableharness.hook.v1.HookMode
+	(HookDecision)(0),                            // 1: pluggableharness.hook.v1.HookDecision
+	(HookErrorCategory)(0),                       // 2: pluggableharness.hook.v1.HookErrorCategory
+	(*HookPayload)(nil),                          // 3: pluggableharness.hook.v1.HookPayload
+	(*SessionStartPayload)(nil),                  // 4: pluggableharness.hook.v1.SessionStartPayload
+	(*PreModelCallPayload)(nil),                  // 5: pluggableharness.hook.v1.PreModelCallPayload
+	(*PostModelResponsePayload)(nil),             // 6: pluggableharness.hook.v1.PostModelResponsePayload
+	(*PreToolCallPayload)(nil),                   // 7: pluggableharness.hook.v1.PreToolCallPayload
+	(*PlanReadyPayload)(nil),                     // 8: pluggableharness.hook.v1.PlanReadyPayload
+	(*PostToolCallPayload)(nil),                  // 9: pluggableharness.hook.v1.PostToolCallPayload
+	(*PostApplyPayload)(nil),                     // 10: pluggableharness.hook.v1.PostApplyPayload
+	(*SessionEndPayload)(nil),                    // 11: pluggableharness.hook.v1.SessionEndPayload
+	(*DispatchHookRequest)(nil),                  // 12: pluggableharness.hook.v1.DispatchHookRequest
+	(*DispatchHookResponse)(nil),                 // 13: pluggableharness.hook.v1.DispatchHookResponse
+	(*HookError)(nil),                            // 14: pluggableharness.hook.v1.HookError
+	(*DispatchHookResponse_ObserveAck)(nil),      // 15: pluggableharness.hook.v1.DispatchHookResponse.ObserveAck
+	(*DispatchHookResponse_TransformResult)(nil), // 16: pluggableharness.hook.v1.DispatchHookResponse.TransformResult
+	(*DispatchHookResponse_VetoResult)(nil),      // 17: pluggableharness.hook.v1.DispatchHookResponse.VetoResult
+	(*v1.Message)(nil),                           // 18: pluggableharness.content.v1.Message
+	(*v11.ModelRef)(nil),                         // 19: pluggableharness.model.v1.ModelRef
+	(*v12.ProducerRef)(nil),                      // 20: pluggableharness.common.v1.ProducerRef
+	(*v11.Usage)(nil),                            // 21: pluggableharness.model.v1.Usage
+	(*v13.ToolCall)(nil),                         // 22: pluggableharness.tool.v1.ToolCall
+	(*v14.PlanItem)(nil),                         // 23: pluggableharness.plan.v1.PlanItem
+	(*v14.Plan)(nil),                             // 24: pluggableharness.plan.v1.Plan
+	(*v13.ToolResult)(nil),                       // 25: pluggableharness.tool.v1.ToolResult
+	(*v13.ToolError)(nil),                        // 26: pluggableharness.tool.v1.ToolError
+	(*v14.ApplyResult)(nil),                      // 27: pluggableharness.plan.v1.ApplyResult
+	(v15.SessionStatus)(0),                       // 28: pluggableharness.session.v1.SessionStatus
+	(v12.HookPoint)(0),                           // 29: pluggableharness.common.v1.HookPoint
 }
-var file_pluggableharness_agent_hook_v1_hook_proto_depIdxs = []int32{
-	4,  // 0: pluggableharness.agent.hook.v1.HookPayload.session_start:type_name -> pluggableharness.agent.hook.v1.SessionStartPayload
-	5,  // 1: pluggableharness.agent.hook.v1.HookPayload.pre_model_call:type_name -> pluggableharness.agent.hook.v1.PreModelCallPayload
-	6,  // 2: pluggableharness.agent.hook.v1.HookPayload.post_model_response:type_name -> pluggableharness.agent.hook.v1.PostModelResponsePayload
-	7,  // 3: pluggableharness.agent.hook.v1.HookPayload.pre_tool_call:type_name -> pluggableharness.agent.hook.v1.PreToolCallPayload
-	8,  // 4: pluggableharness.agent.hook.v1.HookPayload.plan_ready:type_name -> pluggableharness.agent.hook.v1.PlanReadyPayload
-	9,  // 5: pluggableharness.agent.hook.v1.HookPayload.post_tool_call:type_name -> pluggableharness.agent.hook.v1.PostToolCallPayload
-	10, // 6: pluggableharness.agent.hook.v1.HookPayload.post_apply:type_name -> pluggableharness.agent.hook.v1.PostApplyPayload
-	11, // 7: pluggableharness.agent.hook.v1.HookPayload.session_end:type_name -> pluggableharness.agent.hook.v1.SessionEndPayload
-	18, // 8: pluggableharness.agent.hook.v1.PreModelCallPayload.messages:type_name -> pluggableharness.agent.content.v1.Message
-	19, // 9: pluggableharness.agent.hook.v1.PreModelCallPayload.model:type_name -> pluggableharness.agent.model.v1.ModelRef
-	18, // 10: pluggableharness.agent.hook.v1.PostModelResponsePayload.message:type_name -> pluggableharness.agent.content.v1.Message
-	20, // 11: pluggableharness.agent.hook.v1.PostModelResponsePayload.model:type_name -> pluggableharness.agent.common.v1.ProducerRef
-	21, // 12: pluggableharness.agent.hook.v1.PostModelResponsePayload.usage:type_name -> pluggableharness.agent.model.v1.Usage
-	22, // 13: pluggableharness.agent.hook.v1.PreToolCallPayload.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
-	23, // 14: pluggableharness.agent.hook.v1.PreToolCallPayload.plan_item:type_name -> pluggableharness.agent.plan.v1.PlanItem
-	24, // 15: pluggableharness.agent.hook.v1.PlanReadyPayload.plan:type_name -> pluggableharness.agent.plan.v1.Plan
-	22, // 16: pluggableharness.agent.hook.v1.PostToolCallPayload.call:type_name -> pluggableharness.agent.tool.v1.ToolCall
-	25, // 17: pluggableharness.agent.hook.v1.PostToolCallPayload.result:type_name -> pluggableharness.agent.tool.v1.ToolResult
-	26, // 18: pluggableharness.agent.hook.v1.PostToolCallPayload.error:type_name -> pluggableharness.agent.tool.v1.ToolError
-	27, // 19: pluggableharness.agent.hook.v1.PostApplyPayload.apply:type_name -> pluggableharness.agent.plan.v1.ApplyResult
-	28, // 20: pluggableharness.agent.hook.v1.SessionEndPayload.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
-	3,  // 21: pluggableharness.agent.hook.v1.DispatchHookRequest.payload:type_name -> pluggableharness.agent.hook.v1.HookPayload
-	0,  // 22: pluggableharness.agent.hook.v1.DispatchHookRequest.mode:type_name -> pluggableharness.agent.hook.v1.HookMode
-	15, // 23: pluggableharness.agent.hook.v1.DispatchHookResponse.observe:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.ObserveAck
-	16, // 24: pluggableharness.agent.hook.v1.DispatchHookResponse.transform:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult
-	17, // 25: pluggableharness.agent.hook.v1.DispatchHookResponse.veto:type_name -> pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult
-	29, // 26: pluggableharness.agent.hook.v1.HookError.point:type_name -> pluggableharness.agent.common.v1.HookPoint
-	20, // 27: pluggableharness.agent.hook.v1.HookError.subscriber:type_name -> pluggableharness.agent.common.v1.ProducerRef
-	0,  // 28: pluggableharness.agent.hook.v1.HookError.mode:type_name -> pluggableharness.agent.hook.v1.HookMode
-	2,  // 29: pluggableharness.agent.hook.v1.HookError.category:type_name -> pluggableharness.agent.hook.v1.HookErrorCategory
-	3,  // 30: pluggableharness.agent.hook.v1.DispatchHookResponse.TransformResult.payload:type_name -> pluggableharness.agent.hook.v1.HookPayload
-	1,  // 31: pluggableharness.agent.hook.v1.DispatchHookResponse.VetoResult.decision:type_name -> pluggableharness.agent.hook.v1.HookDecision
-	12, // 32: pluggableharness.agent.hook.v1.HookSubscriberService.DispatchHook:input_type -> pluggableharness.agent.hook.v1.DispatchHookRequest
-	13, // 33: pluggableharness.agent.hook.v1.HookSubscriberService.DispatchHook:output_type -> pluggableharness.agent.hook.v1.DispatchHookResponse
+var file_pluggableharness_hook_v1_hook_proto_depIdxs = []int32{
+	4,  // 0: pluggableharness.hook.v1.HookPayload.session_start:type_name -> pluggableharness.hook.v1.SessionStartPayload
+	5,  // 1: pluggableharness.hook.v1.HookPayload.pre_model_call:type_name -> pluggableharness.hook.v1.PreModelCallPayload
+	6,  // 2: pluggableharness.hook.v1.HookPayload.post_model_response:type_name -> pluggableharness.hook.v1.PostModelResponsePayload
+	7,  // 3: pluggableharness.hook.v1.HookPayload.pre_tool_call:type_name -> pluggableharness.hook.v1.PreToolCallPayload
+	8,  // 4: pluggableharness.hook.v1.HookPayload.plan_ready:type_name -> pluggableharness.hook.v1.PlanReadyPayload
+	9,  // 5: pluggableharness.hook.v1.HookPayload.post_tool_call:type_name -> pluggableharness.hook.v1.PostToolCallPayload
+	10, // 6: pluggableharness.hook.v1.HookPayload.post_apply:type_name -> pluggableharness.hook.v1.PostApplyPayload
+	11, // 7: pluggableharness.hook.v1.HookPayload.session_end:type_name -> pluggableharness.hook.v1.SessionEndPayload
+	18, // 8: pluggableharness.hook.v1.PreModelCallPayload.messages:type_name -> pluggableharness.content.v1.Message
+	19, // 9: pluggableharness.hook.v1.PreModelCallPayload.model:type_name -> pluggableharness.model.v1.ModelRef
+	18, // 10: pluggableharness.hook.v1.PostModelResponsePayload.message:type_name -> pluggableharness.content.v1.Message
+	20, // 11: pluggableharness.hook.v1.PostModelResponsePayload.model:type_name -> pluggableharness.common.v1.ProducerRef
+	21, // 12: pluggableharness.hook.v1.PostModelResponsePayload.usage:type_name -> pluggableharness.model.v1.Usage
+	22, // 13: pluggableharness.hook.v1.PreToolCallPayload.call:type_name -> pluggableharness.tool.v1.ToolCall
+	23, // 14: pluggableharness.hook.v1.PreToolCallPayload.plan_item:type_name -> pluggableharness.plan.v1.PlanItem
+	24, // 15: pluggableharness.hook.v1.PlanReadyPayload.plan:type_name -> pluggableharness.plan.v1.Plan
+	22, // 16: pluggableharness.hook.v1.PostToolCallPayload.call:type_name -> pluggableharness.tool.v1.ToolCall
+	25, // 17: pluggableharness.hook.v1.PostToolCallPayload.result:type_name -> pluggableharness.tool.v1.ToolResult
+	26, // 18: pluggableharness.hook.v1.PostToolCallPayload.error:type_name -> pluggableharness.tool.v1.ToolError
+	27, // 19: pluggableharness.hook.v1.PostApplyPayload.apply:type_name -> pluggableharness.plan.v1.ApplyResult
+	28, // 20: pluggableharness.hook.v1.SessionEndPayload.status:type_name -> pluggableharness.session.v1.SessionStatus
+	3,  // 21: pluggableharness.hook.v1.DispatchHookRequest.payload:type_name -> pluggableharness.hook.v1.HookPayload
+	0,  // 22: pluggableharness.hook.v1.DispatchHookRequest.mode:type_name -> pluggableharness.hook.v1.HookMode
+	15, // 23: pluggableharness.hook.v1.DispatchHookResponse.observe:type_name -> pluggableharness.hook.v1.DispatchHookResponse.ObserveAck
+	16, // 24: pluggableharness.hook.v1.DispatchHookResponse.transform:type_name -> pluggableharness.hook.v1.DispatchHookResponse.TransformResult
+	17, // 25: pluggableharness.hook.v1.DispatchHookResponse.veto:type_name -> pluggableharness.hook.v1.DispatchHookResponse.VetoResult
+	29, // 26: pluggableharness.hook.v1.HookError.point:type_name -> pluggableharness.common.v1.HookPoint
+	20, // 27: pluggableharness.hook.v1.HookError.subscriber:type_name -> pluggableharness.common.v1.ProducerRef
+	0,  // 28: pluggableharness.hook.v1.HookError.mode:type_name -> pluggableharness.hook.v1.HookMode
+	2,  // 29: pluggableharness.hook.v1.HookError.category:type_name -> pluggableharness.hook.v1.HookErrorCategory
+	3,  // 30: pluggableharness.hook.v1.DispatchHookResponse.TransformResult.payload:type_name -> pluggableharness.hook.v1.HookPayload
+	1,  // 31: pluggableharness.hook.v1.DispatchHookResponse.VetoResult.decision:type_name -> pluggableharness.hook.v1.HookDecision
+	12, // 32: pluggableharness.hook.v1.HookSubscriberService.DispatchHook:input_type -> pluggableharness.hook.v1.DispatchHookRequest
+	13, // 33: pluggableharness.hook.v1.HookSubscriberService.DispatchHook:output_type -> pluggableharness.hook.v1.DispatchHookResponse
 	33, // [33:34] is the sub-list for method output_type
 	32, // [32:33] is the sub-list for method input_type
 	32, // [32:32] is the sub-list for extension type_name
@@ -1589,12 +1589,12 @@ var file_pluggableharness_agent_hook_v1_hook_proto_depIdxs = []int32{
 	0,  // [0:32] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_hook_v1_hook_proto_init() }
-func file_pluggableharness_agent_hook_v1_hook_proto_init() {
-	if File_pluggableharness_agent_hook_v1_hook_proto != nil {
+func init() { file_pluggableharness_hook_v1_hook_proto_init() }
+func file_pluggableharness_hook_v1_hook_proto_init() {
+	if File_pluggableharness_hook_v1_hook_proto != nil {
 		return
 	}
-	file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[0].OneofWrappers = []any{
+	file_pluggableharness_hook_v1_hook_proto_msgTypes[0].OneofWrappers = []any{
 		(*HookPayload_SessionStart)(nil),
 		(*HookPayload_PreModelCall)(nil),
 		(*HookPayload_PostModelResponse)(nil),
@@ -1604,13 +1604,13 @@ func file_pluggableharness_agent_hook_v1_hook_proto_init() {
 		(*HookPayload_PostApply)(nil),
 		(*HookPayload_SessionEnd)(nil),
 	}
-	file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[1].OneofWrappers = []any{}
-	file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[6].OneofWrappers = []any{
+	file_pluggableharness_hook_v1_hook_proto_msgTypes[1].OneofWrappers = []any{}
+	file_pluggableharness_hook_v1_hook_proto_msgTypes[6].OneofWrappers = []any{
 		(*PostToolCallPayload_Result)(nil),
 		(*PostToolCallPayload_Error)(nil),
 	}
-	file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[9].OneofWrappers = []any{}
-	file_pluggableharness_agent_hook_v1_hook_proto_msgTypes[10].OneofWrappers = []any{
+	file_pluggableharness_hook_v1_hook_proto_msgTypes[9].OneofWrappers = []any{}
+	file_pluggableharness_hook_v1_hook_proto_msgTypes[10].OneofWrappers = []any{
 		(*DispatchHookResponse_Observe)(nil),
 		(*DispatchHookResponse_Transform)(nil),
 		(*DispatchHookResponse_Veto)(nil),
@@ -1619,18 +1619,18 @@ func file_pluggableharness_agent_hook_v1_hook_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_hook_v1_hook_proto_rawDesc), len(file_pluggableharness_agent_hook_v1_hook_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_hook_v1_hook_proto_rawDesc), len(file_pluggableharness_hook_v1_hook_proto_rawDesc)),
 			NumEnums:      3,
 			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_pluggableharness_agent_hook_v1_hook_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_hook_v1_hook_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_agent_hook_v1_hook_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_agent_hook_v1_hook_proto_msgTypes,
+		GoTypes:           file_pluggableharness_hook_v1_hook_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_hook_v1_hook_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_hook_v1_hook_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_hook_v1_hook_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_hook_v1_hook_proto = out.File
-	file_pluggableharness_agent_hook_v1_hook_proto_goTypes = nil
-	file_pluggableharness_agent_hook_v1_hook_proto_depIdxs = nil
+	File_pluggableharness_hook_v1_hook_proto = out.File
+	file_pluggableharness_hook_v1_hook_proto_goTypes = nil
+	file_pluggableharness_hook_v1_hook_proto_depIdxs = nil
 }

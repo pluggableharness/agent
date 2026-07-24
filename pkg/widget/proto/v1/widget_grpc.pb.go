@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/widget/v1/widget.proto
+// source: pluggableharness/widget/v1/widget.proto
 
-// Package pluggableharness.agent.widget.v1 defines the widget provider plugin protocol
+// Package pluggableharness.widget.v1 defines the widget provider plugin protocol
 // described in specifications/frontend.md §4 (Attach, action dispatch, ...).
 // Messages and RPCs are added incrementally as the protocol is finalized;
 // this file currently scaffolds the buf toolchain wiring — see
@@ -25,10 +25,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WidgetService_GetCapabilities_FullMethodName = "/pluggableharness.agent.widget.v1.WidgetService/GetCapabilities"
-	WidgetService_Configure_FullMethodName       = "/pluggableharness.agent.widget.v1.WidgetService/Configure"
-	WidgetService_Attach_FullMethodName          = "/pluggableharness.agent.widget.v1.WidgetService/Attach"
-	WidgetService_Describe_FullMethodName        = "/pluggableharness.agent.widget.v1.WidgetService/Describe"
+	WidgetService_GetCapabilities_FullMethodName = "/pluggableharness.widget.v1.WidgetService/GetCapabilities"
+	WidgetService_Configure_FullMethodName       = "/pluggableharness.widget.v1.WidgetService/Configure"
+	WidgetService_Attach_FullMethodName          = "/pluggableharness.widget.v1.WidgetService/Attach"
+	WidgetService_Describe_FullMethodName        = "/pluggableharness.widget.v1.WidgetService/Describe"
 )
 
 // WidgetServiceClient is the client API for WidgetService service.
@@ -292,7 +292,7 @@ func _WidgetService_Describe_Handler(srv interface{}, ctx context.Context, dec f
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var WidgetService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.widget.v1.WidgetService",
+	ServiceName: "pluggableharness.widget.v1.WidgetService",
 	HandlerType: (*WidgetServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -315,5 +315,5 @@ var WidgetService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "pluggableharness/agent/widget/v1/widget.proto",
+	Metadata: "pluggableharness/widget/v1/widget.proto",
 }
