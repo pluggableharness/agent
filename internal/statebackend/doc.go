@@ -47,7 +47,8 @@
 //     back into the main file rather than leaving a -wal sidecar behind.
 //   - The Store directory is created mode 0700, and each session file is
 //     created mode 0600 — session state is treated as sensitive by
-//     default, readable only by the user running the kernel.
+//     default, readable only by the user running the kernel. Enforced on
+//     Unix-like systems only; Windows ACLs are out of scope.
 //   - cost_ledger.cost_usd stores exactly the cost_usd value the caller
 //     computed (the model provider protocol's own cost computation,
 //     docs/specifications/provider/protocol.md#cost-computation); this

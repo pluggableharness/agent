@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -150,13 +151,16 @@ func TestStore_Open_corruptionTriggersRecovery(t *testing.T) {
 	// same 0600 guarantee every session file does — recoverSession
 	// pre-creates it itself rather than leaving the mode up to
 	// sql.Open/modernc's own file creation (whose default is 0644 modulo
-	// umask).
-	recoveredInfo, statErr := os.Stat(path)
-	if statErr != nil {
-		t.Fatalf("Stat (recovered file): %v", statErr)
-	}
-	if perm := recoveredInfo.Mode().Perm(); perm != 0o600 {
-		t.Errorf("recovered file perm = %o, want %o", perm, 0o600)
+	// umask). Unix permission bits aren't meaningful on Windows, so this
+	// assertion only runs on Unix-like systems.
+	if runtime.GOOS != "windows" {
+		recoveredInfo, statErr := os.Stat(path)
+		if statErr != nil {
+			t.Fatalf("Stat (recovered file): %v", statErr)
+		}
+		if perm := recoveredInfo.Mode().Perm(); perm != 0o600 {
+			t.Errorf("recovered file perm = %o, want %o", perm, 0o600)
+		}
 	}
 
 	gotMeta, err := opened.Meta(context.Background())

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -59,8 +60,14 @@ func TestNewStore(t *testing.T) {
 		if !info.IsDir() {
 			t.Fatal("dir is not a directory")
 		}
-		if perm := info.Mode().Perm(); perm != 0o700 {
-			t.Errorf("dir perm = %o, want %o", perm, 0o700)
+		// Unix permission bits aren't meaningful on Windows (ACL-based
+		// instead) — os.Mkdir's mode argument is effectively ignored
+		// there, so Stat reads back something like 0777 regardless of
+		// what NewStore requested.
+		if runtime.GOOS != "windows" {
+			if perm := info.Mode().Perm(); perm != 0o700 {
+				t.Errorf("dir perm = %o, want %o", perm, 0o700)
+			}
 		}
 	})
 
@@ -98,8 +105,12 @@ func TestStore_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stat: %v", err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Errorf("file perm = %o, want %o", perm, 0o600)
+	// Unix permission bits aren't meaningful on Windows — see TestNewStore's
+	// equivalent guard.
+	if runtime.GOOS != "windows" {
+		if perm := info.Mode().Perm(); perm != 0o600 {
+			t.Errorf("file perm = %o, want %o", perm, 0o600)
+		}
 	}
 
 	version, err := readUserVersion(ctx, sess.db)
@@ -458,6 +469,13 @@ func TestNewStore_mkdirFails(t *testing.T) {
 
 func TestStore_Create_openFileError(t *testing.T) {
 	t.Parallel()
+	if runtime.GOOS == "windows" {
+		// A chmod'd-read-only directory doesn't stop file creation on
+		// Windows (ACL-based permissions, not Unix mode bits) — the
+		// premise this test relies on doesn't hold there.
+		t.Skip("read-only-directory permission enforcement is Unix-specific")
+	}
+
 	st := newTestStore(t)
 	if err := os.Chmod(st.dir, 0o500); err != nil {
 		t.Fatalf("Chmod: %v", err)
@@ -465,7 +483,14 @@ func TestStore_Create_openFileError(t *testing.T) {
 	defer func() { _ = os.Chmod(st.dir, 0o700) }()
 
 	meta := SessionMeta{SessionID: NewSessionID(time.Now()), Profile: "default", Status: sessionv1.SessionStatus_SESSION_STATUS_RUNNING, StartedAt: time.Now()}
-	if _, err := st.Create(context.Background(), meta); err == nil {
+	sess, err := st.Create(context.Background(), meta)
+	if err == nil {
+		// Belt-and-suspenders: if the read-only directory somehow didn't
+		// block creation (a platform surprise beyond the Windows case
+		// already skipped above), close the session immediately rather
+		// than leaving it open — an unclosed *sql.DB on a file under
+		// st.dir would otherwise wedge t.TempDir()'s own cleanup.
+		_ = sess.Close()
 		t.Fatal("Create in a read-only directory = nil error, want error")
 	}
 }
