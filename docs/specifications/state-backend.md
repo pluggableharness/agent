@@ -32,7 +32,7 @@ CREATE TABLE events (
   id                TEXT NOT NULL UNIQUE,   -- stable event identifier, independent of storage
   timestamp         TEXT NOT NULL,          -- wall-clock, display only, not ordering-authoritative
   kind              TEXT NOT NULL,          -- see "The kind enum" below for the authoritative enum
-  producer_category TEXT NOT NULL,
+  producer_category TEXT NOT NULL,          -- provider | tool | context | memory | frontend | widget
   producer_name     TEXT NOT NULL,
   producer_version  TEXT NOT NULL,
   schema_version    TEXT NOT NULL,

@@ -38,7 +38,7 @@
 | Opt-in parent-history forking per profile | MAY | [`subagents.md`](subagents.md#context-isolation-default-fresh) |
 | Configurable `max_concurrent_subagents` cap | MUST | [`subagents.md`](subagents.md#concurrency-limits) |
 | Parent turn joins on all spawned children before proceeding | MUST | [`subagents.md`](subagents.md#concurrency-limits) |
-| Queryable parent→children session index | MUST | [`subagents.md`](subagents.md#session-hierarchy-bookkeeping) |
+| Child lookup via a `session_meta.parent_session_id` scan (no separate index) | MUST | [`subagents.md`](subagents.md#session-hierarchy-bookkeeping) |
 | Structural (schema-level) depth-cap enforcement | MUST | [`subagents.md`](subagents.md#depth-limits) |
 | Default-deny recursion (child spawning further children) | MUST (default) | [`subagents.md`](subagents.md#tool-scoping-at-spawn) |
 | Cascading cancellation to in-flight children | MUST | [`subagents.md`](subagents.md#cancellation-propagation) |
