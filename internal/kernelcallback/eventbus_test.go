@@ -214,7 +214,14 @@ func TestServer_Subscribe_backpressureCloses(t *testing.T) {
 	// publish fills the bridge's bounded buffer and the one after that
 	// overflows it — signalling the (buffered, non-blocking) overflow
 	// channel, which the main select loop can only observe once its
-	// current, still-blocked Send call returns.
+	// current, still-blocked Send call returns. Delivery of these two
+	// publishes to our handler happens on internal/eventbus's own
+	// delivery goroutine, asynchronously — Publish returning only means
+	// the event reached that subscription's queue, not that the handler
+	// has run yet — so the wait below is bounded generously (not just
+	// enough for the two, arbitrarily-scheduled deliveries plus Send
+	// unblocking, but enough to absorb real scheduler contention when the
+	// full suite runs with -shuffle across many packages in parallel).
 	publishFileChanged(t, f)
 	publishFileChanged(t, f)
 	close(release)
@@ -222,7 +229,7 @@ func TestServer_Subscribe_backpressureCloses(t *testing.T) {
 	select {
 	case err := <-done:
 		assertCode(t, err, codes.ResourceExhausted)
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Subscribe did not return after exceeding its backpressure bound")
 	}
 }
