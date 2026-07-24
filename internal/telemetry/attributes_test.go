@@ -16,9 +16,9 @@ func TestAttributeKeys_fileAndPlatform(t *testing.T) {
 		key  attribute.Key
 		want string
 	}{
-		{name: "FilePathKey", key: FilePathKey, want: "pluggableharness.agent.file.path"},
-		{name: "PlatformKey", key: PlatformKey, want: "pluggableharness.agent.platform"},
-		{name: "EventBusTopicKey", key: EventBusTopicKey, want: "pluggableharness.agent.eventbus.topic"},
+		{name: "FilePathKey", key: FilePathKey, want: "pluggableharness.file.path"},
+		{name: "PlatformKey", key: PlatformKey, want: "pluggableharness.platform"},
+		{name: "EventBusTopicKey", key: EventBusTopicKey, want: "pluggableharness.eventbus.topic"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

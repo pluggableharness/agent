@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Server implements the Log method of pluggableharness.agent.kernel.v1's
+// Server implements the Log method of pluggableharness.kernel.v1's
 // KernelCallbackServiceServer. It does not implement RunSession,
 // CountTokens, or Emit — see the package doc comment.
 type Server struct {

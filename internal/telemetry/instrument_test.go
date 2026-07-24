@@ -44,7 +44,7 @@ var errFailingMeter = errors.New("instrument_test: forced failure")
 func TestNewInstruments_error(t *testing.T) {
 	t.Parallel()
 
-	meter := failingMeter{Meter: noop.NewMeterProvider().Meter("test"), failName: "pluggableharness.agent.tokens"}
+	meter := failingMeter{Meter: noop.NewMeterProvider().Meter("test"), failName: "pluggableharness.tokens"}
 
 	instruments, err := newInstruments(meter)
 	if err == nil {

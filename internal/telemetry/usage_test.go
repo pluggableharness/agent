@@ -29,9 +29,9 @@ func TestRecordUsage_metrics(t *testing.T) {
 		t.Fatalf("Collect: %v", err)
 	}
 
-	tokens := findSum(t, rm, "pluggableharness.agent.tokens")
+	tokens := findSum(t, rm, "pluggableharness.tokens")
 	if len(tokens.DataPoints) != 4 {
-		t.Fatalf("pluggableharness.agent.tokens data points = %d, want 4 (input/output/cache_read/cache_write)", len(tokens.DataPoints))
+		t.Fatalf("pluggableharness.tokens data points = %d, want 4 (input/output/cache_read/cache_write)", len(tokens.DataPoints))
 	}
 	var total int64
 	for _, dp := range tokens.DataPoints {
@@ -41,9 +41,9 @@ func TestRecordUsage_metrics(t *testing.T) {
 		t.Errorf("total tokens = %d, want 165", total)
 	}
 
-	costUSD := findFloatSum(t, rm, "pluggableharness.agent.cost.usd")
+	costUSD := findFloatSum(t, rm, "pluggableharness.cost.usd")
 	if len(costUSD.DataPoints) != 1 || costUSD.DataPoints[0].Value != 0.0123 {
-		t.Errorf("pluggableharness.agent.cost.usd data points = %+v, want one point of 0.0123", costUSD.DataPoints)
+		t.Errorf("pluggableharness.cost.usd data points = %+v, want one point of 0.0123", costUSD.DataPoints)
 	}
 }
 
@@ -64,15 +64,15 @@ func TestRecordUsage_zeroFieldsNotRecorded(t *testing.T) {
 		t.Fatalf("Collect: %v", err)
 	}
 
-	tokens := findSum(t, rm, "pluggableharness.agent.tokens")
+	tokens := findSum(t, rm, "pluggableharness.tokens")
 	if len(tokens.DataPoints) != 1 {
-		t.Errorf("pluggableharness.agent.tokens data points = %d, want 1 (only input was non-zero)", len(tokens.DataPoints))
+		t.Errorf("pluggableharness.tokens data points = %d, want 1 (only input was non-zero)", len(tokens.DataPoints))
 	}
 
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == "pluggableharness.agent.cost.usd" {
-				t.Errorf("pluggableharness.agent.cost.usd recorded a data point despite CostUSD=0: %+v", m.Data)
+			if m.Name == "pluggableharness.cost.usd" {
+				t.Errorf("pluggableharness.cost.usd recorded a data point despite CostUSD=0: %+v", m.Data)
 			}
 		}
 	}

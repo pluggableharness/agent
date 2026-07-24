@@ -14,7 +14,7 @@ import (
 var ErrInvalidLevel = errors.New("log: invalid level")
 
 // LevelTrace and LevelFatal extend log/slog's four built-in levels
-// (Debug/Info/Warn/Error) to cover pluggableharness.agent.log.v1.LogLevel's full range,
+// (Debug/Info/Warn/Error) to cover pluggableharness.log.v1.LogLevel's full range,
 // per kernel-callbacks.md §5: the kernel MUST translate LOG_LEVEL_TRACE to
 // a custom slog.Level below slog.LevelDebug and LOG_LEVEL_FATAL to one
 // above slog.LevelError. The +-4 deltas mirror log/slog's own documented

@@ -377,7 +377,7 @@ func TestBus_publish_recordsSpanAndMetric(t *testing.T) {
 	if err := backend.Metrics.Collect(context.Background(), &rm); err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if !hasMetric(rm, "pluggableharness.agent.eventbus.events.published") {
+	if !hasMetric(rm, "pluggableharness.eventbus.events.published") {
 		t.Error("eventbus.events.published metric was not recorded")
 	}
 }
