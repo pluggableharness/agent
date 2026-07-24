@@ -1,6 +1,6 @@
 # Context provider protocol
 
-Covers the **context provider** category — a plugin that hooks `context-assemble` and contributes text content to the prompt before each model call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/ file-tree summarizer). Multiple context providers may be configured and load simultaneously in the same `agent.hcl` — this sidesteps the convention-file format war entirely; which file(s) a session reads is a plugin/config choice, not a kernel opinion. See [`architecture.md`](../architecture.md#the-six-provider-categories) for where this category sits among the other five.
+Covers the **context provider** category — a plugin that hooks `context-assemble` and contributes text content to the prompt before each model call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/ file-tree summarizer). Multiple context providers may be configured and load simultaneously in the same `agent.hcl` — this sidesteps the convention-file format war entirely; which file(s) a session reads is a plugin/config choice, not a kernel opinion. See [`architecture.md`](../architecture.md#the-seven-provider-categories) for where this category sits among the other six.
 
 ## Scope boundary
 
@@ -12,7 +12,7 @@ This category covers content injected into the prompt *before* a model call, sou
 
 ## Transport & lifecycle
 
-Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). The standard handshake applies uniformly across all six provider categories and isn't repeated per category.
+Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). The standard handshake applies uniformly across all seven provider categories and isn't repeated per category.
 
 A context provider plugin exposes four RPCs: `GetCapabilities`, `Configure`, `Contribute`, `Describe`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)).
 

@@ -40,14 +40,15 @@ A `Configure`-time `FrontendError` surfaces as a gRPC status carrying the error 
 | Widget `Attach` is server-streaming only (no bidi channel), and remains session-scoped, not connection-multiplexed | MUST | [`widget-protocol.md`](widget-protocol.md#transport) |
 | Widget-initiated actions via `ActionNode` + frontend `action_trigger`, not a widget-specific RPC | MUST | [`widget-protocol.md`](widget-protocol.md#interactive-widgets) |
 | Widgets derive state via `observe`-mode hooks, no separate data feed | MUST | [`widget-protocol.md`](widget-protocol.md#deriving-display-state--no-new-data-feed) |
-| `slash_commands` declarable by any provider category | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
-| Slash-command name collision across providers | MUST be config-load-time error | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
-| Aggregate `SlashCommandRegistry` sent on session attach and on registry change | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
-| `direct_invoke` dispatch bypasses the model turn | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
-| `prompt_expansion` dispatch costs a model turn | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
-| `prompt_expansion` scoping via `agent_profile.slash_commands` | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands), [`configuration/agent-profiles.md`](../configuration/agent-profiles.md) |
+| `PromptExpansionSpec` declarable by any provider category | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
+| `SlashCommandSpec` (direct-invoke) declared exclusively by a `slashcommand.v1` provider | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
+| Slash-command name collision, checked jointly across the direct-invoke and prompt-expansion lists | MUST be config-load-time error | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
+| Aggregate `SlashCommandRegistry` (both lists) sent on session attach and on registry change | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
+| Direct-invoke dispatch, via the owning `slashcommand.v1` provider's `SlashCommandService.Invoke`, bypasses the model turn | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
+| Prompt-expansion dispatch costs a model turn | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands) |
+| Prompt-expansion scoping via `agent_profile.slash_commands` | MUST | [`frontend-protocol.md`](frontend-protocol.md#slash-commands), [`configuration/agent-profiles.md`](../configuration/agent-profiles.md) |
 | `ActionNode`/`ActionTrigger` carry `provider`, since `tool_name` is only unique per provider | MUST | [`render-tree.md`](render-tree.md#interactive-content-the-action-node) |
-| `ActionNode` dispatches through the same path as `direct_invoke` | MUST | [`render-tree.md`](render-tree.md#interactive-content-the-action-node) |
+| `ActionNode` dispatches through the same no-model-turn shape as a direct-invoke `SlashCommandService.Invoke` | MUST | [`render-tree.md`](render-tree.md#interactive-content-the-action-node) |
 | Reference TUI's region layout | Not normative (one implementation) | [`examples.md`](examples.md#the-reference-tui) |
 | Structured `FrontendError` taxonomy | MUST | [Error taxonomy](#error-taxonomy) |
 | Structured `WidgetError` taxonomy | MUST | [Error taxonomy](#error-taxonomy) |

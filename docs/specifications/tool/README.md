@@ -8,7 +8,7 @@ This category depends directly on [`model/`](../model/README.md): the common JSO
 
 ## Transport & lifecycle
 
-Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). Standard handshake (magic cookie, protocol version negotiation) applies uniformly across all six provider categories and isn't repeated per category.
+Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). Standard handshake (magic cookie, protocol version negotiation) applies uniformly across all seven provider categories and isn't repeated per category.
 
 A tool provider plugin exposes four RPCs: `GetSchema`, `Configure`, `Invoke`, `Describe`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)) and `Preview` (see [`protocol.md#preview`](protocol.md#preview)).
 

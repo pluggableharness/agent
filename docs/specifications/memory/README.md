@@ -4,13 +4,13 @@ Covers the **memory provider** category — plugins that persist knowledge acros
 
 A memory provider does two things: it reads relevant recall into context assembly, and it writes new knowledge worth persisting across sessions. This is a **distinct plugin category with its own protocol**, not a reuse of the context provider's `Contribute` RPC — memory-specific data (record type, scope, provenance, ratification status) stays first-class through a dedicated `Recall` RPC, and the kernel adapts results into `ContextSection`s before merging them into the assembled prompt. See [`protocol.md#recall-the-read-side`](protocol.md#recall-the-read-side).
 
-The underlying storage mechanism — files, sqlite, a vector store, a remote service — is entirely a provider implementation detail. This category is backend-agnostic behind one interface, the same abstraction-over-backend move Terraform makes for state; see [`architecture.md`](../architecture.md#the-six-provider-categories).
+The underlying storage mechanism — files, sqlite, a vector store, a remote service — is entirely a provider implementation detail. This category is backend-agnostic behind one interface, the same abstraction-over-backend move Terraform makes for state; see [`architecture.md`](../architecture.md#the-seven-provider-categories).
 
 The design draws on patterns seen across coding harnesses — automatic session memory, tiered recall, and inbox-style ratification — while fixing one specific piece, the record taxonomy ([`taxonomy.md`](taxonomy.md)), as a deliberate protocol-level choice rather than leaving it to each provider.
 
 ## Transport & lifecycle
 
-Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport) — the standard handshake applies uniformly across all six provider categories and isn't repeated here.
+Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport) — the standard handshake applies uniformly across all seven provider categories and isn't repeated here.
 
 A memory provider plugin exposes nine RPCs: `GetCapabilities`, `Configure`, `Recall`, `Record`, `UpdateRecord`, `DeleteRecord`, `ListRecords`, `GetRecord`, `Describe`. It MAY additionally implement `ApproveRecord`/`RejectRecord` (the optional ratification pattern, [`protocol.md#ratification-optional`](protocol.md#ratification-optional)) and `Render` ([`protocol.md#render`](protocol.md#render)). All eleven RPCs are unary — unlike the model provider's `StreamCompletion` or the tool provider's `Invoke`, nothing in this category streams.
 

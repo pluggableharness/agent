@@ -4,9 +4,9 @@ The kernel is a **microkernel**: it provides almost no functionality of its own,
 
 This is a deliberate fusion of two lineages: Terraform's plugin/provider/ schema/registry/plan-apply model, and a Neovim/VSCode-style hook-and- extension-point system for behavior injection — Terraform itself has no equivalent of the latter. See [`glossary.md`](glossary.md) for terminology.
 
-## The six provider categories
+## The seven provider categories
 
-Six categories share a common shape: `GetSchema`/`GetCapabilities` (declare what you do), `Configure` (accept config decoded from HCL), then category-specific RPCs.
+Seven categories share a common shape: `GetSchema`/`GetCapabilities` (declare what you do), `Configure` (accept config decoded from HCL), then category-specific RPCs.
 
 - **Model provider** ([`model/`](model/README.md)) — an LLM vendor. `GetCapabilities` returns a quantitative envelope per model (context window, thinking/caching modes, pricing tiers), not just feature flags. `StreamCompletion` is **server-streaming with cancellation**, not bidirectional — this matches how a real LLM vendor API actually works: one request in, one chunked/SSE response out; cancellation is the kernel closing the stream, a standard server-streaming operation. See [`model/README.md`](model/README.md#transport--lifecycle).
 - **Tool provider** ([`tool/`](tool/README.md)) — `GetSchema` returns resources/data-sources/interactive calls, each with a JSON-Schema input/ output and a `kind`. `Invoke` is server-streaming (so e.g. `exec` can stream live stdout instead of blocking).
@@ -14,6 +14,7 @@ Six categories share a common shape: `GetSchema`/`GetCapabilities` (declare what
 - **Context provider** ([`context/`](context/README.md)) — hooks `context-assemble`, contributes text/data before each turn. Multiple can load simultaneously (a CLAUDE.md reader, an AGENTS.md reader, etc.) — sidesteps the convention-file format war entirely; it's a plugin choice, not a core opinion.
 - **Frontend provider** ([`frontend/`](frontend/README.md)) — one genuinely bidirectional stream: kernel emits state events (token deltas, plan-ready, permission-request, tool output), frontend emits client events (user message, plan approve/reject/edit, interrupt). Multiple frontends may attach to one session — see [`frontend/README.md`](frontend/README.md#session-scope--multi-attach).
 - **Widget provider** ([`frontend/widget-protocol.md`](frontend/widget-protocol.md)) — derives persistent display state from the same event stream a frontend already sees; no new data feed, server-streaming only.
+- **Slash-command provider** ([`slashcommand/`](slashcommand/README.md)) — declares direct-invoke commands and executes them in its own right, a tool-shaped operation distinct from a tool provider's resource/data-source/interactive calls. `Invoke` is server-streaming, identical in shape to [`tool/`](tool/README.md)'s.
 
 ## Emit → Render → Paint pipeline
 

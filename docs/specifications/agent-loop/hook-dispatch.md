@@ -4,7 +4,7 @@
 
 ## Wire contract — `pluggableharness.hook.v1`
 
-`pluggableharness.hook.v1.HookSubscriberService` (`api/pluggableharness/hook/v1/service.proto`) is the wire surface every hook subscriber implements, regardless of which of the six plugin categories the subscribing plugin otherwise belongs to. It is one shared service, not a per-category RPC: `hashicorp/go-plugin` natively muxes multiple gRPC services over a single subprocess connection, so the kernel dials `HookSubscriberService` on the same connection it already holds to that plugin's category service. A plugin declaring no `hook{}` block in `agent.hcl` simply never has `DispatchHook` called.
+`pluggableharness.hook.v1.HookSubscriberService` (`api/pluggableharness/hook/v1/service.proto`) is the wire surface every hook subscriber implements, regardless of which of the seven plugin categories the subscribing plugin otherwise belongs to. It is one shared service, not a per-category RPC: `hashicorp/go-plugin` natively muxes multiple gRPC services over a single subprocess connection, so the kernel dials `HookSubscriberService` on the same connection it already holds to that plugin's category service. A plugin declaring no `hook{}` block in `agent.hcl` simply never has `DispatchHook` called.
 
 `DispatchHook` is unary — one hook-point firing, delivered to one subscriber, is one request/one response. There is no separate scheduling RPC or subscription-registration call; `agent.hcl`'s `hook{}` blocks are the sole source of "which plugins subscribe to which points in which mode," resolved at config-load time, and dispatch order within a point is the declaration order described in [Dispatch order and payload flow](#dispatch-order-and-payload-flow) below.
 

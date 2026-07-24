@@ -11,7 +11,11 @@ MemoryCapabilities {
   supported_scopes        []MemoryScope // MUST — a provider MAY handle only a subset
                                          // (e.g. project-only)
   ratification_supported  bool         // MUST, default false — see protocol.md#ratification-optional
-  slash_commands           []SlashCommandSpec  // MAY — see frontend/README.md#slash-commands
+  slash_commands           []common.v1.PromptExpansionSpec  // MAY — static template-expansion
+                                                    // commands only; see
+                                                    // frontend/frontend-protocol.md#slash-commands.
+                                                    // A direct-invoke command is declared by a
+                                                    // slashcommand.v1 provider instead, never here
   config_schema            ConfigSchema  // MUST — decoded per configuration/blocks-reference.md
   supported_hook_points    []common.v1.HookPoint  // MAY be empty — which hook points this
                                                     // provider subscribes DispatchHook to,

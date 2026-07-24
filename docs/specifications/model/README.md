@@ -1,6 +1,6 @@
 # Model provider protocol
 
-Covers the **model provider** category — an LLM vendor plugin (Anthropic, OpenAI, Gemini, etc.). In this system's Terraform-derived vocabulary the LLM vendor plugin is the closest analog to what Terraform itself calls a "provider" — it's the anchor spec category; the other five (`tool/`, `context/`, `memory/`, `frontend/`) follow the shape it establishes.
+Covers the **model provider** category — an LLM vendor plugin (Anthropic, OpenAI, Gemini, etc.). In this system's Terraform-derived vocabulary the LLM vendor plugin is the closest analog to what Terraform itself calls a "provider" — it's the anchor spec category; the other six (`tool/`, `context/`, `memory/`, `frontend/`, `widget/`, `slashcommand/`) follow the shape it establishes.
 
 Real-world LLM vendors (Anthropic, OpenAI, Google Gemini, Mistral, Cohere, xAI, Ollama, and others) diverge in significant ways — reasoning control, caching mechanics, tool-call wire shape — and this category's data types are shaped to accommodate that heterogeneity rather than assuming one vendor's design is universal.
 
@@ -8,7 +8,7 @@ See [`architecture.md`](../architecture.md) for the surrounding system (transpor
 
 ## Transport & lifecycle
 
-Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). Standard handshake (magic cookie, protocol version negotiation) applies uniformly across all six provider categories and isn't repeated per category.
+Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). Standard handshake (magic cookie, protocol version negotiation) applies uniformly across all seven provider categories and isn't repeated per category.
 
 A model provider plugin exposes five RPCs: `GetCapabilities`, `Configure`, `StreamCompletion`, `CountTokens`, `Describe`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)).
 

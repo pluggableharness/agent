@@ -255,7 +255,7 @@ This is typed as `common.v1.HookPoint`, not `hook.v1.HookPoint`: `hook/v1/events
 
 ## `Describe`
 
-`ModelService` gains a `Describe(DescribeRequest) -> DescribeResponse { producer: common.v1.ProducerRef }` RPC, identical in shape across all six category protocols in this protocol revision. It reports this plugin build's own identity — `{name, version, source, category, protocol_version}` — directly from the running process. This matters specifically for a `dev_overrides` binary ([`configuration/settings-and-global.md#dev_overrides`](../configuration/settings-and-global.md#dev_overrides)), which bypasses the registry/lock-file resolution path entirely and so has no `provider "<name>" { ... }` lock entry for the kernel to read identity from; see [`configuration/lock-file.md`](../configuration/lock-file.md#dev_overrides-and-identity-without-a-lock-entry)'s `dev_overrides` note for the canonical explanation.
+`ModelService` gains a `Describe(DescribeRequest) -> DescribeResponse { producer: common.v1.ProducerRef }` RPC, identical in shape across all seven category protocols in this protocol revision. It reports this plugin build's own identity — `{name, version, source, category, protocol_version}` — directly from the running process. This matters specifically for a `dev_overrides` binary ([`configuration/settings-and-global.md#dev_overrides`](../configuration/settings-and-global.md#dev_overrides)), which bypasses the registry/lock-file resolution path entirely and so has no `provider "<name>" { ... }` lock entry for the kernel to read identity from; see [`configuration/lock-file.md`](../configuration/lock-file.md#dev_overrides-and-identity-without-a-lock-entry)'s `dev_overrides` note for the canonical explanation.
 
 ## Tool schema
 

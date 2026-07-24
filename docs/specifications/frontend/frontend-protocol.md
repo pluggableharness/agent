@@ -21,7 +21,7 @@ service FrontendService {
 
 `GetCapabilities` returns this frontend's `slash_commands` (see [Slash commands](#slash-commands) below), `ConfigSchema`, `supported_regions`, and `supported_hook_points`; it MUST be cheaply re-queryable and MUST NOT require a network call, the same guarantee [`model/protocol.md#getcapabilities`](../model/protocol.md#getcapabilities) requires of a model provider. `Configure` follows the same contract as [`model/protocol.md#configure`](../model/protocol.md#configure): a config value decoded from the provider's `agent.hcl` block via the schema-to-cty bridge, rejected with a structured error at configure time rather than deferred to the first `Attach`, and never echoing a received secret back out through any event, render, or log line.
 
-`Describe` reports this plugin build's own identity — `{name, version, source, category, protocol_version}` — directly from the running process, rather than the kernel inferring it from a lock-file row. Every one of the six category protocols gains this identical RPC in this protocol revision; it exists specifically for a `dev_overrides`-resolved binary, which has no `provider {}` lock-file entry to read identity from at all (`configuration/lock-file.md`'s "`dev_overrides` and identity without a lock entry").
+`Describe` reports this plugin build's own identity — `{name, version, source, category, protocol_version}` — directly from the running process, rather than the kernel inferring it from a lock-file row. Every one of the seven category protocols gains this identical RPC in this protocol revision; it exists specifically for a `dev_overrides`-resolved binary, which has no `provider {}` lock-file entry to read identity from at all (`configuration/lock-file.md`'s "`dev_overrides` and identity without a lock entry").
 
 ## Fast path vs. full render
 
@@ -167,7 +167,7 @@ message ClientEvent {
 }
 ```
 
-`ActionTrigger` is what a frontend dispatches when the operator activates a [`RenderTree`'s `ActionNode`](render-tree.md#interactive-content-the-action-node); `node_id`, `tool_name`, `args`, and `provider` are echoed unchanged from the originating node — `provider` disambiguates which provider's operation to invoke, since `tool_name` is only unique per provider. The kernel handles the resulting `action_trigger` identically to a `direct_invoke` slash command (below): the normal `Invoke`/plan-apply pipeline, including policy evaluation, with no model turn.
+`ActionTrigger` is what a frontend dispatches when the operator activates a [`RenderTree`'s `ActionNode`](render-tree.md#interactive-content-the-action-node); `node_id`, `tool_name`, `args`, and `provider` are echoed unchanged from the originating node — `provider` disambiguates which provider's operation to invoke, since `tool_name` is only unique per provider. The kernel handles the resulting `action_trigger` through the normal `tool.v1` `Invoke`/plan-apply pipeline, including policy evaluation, with no model turn — the same no-model-turn dispatch shape a direct-invoke slash command's own `SlashCommandService.Invoke` ([Slash commands](#slash-commands) below) takes.
 
 ### UserMessage carries ContentBlocks
 
@@ -224,34 +224,39 @@ A plain `AttachSession` (as opposed to `ResumeSession`) against a terminal sessi
 
 ## Slash commands
 
-`SlashCommandSpec` is defined once, canonically, here — every other category's capability response ([`model/protocol.md#getcapabilities`](../model/protocol.md#getcapabilities), [`tool/protocol.md#getschema`](../tool/protocol.md#getschema), and the equivalent sections in `context/` and `memory/`) declares an optional `[]SlashCommandSpec` field of this same type and links back here rather than redefining it. The wire type is factored out into its own shared vocabulary for exactly that reason: it's shared by every provider category's `GetCapabilities`/`GetSchema` response, not owned by the frontend category alone.
+A slash command is one of two distinct kinds, declared and dispatched differently:
+
+- A **direct-invoke** command — a tool-shaped operation invoked without a model turn — is declared exclusively by a `pluggableharness.slashcommand.v1` provider's own `GetCapabilities` response, and invoked via that same provider's own `SlashCommandService.Invoke`. `SlashCommandSpec` and `SlashCommandService` are defined canonically in [`../slashcommand/protocol.md`](../slashcommand/protocol.md), not here.
+- A **prompt-expansion** command — a static template the kernel expands and submits as an ordinary `user_message`, costing a model turn — is genuinely shared vocabulary: any provider category's own capability response (`model/protocol.md#getcapabilities`, `tool/protocol.md#getschema`, and the equivalent sections in `context/` and `memory/`, as well as this category's own `FrontendCapabilities.slash_commands`) MAY declare one, as a `pluggableharness.common.v1.PromptExpansionSpec`. That type is defined below, since it has no dependency on `slashcommand.v1`'s own vocabulary.
+
+The kernel aggregates every loaded provider's declared commands, of both kinds, into one profile-scoped `SlashCommandRegistry`:
 
 ```protobuf
-enum Dispatch {
-  DISPATCH_UNSPECIFIED = 0;
-  DISPATCH_DIRECT_INVOKE = 1;
-  DISPATCH_PROMPT_EXPANSION = 2;
-}
-
-message SlashCommandSpec {
-  string name = 1;             // invoked as "/name"; MUST be unique across
-                                // every provider loaded in the session
-  string description = 2;      // shown in the hotkey_hints region
-  Dispatch dispatch = 3;
-  optional string tool_name = 4;  // MUST be set iff dispatch == DISPATCH_DIRECT_INVOKE;
-                                   // MUST name one of this SAME provider's own
-                                   // tool operations
-  optional string template = 5;    // MUST be set iff dispatch == DISPATCH_PROMPT_EXPANSION;
-                                    // "{arg}"-style placeholders substituted from
-                                    // the operator's typed arguments
+message SlashCommandRegistry {
+  repeated pluggableharness.slashcommand.v1.SlashCommandSpec direct_invoke_commands = 1;    // every direct-invoke command, from every loaded slashcommand.v1 provider
+  repeated pluggableharness.common.v1.PromptExpansionSpec prompt_expansion_commands = 2;    // every prompt-expansion command, from every loaded provider category
 }
 ```
 
-A name collision across providers **MUST** be a config-load-time error, per this protocol series' established "ambiguity is an error, not a silent pick" pattern. The kernel aggregates every loaded provider's declared commands into one profile-scoped `SlashCommandRegistry`, sent to an attaching frontend as part of `session_attached` and again whenever the registry changes (a plugin reload, a config change) — a frontend does not need to separately call every category's `GetCapabilities`/`GetSchema` and merge the results itself.
+sent to an attaching frontend as part of `session_attached` and again whenever the registry changes (a plugin reload, a config change) — a frontend does not need to separately call every category's `GetCapabilities`/`GetSchema` and merge the results itself. A command's name **MUST** be unique jointly across both lists — a name collision, whether within one list or across the two, **MUST** be a config-load-time error, per this protocol series' established "ambiguity is an error, not a silent pick" pattern.
 
-- **`DISPATCH_DIRECT_INVOKE`**: the frontend recognizes `/name args`, maps `args` to the named tool's `input_schema`, and dispatches it through the *normal* `Invoke`/plan-apply pipeline ([`agent-loop/plan-apply-gate.md`](../agent-loop/plan-apply-gate.md)) — including policy evaluation — with **no model turn**. This is a real behavior difference from an ordinary tool call: the model never sees or decides on this invocation, only its eventual result (appended to history as an ordinary `tool_result`, so the model has full visibility on the *next* turn even though it didn't initiate this one).
-- **`DISPATCH_PROMPT_EXPANSION`**: the frontend expands `template` with the typed arguments and submits the result as an ordinary `ClientEvent.user_message` — this costs a model turn like any normal message; the only thing the slash command bought was not having to type the full instruction out.
-- A profile's tool scoping determines which `DISPATCH_DIRECT_INVOKE` commands are available: a command naming a tool absent from the active profile's tool list simply isn't registered for that session. `DISPATCH_PROMPT_EXPANSION` commands have no backing tool to scope against this way, so they're scoped separately, by an explicit `agent_profile.slash_commands` allow-list — see [`configuration/agent-profiles.md`](../configuration/agent-profiles.md) for the block itself.
+A frontend parses typed input as `/name args`. Resolving `name` means checking both `direct_invoke_commands` and `prompt_expansion_commands` — the joint uniqueness guarantee above means at most one of the two lists can match — and dispatching accordingly:
+
+- **A `direct_invoke_commands` match**: the frontend maps `args` to the matched `SlashCommandSpec.input_schema` and sends a `ClientEvent.slash_command` naming it; the kernel dispatches it to the owning `slashcommand.v1` provider's `SlashCommandService.Invoke` ([`../slashcommand/protocol.md#invoke`](../slashcommand/protocol.md#invoke)) — the normal plan/apply pipeline, including policy evaluation, with **no model turn**. This is a real behavior difference from an ordinary tool call: the model never sees or decides on this invocation, only its eventual result (appended to history as an ordinary `tool_result`, so the model has full visibility on the *next* turn even though it didn't initiate this one).
+- **A `prompt_expansion_commands` match**: the frontend expands that `PromptExpansionSpec.template` with the typed arguments and submits the result as an ordinary `ClientEvent.user_message` — this costs a model turn like any normal message; the only thing the slash command bought was not having to type the full instruction out.
+
+```protobuf
+message PromptExpansionSpec {
+  string name = 1;             // invoked as "/name"; MUST be unique jointly across
+                                // every direct-invoke and prompt-expansion command
+                                // loaded in the session
+  string description = 2;      // shown in the hotkey_hints region
+  string template = 3;         // "{arg}"-style placeholders substituted from
+                                // the operator's typed arguments
+}
+```
+
+A profile's provider scoping determines which direct-invoke commands are available: a command whose owning `slashcommand.v1` provider is absent from the active profile's provider list simply isn't registered for that session. Prompt-expansion commands have no backing provider to scope against this way, so they're scoped separately, by an explicit `agent_profile.slash_commands` allow-list — see [`configuration/agent-profiles.md`](../configuration/agent-profiles.md) for the block itself.
 
 ## Error taxonomy
 

@@ -4,8 +4,8 @@ Terminology used throughout `docs/specifications/`.
 
 | Term | Meaning |
 |---|---|
-| **Provider** | A plugin binary implementing one of the six categories: model, tool, memory, context, frontend, widget. |
-| **Category** | One of the six provider kinds above, each with its own protocol (`model/`, `tool/`, `memory/`, `context/`, `frontend/` — widget is documented alongside frontend). |
+| **Provider** | A plugin binary implementing one of the seven categories: model, tool, memory, context, frontend, widget, slashcommand. |
+| **Category** | One of the seven provider kinds above, each with its own protocol (`model/`, `tool/`, `memory/`, `context/`, `frontend/` — widget is documented alongside frontend — `slashcommand/`). |
 | **Resource** | A tool operation that **mutates** state — gated behind the plan/apply flow. See [`agent-loop/plan-apply-gate.md`](agent-loop/plan-apply-gate.md). |
 | **Data source** | A tool operation that only **reads** — executes freely (subject to a policy precheck, not a plan/apply gate), feeds the plan. |
 | **Interactive** | A tool kind for calls that neither read nor write state but require a human response mid-turn (e.g. `ask_user`). See [`tool/protocol.md`](tool/protocol.md#kind-interactive) and [`agent-loop/plan-apply-gate.md`](agent-loop/plan-apply-gate.md). |

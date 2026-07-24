@@ -31,7 +31,7 @@ required_providers {
 - `source` MUST be a git-forge address (`github.com/...` or `gitlab.com/...`) — see [`architecture.md#registry--distribution`](../architecture.md#registry--distribution).
 - `version` MUST use the same constraint operators as Terraform: `=`, `!=`, `>`, `>=`, `<`, `<=`, `~>`.
 - The block's local name (`anthropic`, `filesystem` above) is what `provider` blocks and an `agent_profile`'s `model`/`tools` reference. It need not match the plugin's own advertised name.
-- A provider's **category** (model/tool/context/memory/frontend/widget) is never declared here — the kernel discovers it after loading the plugin, from its own `GetCapabilities`/`GetSchema` response.
+- A provider's **category** (model/tool/context/memory/frontend/widget/slashcommand) is never declared here — the kernel discovers it after loading the plugin, from its own `GetCapabilities`/`GetSchema` response.
 - v1 supports exactly **one instance per `required_providers` entry** — there is no Terraform-style `alias` mechanism for running the same plugin twice with different config (e.g. two `filesystem` roots with different permissions). This is a confirmed v1 limitation, not an oversight — see [`conformance.md#open-questions`](conformance.md#open-questions).
 
 Local names are whatever the operator chooses; each attribute's value MUST evaluate to an object or map carrying `source` and `version`.

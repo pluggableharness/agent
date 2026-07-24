@@ -31,7 +31,7 @@ When linking to a heading, use GitHub-flavored anchor rules: lowercase, spaces t
 
 ## Directory shape
 
-Each plugin-category directory (`model/`, `tool/`, `context/`, `memory/`, `frontend/`) follows the same five-file template:
+Each plugin-category directory (`model/`, `tool/`, `context/`, `memory/`, `frontend/`, `slashcommand/`) follows the same five-file template:
 
 - `README.md` — overview and transport & lifecycle.
 - `protocol.md` — every RPC in the category, request/response shape, MUST/SHOULD/MAY behavior.
