@@ -109,7 +109,7 @@ StreamEvent = oneof {
   tool_call_done        { id: string }
   usage                 { input_tokens, output_tokens, cache_read_tokens?, cache_write_tokens? }
   stop                   { reason: StopReason }
-  error                  ProviderError                     // see conformance.md#error-taxonomy
+  error                  ModelError                        // see conformance.md#error-taxonomy
 }
 
 StopReason = enum {
@@ -123,7 +123,7 @@ StopReason = enum {
 }
 ```
 
-A plugin MUST classify every terminal failure via a `stop` event's `content_filtered` reason or an `error` event carrying a `ProviderError` ([`conformance.md#error-taxonomy`](conformance.md#error-taxonomy)) — the in-band `error` variant is how a plugin reports a classified failure *within* an otherwise-open stream, distinct from the stream simply being torn down at the transport level (a gRPC-level status, or the kernel closing the stream on cancellation). A plugin whose backend fails outright before producing any events MAY end the stream with just an `error` event and no preceding `stop`.
+A plugin MUST classify every terminal failure via a `stop` event's `content_filtered` reason or an `error` event carrying a `ModelError` ([`conformance.md#error-taxonomy`](conformance.md#error-taxonomy)) — the in-band `error` variant is how a plugin reports a classified failure *within* an otherwise-open stream, distinct from the stream simply being torn down at the transport level (a gRPC-level status, or the kernel closing the stream on cancellation). A plugin whose backend fails outright before producing any events MAY end the stream with just an `error` event and no preceding `stop`.
 
 ## Canonical message & content-block schema
 

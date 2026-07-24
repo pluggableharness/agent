@@ -2,7 +2,7 @@ syntax = "proto3";
 
 // Package pluggableharness.agent.render.v1 defines the Emit->Render->Paint intermediate
 // representation described in specifications/frontend.md §1. Every plugin
-// category's optional Render() RPC (provider.md §7, tool.md §7,
+// category's optional Render() RPC (model.md §7, tool.md §7,
 // context.md §9, memory.md §10) returns this; every frontend/widget Paints
 // it. frontend.md §1 MUST: a frontend must render every RenderNode variant
 // gracefully with a generic fallback (e.g. an unrecognized-in-practice

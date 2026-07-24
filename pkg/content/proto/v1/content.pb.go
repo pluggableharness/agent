@@ -5,7 +5,7 @@
 // source: pluggableharness/agent/content/v1/content.proto
 
 // Package pluggableharness.agent.content.v1 defines the canonical content-block message
-// schema described in specifications/provider.md §5 — the state backend's
+// schema described in specifications/model.md §5 — the state backend's
 // source of truth for conversation history (state-backend.md §5's `message`
 // event kind). Every model-provider adapter translates its own vendor
 // format to and from exactly this schema; nothing else in the system
@@ -90,7 +90,7 @@ func (Role) EnumDescriptor() ([]byte, []int) {
 }
 
 // Message is one turn in the canonical conversation history: a role plus
-// an ordered list of content blocks. provider.md §5 is the source of these
+// an ordered list of content blocks. model.md §5 is the source of these
 // semantics.
 type Message struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -149,7 +149,7 @@ func (x *Message) GetContent() []*ContentBlock {
 
 // ContentBlock is one block within a Message. Exactly one variant is set.
 // Which variants a given model MAY produce/accept is gated by that model's
-// ModelSpec capability flags (provider.md §2, §5): `text` MUST work both
+// ModelSpec capability flags (model.md §2, §5): `text` MUST work both
 // directions unconditionally; `image` requires supports_vision; `tool_use`/
 // `tool_result` require supports_tool_use; `thinking`/`redacted_thinking`
 // require ThinkingSpec.supported.
@@ -300,7 +300,7 @@ func (*ContentBlock_Thinking) isContentBlock_Block() {}
 func (*ContentBlock_RedactedThinking) isContentBlock_Block() {}
 
 // TextBlock is plain conversational text. MUST be supported by every
-// model, in both directions (provider.md §5).
+// model, in both directions (model.md §5).
 type TextBlock struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The block's text content.
@@ -348,7 +348,7 @@ func (x *TextBlock) GetText() string {
 
 // ToolUseBlock represents the model requesting a tool invocation. `id`
 // correlates this block to the resulting ToolResultBlock, mirroring
-// provider.md §4's StreamEvent tool_call_start/tool_call_done id
+// model.md §4's StreamEvent tool_call_start/tool_call_done id
 // correlation once the stream has been assembled into a persisted message.
 type ToolUseBlock struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -489,9 +489,9 @@ func (x *ToolResultBlock) GetIsError() bool {
 }
 
 // ImageBlock is inline image content. Requires the target model's
-// ModelSpec.supports_vision (provider.md §5); the kernel MUST reject an
+// ModelSpec.supports_vision (model.md §5); the kernel MUST reject an
 // ImageBlock sent to a model where that flag is false, with
-// invalid_request (provider.md §8).
+// invalid_request (model.md §8).
 type ImageBlock struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Raw image bytes.
@@ -547,16 +547,16 @@ func (x *ImageBlock) GetMediaType() string {
 }
 
 // ThinkingBlock is the model's extended-reasoning output, when
-// ThinkingSpec.supported (provider.md §2). Requires the model's
+// ThinkingSpec.supported (model.md §2). Requires the model's
 // ThinkingSpec.supported to be true.
 type ThinkingBlock struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The accumulated reasoning text (provider.md §4's thinking_delta
+	// The accumulated reasoning text (model.md §4's thinking_delta
 	// StreamEvent variants, assembled into one block once the turn
 	// completes).
 	Text string `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
 	// An opaque vendor integrity token, when the vendor's thinking blocks
-	// carry one (provider.md §4's thinking_signature StreamEvent variant).
+	// carry one (model.md §4's thinking_signature StreamEvent variant).
 	// The kernel MUST store and round-trip this verbatim without
 	// interpreting it — it is meaningful only to the vendor that issued it.
 	Signature     []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`

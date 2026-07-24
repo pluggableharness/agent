@@ -24,7 +24,7 @@ Fires at the same `context-assemble` hook point context providers fire at — me
 
 ### Relevance ranking
 
-Ranking under `token_budget` pressure carries exactly one protocol-level rule, not a full ranking algorithm: a provider SHOULD weight `project`-type records more heavily toward recency than `user`/`feedback`/`reference` records when deciding what to keep, directly matching [`taxonomy.md#project`](taxonomy.md#project)'s definition of `project` as the type that decays fastest. Beyond that one rule, the ranking mechanism itself — keyword match, an internal embedding index, whatever a provider chooses — is entirely provider-internal, consistent with retrieval and embeddings being out of scope elsewhere ([`provider/conformance.md`](../provider/conformance.md#required-vs-optional-support--summary-matrix)).
+Ranking under `token_budget` pressure carries exactly one protocol-level rule, not a full ranking algorithm: a provider SHOULD weight `project`-type records more heavily toward recency than `user`/`feedback`/`reference` records when deciding what to keep, directly matching [`taxonomy.md#project`](taxonomy.md#project)'s definition of `project` as the type that decays fastest. Beyond that one rule, the ranking mechanism itself — keyword match, an internal embedding index, whatever a provider chooses — is entirely provider-internal, consistent with retrieval and embeddings being out of scope elsewhere ([`model/conformance.md`](../model/conformance.md#required-vs-optional-support--summary-matrix)).
 
 ### Kernel-side translation into context assembly
 

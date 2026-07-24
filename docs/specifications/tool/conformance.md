@@ -2,7 +2,7 @@
 
 ## Error taxonomy
 
-Distinct from [`provider/conformance.md#error-taxonomy`](../provider/conformance.md#error-taxonomy)'s `ProviderError` — a tool's failure modes are a different domain (no `rate_limited`/`context_length_exceeded`, which are model-vendor concepts) — but follows the same shape and the same non-negotiable principle: a plugin MUST classify every failure, MUST NOT collapse them into one generic error, for the same reason the model-provider protocol cites (undifferentiated errors are undebuggable after the fact).
+Distinct from [`model/conformance.md#error-taxonomy`](../model/conformance.md#error-taxonomy)'s `ModelError` — a tool's failure modes are a different domain (no `rate_limited`/`context_length_exceeded`, which are model-vendor concepts) — but follows the same shape and the same non-negotiable principle: a plugin MUST classify every failure, MUST NOT collapse them into one generic error, for the same reason the model-provider protocol cites (undifferentiated errors are undebuggable after the fact).
 
 ```protobuf
 ToolError {
@@ -57,7 +57,7 @@ On the wire, `process_crashed` maps to `codes.Unavailable` — the same code use
 |---|---|---|
 | `GetSchema` / `Configure` / `Invoke` RPCs | MUST | the whole protocol surface |
 | Streaming RPC shape for `Invoke` | MUST | see [`README.md`](README.md#transport--lifecycle) / [`protocol.md#invoke`](protocol.md#invoke) — applies even to non-streaming operations |
-| `input_schema`/`output_schema` in the common JSON-Schema subset | MUST | [`provider/data-types.md#tool-schema`](../provider/data-types.md#tool-schema) |
+| `input_schema`/`output_schema` in the common JSON-Schema subset | MUST | [`model/data-types.md#tool-schema`](../model/data-types.md#tool-schema) |
 | `kind` (resource / data_source / interactive) | MUST, per operation | drives the plan/apply gate; [`protocol.md#kind-interactive`](protocol.md#kind-interactive) |
 | `risk` classification | MUST, per operation | see [`data-types.md#riskclass`](data-types.md#riskclass); `read_only` for `data_source` and `interactive` alike |
 | `ConcurrencySpec.safe` | MUST, per operation except `interactive` | absent/unset MUST be treated as `false`; MUST NOT be declared for `interactive` |

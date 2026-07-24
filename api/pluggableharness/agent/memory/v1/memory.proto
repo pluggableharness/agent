@@ -29,7 +29,7 @@ service MemoryService {
 
   // Configure decodes this provider's agent.hcl config block, per the
   // same schema-to-cty bridge contract as the rest of this spec series
-  // (provider.md §3). Unary. memory.md §5.
+  // (model.md §3). Unary. memory.md §5.
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
 
   // Recall is the read side: it fires at context-assemble time, competing

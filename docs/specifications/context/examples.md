@@ -38,7 +38,7 @@ message ContextSection {
 }
 ```
 
-Note the two `buf:lint:ignore` annotations on `Contribute`: the request and response are the bare `ContextRequest`/`ContextContribution`, not `ContributeRequest`/`ContributeResponse` — an intentional, annotated deviation from buf's default RPC-naming lint, chosen because neither name is reused by another RPC in this file and the spec's own names (`ContextRequest`, `ContextContribution`) carry real documentation value that a generic `ContributeRequest` wrapper wouldn't. This mirrors [`provider/examples.md`](../provider/examples.md#the-wire-protocol)'s identical annotation on `StreamCompletion`.
+Note the two `buf:lint:ignore` annotations on `Contribute`: the request and response are the bare `ContextRequest`/`ContextContribution`, not `ContributeRequest`/`ContributeResponse` — an intentional, annotated deviation from buf's default RPC-naming lint, chosen because neither name is reused by another RPC in this file and the spec's own names (`ContextRequest`, `ContextContribution`) carry real documentation value that a generic `ContributeRequest` wrapper wouldn't. This mirrors [`model/examples.md`](../model/examples.md#the-wire-protocol)'s identical annotation on `StreamCompletion`.
 
 ## A worked `context-assemble` sequence
 

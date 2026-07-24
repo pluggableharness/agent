@@ -1,6 +1,6 @@
 # Configuration — `agent.hcl`
 
-Covers the project-level configuration file (`agent.hcl`), the schema-to-`cty` bridge every provider's `Configure` RPC relies on, the policy DSL, agent profiles, the global user-level config file, and the kernel-written lock file. Unlike [`provider/`](../provider/README.md), [`tool/`](../tool/README.md), and [`context/`](../context/README.md) (plugin protocols) or [`agent-loop/`](../agent-loop/README.md) (kernel turn behavior), this category is a static wiring layer that reconciles concrete needs surfaced elsewhere: `tool/protocol.md`'s `risk` field, `agent-loop/`'s sub-agent profiles and loop bounds, and `context/`'s per-provider token budgets.
+Covers the project-level configuration file (`agent.hcl`), the schema-to-`cty` bridge every provider's `Configure` RPC relies on, the policy DSL, agent profiles, the global user-level config file, and the kernel-written lock file. Unlike [`model/`](../model/README.md), [`tool/`](../tool/README.md), and [`context/`](../context/README.md) (plugin protocols) or [`agent-loop/`](../agent-loop/README.md) (kernel turn behavior), this category is a static wiring layer that reconciles concrete needs surfaced elsewhere: `tool/protocol.md`'s `risk` field, `agent-loop/`'s sub-agent profiles and loop bounds, and `context/`'s per-provider token budgets.
 
 ## Scope
 

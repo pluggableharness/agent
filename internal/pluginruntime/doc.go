@@ -7,7 +7,7 @@
 // subprocess spawn under a minimal environment allowlist, handshake, the
 // authoritative post-handshake protocol-version gate, and dispense — and
 // returns a *Plugin whose Dispensed() is the raw generated category
-// service client (providerv1.ProviderServiceClient, toolv1.ToolServiceClient,
+// service client (modelv1.ModelServiceClient, toolv1.ToolServiceClient,
 // etc.). Every launched plugin is simultaneously wired with a real,
 // servable KernelCallbackService on a fixed, well-known broker ID
 // (pkg/common.CallbackBrokerID), so the plugin can call back into the

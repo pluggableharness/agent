@@ -40,7 +40,7 @@ The root/main interactive session is not architecturally distinct from a sub-age
 
 ## Model routing
 
-`model` is a structured block, not an inline shorthand string — one `primary` and zero or more `fallback` sub-blocks, each an explicit `{provider, id}` pair resolved against `required_providers`/`provider` blocks (see [`blocks-reference.md`](blocks-reference.md)). Fallback candidates MUST additionally satisfy the model provider's capability-aware routing rule (see [`../provider/README.md`](../provider/README.md)): a candidate is only eligible for a given turn if it satisfies that turn's actual requirements (context length needed, tool-use, vision, thinking), checked mechanically, not just listed in declaration order.
+`model` is a structured block, not an inline shorthand string — one `primary` and zero or more `fallback` sub-blocks, each an explicit `{provider, id}` pair resolved against `required_providers`/`provider` blocks (see [`blocks-reference.md`](blocks-reference.md)). Fallback candidates MUST additionally satisfy the model provider's capability-aware routing rule (see [`../model/README.md`](../model/README.md)): a candidate is only eligible for a given turn if it satisfies that turn's actual requirements (context length needed, tool-use, vision, thinking), checked mechanically, not just listed in declaration order.
 
 Remember that `primary`/`fallback` are HCL blocks with two attributes each (`provider`, `id`) — they MUST be written multi-line; see [`blocks-reference.md#hcl-single-line-blocks-take-only-one-argument`](blocks-reference.md#hcl-single-line-blocks-take-only-one-argument).
 

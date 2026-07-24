@@ -51,11 +51,11 @@
 //     Unix-like systems only; Windows ACLs are out of scope.
 //   - cost_ledger.cost_usd stores exactly the cost_usd value the caller
 //     computed (the model provider protocol's own cost computation,
-//     docs/specifications/provider/protocol.md#cost-computation); this
+//     docs/specifications/model/protocol.md#cost-computation); this
 //     package never recomputes a cost or token figure itself
 //     (.claude/rules/determinism.md).
 //   - events.producer_category and producers.category store the lowercase
-//     plugin-category vocabulary: provider, tool, context, memory,
+//     plugin-category vocabulary: model, tool, context, memory,
 //     frontend, widget — the same names docs/specifications/ uses as its
 //     own per-category directory names.
 //   - Store.List and Store.Children read each file's session_meta row

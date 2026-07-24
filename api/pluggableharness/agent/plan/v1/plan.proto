@@ -56,7 +56,7 @@ message PlanItem {
   string tool_name = 4;
 
   // The call's parsed arguments — the kernel's canonical ToolCall
-  // representation (provider.md §6 / pluggableharness.agent.schema.v1's subset governs
+  // representation (model.md §6 / pluggableharness.agent.schema.v1's subset governs
   // its shape). A Struct per .claude/rules/proto.md's runtime-JSON
   // carve-out.
   google.protobuf.Struct input = 5;

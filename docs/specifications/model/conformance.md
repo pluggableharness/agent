@@ -14,7 +14,7 @@ A plugin MUST classify every failure into one of the following, and MUST NOT col
 | `content_filtered` | Vendor refused/filtered content | Surface distinctly from a generic failure — policy/UX may want to handle this differently |
 | `unknown` | Anything else | MUST include the raw vendor error message/code for debugging; treat as non-retryable by default |
 
-`ProviderError` MUST include: `category` (above), `message` (human-readable), `retryable` (bool), and SHOULD include `retry_after_seconds` and the raw vendor-provided error code/body for debugging.
+`ModelError` MUST include: `category` (above), `message` (human-readable), `retryable` (bool), and SHOULD include `retry_after_seconds` and the raw vendor-provided error code/body for debugging.
 
 On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded` → `ResourceExhausted`, `rate_limited` → `ResourceExhausted` with structured detail, `overloaded` → `Unavailable`, `auth_error` → `Unauthenticated`, `invalid_request` → `InvalidArgument`, `content_filtered` → `FailedPrecondition`, cancellation → `Canceled` — never an application error, `unknown`/unmapped → `Internal`, never `Unknown`.
 

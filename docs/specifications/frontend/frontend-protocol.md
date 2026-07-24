@@ -16,11 +16,11 @@ service FrontendService {
 }
 ```
 
-`GetCapabilities` returns this frontend's `slash_commands` (see [Slash commands](#slash-commands) below) and `ConfigSchema`; it MUST be cheaply re-queryable and MUST NOT require a network call, the same guarantee [`provider/protocol.md#getcapabilities`](../provider/protocol.md#getcapabilities) requires of a model provider. `Configure` follows the same contract as [`provider/protocol.md#configure`](../provider/protocol.md#configure): a config value decoded from the provider's `agent.hcl` block via the schema-to-cty bridge, rejected with a structured error at configure time rather than deferred to the first `Attach`, and never echoing a received secret back out through any event, render, or log line.
+`GetCapabilities` returns this frontend's `slash_commands` (see [Slash commands](#slash-commands) below) and `ConfigSchema`; it MUST be cheaply re-queryable and MUST NOT require a network call, the same guarantee [`model/protocol.md#getcapabilities`](../model/protocol.md#getcapabilities) requires of a model provider. `Configure` follows the same contract as [`model/protocol.md#configure`](../model/protocol.md#configure): a config value decoded from the provider's `agent.hcl` block via the schema-to-cty bridge, rejected with a structured error at configure time rather than deferred to the first `Attach`, and never echoing a received secret back out through any event, render, or log line.
 
 ## Fast path vs. full render
 
-Live token-by-token text streaming (a model provider's `text_delta`, per [`provider/protocol.md#streamcompletion`](../provider/protocol.md#streamcompletion)) does **not** round-trip through a producer's `Render` call per token — that would be far too slow. The kernel forwards raw text deltas to the frontend directly as they arrive, as `ServerEvent.stream_delta`; `Render` is invoked once per producer per logically-complete unit (a finished message, a finished tool result), not per token, and its result arrives as `ServerEvent.render` carrying a [`PlacedContent`](render-tree.md#placement--regions).
+Live token-by-token text streaming (a model provider's `text_delta`, per [`model/protocol.md#streamcompletion`](../model/protocol.md#streamcompletion)) does **not** round-trip through a producer's `Render` call per token — that would be far too slow. The kernel forwards raw text deltas to the frontend directly as they arrive, as `ServerEvent.stream_delta`; `Render` is invoked once per producer per logically-complete unit (a finished message, a finished tool result), not per token, and its result arrives as `ServerEvent.render` carrying a [`PlacedContent`](render-tree.md#placement--regions).
 
 ```protobuf
 message ServerEvent {
@@ -136,7 +136,7 @@ message ClientEvent {
 
 ## Slash commands
 
-`SlashCommandSpec` is defined once, canonically, here — every other category's capability response ([`provider/protocol.md#getcapabilities`](../provider/protocol.md#getcapabilities), [`tool/protocol.md#getschema`](../tool/protocol.md#getschema), and the equivalent sections in `context/` and `memory/`) declares an optional `[]SlashCommandSpec` field of this same type and links back here rather than redefining it. The wire type is factored out into its own shared vocabulary for exactly that reason: it's shared by every provider category's `GetCapabilities`/`GetSchema` response, not owned by the frontend category alone.
+`SlashCommandSpec` is defined once, canonically, here — every other category's capability response ([`model/protocol.md#getcapabilities`](../model/protocol.md#getcapabilities), [`tool/protocol.md#getschema`](../tool/protocol.md#getschema), and the equivalent sections in `context/` and `memory/`) declares an optional `[]SlashCommandSpec` field of this same type and links back here rather than redefining it. The wire type is factored out into its own shared vocabulary for exactly that reason: it's shared by every provider category's `GetCapabilities`/`GetSchema` response, not owned by the frontend category alone.
 
 ```protobuf
 enum Dispatch {

@@ -2,7 +2,7 @@
 
 ## Error taxonomy
 
-Smaller than the model-provider taxonomy ([`provider/conformance.md#error-taxonomy`](../provider/conformance.md#error-taxonomy)), but a plugin MUST still classify every failure into one of the following rather than collapsing them into one generic error:
+Smaller than the model-provider taxonomy ([`model/conformance.md#error-taxonomy`](../model/conformance.md#error-taxonomy)), but a plugin MUST still classify every failure into one of the following rather than collapsing them into one generic error:
 
 | Category | Meaning | Kernel's expected reaction |
 |---|---|---|

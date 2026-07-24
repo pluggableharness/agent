@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 // Package pluggableharness.agent.content.v1 defines the canonical content-block message
-// schema described in specifications/provider.md §5 — the state backend's
+// schema described in specifications/model.md §5 — the state backend's
 // source of truth for conversation history (state-backend.md §5's `message`
 // event kind). Every model-provider adapter translates its own vendor
 // format to and from exactly this schema; nothing else in the system
@@ -30,7 +30,7 @@ enum Role {
 }
 
 // Message is one turn in the canonical conversation history: a role plus
-// an ordered list of content blocks. provider.md §5 is the source of these
+// an ordered list of content blocks. model.md §5 is the source of these
 // semantics.
 message Message {
   // Which party produced this message. MUST be set.
@@ -43,7 +43,7 @@ message Message {
 
 // ContentBlock is one block within a Message. Exactly one variant is set.
 // Which variants a given model MAY produce/accept is gated by that model's
-// ModelSpec capability flags (provider.md §2, §5): `text` MUST work both
+// ModelSpec capability flags (model.md §2, §5): `text` MUST work both
 // directions unconditionally; `image` requires supports_vision; `tool_use`/
 // `tool_result` require supports_tool_use; `thinking`/`redacted_thinking`
 // require ThinkingSpec.supported.
@@ -59,7 +59,7 @@ message ContentBlock {
 }
 
 // TextBlock is plain conversational text. MUST be supported by every
-// model, in both directions (provider.md §5).
+// model, in both directions (model.md §5).
 message TextBlock {
   // The block's text content.
   string text = 1;
@@ -67,7 +67,7 @@ message TextBlock {
 
 // ToolUseBlock represents the model requesting a tool invocation. `id`
 // correlates this block to the resulting ToolResultBlock, mirroring
-// provider.md §4's StreamEvent tool_call_start/tool_call_done id
+// model.md §4's StreamEvent tool_call_start/tool_call_done id
 // correlation once the stream has been assembled into a persisted message.
 message ToolUseBlock {
   // Correlation id for the matching ToolResultBlock.
@@ -104,9 +104,9 @@ message ToolResultBlock {
 }
 
 // ImageBlock is inline image content. Requires the target model's
-// ModelSpec.supports_vision (provider.md §5); the kernel MUST reject an
+// ModelSpec.supports_vision (model.md §5); the kernel MUST reject an
 // ImageBlock sent to a model where that flag is false, with
-// invalid_request (provider.md §8).
+// invalid_request (model.md §8).
 message ImageBlock {
   // Raw image bytes.
   bytes data = 1;
@@ -116,16 +116,16 @@ message ImageBlock {
 }
 
 // ThinkingBlock is the model's extended-reasoning output, when
-// ThinkingSpec.supported (provider.md §2). Requires the model's
+// ThinkingSpec.supported (model.md §2). Requires the model's
 // ThinkingSpec.supported to be true.
 message ThinkingBlock {
-  // The accumulated reasoning text (provider.md §4's thinking_delta
+  // The accumulated reasoning text (model.md §4's thinking_delta
   // StreamEvent variants, assembled into one block once the turn
   // completes).
   string text = 1;
 
   // An opaque vendor integrity token, when the vendor's thinking blocks
-  // carry one (provider.md §4's thinking_signature StreamEvent variant).
+  // carry one (model.md §4's thinking_signature StreamEvent variant).
   // The kernel MUST store and round-trip this verbatim without
   // interpreting it — it is meaningful only to the vendor that issued it.
   bytes signature = 2;

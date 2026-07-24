@@ -10,7 +10,7 @@ An AI coding harness built as a Go microkernel: the kernel owns plugin lifecycle
 
 | Path | Contents |
 |---|---|
-| `docs/specifications/` | The protocol contracts: one directory per plugin category (`provider/` = model, `tool/`, `context/`, `memory/`, `frontend/` incl. widgets) plus kernel behavior (`agent-loop/`, `configuration/`, `kernel-callbacks.md`, `state-backend.md`) |
+| `docs/specifications/` | The protocol contracts: one directory per plugin category (`model/`, `tool/`, `context/`, `memory/`, `frontend/` incl. widgets) plus kernel behavior (`agent-loop/`, `configuration/`, `kernel-callbacks.md`, `state-backend.md`) |
 | `docs/first-party/` | Separate first-party catalog (tools, model providers). **Not** the tool *protocol* — that's `docs/specifications/tool/` |
 | `api/` | `.proto` sources, buf module root (`buf.yaml`, `buf.gen.yaml`) |
 | `internal/` | Kernel-side implementation — config, registry, policy, agentprofile, pluginruntime, kernelcallback, telemetry, log, hclsecret, producer |

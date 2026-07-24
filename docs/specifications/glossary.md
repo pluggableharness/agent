@@ -5,7 +5,7 @@ Terminology used throughout `docs/specifications/`.
 | Term | Meaning |
 |---|---|
 | **Provider** | A plugin binary implementing one of the six categories: model, tool, memory, context, frontend, widget. |
-| **Category** | One of the six provider kinds above, each with its own protocol (`provider/`, `tool/`, `memory/`, `context/`, `frontend/` — widget is documented alongside frontend). |
+| **Category** | One of the six provider kinds above, each with its own protocol (`model/`, `tool/`, `memory/`, `context/`, `frontend/` — widget is documented alongside frontend). |
 | **Resource** | A tool operation that **mutates** state — gated behind the plan/apply flow. See [`agent-loop/plan-apply-gate.md`](agent-loop/plan-apply-gate.md). |
 | **Data source** | A tool operation that only **reads** — executes freely (subject to a policy precheck, not a plan/apply gate), feeds the plan. |
 | **Interactive** | A tool kind for calls that neither read nor write state but require a human response mid-turn (e.g. `ask_user`). See [`tool/protocol.md`](tool/protocol.md#kind-interactive) and [`agent-loop/plan-apply-gate.md`](agent-loop/plan-apply-gate.md). |
@@ -26,5 +26,5 @@ Terminology used throughout `docs/specifications/`.
 | **Depth budget** | The remaining sub-agent nesting allowance threaded from a profile's configured maximum, decremented per `RunSession` hop, distinct at the root (kernel default) vs. a child (inherited). |
 | **State backend** | The kernel-owned, non-pluggable (in v1) persistence layer — sqlite-per-session — recording every event, cost figure, and plan item. The kernel is its sole writer. See [`state-backend.md`](state-backend.md). |
 | **Schema-to-cty bridge** | The mechanism translating a provider's declared config schema into an `hcldec` spec so `agent.hcl` provider blocks decode through real HCL2/`cty`, distinct from the JSON-Schema subset tool authors use for LLM function-calling. See [`configuration/blocks-reference.md`](configuration/blocks-reference.md). |
-| **Canonical message** | The kernel's internal content-block message representation (`text`, `tool_use`, `tool_result`, `image`, `thinking`, `redacted_thinking`) — the state backend's source of truth, independent of any one vendor's wire format. See [`provider/data-types.md`](provider/data-types.md). |
+| **Canonical message** | The kernel's internal content-block message representation (`text`, `tool_use`, `tool_result`, `image`, `thinking`, `redacted_thinking`) — the state backend's source of truth, independent of any one vendor's wire format. See [`model/data-types.md`](model/data-types.md). |
 | **Lock file** | `.agent/agent.lock.hcl` — pins resolved provider version, source, and checksum per provider, mirroring `.terraform.lock.hcl`. See [`configuration/lock-file.md`](configuration/lock-file.md). |

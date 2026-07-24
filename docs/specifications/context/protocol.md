@@ -20,7 +20,7 @@ ContextCapabilities {
 
 `compactor` is a normal capability flag, not a special case: a context provider MAY declare itself the one responsible for compacting or summarizing content — including, but not limited to, other providers' already-assembled sections and the session's conversation history — when the context budget is under pressure. Declaring `compactor: true` extends what this provider is allowed to touch on `Contribute` (see [`data-types.md#ordering--chaining`](data-types.md#ordering--chaining)); a provider that doesn't declare it stays confined to its own section(s).
 
-`ContextCapabilities` MAY additionally include `slash_commands: []SlashCommandSpec` and MUST include the provider's `ConfigSchema`, so the kernel knows what fields `Configure` expects before ever calling it — the same shape every provider category's `GetCapabilities` follows, see [`provider/protocol.md#getcapabilities`](../provider/protocol.md#getcapabilities).
+`ContextCapabilities` MAY additionally include `slash_commands: []SlashCommandSpec` and MUST include the provider's `ConfigSchema`, so the kernel knows what fields `Configure` expects before ever calling it — the same shape every provider category's `GetCapabilities` follows, see [`model/protocol.md#getcapabilities`](../model/protocol.md#getcapabilities).
 
 ## `Configure`
 

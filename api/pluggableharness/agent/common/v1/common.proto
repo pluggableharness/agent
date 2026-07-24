@@ -36,8 +36,8 @@ enum Category {
   // Zero value. Never valid for a real producer; its presence on the wire
   // means a caller forgot to set the field.
   CATEGORY_UNSPECIFIED = 0;
-  // A model (LLM vendor) provider — specifications/provider.md.
-  CATEGORY_PROVIDER = 1;
+  // A model (LLM vendor) provider — specifications/model.md.
+  CATEGORY_MODEL = 1;
   // A tool provider — specifications/tool.md.
   CATEGORY_TOOL = 2;
   // A context provider — specifications/context.md.

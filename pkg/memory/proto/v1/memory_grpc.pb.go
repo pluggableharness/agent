@@ -51,7 +51,7 @@ type MemoryServiceClient interface {
 	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
 	// Configure decodes this provider's agent.hcl config block, per the
 	// same schema-to-cty bridge contract as the rest of this spec series
-	// (provider.md §3). Unary. memory.md §5.
+	// (model.md §3). Unary. memory.md §5.
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
 	// Recall is the read side: it fires at context-assemble time, competing
 	// for the same token budget pool as context providers, and returns the
@@ -192,7 +192,7 @@ type MemoryServiceServer interface {
 	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
 	// Configure decodes this provider's agent.hcl config block, per the
 	// same schema-to-cty bridge contract as the rest of this spec series
-	// (provider.md §3). Unary. memory.md §5.
+	// (model.md §3). Unary. memory.md §5.
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	// Recall is the read side: it fires at context-assemble time, competing
 	// for the same token budget pool as context providers, and returns the

@@ -229,7 +229,7 @@ message ContextContribution {
 
 // ContextErrorCategory classifies a context provider's failures.
 // context.md §10 — smaller than the model-provider taxonomy
-// (provider.md §8), but a plugin MUST still classify failures rather than
+// (model.md §8), but a plugin MUST still classify failures rather than
 // collapsing them into one generic error.
 enum ContextErrorCategory {
   // Zero value. Never valid for a real error; its presence on the wire

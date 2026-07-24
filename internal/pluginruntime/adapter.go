@@ -15,7 +15,7 @@ import (
 	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	memoryv1 "github.com/pluggableharness/agent/pkg/memory/proto/v1"
-	providerv1 "github.com/pluggableharness/agent/pkg/provider/proto/v1"
+	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 	widgetv1 "github.com/pluggableharness/agent/pkg/widget/proto/v1"
 
@@ -82,8 +82,8 @@ func (p *categoryPlugin) newCallbackServer(opts []grpc.ServerOption) *grpc.Serve
 // dialed over conn — the value a Plugin's Dispensed() ultimately returns.
 func newCategoryClient(category commonv1.Category, conn *grpc.ClientConn) (any, error) {
 	switch category {
-	case commonv1.Category_CATEGORY_PROVIDER:
-		return providerv1.NewProviderServiceClient(conn), nil
+	case commonv1.Category_CATEGORY_MODEL:
+		return modelv1.NewModelServiceClient(conn), nil
 	case commonv1.Category_CATEGORY_TOOL:
 		return toolv1.NewToolServiceClient(conn), nil
 	case commonv1.Category_CATEGORY_CONTEXT:

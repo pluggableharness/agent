@@ -1,6 +1,6 @@
 # RenderTree
 
-The display-agnostic intermediate representation every category's optional `Render` RPC returns — [`provider/protocol.md#render`](../provider/protocol.md#render), [`tool/protocol.md#render`](../tool/protocol.md#render), and the equivalent sections in `context/` and `memory/` all return exactly this type. A frontend paints it; nothing upstream of `Render` needs to know how. This document is the canonical, standalone definition; every other category's `Render` section links back here rather than re-describing the shape.
+The display-agnostic intermediate representation every category's optional `Render` RPC returns — [`model/protocol.md#render`](../model/protocol.md#render), [`tool/protocol.md#render`](../tool/protocol.md#render), and the equivalent sections in `context/` and `memory/` all return exactly this type. A frontend paints it; nothing upstream of `Render` needs to know how. This document is the canonical, standalone definition; every other category's `Render` section links back here rather than re-describing the shape.
 
 The wire type is deliberately factored into its own vocabulary, separate from both the frontend and widget protocols — both the frontend provider protocol ([`frontend-protocol.md`](frontend-protocol.md)) and the widget provider protocol ([`widget-protocol.md`](widget-protocol.md)) place content into the same `Region` enum, and neither category should depend on the other's definitions.
 

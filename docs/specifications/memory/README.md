@@ -1,6 +1,6 @@
 # Memory provider protocol
 
-Covers the **memory provider** category — plugins that persist knowledge across sessions and recall it into future ones. Sibling category to [`provider/`](../provider/README.md), [`tool/`](../tool/README.md), [`context/`](../context/README.md), and [`frontend/`](../frontend/README.md).
+Covers the **memory provider** category — plugins that persist knowledge across sessions and recall it into future ones. Sibling category to [`model/`](../model/README.md), [`tool/`](../tool/README.md), [`context/`](../context/README.md), and [`frontend/`](../frontend/README.md).
 
 A memory provider does two things: it reads relevant recall into context assembly, and it writes new knowledge worth persisting across sessions. This is a **distinct plugin category with its own protocol**, not a reuse of the context provider's `Contribute` RPC — memory-specific data (record type, scope, provenance, ratification status) stays first-class through a dedicated `Recall` RPC, and the kernel adapts results into `ContextSection`s before merging them into the assembled prompt. See [`protocol.md#recall-the-read-side`](protocol.md#recall-the-read-side).
 

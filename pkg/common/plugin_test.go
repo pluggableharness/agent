@@ -35,7 +35,7 @@ func TestPluginKey(t *testing.T) {
 		want string
 	}{
 		{"unspecified", commonv1.Category_CATEGORY_UNSPECIFIED, "unspecified"},
-		{"provider", commonv1.Category_CATEGORY_PROVIDER, "provider"},
+		{"model", commonv1.Category_CATEGORY_MODEL, "model"},
 		{"tool", commonv1.Category_CATEGORY_TOOL, "tool"},
 		{"context", commonv1.Category_CATEGORY_CONTEXT, "context"},
 		{"memory", commonv1.Category_CATEGORY_MEMORY, "memory"},

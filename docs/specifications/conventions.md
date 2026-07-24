@@ -13,7 +13,7 @@ How to read and how to write every file under `docs/specifications/`.
 
 ## Cross-references — anchors only, never section numbers
 
-**Every cross-reference is a relative file path plus a Markdown heading anchor**, e.g. `[cost computation](provider/protocol.md#cost-computation)`. A heading anchor survives reordering of sections; only a heading *rename* breaks it, which is both rarer and easy to catch by grepping for the anchor text across the tree.
+**Every cross-reference is a relative file path plus a Markdown heading anchor**, e.g. `[cost computation](model/protocol.md#cost-computation)`. A heading anchor survives reordering of sections; only a heading *rename* breaks it, which is both rarer and easy to catch by grepping for the anchor text across the tree.
 
 When linking to a heading, use GitHub-flavored anchor rules: lowercase, spaces to hyphens, punctuation stripped (`## Cost computation` → `#cost-computation`).
 
@@ -31,7 +31,7 @@ When linking to a heading, use GitHub-flavored anchor rules: lowercase, spaces t
 
 ## Directory shape
 
-Each plugin-category directory (`provider/`, `tool/`, `context/`, `memory/`, `frontend/`) follows the same five-file template:
+Each plugin-category directory (`model/`, `tool/`, `context/`, `memory/`, `frontend/`) follows the same five-file template:
 
 - `README.md` — overview and transport & lifecycle.
 - `protocol.md` — every RPC in the category, request/response shape, MUST/SHOULD/MAY behavior.

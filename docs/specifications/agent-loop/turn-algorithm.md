@@ -68,7 +68,7 @@ Each bound MUST be checked independently — hitting any one of the three MUST t
 
 ### Cost accounting
 
-`ModelSpec.pricing` ([`provider/data-types.md#pricing`](../provider/data-types.md#pricing)) is what makes per-turn cost computation possible: the kernel MUST compute and persist `cost_usd` per `usage` event at receipt time, per [`provider/protocol.md#cost-computation`](../provider/protocol.md#cost-computation). `max_cost_usd` tracking is exactly that: the kernel MUST accumulate a running sum of `cost_usd` across every `usage` event in a session and compare it against `max_cost_usd` at step 17.
+`ModelSpec.pricing` ([`model/data-types.md#pricing`](../model/data-types.md#pricing)) is what makes per-turn cost computation possible: the kernel MUST compute and persist `cost_usd` per `usage` event at receipt time, per [`model/protocol.md#cost-computation`](../model/protocol.md#cost-computation). `max_cost_usd` tracking is exactly that: the kernel MUST accumulate a running sum of `cost_usd` across every `usage` event in a session and compare it against `max_cost_usd` at step 17.
 
 **Cost rolls up the session tree** — the same reasoning [Depth limits](subagents.md#depth-limits) already establishes for `max_depth`. A session's `max_cost_usd` MUST account for its own spend *and every descendant `RunSession`'s spend*, not just its own direct model calls — otherwise a cost bound is trivially defeated by spawning sub-agents to do the expensive work:
 

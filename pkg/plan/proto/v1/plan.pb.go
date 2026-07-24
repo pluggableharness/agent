@@ -117,7 +117,7 @@ type PlanItem struct {
 	// The tool operation being called (tool.md §2 ToolSchema.name).
 	ToolName string `protobuf:"bytes,4,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
 	// The call's parsed arguments — the kernel's canonical ToolCall
-	// representation (provider.md §6 / pluggableharness.agent.schema.v1's subset governs
+	// representation (model.md §6 / pluggableharness.agent.schema.v1's subset governs
 	// its shape). A Struct per .claude/rules/proto.md's runtime-JSON
 	// carve-out.
 	Input *structpb.Struct `protobuf:"bytes,5,opt,name=input,proto3" json:"input,omitempty"`

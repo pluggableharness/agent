@@ -228,7 +228,7 @@ func (OutputStream) EnumDescriptor() ([]byte, []int) {
 }
 
 // ToolErrorCategory classifies why an Invoke call failed, per tool.md §8.
-// Deliberately distinct from provider.md §8's ProviderErrorCategory — there
+// Deliberately distinct from model.md §8's ModelErrorCategory — there
 // is no RATE_LIMITED or CONTEXT_LENGTH_EXCEEDED here, those are
 // model-vendor concepts. The two enums MUST NOT be merged even though the
 // surrounding error-envelope shape (category/message/retryable) is
@@ -595,10 +595,10 @@ type ToolSchema struct {
 	Risk RiskClass `protobuf:"varint,3,opt,name=risk,proto3,enum=pluggableharness.agent.tool.v1.RiskClass" json:"risk,omitempty"`
 	// MUST — shown to the model for tool selection and in plan diffs.
 	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// MUST — the common JSON-Schema subset per provider.md §6, describing the
+	// MUST — the common JSON-Schema subset per model.md §6, describing the
 	// shape of ToolCall.arguments for this operation.
 	InputSchema *v12.Schema `protobuf:"bytes,5,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
-	// MUST — the common JSON-Schema subset per provider.md §6, describing the
+	// MUST — the common JSON-Schema subset per model.md §6, describing the
 	// shape of ToolResult.payload for this operation.
 	OutputSchema *v12.Schema `protobuf:"bytes,6,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"`
 	// MUST — true if Invoke may emit intermediate ToolEvents (output_chunk,

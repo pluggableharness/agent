@@ -48,7 +48,7 @@ const (
 	// Zero value. Never valid on the wire; its presence means a caller
 	// forgot to set the field.
 	EventKind_EVENT_KIND_UNSPECIFIED EventKind = 0
-	// A completed model turn's canonical message (provider.md §5). Usage
+	// A completed model turn's canonical message (model.md §5). Usage
 	// and cost figures live inside this payload, not as separate fields or
 	// a separate EventKind (state-backend.md §5).
 	EventKind_EVENT_KIND_MESSAGE EventKind = 1
@@ -310,7 +310,7 @@ type CountTokensRequest struct {
 	// content-type constraint context.md and memory.md already impose.
 	Content []*v11.ContentBlock `protobuf:"bytes,1,rep,name=content,proto3" json:"content,omitempty"`
 	// The model whose tokenizer should be preferred, if that model
-	// provider implements the optional CountTokens RPC (provider.md §2.1).
+	// provider implements the optional CountTokens RPC (model.md §2.1).
 	// MAY be omitted, in which case the kernel's fallback heuristic
 	// (kernel-callbacks.md §3) is used.
 	ModelRef      *v13.ModelRef `protobuf:"bytes,2,opt,name=model_ref,json=modelRef,proto3,oneof" json:"model_ref,omitempty"`

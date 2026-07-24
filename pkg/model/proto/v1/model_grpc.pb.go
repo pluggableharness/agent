@@ -2,13 +2,19 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/provider/v1/provider.proto
+// source: pluggableharness/agent/model/v1/model.proto
 
-// Package pluggableharness.agent.provider.v1 defines the model (LLM vendor) provider
-// plugin protocol described in specifications/provider.md — see
-// .claude/rules/proto.md.
+// Package pluggableharness.agent.model.v1 defines the model (LLM vendor) provider
+// plugin protocol described in specifications/model.md — see
+// .claude/rules/proto.md — plus the two distinct model-identity shapes used
+// across the other specs. The identity shapes are deliberately NOT unified
+// into one message: ModelTarget is a rich "what am I generating context
+// for" descriptor (context.md §4, memory.md §6); ModelRef is a narrow
+// "which model's tokenizer" selector (kernel-callbacks.md §2). Merging them
+// would force every CountTokens caller to populate fields it doesn't have
+// and doesn't need.
 
-package providerv1
+package modelv1
 
 import (
 	context "context"
@@ -23,31 +29,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ProviderService_GetCapabilities_FullMethodName  = "/pluggableharness.agent.provider.v1.ProviderService/GetCapabilities"
-	ProviderService_Configure_FullMethodName        = "/pluggableharness.agent.provider.v1.ProviderService/Configure"
-	ProviderService_StreamCompletion_FullMethodName = "/pluggableharness.agent.provider.v1.ProviderService/StreamCompletion"
-	ProviderService_CountTokens_FullMethodName      = "/pluggableharness.agent.provider.v1.ProviderService/CountTokens"
-	ProviderService_Render_FullMethodName           = "/pluggableharness.agent.provider.v1.ProviderService/Render"
+	ModelService_GetCapabilities_FullMethodName  = "/pluggableharness.agent.model.v1.ModelService/GetCapabilities"
+	ModelService_Configure_FullMethodName        = "/pluggableharness.agent.model.v1.ModelService/Configure"
+	ModelService_StreamCompletion_FullMethodName = "/pluggableharness.agent.model.v1.ModelService/StreamCompletion"
+	ModelService_CountTokens_FullMethodName      = "/pluggableharness.agent.model.v1.ModelService/CountTokens"
+	ModelService_Render_FullMethodName           = "/pluggableharness.agent.model.v1.ModelService/Render"
 )
 
-// ProviderServiceClient is the client API for ProviderService service.
+// ModelServiceClient is the client API for ModelService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// ProviderService is the model provider plugin protocol described in
-// specifications/provider.md §1: a subprocess + gRPC plugin (via
+// ModelService is the model provider plugin protocol described in
+// specifications/model.md §1: a subprocess + gRPC plugin (via
 // hashicorp/go-plugin) fronting one LLM vendor. Every plugin exposes
 // GetCapabilities, Configure, and StreamCompletion (all MUST); CountTokens
 // SHOULD be implemented; Render MAY be implemented.
-type ProviderServiceClient interface {
+type ModelServiceClient interface {
 	// GetCapabilities returns one ModelSpec per model this plugin can serve,
-	// per provider.md §2. MUST be cheap to call repeatedly (the kernel MAY
+	// per model.md §2. MUST be cheap to call repeatedly (the kernel MAY
 	// call it before every routing decision) and MUST NOT require a network
 	// call to the vendor if avoidable.
 	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
 	// Configure delivers the provider's agent.hcl config block, already
 	// decoded from HCL/cty into a Struct by the kernel's schema-to-cty
-	// bridge, per provider.md §3. MUST reject missing required fields (e.g.
+	// bridge, per model.md §3. MUST reject missing required fields (e.g.
 	// no API key) with a structured error at Configure time rather than
 	// deferring the failure to the first StreamCompletion call. A plugin
 	// MUST NOT echo any received secret value into an Emit'd event, a Render
@@ -60,19 +66,19 @@ type ProviderServiceClient interface {
 	// stream of StreamEvents back. A backend whose vendor API is not natively
 	// streaming (batch-only) MUST still implement this RPC shape, emitting
 	// its full response as a single terminal burst of events followed by a
-	// `stop` event (provider.md §4). Cancellation is the kernel closing the
+	// `stop` event (model.md §4). Cancellation is the kernel closing the
 	// gRPC stream; the plugin MUST treat this as normal control flow — stop
 	// generating and release resources — surfacing StopReason
 	// STOP_REASON_CANCELLED, never treating it as an error condition
-	// (provider.md §1, .claude/rules/grpc.md's cancellation rule).
+	// (model.md §1, .claude/rules/grpc.md's cancellation rule).
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is the bare "StreamEvent" per provider.md §4's
+	// Stream element type is the bare "StreamEvent" per model.md §4's
 	// literal spec, naming the streamed domain concept rather than the RPC.
 	StreamCompletion(ctx context.Context, in *StreamCompletionRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamEvent], error)
 	// CountTokens returns an exact token count for the given text, using the
 	// vendor's real tokenizer. SHOULD be implemented per model provider
-	// (provider.md §2.1) — upgraded from an initial MAY per operator
+	// (model.md §2.1) — upgraded from an initial MAY per operator
 	// decision. A model provider that implements this gets its counts
 	// marked exact when the kernel resolves a CountTokens call against it
 	// (kernel-callbacks.md §2); a provider that doesn't falls back to the
@@ -81,43 +87,43 @@ type ProviderServiceClient interface {
 	// Render is the model-provider side of the Emit->Render->Paint pipeline
 	// (see docs/specifications/architecture.md), returning a RenderTree for an opaque
 	// emitted payload — e.g. to render a `thinking` block collapsed by
-	// default, or usage/cost info specially. MAY be implemented; provider.md
+	// default, or usage/cost info specially. MAY be implemented; model.md
 	// §7 notes most model-provider payloads (plain text, tool calls) render
 	// fine under the kernel's generic fallback when this RPC is absent.
 	Render(ctx context.Context, in *RenderRequest, opts ...grpc.CallOption) (*RenderResponse, error)
 }
 
-type providerServiceClient struct {
+type modelServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewProviderServiceClient(cc grpc.ClientConnInterface) ProviderServiceClient {
-	return &providerServiceClient{cc}
+func NewModelServiceClient(cc grpc.ClientConnInterface) ModelServiceClient {
+	return &modelServiceClient{cc}
 }
 
-func (c *providerServiceClient) GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error) {
+func (c *modelServiceClient) GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetCapabilitiesResponse)
-	err := c.cc.Invoke(ctx, ProviderService_GetCapabilities_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ModelService_GetCapabilities_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *providerServiceClient) Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error) {
+func (c *modelServiceClient) Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ConfigureResponse)
-	err := c.cc.Invoke(ctx, ProviderService_Configure_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ModelService_Configure_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *providerServiceClient) StreamCompletion(ctx context.Context, in *StreamCompletionRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamEvent], error) {
+func (c *modelServiceClient) StreamCompletion(ctx context.Context, in *StreamCompletionRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &ProviderService_ServiceDesc.Streams[0], ProviderService_StreamCompletion_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ModelService_ServiceDesc.Streams[0], ModelService_StreamCompletion_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,46 +138,46 @@ func (c *providerServiceClient) StreamCompletion(ctx context.Context, in *Stream
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ProviderService_StreamCompletionClient = grpc.ServerStreamingClient[StreamEvent]
+type ModelService_StreamCompletionClient = grpc.ServerStreamingClient[StreamEvent]
 
-func (c *providerServiceClient) CountTokens(ctx context.Context, in *CountTokensRequest, opts ...grpc.CallOption) (*CountTokensResponse, error) {
+func (c *modelServiceClient) CountTokens(ctx context.Context, in *CountTokensRequest, opts ...grpc.CallOption) (*CountTokensResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CountTokensResponse)
-	err := c.cc.Invoke(ctx, ProviderService_CountTokens_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ModelService_CountTokens_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *providerServiceClient) Render(ctx context.Context, in *RenderRequest, opts ...grpc.CallOption) (*RenderResponse, error) {
+func (c *modelServiceClient) Render(ctx context.Context, in *RenderRequest, opts ...grpc.CallOption) (*RenderResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RenderResponse)
-	err := c.cc.Invoke(ctx, ProviderService_Render_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ModelService_Render_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ProviderServiceServer is the server API for ProviderService service.
-// All implementations must embed UnimplementedProviderServiceServer
+// ModelServiceServer is the server API for ModelService service.
+// All implementations must embed UnimplementedModelServiceServer
 // for forward compatibility.
 //
-// ProviderService is the model provider plugin protocol described in
-// specifications/provider.md §1: a subprocess + gRPC plugin (via
+// ModelService is the model provider plugin protocol described in
+// specifications/model.md §1: a subprocess + gRPC plugin (via
 // hashicorp/go-plugin) fronting one LLM vendor. Every plugin exposes
 // GetCapabilities, Configure, and StreamCompletion (all MUST); CountTokens
 // SHOULD be implemented; Render MAY be implemented.
-type ProviderServiceServer interface {
+type ModelServiceServer interface {
 	// GetCapabilities returns one ModelSpec per model this plugin can serve,
-	// per provider.md §2. MUST be cheap to call repeatedly (the kernel MAY
+	// per model.md §2. MUST be cheap to call repeatedly (the kernel MAY
 	// call it before every routing decision) and MUST NOT require a network
 	// call to the vendor if avoidable.
 	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
 	// Configure delivers the provider's agent.hcl config block, already
 	// decoded from HCL/cty into a Struct by the kernel's schema-to-cty
-	// bridge, per provider.md §3. MUST reject missing required fields (e.g.
+	// bridge, per model.md §3. MUST reject missing required fields (e.g.
 	// no API key) with a structured error at Configure time rather than
 	// deferring the failure to the first StreamCompletion call. A plugin
 	// MUST NOT echo any received secret value into an Emit'd event, a Render
@@ -184,19 +190,19 @@ type ProviderServiceServer interface {
 	// stream of StreamEvents back. A backend whose vendor API is not natively
 	// streaming (batch-only) MUST still implement this RPC shape, emitting
 	// its full response as a single terminal burst of events followed by a
-	// `stop` event (provider.md §4). Cancellation is the kernel closing the
+	// `stop` event (model.md §4). Cancellation is the kernel closing the
 	// gRPC stream; the plugin MUST treat this as normal control flow — stop
 	// generating and release resources — surfacing StopReason
 	// STOP_REASON_CANCELLED, never treating it as an error condition
-	// (provider.md §1, .claude/rules/grpc.md's cancellation rule).
+	// (model.md §1, .claude/rules/grpc.md's cancellation rule).
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is the bare "StreamEvent" per provider.md §4's
+	// Stream element type is the bare "StreamEvent" per model.md §4's
 	// literal spec, naming the streamed domain concept rather than the RPC.
 	StreamCompletion(*StreamCompletionRequest, grpc.ServerStreamingServer[StreamEvent]) error
 	// CountTokens returns an exact token count for the given text, using the
 	// vendor's real tokenizer. SHOULD be implemented per model provider
-	// (provider.md §2.1) — upgraded from an initial MAY per operator
+	// (model.md §2.1) — upgraded from an initial MAY per operator
 	// decision. A model provider that implements this gets its counts
 	// marked exact when the kernel resolves a CountTokens call against it
 	// (kernel-callbacks.md §2); a provider that doesn't falls back to the
@@ -205,169 +211,169 @@ type ProviderServiceServer interface {
 	// Render is the model-provider side of the Emit->Render->Paint pipeline
 	// (see docs/specifications/architecture.md), returning a RenderTree for an opaque
 	// emitted payload — e.g. to render a `thinking` block collapsed by
-	// default, or usage/cost info specially. MAY be implemented; provider.md
+	// default, or usage/cost info specially. MAY be implemented; model.md
 	// §7 notes most model-provider payloads (plain text, tool calls) render
 	// fine under the kernel's generic fallback when this RPC is absent.
 	Render(context.Context, *RenderRequest) (*RenderResponse, error)
-	mustEmbedUnimplementedProviderServiceServer()
+	mustEmbedUnimplementedModelServiceServer()
 }
 
-// UnimplementedProviderServiceServer must be embedded to have
+// UnimplementedModelServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedProviderServiceServer struct{}
+type UnimplementedModelServiceServer struct{}
 
-func (UnimplementedProviderServiceServer) GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error) {
+func (UnimplementedModelServiceServer) GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetCapabilities not implemented")
 }
-func (UnimplementedProviderServiceServer) Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error) {
+func (UnimplementedModelServiceServer) Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Configure not implemented")
 }
-func (UnimplementedProviderServiceServer) StreamCompletion(*StreamCompletionRequest, grpc.ServerStreamingServer[StreamEvent]) error {
+func (UnimplementedModelServiceServer) StreamCompletion(*StreamCompletionRequest, grpc.ServerStreamingServer[StreamEvent]) error {
 	return status.Error(codes.Unimplemented, "method StreamCompletion not implemented")
 }
-func (UnimplementedProviderServiceServer) CountTokens(context.Context, *CountTokensRequest) (*CountTokensResponse, error) {
+func (UnimplementedModelServiceServer) CountTokens(context.Context, *CountTokensRequest) (*CountTokensResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CountTokens not implemented")
 }
-func (UnimplementedProviderServiceServer) Render(context.Context, *RenderRequest) (*RenderResponse, error) {
+func (UnimplementedModelServiceServer) Render(context.Context, *RenderRequest) (*RenderResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Render not implemented")
 }
-func (UnimplementedProviderServiceServer) mustEmbedUnimplementedProviderServiceServer() {}
-func (UnimplementedProviderServiceServer) testEmbeddedByValue()                         {}
+func (UnimplementedModelServiceServer) mustEmbedUnimplementedModelServiceServer() {}
+func (UnimplementedModelServiceServer) testEmbeddedByValue()                      {}
 
-// UnsafeProviderServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ProviderServiceServer will
+// UnsafeModelServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ModelServiceServer will
 // result in compilation errors.
-type UnsafeProviderServiceServer interface {
-	mustEmbedUnimplementedProviderServiceServer()
+type UnsafeModelServiceServer interface {
+	mustEmbedUnimplementedModelServiceServer()
 }
 
-func RegisterProviderServiceServer(s grpc.ServiceRegistrar, srv ProviderServiceServer) {
-	// If the following call panics, it indicates UnimplementedProviderServiceServer was
+func RegisterModelServiceServer(s grpc.ServiceRegistrar, srv ModelServiceServer) {
+	// If the following call panics, it indicates UnimplementedModelServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&ProviderService_ServiceDesc, srv)
+	s.RegisterService(&ModelService_ServiceDesc, srv)
 }
 
-func _ProviderService_GetCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ModelService_GetCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetCapabilitiesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProviderServiceServer).GetCapabilities(ctx, in)
+		return srv.(ModelServiceServer).GetCapabilities(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ProviderService_GetCapabilities_FullMethodName,
+		FullMethod: ModelService_GetCapabilities_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServiceServer).GetCapabilities(ctx, req.(*GetCapabilitiesRequest))
+		return srv.(ModelServiceServer).GetCapabilities(ctx, req.(*GetCapabilitiesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ProviderService_Configure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ModelService_Configure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ConfigureRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProviderServiceServer).Configure(ctx, in)
+		return srv.(ModelServiceServer).Configure(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ProviderService_Configure_FullMethodName,
+		FullMethod: ModelService_Configure_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServiceServer).Configure(ctx, req.(*ConfigureRequest))
+		return srv.(ModelServiceServer).Configure(ctx, req.(*ConfigureRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ProviderService_StreamCompletion_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _ModelService_StreamCompletion_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(StreamCompletionRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ProviderServiceServer).StreamCompletion(m, &grpc.GenericServerStream[StreamCompletionRequest, StreamEvent]{ServerStream: stream})
+	return srv.(ModelServiceServer).StreamCompletion(m, &grpc.GenericServerStream[StreamCompletionRequest, StreamEvent]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ProviderService_StreamCompletionServer = grpc.ServerStreamingServer[StreamEvent]
+type ModelService_StreamCompletionServer = grpc.ServerStreamingServer[StreamEvent]
 
-func _ProviderService_CountTokens_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ModelService_CountTokens_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CountTokensRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProviderServiceServer).CountTokens(ctx, in)
+		return srv.(ModelServiceServer).CountTokens(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ProviderService_CountTokens_FullMethodName,
+		FullMethod: ModelService_CountTokens_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServiceServer).CountTokens(ctx, req.(*CountTokensRequest))
+		return srv.(ModelServiceServer).CountTokens(ctx, req.(*CountTokensRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ProviderService_Render_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ModelService_Render_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RenderRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProviderServiceServer).Render(ctx, in)
+		return srv.(ModelServiceServer).Render(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ProviderService_Render_FullMethodName,
+		FullMethod: ModelService_Render_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServiceServer).Render(ctx, req.(*RenderRequest))
+		return srv.(ModelServiceServer).Render(ctx, req.(*RenderRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// ProviderService_ServiceDesc is the grpc.ServiceDesc for ProviderService service.
+// ModelService_ServiceDesc is the grpc.ServiceDesc for ModelService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ProviderService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.provider.v1.ProviderService",
-	HandlerType: (*ProviderServiceServer)(nil),
+var ModelService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "pluggableharness.agent.model.v1.ModelService",
+	HandlerType: (*ModelServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetCapabilities",
-			Handler:    _ProviderService_GetCapabilities_Handler,
+			Handler:    _ModelService_GetCapabilities_Handler,
 		},
 		{
 			MethodName: "Configure",
-			Handler:    _ProviderService_Configure_Handler,
+			Handler:    _ModelService_Configure_Handler,
 		},
 		{
 			MethodName: "CountTokens",
-			Handler:    _ProviderService_CountTokens_Handler,
+			Handler:    _ModelService_CountTokens_Handler,
 		},
 		{
 			MethodName: "Render",
-			Handler:    _ProviderService_Render_Handler,
+			Handler:    _ModelService_Render_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "StreamCompletion",
-			Handler:       _ProviderService_StreamCompletion_Handler,
+			Handler:       _ModelService_StreamCompletion_Handler,
 			ServerStreams: true,
 		},
 	},
-	Metadata: "pluggableharness/agent/provider/v1/provider.proto",
+	Metadata: "pluggableharness/agent/model/v1/model.proto",
 }

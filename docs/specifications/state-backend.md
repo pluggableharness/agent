@@ -84,7 +84,7 @@ CREATE TABLE cost_ledger (
 );
 ```
 
-Appended once per completed model turn, populated from the same `cost_usd` computation the model provider protocol already requires the kernel to perform at usage-event time ([`provider/protocol.md#cost-computation`](provider/protocol.md#cost-computation)) — the kernel already has these numbers in hand at write time, so this table costs nothing extra to populate and turns running-total cost tracking (`SUM(cost_usd)`) into a single indexed query instead of a full scan and JSON-parse of every `message`-kind event.
+Appended once per completed model turn, populated from the same `cost_usd` computation the model provider protocol already requires the kernel to perform at usage-event time ([`model/protocol.md#cost-computation`](model/protocol.md#cost-computation)) — the kernel already has these numbers in hand at write time, so this table costs nothing extra to populate and turns running-total cost tracking (`SUM(cost_usd)`) into a single indexed query instead of a full scan and JSON-parse of every `message`-kind event.
 
 ### plan_items
 
@@ -128,7 +128,7 @@ This is the authoritative, complete enumeration of `events.kind` — the source 
 ```protobuf
 kind = enum {
   message               // a completed model turn's accumulated canonical
-                         // message (provider/data-types.md#canonical-message);
+                         // message (model/data-types.md#canonical-message);
                          // usage/cost figures are embedded in this payload
                          // and drive cost_ledger above
   tool_call

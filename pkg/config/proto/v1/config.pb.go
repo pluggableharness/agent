@@ -107,7 +107,7 @@ type ConfigAttribute struct {
 	Type AttrType `protobuf:"varint,2,opt,name=type,proto3,enum=pluggableharness.agent.config.v1.AttrType" json:"type,omitempty"`
 	// Whether agent.hcl MUST set this attribute. The kernel MUST reject a
 	// Configure call with a missing required attribute via a structured
-	// error, per provider.md §3 / tool.md §3's shared Configure contract.
+	// error, per model.md §3 / tool.md §3's shared Configure contract.
 	Required bool `protobuf:"varint,3,opt,name=required,proto3" json:"required,omitempty"`
 	// MUST be true for any attribute that can hold a secret (API keys,
 	// tokens, credentials). configuration.md §4 restricts a sensitive

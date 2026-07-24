@@ -15,7 +15,7 @@ provider "filesystem" {
 }
 ```
 
-`allowed_roots` is the kind of ordinary `Configure` field [`protocol.md#configure`](protocol.md#configure) describes as a provider's capability boundary — not a secret, but a jail root the plugin enforces internally. Resolving `env(...)`-style indirection for any actual secret fields (a hosted `web_search` provider's API key, say) follows the same kernel-side HCL/`cty` bridge described in [`provider/examples.md`](../provider/examples.md#a-provider-block-in-agenthcl) — the plugin always receives a resolved literal value.
+`allowed_roots` is the kind of ordinary `Configure` field [`protocol.md#configure`](protocol.md#configure) describes as a provider's capability boundary — not a secret, but a jail root the plugin enforces internally. Resolving `env(...)`-style indirection for any actual secret fields (a hosted `web_search` provider's API key, say) follows the same kernel-side HCL/`cty` bridge described in [`model/examples.md`](../model/examples.md#a-provider-block-in-agenthcl) — the plugin always receives a resolved literal value.
 
 ## The wire protocol
 

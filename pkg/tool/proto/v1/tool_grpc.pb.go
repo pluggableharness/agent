@@ -50,7 +50,7 @@ type ToolServiceClient interface {
 	// an in-band field on ConfigureResponse.
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
 	// Invoke executes one tool call and streams back its events, per
-	// tool.md §4. Server-streaming, reusing provider.md §1's shape verbatim —
+	// tool.md §4. Server-streaming, reusing model.md §1's shape verbatim —
 	// a non-incremental operation MUST still implement this shape, emitting
 	// exactly one terminal `result` or `error`. Cancellation is the kernel
 	// closing the gRPC stream; the plugin MUST treat this as normal control
@@ -139,7 +139,7 @@ type ToolServiceServer interface {
 	// an in-band field on ConfigureResponse.
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	// Invoke executes one tool call and streams back its events, per
-	// tool.md §4. Server-streaming, reusing provider.md §1's shape verbatim —
+	// tool.md §4. Server-streaming, reusing model.md §1's shape verbatim —
 	// a non-incremental operation MUST still implement this shape, emitting
 	// exactly one terminal `result` or `error`. Cancellation is the kernel
 	// closing the gRPC stream; the plugin MUST treat this as normal control

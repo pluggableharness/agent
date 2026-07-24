@@ -136,7 +136,7 @@ plugins:
           - specifications/*.md
           - specifications/agent-loop/*.md
           - specifications/configuration/*.md
-          - specifications/provider/*.md
+          - specifications/model/*.md
           - specifications/tool/*.md
           - specifications/context/*.md
           - specifications/memory/*.md
@@ -174,11 +174,11 @@ nav:
           - Examples: specifications/configuration/examples.md
           - Conformance: specifications/configuration/conformance.md
       - Model provider protocol:
-          - specifications/provider/README.md
-          - Protocol: specifications/provider/protocol.md
-          - Data types: specifications/provider/data-types.md
-          - Examples: specifications/provider/examples.md
-          - Conformance: specifications/provider/conformance.md
+          - specifications/model/README.md
+          - Protocol: specifications/model/protocol.md
+          - Data types: specifications/model/data-types.md
+          - Examples: specifications/model/examples.md
+          - Conformance: specifications/model/conformance.md
       - Tool provider protocol:
           - specifications/tool/README.md
           - Protocol: specifications/tool/protocol.md

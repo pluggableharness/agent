@@ -23,7 +23,7 @@ provider "anthropic" {
 The wire shape is (trimmed to the service declaration and `ModelSpec`):
 
 ```protobuf
-service ProviderService {
+service ModelService {
   rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME

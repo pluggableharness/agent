@@ -33,7 +33,7 @@ ToolCall {
   id           string   // MUST — kernel-assigned, echoed in every emitted event for correlation
   tool_name    string   // MUST — matches a ToolSchema.name from this provider's GetSchema
   arguments    JSON     // MUST — already-parsed JSON conforming to input_schema; per
-                         // provider/data-types.md#tool-schema, the kernel's internal ToolCall
+                         // model/data-types.md#tool-schema, the kernel's internal ToolCall
                          // representation always stores parsed arguments regardless of which
                          // model-provider adapter produced them
 }

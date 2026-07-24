@@ -51,13 +51,13 @@ CountTokensResult {
 ```go
 CountTokens(req):
   if req.model_ref is set and that model provider implements the optional
-     CountTokens RPC (provider/protocol.md#counttokens):
+     CountTokens RPC (model/protocol.md#counttokens):
     return (that provider's count, exact: true)
   else:
     return (fallback_heuristic(req.content), exact: false)
 ```
 
-A model provider's own `CountTokens` (when implemented) uses its real vendor tokenizer — some vendors expose a dedicated counting endpoint, others require a bundled tokenizer library; this document doesn't mandate which, only the RPC shape. [`provider/protocol.md#counttokens`](provider/protocol.md#counttokens) declares this a SHOULD for model providers: the fallback formula below is deliberately kept simple and single-purpose rather than made smarter, on the reasoning that accuracy should come from providers actually implementing real tokenizers, not from the kernel guessing better. Still not a MUST there, since not every vendor makes exact counting cheap or even possible without a network round-trip — but `exact: false` results should be the exception in practice, not the norm.
+A model provider's own `CountTokens` (when implemented) uses its real vendor tokenizer — some vendors expose a dedicated counting endpoint, others require a bundled tokenizer library; this document doesn't mandate which, only the RPC shape. [`model/protocol.md#counttokens`](model/protocol.md#counttokens) declares this a SHOULD for model providers: the fallback formula below is deliberately kept simple and single-purpose rather than made smarter, on the reasoning that accuracy should come from providers actually implementing real tokenizers, not from the kernel guessing better. Still not a MUST there, since not every vendor makes exact counting cheap or even possible without a network round-trip — but `exact: false` results should be the exception in practice, not the norm.
 
 ### Why a kernel primitive, not a provider-local heuristic
 
@@ -154,7 +154,7 @@ The six-level vocabulary (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`) is
 | Bidirectional callback channel, unconditional per plugin | MUST | "The callback channel" |
 | `RunSession` callable via this channel | MUST | semantics in [`agent-loop/subagents.md`](agent-loop/subagents.md) |
 | `CountTokens` callable via this channel | MUST | "CountTokens" |
-| Model-provider's own `CountTokens` RPC | SHOULD, per model provider | [`provider/protocol.md#counttokens`](provider/protocol.md#counttokens) |
+| Model-provider's own `CountTokens` RPC | SHOULD, per model provider | [`model/protocol.md#counttokens`](model/protocol.md#counttokens) |
 | Exact-vs-fallback resolution algorithm | MUST | "CountTokens" |
 | Single documented fallback formula, no per-caller variation | MUST | "The fallback heuristic" |
 | Context/memory providers computing `tokens` via this primitive, not their own heuristic | MUST | "Why a kernel primitive, not a provider-local heuristic" |

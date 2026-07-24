@@ -96,7 +96,7 @@ func (Stability) EnumDescriptor() ([]byte, []int) {
 
 // ContextErrorCategory classifies a context provider's failures.
 // context.md §10 — smaller than the model-provider taxonomy
-// (provider.md §8), but a plugin MUST still classify failures rather than
+// (model.md §8), but a plugin MUST still classify failures rather than
 // collapsing them into one generic error.
 type ContextErrorCategory int32
 

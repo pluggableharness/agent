@@ -111,7 +111,7 @@ func TestServer_Log_ignoresContextProducer(t *testing.T) {
 	// by the Server's own baked-in identity — attribution is a property of
 	// this Server instance, never a client- or caller-supplied value.
 	spoofed := &commonv1.ProducerRef{
-		Category: commonv1.Category_CATEGORY_PROVIDER,
+		Category: commonv1.Category_CATEGORY_MODEL,
 		Name:     "spoofed",
 		Version:  "9.9.9",
 	}

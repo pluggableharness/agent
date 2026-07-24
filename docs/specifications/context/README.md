@@ -8,7 +8,7 @@ This category covers content injected into the prompt *before* a model call, sou
 
 - On-demand code-intelligence retrieval (grep, LSP, embeddings) — that's tool-provider territory, see [`tool/README.md`](../tool/README.md).
 - Cross-session persisted knowledge an agent itself decides to write — that's memory-provider territory, see [`memory/README.md`](../memory/README.md).
-- Keeping a vendor prompt-cache prefix warm across a long tool-execution gap — that's a model-provider concern, owned by the adapter that already understands its own vendor's TTL mechanics, not this category or the kernel loop. See [`CachingSpec.keepalive_supported`](../provider/data-types.md#cachingspec).
+- Keeping a vendor prompt-cache prefix warm across a long tool-execution gap — that's a model-provider concern, owned by the adapter that already understands its own vendor's TTL mechanics, not this category or the kernel loop. See [`CachingSpec.keepalive_supported`](../model/data-types.md#cachingspec).
 
 ## Transport & lifecycle
 

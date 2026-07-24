@@ -140,7 +140,7 @@ message CountTokensRequest {
   repeated pluggableharness.agent.content.v1.ContentBlock content = 1;
 
   // The model whose tokenizer should be preferred, if that model
-  // provider implements the optional CountTokens RPC (provider.md §2.1).
+  // provider implements the optional CountTokens RPC (model.md §2.1).
   // MAY be omitted, in which case the kernel's fallback heuristic
   // (kernel-callbacks.md §3) is used.
   optional pluggableharness.agent.model.v1.ModelRef model_ref = 2;
@@ -171,7 +171,7 @@ enum EventKind {
   // forgot to set the field.
   EVENT_KIND_UNSPECIFIED = 0;
 
-  // A completed model turn's canonical message (provider.md §5). Usage
+  // A completed model turn's canonical message (model.md §5). Usage
   // and cost figures live inside this payload, not as separate fields or
   // a separate EventKind (state-backend.md §5).
   EVENT_KIND_MESSAGE = 1;

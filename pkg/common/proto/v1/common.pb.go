@@ -39,8 +39,8 @@ const (
 	// Zero value. Never valid for a real producer; its presence on the wire
 	// means a caller forgot to set the field.
 	Category_CATEGORY_UNSPECIFIED Category = 0
-	// A model (LLM vendor) provider — specifications/provider.md.
-	Category_CATEGORY_PROVIDER Category = 1
+	// A model (LLM vendor) provider — specifications/model.md.
+	Category_CATEGORY_MODEL Category = 1
 	// A tool provider — specifications/tool.md.
 	Category_CATEGORY_TOOL Category = 2
 	// A context provider — specifications/context.md.
@@ -57,7 +57,7 @@ const (
 var (
 	Category_name = map[int32]string{
 		0: "CATEGORY_UNSPECIFIED",
-		1: "CATEGORY_PROVIDER",
+		1: "CATEGORY_MODEL",
 		2: "CATEGORY_TOOL",
 		3: "CATEGORY_CONTEXT",
 		4: "CATEGORY_MEMORY",
@@ -66,7 +66,7 @@ var (
 	}
 	Category_value = map[string]int32{
 		"CATEGORY_UNSPECIFIED": 0,
-		"CATEGORY_PROVIDER":    1,
+		"CATEGORY_MODEL":       1,
 		"CATEGORY_TOOL":        2,
 		"CATEGORY_CONTEXT":     3,
 		"CATEGORY_MEMORY":      4,
@@ -274,10 +274,10 @@ const file_pluggableharness_agent_common_v1_common_proto_rawDesc = "" +
 	"\x10protocol_version\x18\x05 \x01(\rR\x0fprotocolVersion\"i\n" +
 	"\vProviderRef\x12F\n" +
 	"\bcategory\x18\x01 \x01(\x0e2*.pluggableharness.agent.common.v1.CategoryR\bcategory\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name*\xa5\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name*\xa2\x01\n" +
 	"\bCategory\x12\x18\n" +
-	"\x14CATEGORY_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11CATEGORY_PROVIDER\x10\x01\x12\x11\n" +
+	"\x14CATEGORY_UNSPECIFIED\x10\x00\x12\x12\n" +
+	"\x0eCATEGORY_MODEL\x10\x01\x12\x11\n" +
 	"\rCATEGORY_TOOL\x10\x02\x12\x14\n" +
 	"\x10CATEGORY_CONTEXT\x10\x03\x12\x13\n" +
 	"\x0fCATEGORY_MEMORY\x10\x04\x12\x15\n" +

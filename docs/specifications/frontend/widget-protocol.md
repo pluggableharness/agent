@@ -25,7 +25,7 @@ message WidgetCapabilities {
 }
 ```
 
-`Configure` follows the same contract as [`provider/protocol.md#configure`](../provider/protocol.md#configure): config decoded from the widget's `agent.hcl` block, rejected with a structured error at configure time rather than deferred, never echoing a received secret back out.
+`Configure` follows the same contract as [`model/protocol.md#configure`](../model/protocol.md#configure): config decoded from the widget's `agent.hcl` block, rejected with a structured error at configure time rather than deferred, never echoing a received secret back out.
 
 `Attach` opens a server-streaming feed of this widget's rendered updates for one session:
 
@@ -41,7 +41,7 @@ message WidgetUpdate {
 }
 ```
 
-This stream is purely how the widget pushes its rendered updates out; it never receives anything back on this channel — there is no equivalent of the frontend protocol's `ClientEvent`. Cancellation is the kernel closing the gRPC stream; the plugin **MUST** treat this as normal control flow, never as an error, the same cancellation discipline every server-streaming RPC in this protocol series requires ([`provider/README.md#transport--lifecycle`](../provider/README.md#transport--lifecycle)).
+This stream is purely how the widget pushes its rendered updates out; it never receives anything back on this channel — there is no equivalent of the frontend protocol's `ClientEvent`. Cancellation is the kernel closing the gRPC stream; the plugin **MUST** treat this as normal control flow, never as an error, the same cancellation discipline every server-streaming RPC in this protocol series requires ([`model/README.md#transport--lifecycle`](../model/README.md#transport--lifecycle)).
 
 ## Deriving display state — no new data feed
 

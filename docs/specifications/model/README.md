@@ -1,6 +1,6 @@
 # Model provider protocol
 
-Covers the **model provider** category — an LLM vendor plugin (Anthropic, OpenAI, Gemini, etc.). Named `provider`, not `model-provider`, because in this system's Terraform-derived vocabulary the LLM vendor plugin is the closest analog to what Terraform itself calls a "provider" — it's the anchor spec category; the other five (`tool/`, `context/`, `memory/`, `frontend/`) follow the shape it establishes.
+Covers the **model provider** category — an LLM vendor plugin (Anthropic, OpenAI, Gemini, etc.). In this system's Terraform-derived vocabulary the LLM vendor plugin is the closest analog to what Terraform itself calls a "provider" — it's the anchor spec category; the other five (`tool/`, `context/`, `memory/`, `frontend/`) follow the shape it establishes.
 
 Real-world LLM vendors (Anthropic, OpenAI, Google Gemini, Mistral, Cohere, xAI, Ollama, and others) diverge in significant ways — reasoning control, caching mechanics, tool-call wire shape — and this category's data types are shaped to accommodate that heterogeneity rather than assuming one vendor's design is universal.
 

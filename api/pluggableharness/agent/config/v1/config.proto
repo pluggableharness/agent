@@ -37,7 +37,7 @@ message ConfigAttribute {
 
   // Whether agent.hcl MUST set this attribute. The kernel MUST reject a
   // Configure call with a missing required attribute via a structured
-  // error, per provider.md §3 / tool.md §3's shared Configure contract.
+  // error, per model.md §3 / tool.md §3's shared Configure contract.
   bool required = 3;
 
   // MUST be true for any attribute that can hold a secret (API keys,

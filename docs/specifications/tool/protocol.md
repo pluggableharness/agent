@@ -4,7 +4,7 @@ The three RPCs a tool provider plugin exposes, plus the optional `Render`. See [
 
 ## `GetSchema`
 
-Returns a list of `ToolSchema` values, one per operation the plugin exposes. Like [`provider/protocol.md#getcapabilities`](../provider/protocol.md#getcapabilities), this MUST be re-queryable cheaply and MUST NOT require a network call — a provider wrapping a hosted service (e.g. a web-search API) declares its schema statically; only `Invoke` talks to the network.
+Returns a list of `ToolSchema` values, one per operation the plugin exposes. Like [`model/protocol.md#getcapabilities`](../model/protocol.md#getcapabilities), this MUST be re-queryable cheaply and MUST NOT require a network call — a provider wrapping a hosted service (e.g. a web-search API) declares its schema statically; only `Invoke` talks to the network.
 
 ```protobuf
 ToolSchema {
@@ -16,7 +16,7 @@ ToolSchema {
                               // and reads nothing external — see below.
   risk              RiskClass  // MUST — see data-types.md#riskclass
   description       string   // MUST — shown to the model for tool selection and in plan diffs
-  input_schema      JSONSchema  // MUST — common subset per provider/data-types.md#tool-schema
+  input_schema      JSONSchema  // MUST — common subset per model/data-types.md#tool-schema
   output_schema     JSONSchema  // MUST — same subset; describes the `result` payload shape
   streaming         bool     // MUST — true if Invoke may emit intermediate events (output_chunk,
                               // progress, partial_result) before the terminal event; false if
@@ -39,7 +39,7 @@ The overall `GetSchema` response (the wrapper around this list of `ToolSchema`s)
 
 ## `Configure`
 
-Same contract as [`provider/protocol.md#configure`](../provider/protocol.md#configure): config decoded from the provider's `agent.hcl` block via the schema-to-cty bridge; field contents are provider-specific.
+Same contract as [`model/protocol.md#configure`](../model/protocol.md#configure): config decoded from the provider's `agent.hcl` block via the schema-to-cty bridge; field contents are provider-specific.
 
 - `Configure` MUST reject with a structured error on missing required fields (e.g. an `exec` provider requiring a working-directory jail root) rather than deferring failure to the first `Invoke`.
 - A plugin MUST NOT echo a received secret (API keys for a hosted `web_search` provider, etc.) into an `Emit`'d event, `Render` output, log line, or error message.
@@ -54,10 +54,10 @@ Semantics:
 - **`output_schema` conformance is enforced strictly, not advisory.** The kernel MUST validate a `result.payload` against the operation's declared `output_schema` before accepting it. A non-conforming payload MUST be rejected and re-surfaced to the plugin boundary as an `unknown`-category `ToolError` (see [`conformance.md#error-taxonomy`](conformance.md#error-taxonomy)) — not silently passed through to history, and not a warning-and-continue. Malformed data flowing into the state backend is a correctness bug, not a UX inconvenience to be lenient about.
 - Exactly one of `result` or `error` MUST close the stream. `output_chunk`, `progress`, and `partial_result` MAY each appear zero or more times before it; `exit_status` MAY appear at most once, and only for tools whose underlying operation is a child process (the exec/shell family).
 - `exit_status` is distinct from `result` because the two can genuinely be different moments: an exec tool's child process can exit while the tool itself is still doing post-processing (truncating output, computing a diff) before it can emit a conformant `result`. Providers for non-process-backed tools (file read, grep, web fetch) MUST NOT emit `exit_status`.
-- A plugin whose operation is not naturally incremental (e.g. `file_read`) MUST still implement the streaming RPC shape, emitting a single terminal `result` with no lead-up events — the same non-streaming-backend accommodation [`provider/protocol.md#streamcompletion`](../provider/protocol.md#streamcompletion) makes for `StreamCompletion`. `ToolSchema.streaming = false` signals this as a UX hint.
+- A plugin whose operation is not naturally incremental (e.g. `file_read`) MUST still implement the streaming RPC shape, emitting a single terminal `result` with no lead-up events — the same non-streaming-backend accommodation [`model/protocol.md#streamcompletion`](../model/protocol.md#streamcompletion) makes for `StreamCompletion`. `ToolSchema.streaming = false` signals this as a UX hint.
 - On cancellation (see [`README.md`](README.md#transport--lifecycle)), a plugin for a `resource` operation MUST make a best effort to report, via a final `output_chunk`/`partial_result` before the stream closes, what had actually happened before the cancel landed (e.g. "process received SIGTERM, partial output already streamed is valid") — the plan/apply audit log needs an honest record of partial mutation, not silence. A plugin MUST NOT synthesize a `result` claiming full success after a cancelled operation.
 - `output_chunk` ordering within a single stream MUST be preserved (stdout/stderr interleaving is otherwise ambiguous); the kernel treats `stream` as a hint for display, not a demultiplexing key the plugin can reorder around.
 
 ## Render
 
-Same optionality as [`provider/protocol.md#render`](../provider/protocol.md#render) — returning the `RenderTree` formally defined in [`frontend/render-tree.md`](../frontend/render-tree.md) — but tool-result rendering is where custom `Render` matters *more* than it does for model providers (per [`architecture.md`](../architecture.md#emit--render--paint-pipeline), "the tool-result side ... is where custom rendering matters more"). Reference examples: an `edit_file` result rendering as a unified diff rather than raw before/after text; an `exec` result's accumulated `output_chunk`s rendering as a scrollback pane; a `spawn_subagent` result rendering as a collapsible sub-session node ([`architecture.md`](../architecture.md#emit--render--paint-pipeline)'s `RenderTree` already reserves a node type for this). If not implemented, the kernel falls back to its generic default (pretty-printed JSON payload).
+Same optionality as [`model/protocol.md#render`](../model/protocol.md#render) — returning the `RenderTree` formally defined in [`frontend/render-tree.md`](../frontend/render-tree.md) — but tool-result rendering is where custom `Render` matters *more* than it does for model providers (per [`architecture.md`](../architecture.md#emit--render--paint-pipeline), "the tool-result side ... is where custom rendering matters more"). Reference examples: an `edit_file` result rendering as a unified diff rather than raw before/after text; an `exec` result's accumulated `output_chunk`s rendering as a scrollback pane; a `spawn_subagent` result rendering as a collapsible sub-session node ([`architecture.md`](../architecture.md#emit--render--paint-pipeline)'s `RenderTree` already reserves a node type for this). If not implemented, the kernel falls back to its generic default (pretty-printed JSON payload).
