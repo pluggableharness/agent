@@ -34,6 +34,7 @@ const (
 	ModelService_StreamCompletion_FullMethodName = "/pluggableharness.agent.model.v1.ModelService/StreamCompletion"
 	ModelService_CountTokens_FullMethodName      = "/pluggableharness.agent.model.v1.ModelService/CountTokens"
 	ModelService_Render_FullMethodName           = "/pluggableharness.agent.model.v1.ModelService/Render"
+	ModelService_Describe_FullMethodName         = "/pluggableharness.agent.model.v1.ModelService/Describe"
 )
 
 // ModelServiceClient is the client API for ModelService service.
@@ -91,6 +92,17 @@ type ModelServiceClient interface {
 	// §7 notes most model-provider payloads (plain text, tool calls) render
 	// fine under the kernel's generic fallback when this RPC is absent.
 	Render(ctx context.Context, in *RenderRequest, opts ...grpc.CallOption) (*RenderResponse, error)
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} — directly from the running
+	// process, rather than the kernel inferring it from a lock-file row.
+	// This matters specifically for a dev_overrides binary
+	// (configuration/settings-and-global.md#dev_overrides), which bypasses
+	// the registry/lock-file resolution path entirely and so has no
+	// provider "<name>" { ... } lock entry to read identity from; see
+	// configuration/lock-file.md's dev_overrides note for the canonical
+	// explanation, shared verbatim across all six category protocols that
+	// gain this RPC in this same protocol revision.
+	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
 
 type modelServiceClient struct {
@@ -160,6 +172,16 @@ func (c *modelServiceClient) Render(ctx context.Context, in *RenderRequest, opts
 	return out, nil
 }
 
+func (c *modelServiceClient) Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DescribeResponse)
+	err := c.cc.Invoke(ctx, ModelService_Describe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ModelServiceServer is the server API for ModelService service.
 // All implementations must embed UnimplementedModelServiceServer
 // for forward compatibility.
@@ -215,6 +237,17 @@ type ModelServiceServer interface {
 	// §7 notes most model-provider payloads (plain text, tool calls) render
 	// fine under the kernel's generic fallback when this RPC is absent.
 	Render(context.Context, *RenderRequest) (*RenderResponse, error)
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} — directly from the running
+	// process, rather than the kernel inferring it from a lock-file row.
+	// This matters specifically for a dev_overrides binary
+	// (configuration/settings-and-global.md#dev_overrides), which bypasses
+	// the registry/lock-file resolution path entirely and so has no
+	// provider "<name>" { ... } lock entry to read identity from; see
+	// configuration/lock-file.md's dev_overrides note for the canonical
+	// explanation, shared verbatim across all six category protocols that
+	// gain this RPC in this same protocol revision.
+	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedModelServiceServer()
 }
 
@@ -239,6 +272,9 @@ func (UnimplementedModelServiceServer) CountTokens(context.Context, *CountTokens
 }
 func (UnimplementedModelServiceServer) Render(context.Context, *RenderRequest) (*RenderResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Render not implemented")
+}
+func (UnimplementedModelServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
 }
 func (UnimplementedModelServiceServer) mustEmbedUnimplementedModelServiceServer() {}
 func (UnimplementedModelServiceServer) testEmbeddedByValue()                      {}
@@ -344,6 +380,24 @@ func _ModelService_Render_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ModelService_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DescribeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModelServiceServer).Describe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ModelService_Describe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModelServiceServer).Describe(ctx, req.(*DescribeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ModelService_ServiceDesc is the grpc.ServiceDesc for ModelService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -366,6 +420,10 @@ var ModelService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Render",
 			Handler:    _ModelService_Render_Handler,
+		},
+		{
+			MethodName: "Describe",
+			Handler:    _ModelService_Describe_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

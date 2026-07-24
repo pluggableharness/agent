@@ -27,12 +27,29 @@ service ToolService {
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
   rpc Invoke(InvokeRequest) returns (stream InvokeResponse);
   rpc Render(RenderRequest) returns (RenderResponse);
+  rpc Preview(PreviewRequest) returns (PreviewResponse);
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 
 message ToolCall {
   string id = 1;
   string tool_name = 2;
   google.protobuf.Struct arguments = 3;
+  pluggableharness.agent.common.v1.CallContext call_context = 4;
+}
+
+message PreviewRequest {
+  ToolCall call = 1;
+}
+
+message PreviewResponse {
+  pluggableharness.agent.render.v1.RenderTree preview = 1;
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  pluggableharness.agent.common.v1.ProducerRef producer = 1;
 }
 
 message ToolEvent {
@@ -87,6 +104,7 @@ A `bash` tool call that runs a test suite, streams live output, then reports a n
       id: "tc_42",
       tool_name: "bash",
       arguments: {"command": "go test ./..."},
+      call_context: {session_id: "01J...", turn_id: "01J...", working_directory: "/home/steven/code/aiagent"},
     }
   }
 

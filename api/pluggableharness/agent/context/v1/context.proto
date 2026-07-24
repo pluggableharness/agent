@@ -15,6 +15,7 @@ syntax = "proto3";
 package pluggableharness.agent.context.v1;
 
 import "google/protobuf/struct.proto";
+import "pluggableharness/agent/common/v1/common.proto";
 import "pluggableharness/agent/config/v1/config.proto";
 import "pluggableharness/agent/content/v1/content.proto";
 import "pluggableharness/agent/model/v1/model.proto";
@@ -66,6 +67,16 @@ service ContextService {
   // be implemented; if not, the kernel falls back to its generic default
   // rendering.
   rpc Render(RenderRequest) returns (RenderResponse);
+
+  // Describe reports this plugin build's own identity — {name, version,
+  // source, category, protocol_version} via ProducerRef — independent of
+  // any lock-file entry. This is the mechanism a dev_overrides-resolved
+  // binary (which has no provider {} lock entry to read identity from)
+  // uses to self-report at connection time; see
+  // docs/specifications/configuration/lock-file.md's dev_overrides note,
+  // which is the canonical explanation for this RPC across every plugin
+  // category that gains it in this protocol revision.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 
 // GetCapabilitiesRequest carries no fields — GetCapabilities takes no
@@ -114,6 +125,16 @@ message ContextCapabilities {
   // This provider's agent.hcl config schema, advertised so the kernel knows
   // what fields Configure accepts. configuration.md §4.
   pluggableharness.agent.config.v1.ConfigSchema config_schema = 5;
+
+  // Which hook points (agent-loop/hook-dispatch.md) this provider declares
+  // HookSubscriberService.DispatchHook subscriptions for, advertised
+  // up front alongside its other static properties. MAY be empty — a
+  // context provider with no hook{} blocks in agent.hcl never has
+  // DispatchHook called on it. The enum itself lives in common.v1, not
+  // hook.v1 — hook.v1 imports this package's model/tool/plan dependencies,
+  // so a category capability message importing hook.v1 directly would
+  // cycle back through it; common.v1 is the shared leaf package instead.
+  repeated pluggableharness.agent.common.v1.HookPoint supported_hook_points = 6;
 }
 
 // ConfigureResponse is empty on success. A Configure failure (e.g. a
@@ -132,8 +153,11 @@ message ContextRequest {
   // session. Empty for a top-level session.
   string parent_session_id = 2;
 
-  // Which turn of the session this firing is for.
-  int64 turn_number = 3;
+  // Which turn of the session this firing is for. A ULID, standardized
+  // across the whole protocol (matches plan.v1's turn_id field). Same field
+  // number as the retired int64 turn-number predecessor field; the rename
+  // is a sanctioned pre-release wire change, not a v2 bump.
+  string turn_id = 3;
 
   // The kernel's computed token allocation for this provider on this call.
   // MUST be set. A returned section MUST NOT exceed this. context.md §4,
@@ -164,6 +188,17 @@ message ContextRequest {
   // is indistinguishable from (and semantically equivalent to) "not
   // provided". context.md §5.1.
   repeated pluggableharness.agent.content.v1.Message conversation_history = 9;
+
+  // The current conversation-history token total, kernel-computed. One of
+  // the two signals a compactor provider needs to decide WHEN to compact
+  // without re-counting history itself — see data-types.md's compactor
+  // workflow discussion in the orbit of §5.1.
+  int64 history_tokens = 10;
+
+  // The total assembled context size of the previous turn (all providers'
+  // sections combined), kernel-computed. The second compact-timing signal,
+  // alongside history_tokens above.
+  int64 assembled_tokens_last_turn = 11;
 }
 
 // ContextContribution is Contribute's response: the full, possibly-modified
@@ -233,6 +268,14 @@ message RenderRequest {
   // other plugin; only the producing provider's own Render implementation
   // understands its shape.
   bytes payload = 1;
+
+  // The schema version this payload was emitted against, so a Render
+  // implementation can detect drift between the version it was built
+  // against and the version live in a running session. See
+  // ../frontend/render-tree.md#schema-versioning for the canonical
+  // definition of this field's semantics (owned by the frontend/widget
+  // workstream; this field just carries the same value).
+  string schema_version = 2;
 }
 
 // RenderResponse wraps the rendered output of the optional Render RPC.
@@ -240,4 +283,16 @@ message RenderResponse {
   // The rendered tree, per the general Emit->Render->Paint pipeline
   // (frontend.md §1). context.md §9.
   pluggableharness.agent.render.v1.RenderTree tree = 1;
+}
+
+// DescribeRequest carries no fields — Describe takes no request-scoped
+// parameters.
+message DescribeRequest {}
+
+// DescribeResponse reports this plugin build's own identity. See the
+// Describe RPC comment on ContextService above.
+message DescribeResponse {
+  // This plugin build's identity: name, version, source, category,
+  // protocol_version.
+  pluggableharness.agent.common.v1.ProducerRef producer = 1;
 }

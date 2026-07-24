@@ -36,6 +36,7 @@ const (
 	ContextService_Configure_FullMethodName       = "/pluggableharness.agent.context.v1.ContextService/Configure"
 	ContextService_Contribute_FullMethodName      = "/pluggableharness.agent.context.v1.ContextService/Contribute"
 	ContextService_Render_FullMethodName          = "/pluggableharness.agent.context.v1.ContextService/Render"
+	ContextService_Describe_FullMethodName        = "/pluggableharness.agent.context.v1.ContextService/Describe"
 )
 
 // ContextServiceClient is the client API for ContextService service.
@@ -82,6 +83,15 @@ type ContextServiceClient interface {
 	// be implemented; if not, the kernel falls back to its generic default
 	// rendering.
 	Render(ctx context.Context, in *RenderRequest, opts ...grpc.CallOption) (*RenderResponse, error)
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} via ProducerRef — independent of
+	// any lock-file entry. This is the mechanism a dev_overrides-resolved
+	// binary (which has no provider {} lock entry to read identity from)
+	// uses to self-report at connection time; see
+	// docs/specifications/configuration/lock-file.md's dev_overrides note,
+	// which is the canonical explanation for this RPC across every plugin
+	// category that gains it in this protocol revision.
+	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
 
 type contextServiceClient struct {
@@ -132,6 +142,16 @@ func (c *contextServiceClient) Render(ctx context.Context, in *RenderRequest, op
 	return out, nil
 }
 
+func (c *contextServiceClient) Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DescribeResponse)
+	err := c.cc.Invoke(ctx, ContextService_Describe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ContextServiceServer is the server API for ContextService service.
 // All implementations must embed UnimplementedContextServiceServer
 // for forward compatibility.
@@ -176,6 +196,15 @@ type ContextServiceServer interface {
 	// be implemented; if not, the kernel falls back to its generic default
 	// rendering.
 	Render(context.Context, *RenderRequest) (*RenderResponse, error)
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} via ProducerRef — independent of
+	// any lock-file entry. This is the mechanism a dev_overrides-resolved
+	// binary (which has no provider {} lock entry to read identity from)
+	// uses to self-report at connection time; see
+	// docs/specifications/configuration/lock-file.md's dev_overrides note,
+	// which is the canonical explanation for this RPC across every plugin
+	// category that gains it in this protocol revision.
+	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedContextServiceServer()
 }
 
@@ -197,6 +226,9 @@ func (UnimplementedContextServiceServer) Contribute(context.Context, *ContextReq
 }
 func (UnimplementedContextServiceServer) Render(context.Context, *RenderRequest) (*RenderResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Render not implemented")
+}
+func (UnimplementedContextServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
 }
 func (UnimplementedContextServiceServer) mustEmbedUnimplementedContextServiceServer() {}
 func (UnimplementedContextServiceServer) testEmbeddedByValue()                        {}
@@ -291,6 +323,24 @@ func _ContextService_Render_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ContextService_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DescribeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContextServiceServer).Describe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContextService_Describe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContextServiceServer).Describe(ctx, req.(*DescribeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ContextService_ServiceDesc is the grpc.ServiceDesc for ContextService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -313,6 +363,10 @@ var ContextService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Render",
 			Handler:    _ContextService_Render_Handler,
+		},
+		{
+			MethodName: "Describe",
+			Handler:    _ContextService_Describe_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -48,6 +48,37 @@ message Message {
   // The message's content, in emission order. A single message MAY carry
   // multiple blocks (e.g. an assistant turn with both text and a tool_use).
   repeated ContentBlock content = 2;
+
+  // Kernel-assigned ULID, stable across replay. This is the correlation
+  // anchor for deltas and forking (e.g. a frontend edit-and-resubmit that
+  // forks history at this message) — assigned once when the message is
+  // persisted and never reassigned, even when the same conversation is
+  // replayed against a newer plugin version. MUST be set by the kernel
+  // before persisting; a plugin never generates this value itself, per
+  // .claude/rules/determinism.md's ordering-authority rule for kernel-
+  // assigned identifiers.
+  string id = 3;
+
+  // The id of the model that produced this message, when role ==
+  // ROLE_ASSISTANT. A plain string (the target model's ModelSpec.id), not
+  // a model.v1.ModelRef or model.v1.ModelTarget — content.v1 MUST NOT
+  // import model.v1, since model.v1 already imports content.v1 (for
+  // Message/ContentBlock/ContextSection) and a reverse import would be a
+  // cyclic dependency buf rejects at build time. Omitted for a
+  // ROLE_USER message, or when the producing model is otherwise unknown.
+  optional string produced_by_model_id = 4;
+
+  // The declared name of the model provider plugin that produced this
+  // message (common.v1.ProducerRef.name / ProviderRef.name's scope), when
+  // role == ROLE_ASSISTANT. Same plain-string rationale as
+  // produced_by_model_id above. Because the kernel's routing/fallback
+  // chain (model/protocol.md#generation-parameter-validation-and-
+  // capability-aware-routing) may serve adjacent turns in the same
+  // session from different providers or different models, two
+  // consecutive ROLE_ASSISTANT messages in one conversation MAY carry
+  // different produced_by_model_id/produced_by_provider values — this is
+  // expected, not an anomaly, and MUST be preserved verbatim on replay.
+  optional string produced_by_provider = 5;
 }
 
 // ContentBlock is one block within a Message. Exactly one variant is set.
@@ -64,6 +95,7 @@ message ContentBlock {
     ImageBlock image = 4;
     ThinkingBlock thinking = 5;
     RedactedThinkingBlock redacted_thinking = 6;
+    DocumentBlock document = 7;
   }
 }
 
@@ -147,6 +179,25 @@ message ThinkingBlock {
 message RedactedThinkingBlock {
   // Opaque, vendor-encrypted bytes. The kernel never inspects this.
   bytes data = 1;
+}
+
+// DocumentBlock is inline non-image document content (e.g. a PDF) — the
+// document-attachment analog of ImageBlock. Requires the target model's
+// ModelSpec.supports_documents (model/data-types.md#modelspec); the
+// kernel MUST reject a DocumentBlock sent to a model where that flag is
+// false, with invalid_request, mirroring ImageBlock's supports_vision
+// rule (model/data-types.md#canonical-message--content-block-schema).
+message DocumentBlock {
+  // Raw document bytes.
+  bytes data = 1;
+
+  // The document's MIME type, e.g. "application/pdf".
+  string media_type = 2;
+
+  // The document's original filename, when known — several vendors
+  // surface this to the model as a citation/reference label. MAY be
+  // omitted.
+  optional string filename = 3;
 }
 
 // Stability hints whether a ContextSection's content changes turn to turn,

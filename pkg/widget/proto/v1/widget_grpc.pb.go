@@ -28,6 +28,7 @@ const (
 	WidgetService_GetCapabilities_FullMethodName = "/pluggableharness.agent.widget.v1.WidgetService/GetCapabilities"
 	WidgetService_Configure_FullMethodName       = "/pluggableharness.agent.widget.v1.WidgetService/Configure"
 	WidgetService_Attach_FullMethodName          = "/pluggableharness.agent.widget.v1.WidgetService/Attach"
+	WidgetService_Describe_FullMethodName        = "/pluggableharness.agent.widget.v1.WidgetService/Describe"
 )
 
 // WidgetServiceClient is the client API for WidgetService service.
@@ -66,6 +67,15 @@ type WidgetServiceClient interface {
 	// literal spec, naming the domain concept rather than the RPC. Not a
 	// uniqueness violation: WidgetUpdate is used by exactly this one RPC.
 	Attach(ctx context.Context, in *AttachRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WidgetUpdate], error)
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} — directly from the running
+	// process, rather than the kernel inferring it from a lock-file row.
+	// Every one of the six category protocols gains this identical RPC in
+	// this protocol revision; it exists specifically for a
+	// `dev_overrides`-resolved binary (configuration/lock-file.md's
+	// "dev_overrides and identity without a lock entry"), which has no
+	// provider {} lock-file entry to read identity from at all.
+	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
 
 type widgetServiceClient struct {
@@ -115,6 +125,16 @@ func (c *widgetServiceClient) Attach(ctx context.Context, in *AttachRequest, opt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WidgetService_AttachClient = grpc.ServerStreamingClient[WidgetUpdate]
 
+func (c *widgetServiceClient) Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DescribeResponse)
+	err := c.cc.Invoke(ctx, WidgetService_Describe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WidgetServiceServer is the server API for WidgetService service.
 // All implementations must embed UnimplementedWidgetServiceServer
 // for forward compatibility.
@@ -151,6 +171,15 @@ type WidgetServiceServer interface {
 	// literal spec, naming the domain concept rather than the RPC. Not a
 	// uniqueness violation: WidgetUpdate is used by exactly this one RPC.
 	Attach(*AttachRequest, grpc.ServerStreamingServer[WidgetUpdate]) error
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} — directly from the running
+	// process, rather than the kernel inferring it from a lock-file row.
+	// Every one of the six category protocols gains this identical RPC in
+	// this protocol revision; it exists specifically for a
+	// `dev_overrides`-resolved binary (configuration/lock-file.md's
+	// "dev_overrides and identity without a lock entry"), which has no
+	// provider {} lock-file entry to read identity from at all.
+	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedWidgetServiceServer()
 }
 
@@ -169,6 +198,9 @@ func (UnimplementedWidgetServiceServer) Configure(context.Context, *ConfigureReq
 }
 func (UnimplementedWidgetServiceServer) Attach(*AttachRequest, grpc.ServerStreamingServer[WidgetUpdate]) error {
 	return status.Error(codes.Unimplemented, "method Attach not implemented")
+}
+func (UnimplementedWidgetServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
 }
 func (UnimplementedWidgetServiceServer) mustEmbedUnimplementedWidgetServiceServer() {}
 func (UnimplementedWidgetServiceServer) testEmbeddedByValue()                       {}
@@ -238,6 +270,24 @@ func _WidgetService_Attach_Handler(srv interface{}, stream grpc.ServerStream) er
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WidgetService_AttachServer = grpc.ServerStreamingServer[WidgetUpdate]
 
+func _WidgetService_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DescribeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WidgetServiceServer).Describe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WidgetService_Describe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WidgetServiceServer).Describe(ctx, req.(*DescribeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WidgetService_ServiceDesc is the grpc.ServiceDesc for WidgetService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -252,6 +302,10 @@ var WidgetService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Configure",
 			Handler:    _WidgetService_Configure_Handler,
+		},
+		{
+			MethodName: "Describe",
+			Handler:    _WidgetService_Describe_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

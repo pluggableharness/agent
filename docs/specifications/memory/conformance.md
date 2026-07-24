@@ -12,16 +12,23 @@ A plugin MUST classify every failure into one of the following `MemoryErrorCateg
 | `budget_exceeded` | `Recall`'s candidate records exceed `token_budget` even after the provider's own truncation | Same MUST-self-truncate principle as the context provider's budget handling; surface as a context-assembly failure, not a generic error |
 | `source_unavailable` | This provider's backend storage was unreachable at call time | Retry candidate — transient by nature (a file lock, a down remote service) |
 | `unknown` | Anything else | MUST include enough detail for debugging; treat as non-retryable by default |
+| `invalid_scope` | `Record` specified a `MemoryScope` this provider doesn't support (absent from `GetCapabilities.supported_scopes`) | MUST NOT retry as-is; the caller (or kernel routing) picked the wrong provider for this scope — the scope-taxonomy mirror of `invalid_type` |
 
 `MemoryError` MUST include `category` (above), `message` (human-readable), and `retryable` (bool).
 
-On the wire, each category maps to a gRPC status code: `not_found` → `NotFound`, `invalid_type` → `InvalidArgument`, `ratification_unsupported` → `FailedPrecondition`, `budget_exceeded` → `ResourceExhausted`, `source_unavailable` → `Unavailable`, `unknown` → `Internal`, never `Unknown`.
+On the wire, each category maps to a gRPC status code: `not_found` → `NotFound`, `invalid_type` → `InvalidArgument`, `ratification_unsupported` → `FailedPrecondition`, `budget_exceeded` → `ResourceExhausted`, `source_unavailable` → `Unavailable`, `unknown` → `Internal`, `invalid_scope` → `InvalidArgument` (same mapping as `invalid_type`), never `Unknown`.
 
 ## Required vs. optional support — summary matrix
 
 | Capability | Level | Notes |
 |---|---|---|
-| `GetCapabilities`/`Configure`/`Recall`/`Record`/`UpdateRecord`/`DeleteRecord` RPCs | MUST | the core protocol surface |
+| `GetCapabilities`/`Configure`/`Recall`/`Record`/`UpdateRecord`/`DeleteRecord`/`ListRecords`/`GetRecord`/`Describe` RPCs | MUST | the core protocol surface |
+| `ListRecords`/`GetRecord` enumeration/audit path, `PENDING` listable without a gate | MUST | [`protocol.md#listrecords--getrecord`](protocol.md#listrecords--getrecord) |
+| `GetRecord` fails `not_found` on unknown `id` | MUST | same section |
+| `Describe` reports this build's own `common.v1.ProducerRef` identity | MUST | [`protocol.md#describe`](protocol.md#describe), [`configuration/lock-file.md`](../configuration/lock-file.md#dev_overrides-and-identity-without-a-lock-entry) |
+| `MemoryRecord.provenance` kernel-populated, immutable | MUST | [`data-types.md#provenance`](data-types.md#provenance) |
+| `MemoryRecord.relevance_score` normalized to `[0, 1]`, Recall/ListRecords-only, never persisted | MUST, when set | [`data-types.md#relevance_score`](data-types.md#relevance_score) |
+| `RecallRequest.turn_id` as ULID | MUST | [`data-types.md#recallrequest--memoryrecord`](data-types.md#recallrequest--memoryrecord) |
 | Fixed `MemoryType` taxonomy (user/feedback/project/reference) | MUST | [`taxonomy.md`](taxonomy.md) — protocol-level, not provider-defined |
 | Fixed `MemoryScope` taxonomy (session/project/global) | MUST | [`data-types.md#memoryscope`](data-types.md#memoryscope) |
 | Record type and scope immutable after creation | MUST | [`taxonomy.md`](taxonomy.md), [`data-types.md#memoryscope`](data-types.md#memoryscope) |
@@ -35,13 +42,14 @@ On the wire, each category maps to a gRPC status code: `not_found` → `NotFound
 | `memory.remember` fuzzy near-match check before creating a new record | MUST | [`protocol.md#write-triggers`](protocol.md#write-triggers) |
 | `ApproveRecord`/`RejectRecord` | MAY, standardized shape if implemented | [`protocol.md#ratification-optional`](protocol.md#ratification-optional) |
 | `status: pending` ever returned | MUST NOT, unless `ratification_supported: true` | same section |
-| Autonomous write via `post-response`/`session-end` hooks | SHOULD | [`examples.md#autonomous-hook-driven`](examples.md#autonomous-hook-driven) |
+| Autonomous write via `post-model-response`/`session-end` hooks (`hook.v1.DispatchHook`) | SHOULD | [`examples.md#autonomous-hook-driven`](examples.md#autonomous-hook-driven), [`protocol.md#write-triggers`](protocol.md#write-triggers) |
 | `memory.remember`/`memory.forget`/`memory.search` reference tools | SHOULD (reference implementation) | [`examples.md#explicit-model-invoked`](examples.md#explicit-model-invoked) |
 | Multi-protocol plugin (memory + tool provider in one process) | MAY | [`README.md`](README.md#transport--lifecycle) |
 | Structured error taxonomy (above) | MUST | |
 | `Render` | MAY | generic fallback exists |
 | `MemoryRecord.tokens` computed via `CountTokens` kernel callback | MUST | [`kernel-callbacks.md#counttokens`](../kernel-callbacks.md#counttokens); never a provider-local heuristic |
 | `RecallRequest.model_target` set | MUST | [`data-types.md#recallrequest--memoryrecord`](data-types.md#recallrequest--memoryrecord) |
+| `supported_hook_points` declaration | MAY | empty unless this provider also declares `hook{}` blocks in `agent.hcl` beyond the implicit `post-model-response`/`session-end` subscriptions |
 
 ## Open questions
 

@@ -10,13 +10,13 @@ This category depends directly on [`model/`](../model/README.md): the common JSO
 
 Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). Standard handshake (magic cookie, protocol version negotiation) applies uniformly across all six provider categories and isn't repeated per category.
 
-A tool provider plugin exposes three RPCs: `GetSchema`, `Configure`, `Invoke`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)).
+A tool provider plugin exposes four RPCs: `GetSchema`, `Configure`, `Invoke`, `Describe`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)) and `Preview` (see [`protocol.md#preview`](protocol.md#preview)).
 
 **`Invoke` is server-streaming**, the same shape [`model/README.md`](../model/README.md#transport--lifecycle) specifies for `StreamCompletion` and for the identical reason: a tool like `exec` needs to stream live stdout/stderr rather than blocking until completion, and none of the underlying primitives (process exec, HTTP fetch, file I/O) need mid-call client input on the same call. **Cancellation follows the model-provider pattern exactly**: the kernel cancels/closes the gRPC stream; it is not a distinct RPC or a sentinel event the plugin must invent. Plugin authors MUST treat stream cancellation as a normal, expected event — kill the child process, release file handles/sockets, discard buffers — never as an error condition. A tool provider and a model provider are both "long-running, streaming, cancellable" from the kernel's point of view, and giving them different cancellation mechanics would be an unforced inconsistency.
 
 ## Category structure
 
-- [`protocol.md`](protocol.md) — the three/four RPCs: `GetSchema` (including the `kind: interactive` sub-classification), `Configure`, `Invoke`, `Render`.
+- [`protocol.md`](protocol.md) — the RPCs: `GetSchema` (including the `kind: interactive` sub-classification), `Configure`, `Invoke`, `Describe`, `Render`, `Preview`.
 - [`data-types.md`](data-types.md) — `ToolSchema`, `RiskClass`, the `ToolCall`/`ToolEvent`/`ToolResult` shapes, and `ConcurrencySpec`.
 - [`reference-catalog.md`](reference-catalog.md) — the first-party reference tool set this protocol defines, and the genuinely ambiguous classification calls (`bash`, `web_fetch`) worth calling out by name.
 - [`examples.md`](examples.md) — a worked `agent.hcl` provider block, the real proto wire definitions, and a full `Invoke` event sequence.

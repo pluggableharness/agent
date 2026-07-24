@@ -15,6 +15,7 @@
 package planv1
 
 import (
+	v11 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 	v1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -197,7 +198,24 @@ type PlanItem struct {
 	Decision PlanDecision `protobuf:"varint,6,opt,name=decision,proto3,enum=pluggableharness.agent.plan.v1.PlanDecision" json:"decision,omitempty"`
 	// The name of the policy rule or subscriber that produced `decision`,
 	// for audit (state-backend.md §4.4 plan_items.decided_by).
-	DecidedBy     string `protobuf:"bytes,7,opt,name=decided_by,json=decidedBy,proto3" json:"decided_by,omitempty"`
+	DecidedBy string `protobuf:"bytes,7,opt,name=decided_by,json=decidedBy,proto3" json:"decided_by,omitempty"`
+	// Snapshot of ToolSchema.kind (tool/data-types.md#toolschema) for the
+	// operation this item calls, at plan-construction time.
+	Kind v1.ToolKind `protobuf:"varint,8,opt,name=kind,proto3,enum=pluggableharness.agent.tool.v1.ToolKind" json:"kind,omitempty"`
+	// Snapshot of ToolSchema.risk, at plan-construction time.
+	Risk v1.RiskClass `protobuf:"varint,9,opt,name=risk,proto3,enum=pluggableharness.agent.tool.v1.RiskClass" json:"risk,omitempty"`
+	// Snapshot of ToolSchema.description, at plan-construction time.
+	Description string `protobuf:"bytes,10,opt,name=description,proto3" json:"description,omitempty"`
+	// The tool provider's dry-run preview of this call's effect, when the
+	// provider implements ToolService.Preview (tool/protocol.md#preview).
+	// The kernel calls Preview at plan-construction time for
+	// TOOL_KIND_RESOURCE items whose provider implements it; absent when
+	// the provider has no Preview implementation, in which case a frontend
+	// falls back to rendering the raw `input` above. Pinned to
+	// render.v1.RenderTree — the exact type ToolService.Preview's own
+	// response carries, so this stored snapshot and the RPC's live output
+	// share one wire shape (agent-loop/plan-apply-gate.md#preview-flow).
+	Preview       *v11.RenderTree `protobuf:"bytes,11,opt,name=preview,proto3,oneof" json:"preview,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -279,6 +297,34 @@ func (x *PlanItem) GetDecidedBy() string {
 		return x.DecidedBy
 	}
 	return ""
+}
+
+func (x *PlanItem) GetKind() v1.ToolKind {
+	if x != nil {
+		return x.Kind
+	}
+	return v1.ToolKind(0)
+}
+
+func (x *PlanItem) GetRisk() v1.RiskClass {
+	if x != nil {
+		return x.Risk
+	}
+	return v1.RiskClass(0)
+}
+
+func (x *PlanItem) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *PlanItem) GetPreview() *v11.RenderTree {
+	if x != nil {
+		return x.Preview
+	}
+	return nil
 }
 
 // Plan collects every policy-evaluated call identified during one turn.
@@ -522,7 +568,7 @@ var File_pluggableharness_agent_plan_v1_plan_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_agent_plan_v1_plan_proto_rawDesc = "" +
 	"\n" +
-	")pluggableharness/agent/plan/v1/plan.proto\x12\x1epluggableharness.agent.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a)pluggableharness/agent/tool/v1/tool.proto\"\x8d\x02\n" +
+	")pluggableharness/agent/plan/v1/plan.proto\x12\x1epluggableharness.agent.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a)pluggableharness/agent/tool/v1/tool.proto\"\x85\x04\n" +
 	"\bPlanItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\ftool_call_id\x18\x02 \x01(\tR\n" +
@@ -532,7 +578,14 @@ const file_pluggableharness_agent_plan_v1_plan_proto_rawDesc = "" +
 	"\x05input\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x05input\x12H\n" +
 	"\bdecision\x18\x06 \x01(\x0e2,.pluggableharness.agent.plan.v1.PlanDecisionR\bdecision\x12\x1d\n" +
 	"\n" +
-	"decided_by\x18\a \x01(\tR\tdecidedBy\"_\n" +
+	"decided_by\x18\a \x01(\tR\tdecidedBy\x12<\n" +
+	"\x04kind\x18\b \x01(\x0e2(.pluggableharness.agent.tool.v1.ToolKindR\x04kind\x12=\n" +
+	"\x04risk\x18\t \x01(\x0e2).pluggableharness.agent.tool.v1.RiskClassR\x04risk\x12 \n" +
+	"\vdescription\x18\n" +
+	" \x01(\tR\vdescription\x12K\n" +
+	"\apreview\x18\v \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeH\x00R\apreview\x88\x01\x01B\n" +
+	"\n" +
+	"\b_preview\"_\n" +
 	"\x04Plan\x12\x17\n" +
 	"\aturn_id\x18\x01 \x01(\tR\x06turnId\x12>\n" +
 	"\x05items\x18\x02 \x03(\v2(.pluggableharness.agent.plan.v1.PlanItemR\x05items\"\xd8\x04\n" +
@@ -585,22 +638,28 @@ var file_pluggableharness_agent_plan_v1_plan_proto_goTypes = []any{
 	(*ApplyResult)(nil),           // 4: pluggableharness.agent.plan.v1.ApplyResult
 	(*ApplyResult_ApplyItem)(nil), // 5: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem
 	(*structpb.Struct)(nil),       // 6: google.protobuf.Struct
-	(*v1.ToolResult)(nil),         // 7: pluggableharness.agent.tool.v1.ToolResult
-	(*v1.ToolError)(nil),          // 8: pluggableharness.agent.tool.v1.ToolError
+	(v1.ToolKind)(0),              // 7: pluggableharness.agent.tool.v1.ToolKind
+	(v1.RiskClass)(0),             // 8: pluggableharness.agent.tool.v1.RiskClass
+	(*v11.RenderTree)(nil),        // 9: pluggableharness.agent.render.v1.RenderTree
+	(*v1.ToolResult)(nil),         // 10: pluggableharness.agent.tool.v1.ToolResult
+	(*v1.ToolError)(nil),          // 11: pluggableharness.agent.tool.v1.ToolError
 }
 var file_pluggableharness_agent_plan_v1_plan_proto_depIdxs = []int32{
-	6, // 0: pluggableharness.agent.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
-	0, // 1: pluggableharness.agent.plan.v1.PlanItem.decision:type_name -> pluggableharness.agent.plan.v1.PlanDecision
-	2, // 2: pluggableharness.agent.plan.v1.Plan.items:type_name -> pluggableharness.agent.plan.v1.PlanItem
-	5, // 3: pluggableharness.agent.plan.v1.ApplyResult.items:type_name -> pluggableharness.agent.plan.v1.ApplyResult.ApplyItem
-	1, // 4: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.agent.plan.v1.ApplyResult.ApplyOutcome
-	7, // 5: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.agent.tool.v1.ToolResult
-	8, // 6: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.agent.tool.v1.ToolError
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	6,  // 0: pluggableharness.agent.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
+	0,  // 1: pluggableharness.agent.plan.v1.PlanItem.decision:type_name -> pluggableharness.agent.plan.v1.PlanDecision
+	7,  // 2: pluggableharness.agent.plan.v1.PlanItem.kind:type_name -> pluggableharness.agent.tool.v1.ToolKind
+	8,  // 3: pluggableharness.agent.plan.v1.PlanItem.risk:type_name -> pluggableharness.agent.tool.v1.RiskClass
+	9,  // 4: pluggableharness.agent.plan.v1.PlanItem.preview:type_name -> pluggableharness.agent.render.v1.RenderTree
+	2,  // 5: pluggableharness.agent.plan.v1.Plan.items:type_name -> pluggableharness.agent.plan.v1.PlanItem
+	5,  // 6: pluggableharness.agent.plan.v1.ApplyResult.items:type_name -> pluggableharness.agent.plan.v1.ApplyResult.ApplyItem
+	1,  // 7: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.agent.plan.v1.ApplyResult.ApplyOutcome
+	10, // 8: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.agent.tool.v1.ToolResult
+	11, // 9: pluggableharness.agent.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.agent.tool.v1.ToolError
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_plan_v1_plan_proto_init() }
@@ -608,6 +667,7 @@ func file_pluggableharness_agent_plan_v1_plan_proto_init() {
 	if File_pluggableharness_agent_plan_v1_plan_proto != nil {
 		return
 	}
+	file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pluggableharness_agent_plan_v1_plan_proto_msgTypes[3].OneofWrappers = []any{
 		(*ApplyResult_ApplyItem_ToolResult)(nil),
 		(*ApplyResult_ApplyItem_ToolError)(nil),

@@ -12,13 +12,13 @@ The design draws on patterns seen across coding harnesses — automatic session 
 
 Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport) — the standard handshake applies uniformly across all six provider categories and isn't repeated here.
 
-A memory provider plugin exposes six RPCs: `GetCapabilities`, `Configure`, `Recall`, `Record`, `UpdateRecord`, `DeleteRecord`. It MAY additionally implement `ApproveRecord`/`RejectRecord` (the optional ratification pattern, [`protocol.md#ratification-optional`](protocol.md#ratification-optional)) and `Render` ([`protocol.md#render`](protocol.md#render)). All seven/nine RPCs are unary — unlike the model provider's `StreamCompletion` or the tool provider's `Invoke`, nothing in this category streams.
+A memory provider plugin exposes nine RPCs: `GetCapabilities`, `Configure`, `Recall`, `Record`, `UpdateRecord`, `DeleteRecord`, `ListRecords`, `GetRecord`, `Describe`. It MAY additionally implement `ApproveRecord`/`RejectRecord` (the optional ratification pattern, [`protocol.md#ratification-optional`](protocol.md#ratification-optional)) and `Render` ([`protocol.md#render`](protocol.md#render)). All eleven RPCs are unary — unlike the model provider's `StreamCompletion` or the tool provider's `Invoke`, nothing in this category streams.
 
 **A plugin process MAY implement more than one provider-category protocol.** The reference memory provider ([`examples.md#write-triggers-reference-tools`](examples.md#write-triggers-reference-tools)) implements both this protocol and registers as a tool provider (per [`tool/README.md`](../tool/README.md)) for `memory.remember`/`memory.forget`/ `memory.search`, in the same process, with the tool's `Invoke` calling directly into its own `Record` method — no cross-plugin RPC needed. Nothing in this protocol prohibits that; it is simply the natural shape once a category's read/write RPCs and a tool-shaped trigger for the write side turn out to belong to the same plugin.
 
 ## Category structure
 
-- [`protocol.md`](protocol.md) — the RPCs: `GetCapabilities`, `Configure`, `Recall`, `Record`/`UpdateRecord`/`DeleteRecord`, `ApproveRecord`/`RejectRecord`, `Render`.
+- [`protocol.md`](protocol.md) — the RPCs: `GetCapabilities`, `Configure`, `Recall`, `Record`/`UpdateRecord`/`DeleteRecord`, `ListRecords`/`GetRecord`, `ApproveRecord`/`RejectRecord`, `Render`, `Describe`.
 - [`data-types.md`](data-types.md) — `MemoryCapabilities`, the `MemoryScope` and `MemoryType` enums, `RecallRequest`/`MemoryRecord`, the write-side request/result types, and the `MemoryError` taxonomy.
 - [`taxonomy.md`](taxonomy.md) — the fixed record taxonomy in full: what each `MemoryType` means, how it interacts with `MemoryScope`, and why both are fixed at the protocol level rather than left to each provider.
 - [`examples.md`](examples.md) — an illustrative wire-format excerpt of the service definition, a worked `Recall`/`Record` sequence, a worked `[[name]]` cross-reference example, and the write-triggers table (autonomous hook-driven vs. explicit model-invoked reference tools).

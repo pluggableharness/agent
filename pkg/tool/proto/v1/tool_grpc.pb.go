@@ -28,6 +28,8 @@ const (
 	ToolService_Configure_FullMethodName = "/pluggableharness.agent.tool.v1.ToolService/Configure"
 	ToolService_Invoke_FullMethodName    = "/pluggableharness.agent.tool.v1.ToolService/Invoke"
 	ToolService_Render_FullMethodName    = "/pluggableharness.agent.tool.v1.ToolService/Render"
+	ToolService_Preview_FullMethodName   = "/pluggableharness.agent.tool.v1.ToolService/Preview"
+	ToolService_Describe_FullMethodName  = "/pluggableharness.agent.tool.v1.ToolService/Describe"
 )
 
 // ToolServiceClient is the client API for ToolService service.
@@ -60,6 +62,18 @@ type ToolServiceClient interface {
 	// per tool.md §7. MAY be implemented; if absent, the kernel falls back to
 	// its generic default (pretty-printed JSON payload).
 	Render(ctx context.Context, in *RenderRequest, opts ...grpc.CallOption) (*RenderResponse, error)
+	// Preview returns a dry-run, human-readable description of what Invoke
+	// would do for the given call, without performing it — per
+	// protocol.md#preview. MAY be implemented; a kernel MUST tolerate its
+	// absence and fall back to showing the call's raw arguments in the
+	// plan/apply gate's permission UI.
+	Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (*PreviewResponse, error)
+	// Describe reports this plugin build's own identity — per
+	// protocol.md#describe and configuration/lock-file.md's dev_overrides
+	// note, this is how the kernel learns a dev_overrides-resolved plugin's
+	// {name, version, source, category, protocol_version} when there is no
+	// lock-file entry to read it from.
+	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
 
 type toolServiceClient struct {
@@ -119,6 +133,26 @@ func (c *toolServiceClient) Render(ctx context.Context, in *RenderRequest, opts 
 	return out, nil
 }
 
+func (c *toolServiceClient) Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (*PreviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PreviewResponse)
+	err := c.cc.Invoke(ctx, ToolService_Preview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *toolServiceClient) Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DescribeResponse)
+	err := c.cc.Invoke(ctx, ToolService_Describe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ToolServiceServer is the server API for ToolService service.
 // All implementations must embed UnimplementedToolServiceServer
 // for forward compatibility.
@@ -149,6 +183,18 @@ type ToolServiceServer interface {
 	// per tool.md §7. MAY be implemented; if absent, the kernel falls back to
 	// its generic default (pretty-printed JSON payload).
 	Render(context.Context, *RenderRequest) (*RenderResponse, error)
+	// Preview returns a dry-run, human-readable description of what Invoke
+	// would do for the given call, without performing it — per
+	// protocol.md#preview. MAY be implemented; a kernel MUST tolerate its
+	// absence and fall back to showing the call's raw arguments in the
+	// plan/apply gate's permission UI.
+	Preview(context.Context, *PreviewRequest) (*PreviewResponse, error)
+	// Describe reports this plugin build's own identity — per
+	// protocol.md#describe and configuration/lock-file.md's dev_overrides
+	// note, this is how the kernel learns a dev_overrides-resolved plugin's
+	// {name, version, source, category, protocol_version} when there is no
+	// lock-file entry to read it from.
+	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedToolServiceServer()
 }
 
@@ -170,6 +216,12 @@ func (UnimplementedToolServiceServer) Invoke(*InvokeRequest, grpc.ServerStreamin
 }
 func (UnimplementedToolServiceServer) Render(context.Context, *RenderRequest) (*RenderResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Render not implemented")
+}
+func (UnimplementedToolServiceServer) Preview(context.Context, *PreviewRequest) (*PreviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Preview not implemented")
+}
+func (UnimplementedToolServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
 }
 func (UnimplementedToolServiceServer) mustEmbedUnimplementedToolServiceServer() {}
 func (UnimplementedToolServiceServer) testEmbeddedByValue()                     {}
@@ -257,6 +309,42 @@ func _ToolService_Render_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ToolService_Preview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ToolServiceServer).Preview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ToolService_Preview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ToolServiceServer).Preview(ctx, req.(*PreviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ToolService_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DescribeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ToolServiceServer).Describe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ToolService_Describe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ToolServiceServer).Describe(ctx, req.(*DescribeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ToolService_ServiceDesc is the grpc.ServiceDesc for ToolService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -275,6 +363,14 @@ var ToolService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Render",
 			Handler:    _ToolService_Render_Handler,
+		},
+		{
+			MethodName: "Preview",
+			Handler:    _ToolService_Preview_Handler,
+		},
+		{
+			MethodName: "Describe",
+			Handler:    _ToolService_Describe_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

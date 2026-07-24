@@ -251,4 +251,10 @@ message ActionNode {
   // carve-out) — validated against the tool's input_schema on dispatch,
   // same as any other Invoke call.
   google.protobuf.Struct args = 4;
+  // The declared name of the tool provider plugin `tool_name` belongs to.
+  // tool_name is only unique per provider (matching plan.v1.PlanItem's own
+  // provider/tool_name pairing), so this disambiguates which provider's
+  // operation to invoke on activation. Echoed unchanged onto the resulting
+  // ClientEvent.ActionTrigger.provider (frontend.md §"Client events").
+  string provider = 5;
 }

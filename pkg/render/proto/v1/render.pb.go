@@ -1283,7 +1283,13 @@ type ActionNode struct {
 	// runtime-defined per tool (see .claude/rules/proto.md's Struct
 	// carve-out) — validated against the tool's input_schema on dispatch,
 	// same as any other Invoke call.
-	Args          *structpb.Struct `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
+	Args *structpb.Struct `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
+	// The declared name of the tool provider plugin `tool_name` belongs to.
+	// tool_name is only unique per provider (matching plan.v1.PlanItem's own
+	// provider/tool_name pairing), so this disambiguates which provider's
+	// operation to invoke on activation. Echoed unchanged onto the resulting
+	// ClientEvent.ActionTrigger.provider (frontend.md §"Client events").
+	Provider      string `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1344,6 +1350,13 @@ func (x *ActionNode) GetArgs() *structpb.Struct {
 		return x.Args
 	}
 	return nil
+}
+
+func (x *ActionNode) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
 }
 
 var File_pluggableharness_agent_render_v1_render_proto protoreflect.FileDescriptor
@@ -1415,13 +1428,14 @@ const file_pluggableharness_agent_render_v1_render_proto_rawDesc = "" +
 	"\x0eSubSessionNode\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x18\n" +
-	"\asummary\x18\x02 \x01(\tR\asummary\"|\n" +
+	"\asummary\x18\x02 \x01(\tR\asummary\"\x98\x01\n" +
 	"\n" +
 	"ActionNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x1b\n" +
 	"\ttool_name\x18\x03 \x01(\tR\btoolName\x12+\n" +
-	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04args*\xa1\x01\n" +
+	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x1a\n" +
+	"\bprovider\x18\x05 \x01(\tR\bprovider*\xa1\x01\n" +
 	"\x06Region\x12\x16\n" +
 	"\x12REGION_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10REGION_MAIN_CHAT\x10\x01\x12\x12\n" +

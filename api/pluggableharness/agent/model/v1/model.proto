@@ -14,6 +14,7 @@ package pluggableharness.agent.model.v1;
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "pluggableharness/agent/common/v1/common.proto";
 import "pluggableharness/agent/config/v1/config.proto";
 import "pluggableharness/agent/content/v1/content.proto";
 import "pluggableharness/agent/render/v1/render.proto";
@@ -77,6 +78,18 @@ service ModelService {
   // §7 notes most model-provider payloads (plain text, tool calls) render
   // fine under the kernel's generic fallback when this RPC is absent.
   rpc Render(RenderRequest) returns (RenderResponse);
+
+  // Describe reports this plugin build's own identity — {name, version,
+  // source, category, protocol_version} — directly from the running
+  // process, rather than the kernel inferring it from a lock-file row.
+  // This matters specifically for a dev_overrides binary
+  // (configuration/settings-and-global.md#dev_overrides), which bypasses
+  // the registry/lock-file resolution path entirely and so has no
+  // provider "<name>" { ... } lock entry to read identity from; see
+  // configuration/lock-file.md's dev_overrides note for the canonical
+  // explanation, shared verbatim across all six category protocols that
+  // gain this RPC in this same protocol revision.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 
 // GetCapabilitiesRequest is empty: model.md §2 defines GetCapabilities
@@ -106,6 +119,20 @@ message Capabilities {
   // capabilities so the kernel knows what fields Configure expects, per
   // configuration.md §4.
   pluggableharness.agent.config.v1.ConfigSchema config_schema = 3;
+
+  // Which hook points (agent-loop/hook-dispatch.md) this plugin can serve
+  // via HookSubscriberService.DispatchHook. The kernel MUST reject an
+  // agent.hcl hook{} block naming a point not present here, at
+  // config-load time.
+  //
+  // Typed as common.v1.HookPoint, not hook.v1.HookPoint: hook.proto
+  // imports model.proto (for ModelRef/Usage on its PreModelCall/
+  // PostModelResponse hook payloads), so model.proto importing hook.proto
+  // for this field would be a cyclic file dependency — confirmed via
+  // `buf build`, which rejects it outright ("detected cyclic import").
+  // HookPoint itself lives in common.v1 for exactly this reason (see
+  // common.proto), already imported here for CallContext/Describe.
+  repeated pluggableharness.agent.common.v1.HookPoint supported_hook_points = 4;
 }
 
 // ConfigureRequest wraps the provider's agent.hcl config block, already
@@ -127,6 +154,18 @@ message ConfigureRequest {
 // error-taxonomy convention — there is no in-band error field on this
 // message.
 message ConfigureResponse {}
+
+// DescribeRequest is empty: Describe takes no request parameters, per
+// configuration/lock-file.md's dev_overrides note.
+message DescribeRequest {}
+
+// DescribeResponse reports this plugin build's own identity, per
+// configuration/lock-file.md's dev_overrides note.
+message DescribeResponse {
+  // This plugin build's identity, as it would otherwise appear in a
+  // lock-file provider "<name>" { ... } entry.
+  pluggableharness.agent.common.v1.ProducerRef producer = 1;
+}
 
 // ModelSpec describes one model this provider can serve, per
 // model.md §2. Every field below is MUST unless its comment says
@@ -174,6 +213,22 @@ message ModelSpec {
   // This model's pricing. MUST be present even for a free model (set
   // Pricing.free = true).
   Pricing pricing = 10;
+
+  // Which GenerationParams.tool_choice.mode values this model accepts.
+  // SHOULD declare precisely which subset a vendor supports rather than
+  // collapsing to a bool, mirroring ThinkingSpec/CachingSpec's sum-type
+  // rationale above — vendors differ in which of AUTO/ANY/NONE/SPECIFIC
+  // they expose. Empty means this model does not support constraining
+  // tool choice at all (only free-form model-decides behavior); the
+  // kernel MUST NOT send a GenerationParams.tool_choice with a mode
+  // absent from this list.
+  repeated ToolChoiceMode supported_tool_choice_modes = 11;
+
+  // Whether this model can accept document content blocks (content.v1
+  // DocumentBlock, e.g. inline PDFs). Mirrors supports_vision's rule:
+  // the kernel MUST reject a DocumentBlock sent to a model where this is
+  // false, with invalid_request, rather than silently dropping it.
+  bool supports_documents = 12;
 }
 
 // ThinkingMode enumerates the shapes of extended-reasoning control found
@@ -278,11 +333,15 @@ message CachingSpec {
   bool keepalive_supported = 3;
 }
 
-// PricingTier is one time-bounded rate within a model's Pricing, per
-// model.md §2. Exactly one tier MUST match at any given timestamp
-// (effective_from <= ts < effective_until, an omitted bound unbounded on
-// that side); the kernel MUST reject a Pricing value at capability-load
-// time if its tiers overlap or leave a gap.
+// PricingTier is one time-bounded, input-size-bounded rate within a
+// model's Pricing, per model.md §2. Exactly one tier MUST match at any
+// given (timestamp, input_token_count) pair — timestamp resolved against
+// effective_from/effective_until (an omitted bound unbounded on that
+// side) AND input_token_count resolved against input_tokens_from/
+// input_tokens_until (likewise unbounded when omitted) simultaneously;
+// the kernel MUST reject a Pricing value at capability-load time if its
+// tiers overlap or leave a gap across either dimension, exactly as it
+// already does for the time dimension alone.
 message PricingTier {
   // The moment this tier becomes active. Omitted means "since this plugin
   // version was published". Refines model.md §2's "ISO 8601
@@ -317,6 +376,20 @@ message PricingTier {
   // A vendor's discounted batch/async output rate, paired with
   // batch_input_per_mtok. MAY be present.
   optional double batch_output_per_mtok = 8;
+
+  // The smallest accumulated-input-token count this tier applies to,
+  // inclusive. Omitted means unbounded below (matches any input size down
+  // to zero). Real vendors price by input size as well as by time — e.g.
+  // a distinct, higher rate once a request's input exceeds 200k tokens —
+  // and this field lets a tier declare that dimension alongside the
+  // existing effective_from/effective_until time bounds. Refines
+  // model/data-types.md#pricing's tier-matching rule into two dimensions.
+  optional int64 input_tokens_from = 9;
+
+  // The input-token count this tier stops applying to, exclusive.
+  // Omitted means unbounded above. Half-open with input_tokens_from,
+  // matching effective_from/effective_until's half-open convention.
+  optional int64 input_tokens_until = 10;
 }
 
 // Pricing describes one model's cost structure, per model.md §2. MUST
@@ -356,6 +429,75 @@ message StreamCompletionRequest {
   // Generation-time overrides. Omitted means every param takes its
   // model-specific default.
   optional GenerationParams params = 4;
+
+  // The kernel-assembled context chain — the accumulated output of every
+  // context provider's Contribute call plus memory recall
+  // (context/protocol.md#contribute-the-context-assemble-rpc), in chain
+  // order (the same order context.md's ContextRequest.prior_sections/
+  // Contribute response chain uses: each provider appends after the
+  // sections it received). This is distinct from `messages` above: it is
+  // system-level/preamble content, never a conversational turn, which is
+  // why it's carried as its own field rather than folded into `messages`
+  // as a synthetic message — content.v1.Role deliberately has no SYSTEM
+  // value (content.proto's Role comment) precisely because this content
+  // is never a Message with a role. Each model-provider adapter maps
+  // this chain to its vendor's own system/preamble mechanism (a top-level
+  // `system` string, a leading system-role message, etc.) — how that
+  // mapping happens is adapter-internal and not part of this wire
+  // contract.
+  repeated pluggableharness.agent.content.v1.ContextSection assembled_context = 5;
+
+  // Session/turn/working-directory attribution for this call. MUST be set
+  // by the kernel on every StreamCompletionRequest. This is what the
+  // plugin passes back on its own KernelCallbackService.Emit and Log
+  // calls (kernel-callbacks.md#emit) for correlation, without having to
+  // separately thread session_id/turn_id through adapter-internal call
+  // sites by hand.
+  pluggableharness.agent.common.v1.CallContext call_context = 6;
+
+  // Cache breakpoints for this request, wire-level and request-scoped —
+  // NOT carried on the persisted content.v1.ContentBlock, since a
+  // breakpoint's placement is a per-request optimization decision, not a
+  // durable property of the conversation history itself. Meaningful only
+  // when the target model's CachingSpec.mode ==
+  // CACHING_MODE_EXPLICIT_MARKERS; a model-provider adapter targeting a
+  // model whose CachingSpec.mode is CACHING_MODE_IMPLICIT_AUTOMATIC or
+  // CACHING_MODE_NONE MUST ignore this field rather than error on it.
+  // Placement is a kernel decision, not the plugin's: the kernel knows
+  // each assembled_context section's Stability (content.proto's Stability
+  // enum) and each message's position, so it places breakpoints at
+  // natural stable-prefix boundaries — see
+  // model/protocol.md#cache-breakpoint-placement-policy.
+  repeated CacheBreakpoint cache_breakpoints = 7;
+}
+
+// CacheBreakpoint marks one position in a StreamCompletionRequest where
+// the kernel wants the adapter to insert a vendor-native cache-control
+// marker, per StreamCompletionRequest.cache_breakpoints above.
+message CacheBreakpoint {
+  // The position this breakpoint marks. Exactly one variant is set.
+  oneof position {
+    // Immediately after the assembled_context chain — the kernel's most
+    // common choice, since assembled_context is usually the longest
+    // stable prefix (context/data-types.md#ordering--chaining orders
+    // STABILITY_STATIC sections before STABILITY_DYNAMIC ones).
+    AfterAssembledContext after_assembled_context = 1;
+
+    // Immediately after the tools declaration list.
+    AfterTools after_tools = 2;
+
+    // Immediately after the message at this zero-based index within
+    // `messages`.
+    int64 after_message_index = 3;
+  }
+
+  // AfterAssembledContext is an empty marker message: its presence as the
+  // set oneof variant is the entire signal, no further data needed.
+  message AfterAssembledContext {}
+
+  // AfterTools is an empty marker message: its presence as the set oneof
+  // variant is the entire signal, no further data needed.
+  message AfterTools {}
 }
 
 // ToolDeclaration is one tool the model may call on this turn, per
@@ -389,6 +531,61 @@ message GenerationParams {
   // Per-request override of ModelSpec.max_output_tokens. Omitted means
   // use the model's default.
   optional int64 max_output_tokens = 3;
+
+  // Sampling temperature. Omitted means use the model's default. Range
+  // and exact semantics are vendor-specific; the kernel does not clamp
+  // or reinterpret this value, it is passed through to the adapter as
+  // given.
+  optional double temperature = 4;
+
+  // Sequences that, if generated, MUST cause the model to stop before
+  // producing them. Omitted/empty means no caller-supplied stop
+  // sequences. When a vendor honors one of these, the plugin MUST report
+  // it back via StreamEvent.Stop.matched_stop_sequence with StopReason
+  // STOP_REASON_STOP_SEQUENCE.
+  repeated string stop_sequences = 5;
+
+  // Constrains whether/how the model must use a tool this turn. Omitted
+  // means the model decides freely (equivalent to
+  // TOOL_CHOICE_MODE_AUTO). Meaningful only when the target model's
+  // ModelSpec.supported_tool_choice_modes is non-empty; the kernel MUST
+  // NOT send a mode absent from that list, mirroring
+  // thinking_effort/thinking_budget_tokens' ThinkingSpec-validation rule
+  // above — an unsupported mode is a kernel-level reject-or-fallback, not
+  // something forwarded to the vendor.
+  optional ToolChoice tool_choice = 6;
+}
+
+// ToolChoiceMode enumerates the tool-invocation constraint shapes found
+// across researched vendors, per the same "declare precisely, don't
+// collapse to a bool" reasoning as ThinkingMode/CachingMode above.
+enum ToolChoiceMode {
+  // Zero value. Never valid on a real ToolChoice; its presence on the
+  // wire means a caller forgot to set the field.
+  TOOL_CHOICE_MODE_UNSPECIFIED = 0;
+  // The model decides freely whether and which tool to call. Equivalent
+  // to omitting GenerationParams.tool_choice entirely.
+  TOOL_CHOICE_MODE_AUTO = 1;
+  // The model MUST call some tool this turn, but may pick which one.
+  TOOL_CHOICE_MODE_ANY = 2;
+  // The model MUST NOT call any tool this turn, even if tools were
+  // declared.
+  TOOL_CHOICE_MODE_NONE = 3;
+  // The model MUST call the specific tool named in ToolChoice.tool_name.
+  TOOL_CHOICE_MODE_SPECIFIC = 4;
+}
+
+// ToolChoice carries one request's tool-invocation constraint, per
+// GenerationParams.tool_choice above.
+message ToolChoice {
+  // Which constraint shape applies. MUST be set.
+  ToolChoiceMode mode = 1;
+
+  // The tool the model MUST call. MUST be set, and MUST name a tool
+  // present in StreamCompletionRequest.tools, when mode ==
+  // TOOL_CHOICE_MODE_SPECIFIC; meaningless and MUST be omitted for every
+  // other mode.
+  optional string tool_name = 2;
 }
 
 // StreamEvent is one message in the stream StreamCompletion returns, per
@@ -471,6 +668,11 @@ message StreamEvent {
   message Stop {
     // Why the completion ended.
     StopReason reason = 1;
+
+    // Which GenerationParams.stop_sequences entry was matched. Set iff
+    // reason == STOP_REASON_STOP_SEQUENCE; MUST be omitted for every
+    // other reason.
+    optional string matched_stop_sequence = 2;
   }
 
   // Error signals the completion failed.
@@ -497,6 +699,15 @@ message Usage {
   // Tokens written to cache, if the model supports caching. Never also
   // counted in input_tokens.
   optional int64 cache_write_tokens = 4;
+  // Thinking/reasoning tokens, when the vendor reports them as a
+  // distinct count (ThinkingSpec.supported models only). Never also
+  // counted in output_tokens — a vendor that folds reasoning tokens into
+  // its reported output_tokens has no separate figure to report here, so
+  // this stays unset in that case rather than being derived/subtracted.
+  // Billed at the output rate (PricingTier.output_per_mtok) unless a
+  // future Pricing revision declares a distinct reasoning rate — there is
+  // none as of this revision.
+  optional int64 reasoning_tokens = 5;
   // Deliberately no cost field: the kernel computes and persists
   // cost_usd from these token counts plus the matching PricingTier, per
   // model.md §4.1 — the provider never computes cost itself.
@@ -519,6 +730,16 @@ enum StopReason {
   // abort). MUST be treated by the plugin as normal control flow, never
   // as an error (model.md §1, .claude/rules/grpc.md).
   STOP_REASON_CANCELLED = 5;
+  // The model or vendor refused to continue generating — distinct from
+  // STOP_REASON_CONTENT_FILTERED, which is the vendor's automated content
+  // filter stopping generation; REFUSAL is the model itself declining
+  // (e.g. a safety-trained refusal message), a semantically different
+  // event even though both are policy-driven stops.
+  STOP_REASON_REFUSAL = 6;
+  // The model stopped because it generated one of
+  // GenerationParams.stop_sequences. Stop.matched_stop_sequence carries
+  // which one.
+  STOP_REASON_STOP_SEQUENCE = 7;
 }
 
 // CountTokensRequest is CountTokens' request: the raw text to count, per
@@ -526,6 +747,11 @@ enum StopReason {
 message CountTokensRequest {
   // The text to count tokens for.
   string text = 1;
+
+  // Selects which of this provider's ModelSpec.id to count against — a
+  // provider serving several models MAY have distinct tokenizers per
+  // model. MUST be set.
+  string model_id = 2;
 }
 
 // CountTokensResponse is CountTokens' response.
@@ -540,6 +766,14 @@ message RenderRequest {
   // pipeline's deliberate carve-out from the strong-typing rule (see
   // .claude/rules/grpc.md), never interpreted by the kernel.
   bytes payload = 1;
+
+  // The schema_version `payload` was emitted under, per
+  // ../frontend/render-tree.md#schema-versioning. MUST be set — lets this
+  // Render implementation interpret a payload emitted by an older plugin
+  // version consistently across a replayed session, the same
+  // "supersedes" reasoning architecture.md applies elsewhere to
+  // schema-drift-sensitive persisted data.
+  string schema_version = 2;
 }
 
 // RenderResponse wraps the resulting RenderTree, per model.md §7.

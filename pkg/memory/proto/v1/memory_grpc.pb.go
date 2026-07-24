@@ -37,6 +37,9 @@ const (
 	MemoryService_ApproveRecord_FullMethodName   = "/pluggableharness.agent.memory.v1.MemoryService/ApproveRecord"
 	MemoryService_RejectRecord_FullMethodName    = "/pluggableharness.agent.memory.v1.MemoryService/RejectRecord"
 	MemoryService_Render_FullMethodName          = "/pluggableharness.agent.memory.v1.MemoryService/Render"
+	MemoryService_ListRecords_FullMethodName     = "/pluggableharness.agent.memory.v1.MemoryService/ListRecords"
+	MemoryService_GetRecord_FullMethodName       = "/pluggableharness.agent.memory.v1.MemoryService/GetRecord"
+	MemoryService_Describe_FullMethodName        = "/pluggableharness.agent.memory.v1.MemoryService/Describe"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -80,6 +83,27 @@ type MemoryServiceClient interface {
 	// review-inbox view distinct from ordinary recall), in place of the
 	// kernel's generic fallback. MAY be implemented. Unary. memory.md §10.
 	Render(ctx context.Context, in *RenderRequest, opts ...grpc.CallOption) (*RenderResponse, error)
+	// ListRecords is the enumeration/audit path: paginated browsing of this
+	// provider's records, filterable by type/scope/status. Unlike Recall,
+	// PENDING records ARE listable here without any include_pending-style
+	// gate — this is the review-inbox path (e.g. a ratification review UI),
+	// not the budget-constrained per-turn recall path. MUST be implemented;
+	// cheap for any real backend. memory.md §7.
+	ListRecords(ctx context.Context, in *ListRecordsRequest, opts ...grpc.CallOption) (*ListRecordsResponse, error)
+	// GetRecord fetches exactly one record by id. MUST fail with a
+	// structured MemoryError (category NOT_FOUND) if `id` doesn't match an
+	// existing record, rather than returning an empty result. MUST be
+	// implemented; cheap for any real backend. memory.md §7.
+	GetRecord(ctx context.Context, in *GetRecordRequest, opts ...grpc.CallOption) (*GetRecordResponse, error)
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} via ProducerRef — independent of
+	// any lock-file entry. This is the mechanism a dev_overrides-resolved
+	// binary (which has no provider {} lock entry to read identity from)
+	// uses to self-report at connection time; see
+	// docs/specifications/configuration/lock-file.md's dev_overrides note,
+	// which is the canonical explanation for this RPC across every plugin
+	// category that gains it in this protocol revision.
+	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -180,6 +204,36 @@ func (c *memoryServiceClient) Render(ctx context.Context, in *RenderRequest, opt
 	return out, nil
 }
 
+func (c *memoryServiceClient) ListRecords(ctx context.Context, in *ListRecordsRequest, opts ...grpc.CallOption) (*ListRecordsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRecordsResponse)
+	err := c.cc.Invoke(ctx, MemoryService_ListRecords_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) GetRecord(ctx context.Context, in *GetRecordRequest, opts ...grpc.CallOption) (*GetRecordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRecordResponse)
+	err := c.cc.Invoke(ctx, MemoryService_GetRecord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DescribeResponse)
+	err := c.cc.Invoke(ctx, MemoryService_Describe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MemoryServiceServer is the server API for MemoryService service.
 // All implementations must embed UnimplementedMemoryServiceServer
 // for forward compatibility.
@@ -221,6 +275,27 @@ type MemoryServiceServer interface {
 	// review-inbox view distinct from ordinary recall), in place of the
 	// kernel's generic fallback. MAY be implemented. Unary. memory.md §10.
 	Render(context.Context, *RenderRequest) (*RenderResponse, error)
+	// ListRecords is the enumeration/audit path: paginated browsing of this
+	// provider's records, filterable by type/scope/status. Unlike Recall,
+	// PENDING records ARE listable here without any include_pending-style
+	// gate — this is the review-inbox path (e.g. a ratification review UI),
+	// not the budget-constrained per-turn recall path. MUST be implemented;
+	// cheap for any real backend. memory.md §7.
+	ListRecords(context.Context, *ListRecordsRequest) (*ListRecordsResponse, error)
+	// GetRecord fetches exactly one record by id. MUST fail with a
+	// structured MemoryError (category NOT_FOUND) if `id` doesn't match an
+	// existing record, rather than returning an empty result. MUST be
+	// implemented; cheap for any real backend. memory.md §7.
+	GetRecord(context.Context, *GetRecordRequest) (*GetRecordResponse, error)
+	// Describe reports this plugin build's own identity — {name, version,
+	// source, category, protocol_version} via ProducerRef — independent of
+	// any lock-file entry. This is the mechanism a dev_overrides-resolved
+	// binary (which has no provider {} lock entry to read identity from)
+	// uses to self-report at connection time; see
+	// docs/specifications/configuration/lock-file.md's dev_overrides note,
+	// which is the canonical explanation for this RPC across every plugin
+	// category that gains it in this protocol revision.
+	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -257,6 +332,15 @@ func (UnimplementedMemoryServiceServer) RejectRecord(context.Context, *RejectRec
 }
 func (UnimplementedMemoryServiceServer) Render(context.Context, *RenderRequest) (*RenderResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Render not implemented")
+}
+func (UnimplementedMemoryServiceServer) ListRecords(context.Context, *ListRecordsRequest) (*ListRecordsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRecords not implemented")
+}
+func (UnimplementedMemoryServiceServer) GetRecord(context.Context, *GetRecordRequest) (*GetRecordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRecord not implemented")
+}
+func (UnimplementedMemoryServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -441,6 +525,60 @@ func _MemoryService_Render_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_ListRecords_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRecordsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).ListRecords(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_ListRecords_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).ListRecords(ctx, req.(*ListRecordsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_GetRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRecordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).GetRecord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_GetRecord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).GetRecord(ctx, req.(*GetRecordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DescribeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).Describe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_Describe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).Describe(ctx, req.(*DescribeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -483,6 +621,18 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Render",
 			Handler:    _MemoryService_Render_Handler,
+		},
+		{
+			MethodName: "ListRecords",
+			Handler:    _MemoryService_ListRecords_Handler,
+		},
+		{
+			MethodName: "GetRecord",
+			Handler:    _MemoryService_GetRecord_Handler,
+		},
+		{
+			MethodName: "Describe",
+			Handler:    _MemoryService_Describe_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

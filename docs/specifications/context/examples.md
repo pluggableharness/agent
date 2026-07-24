@@ -14,18 +14,21 @@ service ContextService {
   rpc Contribute(ContextRequest) returns (ContextContribution);
 
   rpc Render(RenderRequest) returns (RenderResponse);
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 
 message ContextRequest {
   string session_id = 1;
   string parent_session_id = 2;
-  int64 turn_number = 3;
+  string turn_id = 3;
   int64 token_budget = 4;
   pluggableharness.agent.model.v1.ModelTarget model_target = 5;
   repeated string files_touched = 6;
   string working_directory = 7;
   repeated ContextSection prior_sections = 8;
   repeated pluggableharness.agent.content.v1.Message conversation_history = 9;
+  int64 history_tokens = 10;
+  int64 assembled_tokens_last_turn = 11;
 }
 
 message ContextSection {
@@ -63,7 +66,7 @@ context "agents-md" {
 
 ```text
 → ContextRequest{
-    session_id: "sess_01", turn_number: 1,
+    session_id: "sess_01", turn_id: "turn_01",
     token_budget: 2000,
     model_target: { id: "claude-opus-5", context_window: 200000, effective_ceiling: 176000 },
     files_touched: [],
@@ -101,7 +104,7 @@ Neither provider mutated the other's section — each returned the full chain wi
 
 ```text
 → ContextRequest{
-    ... turn_number: 4,
+    ... turn_id: "turn_04",
     files_touched: ["src/auth/validator.py"],
     prior_sections: [ { provider: "claude-md", ... }, { provider: "agents-md", ... } ],
   }

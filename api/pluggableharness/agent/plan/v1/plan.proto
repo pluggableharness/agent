@@ -10,6 +10,7 @@ syntax = "proto3";
 package pluggableharness.agent.plan.v1;
 
 import "google/protobuf/struct.proto";
+import "pluggableharness/agent/render/v1/render.proto";
 import "pluggableharness/agent/tool/v1/tool.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/plan/proto/v1;planv1";
@@ -68,6 +69,37 @@ message PlanItem {
   // The name of the policy rule or subscriber that produced `decision`,
   // for audit (state-backend.md §4.4 plan_items.decided_by).
   string decided_by = 7;
+
+  // --- Snapshot fields (agent-loop/plan-apply-gate.md#plan-construction-and-policy-evaluation) ---
+  //
+  // The four fields below are captured from the originating tool
+  // operation's ToolSchema at plan-construction time, not looked up live
+  // at display or audit time. A later agent.hcl change to the provider's
+  // schema (a re-classified kind/risk, an edited description) MUST NOT
+  // retroactively alter a historical plan's audit record — the snapshot
+  // is what a frontend renders and what state-backend.md's plan_items
+  // table persists, independent of whatever the schema looks like now.
+
+  // Snapshot of ToolSchema.kind (tool/data-types.md#toolschema) for the
+  // operation this item calls, at plan-construction time.
+  pluggableharness.agent.tool.v1.ToolKind kind = 8;
+
+  // Snapshot of ToolSchema.risk, at plan-construction time.
+  pluggableharness.agent.tool.v1.RiskClass risk = 9;
+
+  // Snapshot of ToolSchema.description, at plan-construction time.
+  string description = 10;
+
+  // The tool provider's dry-run preview of this call's effect, when the
+  // provider implements ToolService.Preview (tool/protocol.md#preview).
+  // The kernel calls Preview at plan-construction time for
+  // TOOL_KIND_RESOURCE items whose provider implements it; absent when
+  // the provider has no Preview implementation, in which case a frontend
+  // falls back to rendering the raw `input` above. Pinned to
+  // render.v1.RenderTree — the exact type ToolService.Preview's own
+  // response carries, so this stored snapshot and the RPC's live output
+  // share one wire shape (agent-loop/plan-apply-gate.md#preview-flow).
+  optional pluggableharness.agent.render.v1.RenderTree preview = 11;
 }
 
 // Plan collects every policy-evaluated call identified during one turn.

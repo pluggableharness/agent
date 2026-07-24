@@ -48,6 +48,20 @@ service MemoryService {
   // review-inbox view distinct from ordinary recall), in place of the
   // kernel's generic fallback. MAY be implemented. Unary.
   rpc Render(RenderRequest) returns (RenderResponse);
+
+  // ListRecords is the enumeration/audit path: paginated browsing,
+  // filterable by type/scope/status. PENDING records ARE listable here,
+  // unlike Recall's include_pending gate. MUST be implemented. Unary.
+  rpc ListRecords(ListRecordsRequest) returns (ListRecordsResponse);
+
+  // GetRecord fetches exactly one record by id. MUST fail with a
+  // structured MemoryError for an unknown id. MUST be implemented. Unary.
+  rpc GetRecord(GetRecordRequest) returns (GetRecordResponse);
+
+  // Describe reports this plugin build's own identity via
+  // common.v1.ProducerRef, independent of any lock-file entry. MUST be
+  // implemented. Unary.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 
 enum MemoryType {
@@ -74,7 +88,7 @@ A session working in a project recalls memory at `context-assemble`, then later 
 
 ```text
 → RecallRequest{
-    session_id: "sess_042", turn_number: 3,
+    session_id: "sess_042", turn_id: "turn_03",
     token_budget: 1500,
     model_target: { id: "claude-opus-5", context_window: 500000, effective_ceiling: 480000 },
     working_directory: "/home/user/code/acme-widgets",
@@ -85,10 +99,16 @@ A session working in a project recalls memory at `context-assemble`, then later 
 ← RecallResponse{
     records: [
       { id: "user-role", type: MEMORY_TYPE_USER, scope: MEMORY_SCOPE_GLOBAL,
-        title: "Operator role", tokens: 42, status: canonical, links: [] },
+        title: "Operator role", tokens: 42, status: canonical, links: [],
+        relevance_score: 0.91,
+        provenance: { source_session_id: "sess_001", source_turn_id: "turn_07",
+                      recorded_by: "memory.remember" } },
       { id: "deploy-pipeline-migration-in-progress", type: MEMORY_TYPE_PROJECT,
         scope: MEMORY_SCOPE_PROJECT, title: "Migrating the release pipeline to the new deploy tool",
-        tokens: 88, status: canonical, links: ["deploy-pipeline-runbook"] },
+        tokens: 88, status: canonical, links: ["deploy-pipeline-runbook"],
+        relevance_score: 0.74,
+        provenance: { source_session_id: "sess_038", source_turn_id: "turn_12",
+                      recorded_by: "memory.remember" } },
     ],
   }
 
@@ -106,6 +126,8 @@ A session working in a project recalls memory at `context-assemble`, then later 
 ```
 
 The kernel adapts each `RecallResponse` record into a `ContextSection` before merging it into the assembled prompt — see [`protocol.md#kernel-side-translation-into-context-assembly`](protocol.md#kernel-side-translation-into-context-assembly).
+
+Both returned records above carry `relevance_score` (this provider's own normalized `[0, 1]` estimate, letting the kernel compare candidates across multiple memory providers under one shared budget) and `provenance` (kernel-populated at write time, immutable — here showing both records were originally written via `memory.remember` in earlier sessions, not the current one). Neither field appears on the `RecordRequest`/`RecordResponse` pair below: `relevance_score` is Recall/ListRecords-only and never persisted, and `provenance` is entirely kernel-populated rather than something a write-side caller supplies.
 
 ## A worked cross-reference example
 
@@ -139,7 +161,7 @@ Both an autonomous, hook-driven mechanism and an explicit, model-invoked mechani
 
 ### Autonomous, hook-driven
 
-A memory provider is implicitly subscribed to `post-response` (`observe` mode, fires every turn) and `session-end` (fires once). Nothing in the protocol prescribes *when* within that stream a provider decides to call its own internal write logic — a "10+ message session" heuristic is a candidate pattern a reference implementation might use, not a protocol requirement. `session-end` firing unconditionally gives every provider a guaranteed last chance to persist something even if its own turn-by-turn heuristic never triggered mid-session.
+A memory provider is implicitly subscribed to `post-model-response` (`observe` mode, fires every turn) and `session-end` (fires once), both delivered over `hook.v1.HookSubscriberService.DispatchHook` — see [`protocol.md#write-triggers`](protocol.md#write-triggers). Nothing in the protocol prescribes *when* within that stream a provider decides to call its own internal write logic — a "10+ message session" heuristic is a candidate pattern a reference implementation might use, not a protocol requirement. `session-end` firing unconditionally gives every provider a guaranteed last chance to persist something even if its own turn-by-turn heuristic never triggered mid-session.
 
 ### Explicit, model-invoked
 

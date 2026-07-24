@@ -13,6 +13,9 @@ MemoryCapabilities {
   ratification_supported  bool         // MUST, default false — see protocol.md#ratification-optional
   slash_commands           []SlashCommandSpec  // MAY — see frontend/README.md#slash-commands
   config_schema            ConfigSchema  // MUST — decoded per configuration/blocks-reference.md
+  supported_hook_points    []common.v1.HookPoint  // MAY be empty — which hook points this
+                                                    // provider subscribes DispatchHook to,
+                                                    // see protocol.md#write-triggers
 }
 ```
 
@@ -41,7 +44,9 @@ Fixed at the protocol level, not provider-defined. Full definitions, rationale, 
 ```protobuf
 RecallRequest {
   session_id            string
-  turn_number            int
+  turn_id                 string           // ULID, standardized across the whole
+                                            // protocol — same treatment as
+                                            // context.v1's ContextRequest.turn_id
   token_budget            int              // MUST — resolved the same way a context
                                             // provider's cap is resolved; memory recall
                                             // competes for the SAME budget pool
@@ -75,8 +80,31 @@ MemoryRecord {
   links      []string        // MUST — record IDs this record references, kernel-parsed
                               // from "[[name]]" syntax; see protocol.md#structural-name-cross-reference-links
   created_at, updated_at  timestamp
+  provenance  Provenance      // kernel-populated at Record time, immutable — see
+                               // #provenance below
+  relevance_score  double?    // [0, 1], set ONLY on Recall/ListRecords responses,
+                               // never persisted — see #relevance_score below
 }
 ```
+
+## `Provenance`
+
+```protobuf
+Provenance {
+  source_session_id  string   // the session that produced this record
+  source_turn_id      string? // the turn (ULID) within source_session_id that
+                               // produced this record, when known
+  recorded_by          string // producing plugin's declared name, or the
+                               // reference tool path that wrote it (e.g.
+                               // "memory.remember")
+}
+```
+
+Kernel-populated at `Record` time and immutable thereafter — never provider-supplied, never mutated by `UpdateRecord`. The memory category's [`README.md`](README.md) already frames provenance as a first-class concern; `MemoryRecord.provenance` is where the record shape finally carries it, so any consumer (a ratification review UI, an audit trail) has one place to look rather than reconstructing "who wrote this" from write-time logs.
+
+## `relevance_score`
+
+`MemoryRecord.relevance_score` is this record's recall-time relevance, in `[0, 1]`. It is set only on `Recall` and `ListRecords` responses — never on a `Record`/`UpdateRecord` request or response, and never persisted alongside the record itself. It exists so the kernel can merge multiple memory providers' results under one shared `token_budget` using a comparable figure, rather than relying on each provider's internal, incomparable ordering. A provider that sets `relevance_score` MUST normalize it to `[0, 1]` — scores from two different providers are only meaningfully comparable if both normalize to the same range; a provider that doesn't compute a meaningful relevance figure SHOULD leave the field unset rather than fabricating a value.
 
 `RecallRequest.token_budget` exceeded by the candidate record set even after this provider's own truncation is a `budget_exceeded` error — see [`#memoryerror`](#memoryerror) below.
 
@@ -111,6 +139,33 @@ DeleteResult { deleted bool }
 
 `RecordResult` is a reusable domain type shared across `Record`'s, `UpdateRecord`'s, and `ApproveRecord`'s responses (each keeps its own per-RPC response message wrapping the same `RecordResult` shape, not a literally-shared RPC response type). `DeleteResult` is the equivalent reusable shape for `DeleteRecord` and `RejectRecord`.
 
+## `ListRecords` / `GetRecord`
+
+```protobuf
+ListRecordsRequest {
+  type_filter    []MemoryType    // MAY be empty = all supported types
+  scope_filter   []MemoryScope   // MAY be empty = all scopes this provider supports
+  status_filter  RecordStatus?   // unset = both canonical and pending are eligible —
+                                  // PENDING records ARE listable here, unlike Recall's
+                                  // include_pending gate; see protocol.md#listrecords--getrecord
+  page_size      int
+  page_token     string          // opaque continuation token; empty on the first page
+}
+
+ListRecordsResponse {
+  records          []MemoryRecord   // this page's records
+  next_page_token  string           // empty when this is the last page
+}
+
+GetRecordRequest { id string }
+
+GetRecordResponse {
+  record  MemoryRecord
+}
+```
+
+`GetRecord` MUST fail with a `MemoryError{category: not_found}` for an unknown `id`, the same convention as `UpdateRecord`/`DeleteRecord`/`ApproveRecord`/`RejectRecord`.
+
 ## `MemoryError`
 
 ```protobuf
@@ -132,6 +187,9 @@ MemoryErrorCategory = enum {
                              // budget handling
   source_unavailable         // backend storage unreachable at call time
   unknown
+  invalid_scope               // Record specified a MemoryScope this provider doesn't
+                             // support (absent from GetCapabilities.supported_scopes) —
+                             // the scope-taxonomy mirror of invalid_type above
 }
 ```
 

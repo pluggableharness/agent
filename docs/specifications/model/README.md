@@ -10,13 +10,13 @@ See [`architecture.md`](../architecture.md) for the surrounding system (transpor
 
 Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). Standard handshake (magic cookie, protocol version negotiation) applies uniformly across all six provider categories and isn't repeated per category.
 
-A model provider plugin exposes four RPCs: `GetCapabilities`, `Configure`, `StreamCompletion`, `CountTokens`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)).
+A model provider plugin exposes five RPCs: `GetCapabilities`, `Configure`, `StreamCompletion`, `CountTokens`, `Describe`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)).
 
 **`StreamCompletion` is server-streaming, not bidirectional.** The kernel sends one request (full message history + tool specs + params) and receives a stream of response chunks back — this matches how vendor completion APIs actually work (one HTTP request, SSE/chunked response; vendors generally don't accept mid-stream client input on the same call). Cancellation (the one thing bidirectional streaming would otherwise be needed for) is handled by the kernel simply cancelling/closing the gRPC stream — a standard, natively-supported operation on a server-streaming call. Plugin authors MUST treat stream cancellation as a normal, expected event (stop generating, release resources), never as an error condition.
 
 ## Category structure
 
-- [`protocol.md`](protocol.md) — the four/five RPCs: `GetCapabilities`, `Configure`, `StreamCompletion`, `CountTokens`, `Render`.
-- [`data-types.md`](data-types.md) — `ModelSpec`, `Pricing`/`PricingTier`, `ThinkingSpec`, `CachingSpec`, the canonical message/content-block schema, and the shared tool-schema subset.
+- [`protocol.md`](protocol.md) — the six RPCs: `GetCapabilities`, `Configure`, `StreamCompletion`, `CountTokens`, `Render`, `Describe`.
+- [`data-types.md`](data-types.md) — `ModelSpec`, `Pricing`/`PricingTier`, `ThinkingSpec`, `CachingSpec`, `StreamCompletionRequest`, `GenerationParams`/`ToolChoice`, `CacheBreakpoint`, the canonical message/content-block schema, and the shared tool-schema subset.
 - [`examples.md`](examples.md) — a worked `agent.hcl` provider block, the wire protocol definitions, a cost-computation walkthrough, and a full `StreamCompletion` event sequence.
 - [`conformance.md`](conformance.md) — the error taxonomy and the MUST/SHOULD/MAY summary matrix, plus genuinely open questions.

@@ -169,9 +169,37 @@ type Message struct {
 	Role Role `protobuf:"varint,1,opt,name=role,proto3,enum=pluggableharness.agent.content.v1.Role" json:"role,omitempty"`
 	// The message's content, in emission order. A single message MAY carry
 	// multiple blocks (e.g. an assistant turn with both text and a tool_use).
-	Content       []*ContentBlock `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Content []*ContentBlock `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty"`
+	// Kernel-assigned ULID, stable across replay. This is the correlation
+	// anchor for deltas and forking (e.g. a frontend edit-and-resubmit that
+	// forks history at this message) — assigned once when the message is
+	// persisted and never reassigned, even when the same conversation is
+	// replayed against a newer plugin version. MUST be set by the kernel
+	// before persisting; a plugin never generates this value itself, per
+	// .claude/rules/determinism.md's ordering-authority rule for kernel-
+	// assigned identifiers.
+	Id string `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
+	// The id of the model that produced this message, when role ==
+	// ROLE_ASSISTANT. A plain string (the target model's ModelSpec.id), not
+	// a model.v1.ModelRef or model.v1.ModelTarget — content.v1 MUST NOT
+	// import model.v1, since model.v1 already imports content.v1 (for
+	// Message/ContentBlock/ContextSection) and a reverse import would be a
+	// cyclic dependency buf rejects at build time. Omitted for a
+	// ROLE_USER message, or when the producing model is otherwise unknown.
+	ProducedByModelId *string `protobuf:"bytes,4,opt,name=produced_by_model_id,json=producedByModelId,proto3,oneof" json:"produced_by_model_id,omitempty"`
+	// The declared name of the model provider plugin that produced this
+	// message (common.v1.ProducerRef.name / ProviderRef.name's scope), when
+	// role == ROLE_ASSISTANT. Same plain-string rationale as
+	// produced_by_model_id above. Because the kernel's routing/fallback
+	// chain (model/protocol.md#generation-parameter-validation-and-
+	// capability-aware-routing) may serve adjacent turns in the same
+	// session from different providers or different models, two
+	// consecutive ROLE_ASSISTANT messages in one conversation MAY carry
+	// different produced_by_model_id/produced_by_provider values — this is
+	// expected, not an anomaly, and MUST be preserved verbatim on replay.
+	ProducedByProvider *string `protobuf:"bytes,5,opt,name=produced_by_provider,json=producedByProvider,proto3,oneof" json:"produced_by_provider,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Message) Reset() {
@@ -218,6 +246,27 @@ func (x *Message) GetContent() []*ContentBlock {
 	return nil
 }
 
+func (x *Message) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Message) GetProducedByModelId() string {
+	if x != nil && x.ProducedByModelId != nil {
+		return *x.ProducedByModelId
+	}
+	return ""
+}
+
+func (x *Message) GetProducedByProvider() string {
+	if x != nil && x.ProducedByProvider != nil {
+		return *x.ProducedByProvider
+	}
+	return ""
+}
+
 // ContentBlock is one block within a Message. Exactly one variant is set.
 // Which variants a given model MAY produce/accept is gated by that model's
 // ModelSpec capability flags (model.md §2, §5): `text` MUST work both
@@ -234,6 +283,7 @@ type ContentBlock struct {
 	//	*ContentBlock_Image
 	//	*ContentBlock_Thinking
 	//	*ContentBlock_RedactedThinking
+	//	*ContentBlock_Document
 	Block         isContentBlock_Block `protobuf_oneof:"block"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -330,6 +380,15 @@ func (x *ContentBlock) GetRedactedThinking() *RedactedThinkingBlock {
 	return nil
 }
 
+func (x *ContentBlock) GetDocument() *DocumentBlock {
+	if x != nil {
+		if x, ok := x.Block.(*ContentBlock_Document); ok {
+			return x.Document
+		}
+	}
+	return nil
+}
+
 type isContentBlock_Block interface {
 	isContentBlock_Block()
 }
@@ -358,6 +417,10 @@ type ContentBlock_RedactedThinking struct {
 	RedactedThinking *RedactedThinkingBlock `protobuf:"bytes,6,opt,name=redacted_thinking,json=redactedThinking,proto3,oneof"`
 }
 
+type ContentBlock_Document struct {
+	Document *DocumentBlock `protobuf:"bytes,7,opt,name=document,proto3,oneof"`
+}
+
 func (*ContentBlock_Text) isContentBlock_Block() {}
 
 func (*ContentBlock_ToolUse) isContentBlock_Block() {}
@@ -369,6 +432,8 @@ func (*ContentBlock_Image) isContentBlock_Block() {}
 func (*ContentBlock_Thinking) isContentBlock_Block() {}
 
 func (*ContentBlock_RedactedThinking) isContentBlock_Block() {}
+
+func (*ContentBlock_Document) isContentBlock_Block() {}
 
 // TextBlock is plain conversational text. MUST be supported by every
 // model, in both directions (model.md §5).
@@ -728,6 +793,77 @@ func (x *RedactedThinkingBlock) GetData() []byte {
 	return nil
 }
 
+// DocumentBlock is inline non-image document content (e.g. a PDF) — the
+// document-attachment analog of ImageBlock. Requires the target model's
+// ModelSpec.supports_documents (model/data-types.md#modelspec); the
+// kernel MUST reject a DocumentBlock sent to a model where that flag is
+// false, with invalid_request, mirroring ImageBlock's supports_vision
+// rule (model/data-types.md#canonical-message--content-block-schema).
+type DocumentBlock struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Raw document bytes.
+	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	// The document's MIME type, e.g. "application/pdf".
+	MediaType string `protobuf:"bytes,2,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	// The document's original filename, when known — several vendors
+	// surface this to the model as a citation/reference label. MAY be
+	// omitted.
+	Filename      *string `protobuf:"bytes,3,opt,name=filename,proto3,oneof" json:"filename,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentBlock) Reset() {
+	*x = DocumentBlock{}
+	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentBlock) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentBlock) ProtoMessage() {}
+
+func (x *DocumentBlock) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentBlock.ProtoReflect.Descriptor instead.
+func (*DocumentBlock) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *DocumentBlock) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *DocumentBlock) GetMediaType() string {
+	if x != nil {
+		return x.MediaType
+	}
+	return ""
+}
+
+func (x *DocumentBlock) GetFilename() string {
+	if x != nil && x.Filename != nil {
+		return *x.Filename
+	}
+	return ""
+}
+
 // ContextSection is one provider's contribution to the assembled prompt
 // context. context.md §4, §7.
 type ContextSection struct {
@@ -761,7 +897,7 @@ type ContextSection struct {
 
 func (x *ContextSection) Reset() {
 	*x = ContextSection{}
-	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -773,7 +909,7 @@ func (x *ContextSection) String() string {
 func (*ContextSection) ProtoMessage() {}
 
 func (x *ContextSection) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_content_v1_content_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -786,7 +922,7 @@ func (x *ContextSection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextSection.ProtoReflect.Descriptor instead.
 func (*ContextSection) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ContextSection) GetProvider() string {
@@ -835,10 +971,15 @@ var File_pluggableharness_agent_content_v1_content_proto protoreflect.FileDescri
 
 const file_pluggableharness_agent_content_v1_content_proto_rawDesc = "" +
 	"\n" +
-	"/pluggableharness/agent/content/v1/content.proto\x12!pluggableharness.agent.content.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x91\x01\n" +
+	"/pluggableharness/agent/content/v1/content.proto\x12!pluggableharness.agent.content.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xc0\x02\n" +
 	"\aMessage\x12;\n" +
 	"\x04role\x18\x01 \x01(\x0e2'.pluggableharness.agent.content.v1.RoleR\x04role\x12I\n" +
-	"\acontent\x18\x02 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\"\x80\x04\n" +
+	"\acontent\x18\x02 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\x124\n" +
+	"\x14produced_by_model_id\x18\x04 \x01(\tH\x00R\x11producedByModelId\x88\x01\x01\x125\n" +
+	"\x14produced_by_provider\x18\x05 \x01(\tH\x01R\x12producedByProvider\x88\x01\x01B\x17\n" +
+	"\x15_produced_by_model_idB\x17\n" +
+	"\x15_produced_by_provider\"\xd0\x04\n" +
 	"\fContentBlock\x12B\n" +
 	"\x04text\x18\x01 \x01(\v2,.pluggableharness.agent.content.v1.TextBlockH\x00R\x04text\x12L\n" +
 	"\btool_use\x18\x02 \x01(\v2/.pluggableharness.agent.content.v1.ToolUseBlockH\x00R\atoolUse\x12U\n" +
@@ -846,7 +987,8 @@ const file_pluggableharness_agent_content_v1_content_proto_rawDesc = "" +
 	"toolResult\x12E\n" +
 	"\x05image\x18\x04 \x01(\v2-.pluggableharness.agent.content.v1.ImageBlockH\x00R\x05image\x12N\n" +
 	"\bthinking\x18\x05 \x01(\v20.pluggableharness.agent.content.v1.ThinkingBlockH\x00R\bthinking\x12g\n" +
-	"\x11redacted_thinking\x18\x06 \x01(\v28.pluggableharness.agent.content.v1.RedactedThinkingBlockH\x00R\x10redactedThinkingB\a\n" +
+	"\x11redacted_thinking\x18\x06 \x01(\v28.pluggableharness.agent.content.v1.RedactedThinkingBlockH\x00R\x10redactedThinking\x12N\n" +
+	"\bdocument\x18\a \x01(\v20.pluggableharness.agent.content.v1.DocumentBlockH\x00R\bdocumentB\a\n" +
 	"\x05block\"\x1f\n" +
 	"\tTextBlock\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"i\n" +
@@ -867,7 +1009,13 @@ const file_pluggableharness_agent_content_v1_content_proto_rawDesc = "" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"+\n" +
 	"\x15RedactedThinkingBlock\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04data\"\x8f\x02\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"p\n" +
+	"\rDocumentBlock\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12\x1d\n" +
+	"\n" +
+	"media_type\x18\x02 \x01(\tR\tmediaType\x12\x1f\n" +
+	"\bfilename\x18\x03 \x01(\tH\x00R\bfilename\x88\x01\x01B\v\n" +
+	"\t_filename\"\x8f\x02\n" +
 	"\x0eContextSection\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12I\n" +
@@ -897,7 +1045,7 @@ func file_pluggableharness_agent_content_v1_content_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_agent_content_v1_content_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_agent_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_pluggableharness_agent_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_pluggableharness_agent_content_v1_content_proto_goTypes = []any{
 	(Role)(0),                     // 0: pluggableharness.agent.content.v1.Role
 	(Stability)(0),                // 1: pluggableharness.agent.content.v1.Stability
@@ -909,8 +1057,9 @@ var file_pluggableharness_agent_content_v1_content_proto_goTypes = []any{
 	(*ImageBlock)(nil),            // 7: pluggableharness.agent.content.v1.ImageBlock
 	(*ThinkingBlock)(nil),         // 8: pluggableharness.agent.content.v1.ThinkingBlock
 	(*RedactedThinkingBlock)(nil), // 9: pluggableharness.agent.content.v1.RedactedThinkingBlock
-	(*ContextSection)(nil),        // 10: pluggableharness.agent.content.v1.ContextSection
-	(*structpb.Struct)(nil),       // 11: google.protobuf.Struct
+	(*DocumentBlock)(nil),         // 10: pluggableharness.agent.content.v1.DocumentBlock
+	(*ContextSection)(nil),        // 11: pluggableharness.agent.content.v1.ContextSection
+	(*structpb.Struct)(nil),       // 12: google.protobuf.Struct
 }
 var file_pluggableharness_agent_content_v1_content_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.agent.content.v1.Message.role:type_name -> pluggableharness.agent.content.v1.Role
@@ -921,15 +1070,16 @@ var file_pluggableharness_agent_content_v1_content_proto_depIdxs = []int32{
 	7,  // 5: pluggableharness.agent.content.v1.ContentBlock.image:type_name -> pluggableharness.agent.content.v1.ImageBlock
 	8,  // 6: pluggableharness.agent.content.v1.ContentBlock.thinking:type_name -> pluggableharness.agent.content.v1.ThinkingBlock
 	9,  // 7: pluggableharness.agent.content.v1.ContentBlock.redacted_thinking:type_name -> pluggableharness.agent.content.v1.RedactedThinkingBlock
-	11, // 8: pluggableharness.agent.content.v1.ToolUseBlock.arguments:type_name -> google.protobuf.Struct
-	3,  // 9: pluggableharness.agent.content.v1.ToolResultBlock.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	3,  // 10: pluggableharness.agent.content.v1.ContextSection.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	1,  // 11: pluggableharness.agent.content.v1.ContextSection.stability:type_name -> pluggableharness.agent.content.v1.Stability
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	10, // 8: pluggableharness.agent.content.v1.ContentBlock.document:type_name -> pluggableharness.agent.content.v1.DocumentBlock
+	12, // 9: pluggableharness.agent.content.v1.ToolUseBlock.arguments:type_name -> google.protobuf.Struct
+	3,  // 10: pluggableharness.agent.content.v1.ToolResultBlock.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	3,  // 11: pluggableharness.agent.content.v1.ContextSection.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	1,  // 12: pluggableharness.agent.content.v1.ContextSection.stability:type_name -> pluggableharness.agent.content.v1.Stability
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_content_v1_content_proto_init() }
@@ -937,6 +1087,7 @@ func file_pluggableharness_agent_content_v1_content_proto_init() {
 	if File_pluggableharness_agent_content_v1_content_proto != nil {
 		return
 	}
+	file_pluggableharness_agent_content_v1_content_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pluggableharness_agent_content_v1_content_proto_msgTypes[1].OneofWrappers = []any{
 		(*ContentBlock_Text)(nil),
 		(*ContentBlock_ToolUse)(nil),
@@ -944,14 +1095,16 @@ func file_pluggableharness_agent_content_v1_content_proto_init() {
 		(*ContentBlock_Image)(nil),
 		(*ContentBlock_Thinking)(nil),
 		(*ContentBlock_RedactedThinking)(nil),
+		(*ContentBlock_Document)(nil),
 	}
+	file_pluggableharness_agent_content_v1_content_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_content_v1_content_proto_rawDesc), len(file_pluggableharness_agent_content_v1_content_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

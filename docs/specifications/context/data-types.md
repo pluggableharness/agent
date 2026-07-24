@@ -6,7 +6,9 @@
 
 ```protobuf
 ContextRequest {
-  session_id, parent_session_id, turn_number
+  session_id, parent_session_id
+  turn_id           string           // ULID, standardized across the whole
+                                       // protocol (matches plan.v1's turn_id)
   token_budget      int              // MUST — kernel-computed allocation
                                        // for this call, see #ordering--chaining
   model_target      ModelTarget       // MUST — { id, context_window, effective_ceiling },
@@ -17,6 +19,12 @@ ContextRequest {
                                       // providers in this hook's
                                       // declaration-order chain
   conversation_history []Message?    // populated ONLY for a compactor provider
+  history_tokens              int    // kernel-computed current
+                                      // conversation-history token total —
+                                      // see #compactor-timing-signals
+  assembled_tokens_last_turn  int    // kernel-computed total assembled
+                                      // context size of the previous turn —
+                                      // see #compactor-timing-signals
 }
 ```
 
@@ -65,6 +73,12 @@ ContextContribution {
 ```
 
 `sections` is the full chain, never a delta (see [`protocol.md#contribute-the-context-assemble-rpc`](protocol.md#contribute-the-context-assemble-rpc)). `rewritten_history`, when present, replaces the turn's conversation history before the next model call — see [`protocol.md#session-wide-conversation-compaction`](protocol.md#session-wide-conversation-compaction).
+
+### Compactor timing signals
+
+`ContextRequest.history_tokens` (the current conversation-history token total) and `ContextRequest.assembled_tokens_last_turn` (the total assembled context size of the previous turn) are both kernel-computed and carried on every firing, not just ones directed at a compactor provider. They exist to answer one question a [`protocol.md#session-wide-conversation-compaction`](protocol.md#session-wide-conversation-compaction) compactor provider otherwise has no cheap way to answer: **when** to compact, as distinct from **how**. Without them, a compactor wanting to trigger only once history crosses some threshold would have to re-derive a token count itself — either re-running `CountTokens` over `conversation_history` on every firing (wasteful, and only available to a compactor provider in the first place, per the `conversation_history` visibility rule above) or maintaining its own running estimate (drifts from the kernel's authoritative count). Surfacing both figures as plain kernel-computed fields lets any compactor implement a threshold policy (e.g. "compact once `history_tokens` exceeds 50% of the model's `effective_ceiling`", mirroring Gemini CLI's documented compression trigger) without re-counting anything itself — the same "kernel computes, provider decides" division of labor `tokens` already follows elsewhere in this spec (see [`#contextsection`](#contextsection) above).
+
+`assembled_tokens_last_turn` complements `history_tokens` by reporting the *other* half of what consumed the previous turn's budget — the sum of every provider's contributed `ContextSection.tokens`, not just conversation history — so a compactor can distinguish "history growth is the pressure" from "another provider's contributions grew" without needing visibility into other providers' internals.
 
 ## Ordering & chaining
 
