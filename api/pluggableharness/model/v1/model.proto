@@ -14,12 +14,12 @@ package pluggableharness.model.v1;
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
-import "pluggableharness/common/v1/common.proto";
-import "pluggableharness/config/v1/config.proto";
-import "pluggableharness/content/v1/content.proto";
-import "pluggableharness/render/v1/render.proto";
-import "pluggableharness/schema/v1/schema.proto";
-import "pluggableharness/slashcommand/v1/slashcommand.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+import "pluggableharness/schema/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
 
@@ -131,7 +131,7 @@ message Capabilities {
   // for this field would be a cyclic file dependency — confirmed via
   // `buf build`, which rejects it outright ("detected cyclic import").
   // HookPoint itself lives in common.v1 for exactly this reason (see
-  // common.proto), already imported here for CallContext/Describe.
+  // common/v1/types.proto), already imported here for CallContext/Describe.
   repeated pluggableharness.common.v1.HookPoint supported_hook_points = 4;
 }
 
@@ -439,7 +439,7 @@ message StreamCompletionRequest {
   // system-level/preamble content, never a conversational turn, which is
   // why it's carried as its own field rather than folded into `messages`
   // as a synthetic message — content.v1.Role deliberately has no SYSTEM
-  // value (content.proto's Role comment) precisely because this content
+  // value (content/v1/types.proto's Role comment) precisely because this content
   // is never a Message with a role. Each model-provider adapter maps
   // this chain to its vendor's own system/preamble mechanism (a top-level
   // `system` string, a leading system-role message, etc.) — how that
@@ -464,7 +464,7 @@ message StreamCompletionRequest {
   // model whose CachingSpec.mode is CACHING_MODE_IMPLICIT_AUTOMATIC or
   // CACHING_MODE_NONE MUST ignore this field rather than error on it.
   // Placement is a kernel decision, not the plugin's: the kernel knows
-  // each assembled_context section's Stability (content.proto's Stability
+  // each assembled_context section's Stability (content/v1/types.proto's Stability
   // enum) and each message's position, so it places breakpoints at
   // natural stable-prefix boundaries — see
   // model/protocol.md#cache-breakpoint-placement-policy.

@@ -2158,7 +2158,7 @@ var File_pluggableharness_memory_v1_memory_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_memory_v1_memory_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/memory/v1/memory.proto\x12\x1apluggableharness.memory.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a)pluggableharness/content/v1/content.proto\x1a%pluggableharness/model/v1/model.proto\x1a'pluggableharness/render/v1/render.proto\x1a3pluggableharness/slashcommand/v1/slashcommand.proto\"\x18\n" +
+	"'pluggableharness/memory/v1/memory.proto\x12\x1apluggableharness.memory.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a%pluggableharness/model/v1/model.proto\x1a&pluggableharness/render/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"\xa7\x04\n" +
 	"\x12MemoryCapabilities\x120\n" +
 	"\x14default_token_budget\x18\x01 \x01(\x03R\x12defaultTokenBudget\x12O\n" +

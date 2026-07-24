@@ -1716,7 +1716,7 @@ var File_pluggableharness_tool_v1_tool_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_tool_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"#pluggableharness/tool/v1/tool.proto\x12\x18pluggableharness.tool.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a'pluggableharness/render/v1/render.proto\x1a'pluggableharness/schema/v1/schema.proto\x1a3pluggableharness/slashcommand/v1/slashcommand.proto\"\x12\n" +
+	"#pluggableharness/tool/v1/tool.proto\x12\x18pluggableharness.tool.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a&pluggableharness/schema/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\x12\n" +
 	"\x10GetSchemaRequest\"\xd4\x02\n" +
 	"\x11GetSchemaResponse\x12:\n" +
 	"\x05tools\x18\x01 \x03(\v2$.pluggableharness.tool.v1.ToolSchemaR\x05tools\x12Y\n" +

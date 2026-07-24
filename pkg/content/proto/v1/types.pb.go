@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/content/v1/content.proto
+// source: pluggableharness/content/v1/types.proto
 
 // Package pluggableharness.content.v1 defines the canonical content-block message
 // schema described in specifications/model.md §5 — the state backend's
@@ -82,11 +82,11 @@ func (x Role) String() string {
 }
 
 func (Role) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_content_v1_content_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_content_v1_types_proto_enumTypes[0].Descriptor()
 }
 
 func (Role) Type() protoreflect.EnumType {
-	return &file_pluggableharness_content_v1_content_proto_enumTypes[0]
+	return &file_pluggableharness_content_v1_types_proto_enumTypes[0]
 }
 
 func (x Role) Number() protoreflect.EnumNumber {
@@ -95,7 +95,7 @@ func (x Role) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Role.Descriptor instead.
 func (Role) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 // Stability hints whether a ContextSection's content changes turn to turn,
@@ -144,11 +144,11 @@ func (x Stability) String() string {
 }
 
 func (Stability) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_content_v1_content_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_content_v1_types_proto_enumTypes[1].Descriptor()
 }
 
 func (Stability) Type() protoreflect.EnumType {
-	return &file_pluggableharness_content_v1_content_proto_enumTypes[1]
+	return &file_pluggableharness_content_v1_types_proto_enumTypes[1]
 }
 
 func (x Stability) Number() protoreflect.EnumNumber {
@@ -157,7 +157,7 @@ func (x Stability) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Stability.Descriptor instead.
 func (Stability) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 // Message is one turn in the canonical conversation history: a role plus
@@ -204,7 +204,7 @@ type Message struct {
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[0]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -216,7 +216,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[0]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -229,7 +229,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Message) GetRole() Role {
@@ -291,7 +291,7 @@ type ContentBlock struct {
 
 func (x *ContentBlock) Reset() {
 	*x = ContentBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[1]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -303,7 +303,7 @@ func (x *ContentBlock) String() string {
 func (*ContentBlock) ProtoMessage() {}
 
 func (x *ContentBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[1]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -316,7 +316,7 @@ func (x *ContentBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentBlock.ProtoReflect.Descriptor instead.
 func (*ContentBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ContentBlock) GetBlock() isContentBlock_Block {
@@ -447,7 +447,7 @@ type TextBlock struct {
 
 func (x *TextBlock) Reset() {
 	*x = TextBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[2]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -459,7 +459,7 @@ func (x *TextBlock) String() string {
 func (*TextBlock) ProtoMessage() {}
 
 func (x *TextBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[2]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -472,7 +472,7 @@ func (x *TextBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextBlock.ProtoReflect.Descriptor instead.
 func (*TextBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TextBlock) GetText() string {
@@ -503,7 +503,7 @@ type ToolUseBlock struct {
 
 func (x *ToolUseBlock) Reset() {
 	*x = ToolUseBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[3]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -515,7 +515,7 @@ func (x *ToolUseBlock) String() string {
 func (*ToolUseBlock) ProtoMessage() {}
 
 func (x *ToolUseBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[3]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,7 +528,7 @@ func (x *ToolUseBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolUseBlock.ProtoReflect.Descriptor instead.
 func (*ToolUseBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ToolUseBlock) GetId() string {
@@ -575,7 +575,7 @@ type ToolResultBlock struct {
 
 func (x *ToolResultBlock) Reset() {
 	*x = ToolResultBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[4]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -587,7 +587,7 @@ func (x *ToolResultBlock) String() string {
 func (*ToolResultBlock) ProtoMessage() {}
 
 func (x *ToolResultBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[4]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -600,7 +600,7 @@ func (x *ToolResultBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolResultBlock.ProtoReflect.Descriptor instead.
 func (*ToolResultBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ToolResultBlock) GetToolUseId() string {
@@ -640,7 +640,7 @@ type ImageBlock struct {
 
 func (x *ImageBlock) Reset() {
 	*x = ImageBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[5]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -652,7 +652,7 @@ func (x *ImageBlock) String() string {
 func (*ImageBlock) ProtoMessage() {}
 
 func (x *ImageBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[5]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -665,7 +665,7 @@ func (x *ImageBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageBlock.ProtoReflect.Descriptor instead.
 func (*ImageBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ImageBlock) GetData() []byte {
@@ -702,7 +702,7 @@ type ThinkingBlock struct {
 
 func (x *ThinkingBlock) Reset() {
 	*x = ThinkingBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[6]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -714,7 +714,7 @@ func (x *ThinkingBlock) String() string {
 func (*ThinkingBlock) ProtoMessage() {}
 
 func (x *ThinkingBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[6]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -727,7 +727,7 @@ func (x *ThinkingBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ThinkingBlock.ProtoReflect.Descriptor instead.
 func (*ThinkingBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ThinkingBlock) GetText() string {
@@ -758,7 +758,7 @@ type RedactedThinkingBlock struct {
 
 func (x *RedactedThinkingBlock) Reset() {
 	*x = RedactedThinkingBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[7]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -770,7 +770,7 @@ func (x *RedactedThinkingBlock) String() string {
 func (*RedactedThinkingBlock) ProtoMessage() {}
 
 func (x *RedactedThinkingBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[7]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -783,7 +783,7 @@ func (x *RedactedThinkingBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RedactedThinkingBlock.ProtoReflect.Descriptor instead.
 func (*RedactedThinkingBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RedactedThinkingBlock) GetData() []byte {
@@ -815,7 +815,7 @@ type DocumentBlock struct {
 
 func (x *DocumentBlock) Reset() {
 	*x = DocumentBlock{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[8]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -827,7 +827,7 @@ func (x *DocumentBlock) String() string {
 func (*DocumentBlock) ProtoMessage() {}
 
 func (x *DocumentBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[8]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -840,7 +840,7 @@ func (x *DocumentBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentBlock.ProtoReflect.Descriptor instead.
 func (*DocumentBlock) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DocumentBlock) GetData() []byte {
@@ -897,7 +897,7 @@ type ContextSection struct {
 
 func (x *ContextSection) Reset() {
 	*x = ContextSection{}
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[9]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -909,7 +909,7 @@ func (x *ContextSection) String() string {
 func (*ContextSection) ProtoMessage() {}
 
 func (x *ContextSection) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_content_v1_content_proto_msgTypes[9]
+	mi := &file_pluggableharness_content_v1_types_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -922,7 +922,7 @@ func (x *ContextSection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextSection.ProtoReflect.Descriptor instead.
 func (*ContextSection) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_content_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ContextSection) GetProvider() string {
@@ -967,11 +967,11 @@ func (x *ContextSection) GetTruncated() bool {
 	return false
 }
 
-var File_pluggableharness_content_v1_content_proto protoreflect.FileDescriptor
+var File_pluggableharness_content_v1_types_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_content_v1_content_proto_rawDesc = "" +
+const file_pluggableharness_content_v1_types_proto_rawDesc = "" +
 	"\n" +
-	")pluggableharness/content/v1/content.proto\x12\x1bpluggableharness.content.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xb4\x02\n" +
+	"'pluggableharness/content/v1/types.proto\x12\x1bpluggableharness.content.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xb4\x02\n" +
 	"\aMessage\x125\n" +
 	"\x04role\x18\x01 \x01(\x0e2!.pluggableharness.content.v1.RoleR\x04role\x12C\n" +
 	"\acontent\x18\x02 \x03(\v2).pluggableharness.content.v1.ContentBlockR\acontent\x12\x0e\n" +
@@ -1033,20 +1033,20 @@ const file_pluggableharness_content_v1_content_proto_rawDesc = "" +
 	"\x11STABILITY_DYNAMIC\x10\x02BBZ@github.com/pluggableharness/agent/pkg/content/proto/v1;contentv1b\x06proto3"
 
 var (
-	file_pluggableharness_content_v1_content_proto_rawDescOnce sync.Once
-	file_pluggableharness_content_v1_content_proto_rawDescData []byte
+	file_pluggableharness_content_v1_types_proto_rawDescOnce sync.Once
+	file_pluggableharness_content_v1_types_proto_rawDescData []byte
 )
 
-func file_pluggableharness_content_v1_content_proto_rawDescGZIP() []byte {
-	file_pluggableharness_content_v1_content_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_content_v1_content_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_content_v1_content_proto_rawDesc), len(file_pluggableharness_content_v1_content_proto_rawDesc)))
+func file_pluggableharness_content_v1_types_proto_rawDescGZIP() []byte {
+	file_pluggableharness_content_v1_types_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_content_v1_types_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_content_v1_types_proto_rawDesc), len(file_pluggableharness_content_v1_types_proto_rawDesc)))
 	})
-	return file_pluggableharness_content_v1_content_proto_rawDescData
+	return file_pluggableharness_content_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_content_v1_content_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_content_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
-var file_pluggableharness_content_v1_content_proto_goTypes = []any{
+var file_pluggableharness_content_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_content_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_pluggableharness_content_v1_types_proto_goTypes = []any{
 	(Role)(0),                     // 0: pluggableharness.content.v1.Role
 	(Stability)(0),                // 1: pluggableharness.content.v1.Stability
 	(*Message)(nil),               // 2: pluggableharness.content.v1.Message
@@ -1061,7 +1061,7 @@ var file_pluggableharness_content_v1_content_proto_goTypes = []any{
 	(*ContextSection)(nil),        // 11: pluggableharness.content.v1.ContextSection
 	(*structpb.Struct)(nil),       // 12: google.protobuf.Struct
 }
-var file_pluggableharness_content_v1_content_proto_depIdxs = []int32{
+var file_pluggableharness_content_v1_types_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.content.v1.Message.role:type_name -> pluggableharness.content.v1.Role
 	3,  // 1: pluggableharness.content.v1.Message.content:type_name -> pluggableharness.content.v1.ContentBlock
 	4,  // 2: pluggableharness.content.v1.ContentBlock.text:type_name -> pluggableharness.content.v1.TextBlock
@@ -1082,13 +1082,13 @@ var file_pluggableharness_content_v1_content_proto_depIdxs = []int32{
 	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_content_v1_content_proto_init() }
-func file_pluggableharness_content_v1_content_proto_init() {
-	if File_pluggableharness_content_v1_content_proto != nil {
+func init() { file_pluggableharness_content_v1_types_proto_init() }
+func file_pluggableharness_content_v1_types_proto_init() {
+	if File_pluggableharness_content_v1_types_proto != nil {
 		return
 	}
-	file_pluggableharness_content_v1_content_proto_msgTypes[0].OneofWrappers = []any{}
-	file_pluggableharness_content_v1_content_proto_msgTypes[1].OneofWrappers = []any{
+	file_pluggableharness_content_v1_types_proto_msgTypes[0].OneofWrappers = []any{}
+	file_pluggableharness_content_v1_types_proto_msgTypes[1].OneofWrappers = []any{
 		(*ContentBlock_Text)(nil),
 		(*ContentBlock_ToolUse)(nil),
 		(*ContentBlock_ToolResult)(nil),
@@ -1097,23 +1097,23 @@ func file_pluggableharness_content_v1_content_proto_init() {
 		(*ContentBlock_RedactedThinking)(nil),
 		(*ContentBlock_Document)(nil),
 	}
-	file_pluggableharness_content_v1_content_proto_msgTypes[8].OneofWrappers = []any{}
+	file_pluggableharness_content_v1_types_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_content_v1_content_proto_rawDesc), len(file_pluggableharness_content_v1_content_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_content_v1_types_proto_rawDesc), len(file_pluggableharness_content_v1_types_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_content_v1_content_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_content_v1_content_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_content_v1_content_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_content_v1_content_proto_msgTypes,
+		GoTypes:           file_pluggableharness_content_v1_types_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_content_v1_types_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_content_v1_types_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_content_v1_types_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_content_v1_content_proto = out.File
-	file_pluggableharness_content_v1_content_proto_goTypes = nil
-	file_pluggableharness_content_v1_content_proto_depIdxs = nil
+	File_pluggableharness_content_v1_types_proto = out.File
+	file_pluggableharness_content_v1_types_proto_goTypes = nil
+	file_pluggableharness_content_v1_types_proto_depIdxs = nil
 }

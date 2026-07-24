@@ -2290,13 +2290,13 @@ func (x *ClientEvent_InteractiveResponse) GetResponse() *structpb.Struct {
 }
 
 // ActionTrigger is dispatched when a user activates a RenderNode's
-// ActionNode (render.proto's ActionNode, frontend.md §5.1). The kernel
+// ActionNode (render/v1/types.proto's ActionNode, frontend.md §5.1). The kernel
 // handles this identically to a direct_invoke slash command: the normal
 // Invoke/plan-apply pipeline including policy evaluation, with no model
 // turn.
 type ClientEvent_ActionTrigger struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The originating ActionNode's id (render.proto's ActionNode.id).
+	// The originating ActionNode's id (render/v1/types.proto's ActionNode.id).
 	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	// The tool operation to invoke (tool.md §2 ToolSchema.name), echoed
 	// unchanged from the originating ActionNode.tool_name.
@@ -2306,7 +2306,7 @@ type ClientEvent_ActionTrigger struct {
 	Args *structpb.Struct `protobuf:"bytes,3,opt,name=args,proto3" json:"args,omitempty"`
 	// The declared name of the tool provider plugin `tool_name` belongs
 	// to, echoed unchanged from the originating ActionNode.provider
-	// (render.proto) — tool_name is only unique per provider.
+	// (render/v1/types.proto) — tool_name is only unique per provider.
 	Provider      string `protobuf:"bytes,4,opt,name=provider,proto3" json:"provider,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2794,7 +2794,7 @@ var File_pluggableharness_frontend_v1_frontend_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_frontend_v1_frontend_proto_rawDesc = "" +
 	"\n" +
-	"+pluggableharness/frontend/v1/frontend.proto\x12\x1cpluggableharness.frontend.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a)pluggableharness/content/v1/content.proto\x1a%pluggableharness/model/v1/model.proto\x1a#pluggableharness/plan/v1/plan.proto\x1a'pluggableharness/render/v1/render.proto\x1a)pluggableharness/session/v1/session.proto\x1a3pluggableharness/slashcommand/v1/slashcommand.proto\"\x11\n" +
+	"+pluggableharness/frontend/v1/frontend.proto\x12\x1cpluggableharness.frontend.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a%pluggableharness/model/v1/model.proto\x1a$pluggableharness/plan/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a'pluggableharness/session/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\x11\n" +
 	"\x0fDescribeRequest\"W\n" +
 	"\x10DescribeResponse\x12C\n" +
 	"\bproducer\x18\x01 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\bproducer\"\x18\n" +

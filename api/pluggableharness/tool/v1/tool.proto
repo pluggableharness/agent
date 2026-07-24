@@ -8,11 +8,11 @@ package pluggableharness.tool.v1;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
-import "pluggableharness/common/v1/common.proto";
-import "pluggableharness/config/v1/config.proto";
-import "pluggableharness/render/v1/render.proto";
-import "pluggableharness/schema/v1/schema.proto";
-import "pluggableharness/slashcommand/v1/slashcommand.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+import "pluggableharness/schema/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1";
 

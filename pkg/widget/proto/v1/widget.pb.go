@@ -590,7 +590,7 @@ var File_pluggableharness_widget_v1_widget_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_widget_v1_widget_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/widget/v1/widget.proto\x12\x1apluggableharness.widget.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a'pluggableharness/render/v1/render.proto\"\x11\n" +
+	"'pluggableharness/widget/v1/widget.proto\x12\x1apluggableharness.widget.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\"\x11\n" +
 	"\x0fDescribeRequest\"W\n" +
 	"\x10DescribeResponse\x12C\n" +
 	"\bproducer\x18\x01 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\bproducer\"\x18\n" +

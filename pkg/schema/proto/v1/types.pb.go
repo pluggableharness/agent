@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/schema/v1/schema.proto
+// source: pluggableharness/schema/v1/types.proto
 
 // Package pluggableharness.schema.v1 defines the restricted JSON-Schema subset
 // described in specifications/model.md §6, shared by tool input/output
@@ -84,11 +84,11 @@ func (x SchemaType) String() string {
 }
 
 func (SchemaType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_schema_v1_schema_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_schema_v1_types_proto_enumTypes[0].Descriptor()
 }
 
 func (SchemaType) Type() protoreflect.EnumType {
-	return &file_pluggableharness_schema_v1_schema_proto_enumTypes[0]
+	return &file_pluggableharness_schema_v1_types_proto_enumTypes[0]
 }
 
 func (x SchemaType) Number() protoreflect.EnumNumber {
@@ -97,7 +97,7 @@ func (x SchemaType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SchemaType.Descriptor instead.
 func (SchemaType) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_schema_v1_schema_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_schema_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 // Schema is one node of the restricted JSON-Schema subset. It is
@@ -134,7 +134,7 @@ type Schema struct {
 
 func (x *Schema) Reset() {
 	*x = Schema{}
-	mi := &file_pluggableharness_schema_v1_schema_proto_msgTypes[0]
+	mi := &file_pluggableharness_schema_v1_types_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +146,7 @@ func (x *Schema) String() string {
 func (*Schema) ProtoMessage() {}
 
 func (x *Schema) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_schema_v1_schema_proto_msgTypes[0]
+	mi := &file_pluggableharness_schema_v1_types_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -159,7 +159,7 @@ func (x *Schema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schema.ProtoReflect.Descriptor instead.
 func (*Schema) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_schema_v1_schema_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_schema_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Schema) GetType() SchemaType {
@@ -204,11 +204,11 @@ func (x *Schema) GetEnumValues() []string {
 	return nil
 }
 
-var File_pluggableharness_schema_v1_schema_proto protoreflect.FileDescriptor
+var File_pluggableharness_schema_v1_types_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_schema_v1_schema_proto_rawDesc = "" +
+const file_pluggableharness_schema_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/schema/v1/schema.proto\x12\x1apluggableharness.schema.v1\"\x94\x03\n" +
+	"&pluggableharness/schema/v1/types.proto\x12\x1apluggableharness.schema.v1\"\x94\x03\n" +
 	"\x06Schema\x12:\n" +
 	"\x04type\x18\x01 \x01(\x0e2&.pluggableharness.schema.v1.SchemaTypeR\x04type\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12R\n" +
@@ -232,25 +232,25 @@ const file_pluggableharness_schema_v1_schema_proto_rawDesc = "" +
 	"\x11SCHEMA_TYPE_ARRAY\x10\x05B@Z>github.com/pluggableharness/agent/pkg/schema/proto/v1;schemav1b\x06proto3"
 
 var (
-	file_pluggableharness_schema_v1_schema_proto_rawDescOnce sync.Once
-	file_pluggableharness_schema_v1_schema_proto_rawDescData []byte
+	file_pluggableharness_schema_v1_types_proto_rawDescOnce sync.Once
+	file_pluggableharness_schema_v1_types_proto_rawDescData []byte
 )
 
-func file_pluggableharness_schema_v1_schema_proto_rawDescGZIP() []byte {
-	file_pluggableharness_schema_v1_schema_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_schema_v1_schema_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_schema_v1_schema_proto_rawDesc), len(file_pluggableharness_schema_v1_schema_proto_rawDesc)))
+func file_pluggableharness_schema_v1_types_proto_rawDescGZIP() []byte {
+	file_pluggableharness_schema_v1_types_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_schema_v1_types_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_schema_v1_types_proto_rawDesc), len(file_pluggableharness_schema_v1_types_proto_rawDesc)))
 	})
-	return file_pluggableharness_schema_v1_schema_proto_rawDescData
+	return file_pluggableharness_schema_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_schema_v1_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_schema_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_pluggableharness_schema_v1_schema_proto_goTypes = []any{
+var file_pluggableharness_schema_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_schema_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pluggableharness_schema_v1_types_proto_goTypes = []any{
 	(SchemaType)(0), // 0: pluggableharness.schema.v1.SchemaType
 	(*Schema)(nil),  // 1: pluggableharness.schema.v1.Schema
 	nil,             // 2: pluggableharness.schema.v1.Schema.PropertiesEntry
 }
-var file_pluggableharness_schema_v1_schema_proto_depIdxs = []int32{
+var file_pluggableharness_schema_v1_types_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.schema.v1.Schema.type:type_name -> pluggableharness.schema.v1.SchemaType
 	2, // 1: pluggableharness.schema.v1.Schema.properties:type_name -> pluggableharness.schema.v1.Schema.PropertiesEntry
 	1, // 2: pluggableharness.schema.v1.Schema.items:type_name -> pluggableharness.schema.v1.Schema
@@ -262,27 +262,27 @@ var file_pluggableharness_schema_v1_schema_proto_depIdxs = []int32{
 	0, // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_schema_v1_schema_proto_init() }
-func file_pluggableharness_schema_v1_schema_proto_init() {
-	if File_pluggableharness_schema_v1_schema_proto != nil {
+func init() { file_pluggableharness_schema_v1_types_proto_init() }
+func file_pluggableharness_schema_v1_types_proto_init() {
+	if File_pluggableharness_schema_v1_types_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_schema_v1_schema_proto_rawDesc), len(file_pluggableharness_schema_v1_schema_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_schema_v1_types_proto_rawDesc), len(file_pluggableharness_schema_v1_types_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_schema_v1_schema_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_schema_v1_schema_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_schema_v1_schema_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_schema_v1_schema_proto_msgTypes,
+		GoTypes:           file_pluggableharness_schema_v1_types_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_schema_v1_types_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_schema_v1_types_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_schema_v1_types_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_schema_v1_schema_proto = out.File
-	file_pluggableharness_schema_v1_schema_proto_goTypes = nil
-	file_pluggableharness_schema_v1_schema_proto_depIdxs = nil
+	File_pluggableharness_schema_v1_types_proto = out.File
+	file_pluggableharness_schema_v1_types_proto_goTypes = nil
+	file_pluggableharness_schema_v1_types_proto_depIdxs = nil
 }

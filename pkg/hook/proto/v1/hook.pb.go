@@ -1411,7 +1411,7 @@ var File_pluggableharness_hook_v1_hook_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_hook_v1_hook_proto_rawDesc = "" +
 	"\n" +
-	"#pluggableharness/hook/v1/hook.proto\x12\x18pluggableharness.hook.v1\x1a'pluggableharness/common/v1/common.proto\x1a)pluggableharness/content/v1/content.proto\x1a%pluggableharness/model/v1/model.proto\x1a#pluggableharness/plan/v1/plan.proto\x1a)pluggableharness/session/v1/session.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xc0\x05\n" +
+	"#pluggableharness/hook/v1/hook.proto\x12\x18pluggableharness.hook.v1\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a%pluggableharness/model/v1/model.proto\x1a$pluggableharness/plan/v1/types.proto\x1a'pluggableharness/session/v1/types.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xc0\x05\n" +
 	"\vHookPayload\x12T\n" +
 	"\rsession_start\x18\x01 \x01(\v2-.pluggableharness.hook.v1.SessionStartPayloadH\x00R\fsessionStart\x12U\n" +
 	"\x0epre_model_call\x18\x02 \x01(\v2-.pluggableharness.hook.v1.PreModelCallPayloadH\x00R\fpreModelCall\x12d\n" +

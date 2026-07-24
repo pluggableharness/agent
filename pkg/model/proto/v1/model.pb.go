@@ -515,7 +515,7 @@ type Capabilities struct {
 	// for this field would be a cyclic file dependency — confirmed via
 	// `buf build`, which rejects it outright ("detected cyclic import").
 	// HookPoint itself lives in common.v1 for exactly this reason (see
-	// common.proto), already imported here for CallContext/Describe.
+	// common/v1/types.proto), already imported here for CallContext/Describe.
 	SupportedHookPoints []v12.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
@@ -1410,7 +1410,7 @@ type StreamCompletionRequest struct {
 	// system-level/preamble content, never a conversational turn, which is
 	// why it's carried as its own field rather than folded into `messages`
 	// as a synthetic message — content.v1.Role deliberately has no SYSTEM
-	// value (content.proto's Role comment) precisely because this content
+	// value (content/v1/types.proto's Role comment) precisely because this content
 	// is never a Message with a role. Each model-provider adapter maps
 	// this chain to its vendor's own system/preamble mechanism (a top-level
 	// `system` string, a leading system-role message, etc.) — how that
@@ -1433,7 +1433,7 @@ type StreamCompletionRequest struct {
 	// model whose CachingSpec.mode is CACHING_MODE_IMPLICIT_AUTOMATIC or
 	// CACHING_MODE_NONE MUST ignore this field rather than error on it.
 	// Placement is a kernel decision, not the plugin's: the kernel knows
-	// each assembled_context section's Stability (content.proto's Stability
+	// each assembled_context section's Stability (content/v1/types.proto's Stability
 	// enum) and each message's position, so it places breakpoints at
 	// natural stable-prefix boundaries — see
 	// model/protocol.md#cache-breakpoint-placement-policy.
@@ -3093,7 +3093,7 @@ var File_pluggableharness_model_v1_model_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_model_v1_model_proto_rawDesc = "" +
 	"\n" +
-	"%pluggableharness/model/v1/model.proto\x12\x19pluggableharness.model.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a)pluggableharness/content/v1/content.proto\x1a'pluggableharness/render/v1/render.proto\x1a'pluggableharness/schema/v1/schema.proto\x1a3pluggableharness/slashcommand/v1/slashcommand.proto\"\x18\n" +
+	"%pluggableharness/model/v1/model.proto\x12\x19pluggableharness.model.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a&pluggableharness/schema/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"f\n" +
 	"\x17GetCapabilitiesResponse\x12K\n" +
 	"\fcapabilities\x18\x01 \x01(\v2'.pluggableharness.model.v1.CapabilitiesR\fcapabilities\"\xd1\x02\n" +

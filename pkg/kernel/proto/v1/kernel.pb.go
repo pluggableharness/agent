@@ -709,7 +709,7 @@ var File_pluggableharness_kernel_v1_kernel_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_kernel_v1_kernel_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/kernel/v1/kernel.proto\x12\x1apluggableharness.kernel.v1\x1a'pluggableharness/common/v1/common.proto\x1a)pluggableharness/content/v1/content.proto\x1a!pluggableharness/log/v1/log.proto\x1a%pluggableharness/model/v1/model.proto\x1a)pluggableharness/session/v1/session.proto\"\xa9\x02\n" +
+	"'pluggableharness/kernel/v1/kernel.proto\x12\x1apluggableharness.kernel.v1\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a#pluggableharness/log/v1/types.proto\x1a%pluggableharness/model/v1/model.proto\x1a'pluggableharness/session/v1/types.proto\"\xa9\x02\n" +
 	"\x11RunSessionRequest\x12\x18\n" +
 	"\aprofile\x18\x01 \x01(\tR\aprofile\x12\x16\n" +
 	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12*\n" +

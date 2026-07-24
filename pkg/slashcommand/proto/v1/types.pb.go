@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/slashcommand/v1/slashcommand.proto
+// source: pluggableharness/slashcommand/v1/types.proto
 
 // Package pluggableharness.slashcommand.v1 defines the slash-command declaration
 // shape described in specifications/configuration.md §5 (and equivalently
@@ -70,11 +70,11 @@ func (x Dispatch) String() string {
 }
 
 func (Dispatch) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_slashcommand_v1_slashcommand_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_slashcommand_v1_types_proto_enumTypes[0].Descriptor()
 }
 
 func (Dispatch) Type() protoreflect.EnumType {
-	return &file_pluggableharness_slashcommand_v1_slashcommand_proto_enumTypes[0]
+	return &file_pluggableharness_slashcommand_v1_types_proto_enumTypes[0]
 }
 
 func (x Dispatch) Number() protoreflect.EnumNumber {
@@ -83,7 +83,7 @@ func (x Dispatch) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Dispatch.Descriptor instead.
 func (Dispatch) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_slashcommand_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 // SlashCommandSpec declares one slash command a plugin contributes.
@@ -112,7 +112,7 @@ type SlashCommandSpec struct {
 
 func (x *SlashCommandSpec) Reset() {
 	*x = SlashCommandSpec{}
-	mi := &file_pluggableharness_slashcommand_v1_slashcommand_proto_msgTypes[0]
+	mi := &file_pluggableharness_slashcommand_v1_types_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -124,7 +124,7 @@ func (x *SlashCommandSpec) String() string {
 func (*SlashCommandSpec) ProtoMessage() {}
 
 func (x *SlashCommandSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_slashcommand_v1_slashcommand_proto_msgTypes[0]
+	mi := &file_pluggableharness_slashcommand_v1_types_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -137,7 +137,7 @@ func (x *SlashCommandSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SlashCommandSpec.ProtoReflect.Descriptor instead.
 func (*SlashCommandSpec) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_slashcommand_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SlashCommandSpec) GetName() string {
@@ -175,11 +175,11 @@ func (x *SlashCommandSpec) GetTemplate() string {
 	return ""
 }
 
-var File_pluggableharness_slashcommand_v1_slashcommand_proto protoreflect.FileDescriptor
+var File_pluggableharness_slashcommand_v1_types_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDesc = "" +
+const file_pluggableharness_slashcommand_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"3pluggableharness/slashcommand/v1/slashcommand.proto\x12 pluggableharness.slashcommand.v1\"\xee\x01\n" +
+	",pluggableharness/slashcommand/v1/types.proto\x12 pluggableharness.slashcommand.v1\"\xee\x01\n" +
 	"\x10SlashCommandSpec\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12F\n" +
@@ -195,24 +195,24 @@ const file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDesc = "" +
 	"\x19DISPATCH_PROMPT_EXPANSION\x10\x02BLZJgithub.com/pluggableharness/agent/pkg/slashcommand/proto/v1;slashcommandv1b\x06proto3"
 
 var (
-	file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescOnce sync.Once
-	file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescData []byte
+	file_pluggableharness_slashcommand_v1_types_proto_rawDescOnce sync.Once
+	file_pluggableharness_slashcommand_v1_types_proto_rawDescData []byte
 )
 
-func file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescGZIP() []byte {
-	file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDesc), len(file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDesc)))
+func file_pluggableharness_slashcommand_v1_types_proto_rawDescGZIP() []byte {
+	file_pluggableharness_slashcommand_v1_types_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_slashcommand_v1_types_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_slashcommand_v1_types_proto_rawDesc), len(file_pluggableharness_slashcommand_v1_types_proto_rawDesc)))
 	})
-	return file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDescData
+	return file_pluggableharness_slashcommand_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_slashcommand_v1_slashcommand_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_slashcommand_v1_slashcommand_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_pluggableharness_slashcommand_v1_slashcommand_proto_goTypes = []any{
+var file_pluggableharness_slashcommand_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_slashcommand_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_pluggableharness_slashcommand_v1_types_proto_goTypes = []any{
 	(Dispatch)(0),            // 0: pluggableharness.slashcommand.v1.Dispatch
 	(*SlashCommandSpec)(nil), // 1: pluggableharness.slashcommand.v1.SlashCommandSpec
 }
-var file_pluggableharness_slashcommand_v1_slashcommand_proto_depIdxs = []int32{
+var file_pluggableharness_slashcommand_v1_types_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.slashcommand.v1.SlashCommandSpec.dispatch:type_name -> pluggableharness.slashcommand.v1.Dispatch
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
@@ -221,28 +221,28 @@ var file_pluggableharness_slashcommand_v1_slashcommand_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_slashcommand_v1_slashcommand_proto_init() }
-func file_pluggableharness_slashcommand_v1_slashcommand_proto_init() {
-	if File_pluggableharness_slashcommand_v1_slashcommand_proto != nil {
+func init() { file_pluggableharness_slashcommand_v1_types_proto_init() }
+func file_pluggableharness_slashcommand_v1_types_proto_init() {
+	if File_pluggableharness_slashcommand_v1_types_proto != nil {
 		return
 	}
-	file_pluggableharness_slashcommand_v1_slashcommand_proto_msgTypes[0].OneofWrappers = []any{}
+	file_pluggableharness_slashcommand_v1_types_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDesc), len(file_pluggableharness_slashcommand_v1_slashcommand_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_slashcommand_v1_types_proto_rawDesc), len(file_pluggableharness_slashcommand_v1_types_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_slashcommand_v1_slashcommand_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_slashcommand_v1_slashcommand_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_slashcommand_v1_slashcommand_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_slashcommand_v1_slashcommand_proto_msgTypes,
+		GoTypes:           file_pluggableharness_slashcommand_v1_types_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_slashcommand_v1_types_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_slashcommand_v1_types_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_slashcommand_v1_types_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_slashcommand_v1_slashcommand_proto = out.File
-	file_pluggableharness_slashcommand_v1_slashcommand_proto_goTypes = nil
-	file_pluggableharness_slashcommand_v1_slashcommand_proto_depIdxs = nil
+	File_pluggableharness_slashcommand_v1_types_proto = out.File
+	file_pluggableharness_slashcommand_v1_types_proto_goTypes = nil
+	file_pluggableharness_slashcommand_v1_types_proto_depIdxs = nil
 }

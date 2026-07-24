@@ -6,14 +6,14 @@ syntax = "proto3";
 package pluggableharness.frontend.v1;
 
 import "google/protobuf/struct.proto";
-import "pluggableharness/common/v1/common.proto";
-import "pluggableharness/config/v1/config.proto";
-import "pluggableharness/content/v1/content.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/model/v1/model.proto";
-import "pluggableharness/plan/v1/plan.proto";
-import "pluggableharness/render/v1/render.proto";
-import "pluggableharness/session/v1/session.proto";
-import "pluggableharness/slashcommand/v1/slashcommand.proto";
+import "pluggableharness/plan/v1/types.proto";
+import "pluggableharness/render/v1/types.proto";
+import "pluggableharness/session/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1";
 
@@ -464,12 +464,12 @@ message ClientEvent {
   }
 
   // ActionTrigger is dispatched when a user activates a RenderNode's
-  // ActionNode (render.proto's ActionNode, frontend.md §5.1). The kernel
+  // ActionNode (render/v1/types.proto's ActionNode, frontend.md §5.1). The kernel
   // handles this identically to a direct_invoke slash command: the normal
   // Invoke/plan-apply pipeline including policy evaluation, with no model
   // turn.
   message ActionTrigger {
-    // The originating ActionNode's id (render.proto's ActionNode.id).
+    // The originating ActionNode's id (render/v1/types.proto's ActionNode.id).
     string node_id = 1;
     // The tool operation to invoke (tool.md §2 ToolSchema.name), echoed
     // unchanged from the originating ActionNode.tool_name.
@@ -479,7 +479,7 @@ message ClientEvent {
     google.protobuf.Struct args = 3;
     // The declared name of the tool provider plugin `tool_name` belongs
     // to, echoed unchanged from the originating ActionNode.provider
-    // (render.proto) — tool_name is only unique per provider.
+    // (render/v1/types.proto) — tool_name is only unique per provider.
     string provider = 4;
   }
 

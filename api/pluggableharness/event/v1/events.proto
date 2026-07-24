@@ -53,11 +53,11 @@ syntax = "proto3";
 // risking an import cycle back into any of them.
 package pluggableharness.event.v1;
 
-import "pluggableharness/common/v1/common.proto";
-import "pluggableharness/content/v1/content.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/hook/v1/hook.proto";
 import "pluggableharness/model/v1/model.proto";
-import "pluggableharness/plan/v1/plan.proto";
+import "pluggableharness/plan/v1/types.proto";
 import "pluggableharness/tool/v1/tool.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/event/proto/v1;eventv1";
@@ -129,7 +129,7 @@ message ApplyEvent {
   // plan.v1.ApplyResult — homed in plan.v1, not redefined here, so this
   // event's payload and hook.v1.PostApplyPayload's subject are the exact
   // same message rather than two independently-evolving shapes for the
-  // same data (plan.proto's own ApplyResult comment documents this
+  // same data (plan/v1/types.proto's own ApplyResult comment documents this
   // sharing rationale).
   pluggableharness.plan.v1.ApplyResult result = 1;
 }

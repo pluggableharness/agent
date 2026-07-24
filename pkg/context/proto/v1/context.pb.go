@@ -888,7 +888,7 @@ var File_pluggableharness_context_v1_context_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_context_v1_context_proto_rawDesc = "" +
 	"\n" +
-	")pluggableharness/context/v1/context.proto\x12\x1bpluggableharness.context.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a)pluggableharness/content/v1/content.proto\x1a%pluggableharness/model/v1/model.proto\x1a'pluggableharness/render/v1/render.proto\x1a3pluggableharness/slashcommand/v1/slashcommand.proto\"\x18\n" +
+	")pluggableharness/context/v1/context.proto\x12\x1bpluggableharness.context.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a%pluggableharness/model/v1/model.proto\x1a&pluggableharness/render/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"o\n" +
 	"\x17GetCapabilitiesResponse\x12T\n" +
 	"\fcapabilities\x18\x01 \x01(\v20.pluggableharness.context.v1.ContextCapabilitiesR\fcapabilities\"C\n" +

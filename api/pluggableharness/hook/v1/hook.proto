@@ -19,11 +19,11 @@ syntax = "proto3";
 // This surface serves the other eight hook points only.
 package pluggableharness.hook.v1;
 
-import "pluggableharness/common/v1/common.proto";
-import "pluggableharness/content/v1/content.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/model/v1/model.proto";
-import "pluggableharness/plan/v1/plan.proto";
-import "pluggableharness/session/v1/session.proto";
+import "pluggableharness/plan/v1/types.proto";
+import "pluggableharness/session/v1/types.proto";
 import "pluggableharness/tool/v1/tool.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/hook/proto/v1;hookv1";
@@ -49,7 +49,7 @@ service HookSubscriberService {
   rpc DispatchHook(DispatchHookRequest) returns (DispatchHookResponse);
 }
 
-// The HookPoint enum itself lives in common.v1 (common/v1/common.proto),
+// The HookPoint enum itself lives in common.v1 (common/v1/types.proto),
 // not here: hook.v1 imports several category packages (model, tool, plan,
 // session) for its typed payloads, so a category package advertising
 // `supported_hook_points` in its capability message could not import this

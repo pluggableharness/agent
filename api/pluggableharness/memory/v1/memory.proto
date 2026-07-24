@@ -12,12 +12,12 @@ package pluggableharness.memory.v1;
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
-import "pluggableharness/common/v1/common.proto";
-import "pluggableharness/config/v1/config.proto";
-import "pluggableharness/content/v1/content.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/config/v1/types.proto";
+import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/model/v1/model.proto";
-import "pluggableharness/render/v1/render.proto";
-import "pluggableharness/slashcommand/v1/slashcommand.proto";
+import "pluggableharness/render/v1/types.proto";
+import "pluggableharness/slashcommand/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1";
 

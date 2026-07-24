@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/plan/v1/plan.proto
+// source: pluggableharness/plan/v1/types.proto
 
 // Package pluggableharness.plan.v1 defines the plan/apply gate's data types
 // (specifications/agent-loop.md §5.1). A Plan collects every resource call
@@ -89,11 +89,11 @@ func (x PlanDecision) String() string {
 }
 
 func (PlanDecision) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_plan_v1_plan_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_plan_v1_types_proto_enumTypes[0].Descriptor()
 }
 
 func (PlanDecision) Type() protoreflect.EnumType {
-	return &file_pluggableharness_plan_v1_plan_proto_enumTypes[0]
+	return &file_pluggableharness_plan_v1_types_proto_enumTypes[0]
 }
 
 func (x PlanDecision) Number() protoreflect.EnumNumber {
@@ -102,7 +102,7 @@ func (x PlanDecision) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PlanDecision.Descriptor instead.
 func (PlanDecision) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 // ApplyOutcome classifies how one plan item's apply attempt concluded.
@@ -160,11 +160,11 @@ func (x ApplyResult_ApplyOutcome) String() string {
 }
 
 func (ApplyResult_ApplyOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_plan_v1_plan_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_plan_v1_types_proto_enumTypes[1].Descriptor()
 }
 
 func (ApplyResult_ApplyOutcome) Type() protoreflect.EnumType {
-	return &file_pluggableharness_plan_v1_plan_proto_enumTypes[1]
+	return &file_pluggableharness_plan_v1_types_proto_enumTypes[1]
 }
 
 func (x ApplyResult_ApplyOutcome) Number() protoreflect.EnumNumber {
@@ -173,7 +173,7 @@ func (x ApplyResult_ApplyOutcome) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ApplyResult_ApplyOutcome.Descriptor instead.
 func (ApplyResult_ApplyOutcome) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{2, 0}
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{2, 0}
 }
 
 // PlanItem is one resource (or policy-checked data_source/interactive)
@@ -222,7 +222,7 @@ type PlanItem struct {
 
 func (x *PlanItem) Reset() {
 	*x = PlanItem{}
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[0]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -234,7 +234,7 @@ func (x *PlanItem) String() string {
 func (*PlanItem) ProtoMessage() {}
 
 func (x *PlanItem) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[0]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -247,7 +247,7 @@ func (x *PlanItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanItem.ProtoReflect.Descriptor instead.
 func (*PlanItem) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *PlanItem) GetId() string {
@@ -340,7 +340,7 @@ type Plan struct {
 
 func (x *Plan) Reset() {
 	*x = Plan{}
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[1]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -352,7 +352,7 @@ func (x *Plan) String() string {
 func (*Plan) ProtoMessage() {}
 
 func (x *Plan) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[1]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -365,7 +365,7 @@ func (x *Plan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Plan.ProtoReflect.Descriptor instead.
 func (*Plan) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Plan) GetTurnId() string {
@@ -403,7 +403,7 @@ type ApplyResult struct {
 
 func (x *ApplyResult) Reset() {
 	*x = ApplyResult{}
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[2]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -415,7 +415,7 @@ func (x *ApplyResult) String() string {
 func (*ApplyResult) ProtoMessage() {}
 
 func (x *ApplyResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[2]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -428,7 +428,7 @@ func (x *ApplyResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResult.ProtoReflect.Descriptor instead.
 func (*ApplyResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ApplyResult) GetTurnId() string {
@@ -471,7 +471,7 @@ type ApplyResult_ApplyItem struct {
 
 func (x *ApplyResult_ApplyItem) Reset() {
 	*x = ApplyResult_ApplyItem{}
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[3]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -483,7 +483,7 @@ func (x *ApplyResult_ApplyItem) String() string {
 func (*ApplyResult_ApplyItem) ProtoMessage() {}
 
 func (x *ApplyResult_ApplyItem) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_plan_v1_plan_proto_msgTypes[3]
+	mi := &file_pluggableharness_plan_v1_types_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -496,7 +496,7 @@ func (x *ApplyResult_ApplyItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResult_ApplyItem.ProtoReflect.Descriptor instead.
 func (*ApplyResult_ApplyItem) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_plan_v1_plan_proto_rawDescGZIP(), []int{2, 0}
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{2, 0}
 }
 
 func (x *ApplyResult_ApplyItem) GetPlanItemId() string {
@@ -564,11 +564,11 @@ func (*ApplyResult_ApplyItem_ToolResult) isApplyResult_ApplyItem_Result() {}
 
 func (*ApplyResult_ApplyItem_ToolError) isApplyResult_ApplyItem_Result() {}
 
-var File_pluggableharness_plan_v1_plan_proto protoreflect.FileDescriptor
+var File_pluggableharness_plan_v1_types_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_plan_v1_plan_proto_rawDesc = "" +
+const file_pluggableharness_plan_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"#pluggableharness/plan/v1/plan.proto\x12\x18pluggableharness.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/render/v1/render.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xed\x03\n" +
+	"$pluggableharness/plan/v1/types.proto\x12\x18pluggableharness.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/render/v1/types.proto\x1a#pluggableharness/tool/v1/tool.proto\"\xed\x03\n" +
 	"\bPlanItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\ftool_call_id\x18\x02 \x01(\tR\n" +
@@ -617,20 +617,20 @@ const file_pluggableharness_plan_v1_plan_proto_rawDesc = "" +
 	"\x12PLAN_DECISION_DENY\x10\x04B<Z:github.com/pluggableharness/agent/pkg/plan/proto/v1;planv1b\x06proto3"
 
 var (
-	file_pluggableharness_plan_v1_plan_proto_rawDescOnce sync.Once
-	file_pluggableharness_plan_v1_plan_proto_rawDescData []byte
+	file_pluggableharness_plan_v1_types_proto_rawDescOnce sync.Once
+	file_pluggableharness_plan_v1_types_proto_rawDescData []byte
 )
 
-func file_pluggableharness_plan_v1_plan_proto_rawDescGZIP() []byte {
-	file_pluggableharness_plan_v1_plan_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_plan_v1_plan_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_plan_v1_plan_proto_rawDesc), len(file_pluggableharness_plan_v1_plan_proto_rawDesc)))
+func file_pluggableharness_plan_v1_types_proto_rawDescGZIP() []byte {
+	file_pluggableharness_plan_v1_types_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_plan_v1_types_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_plan_v1_types_proto_rawDesc), len(file_pluggableharness_plan_v1_types_proto_rawDesc)))
 	})
-	return file_pluggableharness_plan_v1_plan_proto_rawDescData
+	return file_pluggableharness_plan_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_plan_v1_plan_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_plan_v1_plan_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_pluggableharness_plan_v1_plan_proto_goTypes = []any{
+var file_pluggableharness_plan_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_plan_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_pluggableharness_plan_v1_types_proto_goTypes = []any{
 	(PlanDecision)(0),             // 0: pluggableharness.plan.v1.PlanDecision
 	(ApplyResult_ApplyOutcome)(0), // 1: pluggableharness.plan.v1.ApplyResult.ApplyOutcome
 	(*PlanItem)(nil),              // 2: pluggableharness.plan.v1.PlanItem
@@ -644,7 +644,7 @@ var file_pluggableharness_plan_v1_plan_proto_goTypes = []any{
 	(*v1.ToolResult)(nil),         // 10: pluggableharness.tool.v1.ToolResult
 	(*v1.ToolError)(nil),          // 11: pluggableharness.tool.v1.ToolError
 }
-var file_pluggableharness_plan_v1_plan_proto_depIdxs = []int32{
+var file_pluggableharness_plan_v1_types_proto_depIdxs = []int32{
 	6,  // 0: pluggableharness.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
 	0,  // 1: pluggableharness.plan.v1.PlanItem.decision:type_name -> pluggableharness.plan.v1.PlanDecision
 	7,  // 2: pluggableharness.plan.v1.PlanItem.kind:type_name -> pluggableharness.tool.v1.ToolKind
@@ -662,13 +662,13 @@ var file_pluggableharness_plan_v1_plan_proto_depIdxs = []int32{
 	0,  // [0:10] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_plan_v1_plan_proto_init() }
-func file_pluggableharness_plan_v1_plan_proto_init() {
-	if File_pluggableharness_plan_v1_plan_proto != nil {
+func init() { file_pluggableharness_plan_v1_types_proto_init() }
+func file_pluggableharness_plan_v1_types_proto_init() {
+	if File_pluggableharness_plan_v1_types_proto != nil {
 		return
 	}
-	file_pluggableharness_plan_v1_plan_proto_msgTypes[0].OneofWrappers = []any{}
-	file_pluggableharness_plan_v1_plan_proto_msgTypes[3].OneofWrappers = []any{
+	file_pluggableharness_plan_v1_types_proto_msgTypes[0].OneofWrappers = []any{}
+	file_pluggableharness_plan_v1_types_proto_msgTypes[3].OneofWrappers = []any{
 		(*ApplyResult_ApplyItem_ToolResult)(nil),
 		(*ApplyResult_ApplyItem_ToolError)(nil),
 	}
@@ -676,18 +676,18 @@ func file_pluggableharness_plan_v1_plan_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_plan_v1_plan_proto_rawDesc), len(file_pluggableharness_plan_v1_plan_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_plan_v1_types_proto_rawDesc), len(file_pluggableharness_plan_v1_types_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_plan_v1_plan_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_plan_v1_plan_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_plan_v1_plan_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_plan_v1_plan_proto_msgTypes,
+		GoTypes:           file_pluggableharness_plan_v1_types_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_plan_v1_types_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_plan_v1_types_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_plan_v1_types_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_plan_v1_plan_proto = out.File
-	file_pluggableharness_plan_v1_plan_proto_goTypes = nil
-	file_pluggableharness_plan_v1_plan_proto_depIdxs = nil
+	File_pluggableharness_plan_v1_types_proto = out.File
+	file_pluggableharness_plan_v1_types_proto_goTypes = nil
+	file_pluggableharness_plan_v1_types_proto_depIdxs = nil
 }

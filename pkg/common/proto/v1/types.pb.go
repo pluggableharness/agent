@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/common/v1/common.proto
+// source: pluggableharness/common/v1/types.proto
 
 // Package pluggableharness.common.v1 defines cross-cutting metadata and identity
 // types shared by every plugin category's protocol. It has no RPCs of its
@@ -86,11 +86,11 @@ func (x Category) String() string {
 }
 
 func (Category) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_common_v1_common_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_common_v1_types_proto_enumTypes[0].Descriptor()
 }
 
 func (Category) Type() protoreflect.EnumType {
-	return &file_pluggableharness_common_v1_common_proto_enumTypes[0]
+	return &file_pluggableharness_common_v1_types_proto_enumTypes[0]
 }
 
 func (x Category) Number() protoreflect.EnumNumber {
@@ -99,7 +99,7 @@ func (x Category) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Category.Descriptor instead.
 func (Category) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_common_v1_common_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_common_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 // HookPoint identifies one of the eight dispatchable points in the agent
@@ -183,11 +183,11 @@ func (x HookPoint) String() string {
 }
 
 func (HookPoint) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_common_v1_common_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_common_v1_types_proto_enumTypes[1].Descriptor()
 }
 
 func (HookPoint) Type() protoreflect.EnumType {
-	return &file_pluggableharness_common_v1_common_proto_enumTypes[1]
+	return &file_pluggableharness_common_v1_types_proto_enumTypes[1]
 }
 
 func (x HookPoint) Number() protoreflect.EnumNumber {
@@ -196,7 +196,7 @@ func (x HookPoint) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HookPoint.Descriptor instead.
 func (HookPoint) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_common_v1_common_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_common_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 // ProducerRef identifies the exact plugin build that produced something: a
@@ -233,7 +233,7 @@ type ProducerRef struct {
 
 func (x *ProducerRef) Reset() {
 	*x = ProducerRef{}
-	mi := &file_pluggableharness_common_v1_common_proto_msgTypes[0]
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -245,7 +245,7 @@ func (x *ProducerRef) String() string {
 func (*ProducerRef) ProtoMessage() {}
 
 func (x *ProducerRef) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_common_v1_common_proto_msgTypes[0]
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -258,7 +258,7 @@ func (x *ProducerRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProducerRef.ProtoReflect.Descriptor instead.
 func (*ProducerRef) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_common_v1_common_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_common_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ProducerRef) GetName() string {
@@ -316,7 +316,7 @@ type ProviderRef struct {
 
 func (x *ProviderRef) Reset() {
 	*x = ProviderRef{}
-	mi := &file_pluggableharness_common_v1_common_proto_msgTypes[1]
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -328,7 +328,7 @@ func (x *ProviderRef) String() string {
 func (*ProviderRef) ProtoMessage() {}
 
 func (x *ProviderRef) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_common_v1_common_proto_msgTypes[1]
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,7 +341,7 @@ func (x *ProviderRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderRef.ProtoReflect.Descriptor instead.
 func (*ProviderRef) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_common_v1_common_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_common_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ProviderRef) GetCategory() Category {
@@ -381,7 +381,7 @@ type CallContext struct {
 
 func (x *CallContext) Reset() {
 	*x = CallContext{}
-	mi := &file_pluggableharness_common_v1_common_proto_msgTypes[2]
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -393,7 +393,7 @@ func (x *CallContext) String() string {
 func (*CallContext) ProtoMessage() {}
 
 func (x *CallContext) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_common_v1_common_proto_msgTypes[2]
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -406,7 +406,7 @@ func (x *CallContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallContext.ProtoReflect.Descriptor instead.
 func (*CallContext) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_common_v1_common_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_common_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CallContext) GetSessionId() string {
@@ -430,11 +430,11 @@ func (x *CallContext) GetWorkingDirectory() string {
 	return ""
 }
 
-var File_pluggableharness_common_v1_common_proto protoreflect.FileDescriptor
+var File_pluggableharness_common_v1_types_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_common_v1_common_proto_rawDesc = "" +
+const file_pluggableharness_common_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/common/v1/common.proto\x12\x1apluggableharness.common.v1\"\xc0\x01\n" +
+	"&pluggableharness/common/v1/types.proto\x12\x1apluggableharness.common.v1\"\xc0\x01\n" +
 	"\vProducerRef\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x16\n" +
@@ -469,27 +469,27 @@ const file_pluggableharness_common_v1_common_proto_rawDesc = "" +
 	"\x16HOOK_POINT_SESSION_END\x10\bB@Z>github.com/pluggableharness/agent/pkg/common/proto/v1;commonv1b\x06proto3"
 
 var (
-	file_pluggableharness_common_v1_common_proto_rawDescOnce sync.Once
-	file_pluggableharness_common_v1_common_proto_rawDescData []byte
+	file_pluggableharness_common_v1_types_proto_rawDescOnce sync.Once
+	file_pluggableharness_common_v1_types_proto_rawDescData []byte
 )
 
-func file_pluggableharness_common_v1_common_proto_rawDescGZIP() []byte {
-	file_pluggableharness_common_v1_common_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_common_v1_common_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_common_v1_common_proto_rawDesc), len(file_pluggableharness_common_v1_common_proto_rawDesc)))
+func file_pluggableharness_common_v1_types_proto_rawDescGZIP() []byte {
+	file_pluggableharness_common_v1_types_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_common_v1_types_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_common_v1_types_proto_rawDesc), len(file_pluggableharness_common_v1_types_proto_rawDesc)))
 	})
-	return file_pluggableharness_common_v1_common_proto_rawDescData
+	return file_pluggableharness_common_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_common_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_pluggableharness_common_v1_common_proto_goTypes = []any{
+var file_pluggableharness_common_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_common_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_pluggableharness_common_v1_types_proto_goTypes = []any{
 	(Category)(0),       // 0: pluggableharness.common.v1.Category
 	(HookPoint)(0),      // 1: pluggableharness.common.v1.HookPoint
 	(*ProducerRef)(nil), // 2: pluggableharness.common.v1.ProducerRef
 	(*ProviderRef)(nil), // 3: pluggableharness.common.v1.ProviderRef
 	(*CallContext)(nil), // 4: pluggableharness.common.v1.CallContext
 }
-var file_pluggableharness_common_v1_common_proto_depIdxs = []int32{
+var file_pluggableharness_common_v1_types_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.common.v1.ProducerRef.category:type_name -> pluggableharness.common.v1.Category
 	0, // 1: pluggableharness.common.v1.ProviderRef.category:type_name -> pluggableharness.common.v1.Category
 	2, // [2:2] is the sub-list for method output_type
@@ -499,27 +499,27 @@ var file_pluggableharness_common_v1_common_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_common_v1_common_proto_init() }
-func file_pluggableharness_common_v1_common_proto_init() {
-	if File_pluggableharness_common_v1_common_proto != nil {
+func init() { file_pluggableharness_common_v1_types_proto_init() }
+func file_pluggableharness_common_v1_types_proto_init() {
+	if File_pluggableharness_common_v1_types_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_common_v1_common_proto_rawDesc), len(file_pluggableharness_common_v1_common_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_common_v1_types_proto_rawDesc), len(file_pluggableharness_common_v1_types_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_common_v1_common_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_common_v1_common_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_common_v1_common_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_common_v1_common_proto_msgTypes,
+		GoTypes:           file_pluggableharness_common_v1_types_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_common_v1_types_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_common_v1_types_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_common_v1_types_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_common_v1_common_proto = out.File
-	file_pluggableharness_common_v1_common_proto_goTypes = nil
-	file_pluggableharness_common_v1_common_proto_depIdxs = nil
+	File_pluggableharness_common_v1_types_proto = out.File
+	file_pluggableharness_common_v1_types_proto_goTypes = nil
+	file_pluggableharness_common_v1_types_proto_depIdxs = nil
 }
