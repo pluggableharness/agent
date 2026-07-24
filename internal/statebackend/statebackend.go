@@ -239,8 +239,20 @@ func (st *Store) sessionPath(sessionID string) string {
 // is the only writer to any given session's file). The returned *sql.DB is
 // capped at one open connection, and WAL mode plus foreign key enforcement
 // are set immediately after connecting.
+//
+// foreign_keys is requested via the DSN's _pragma parameter
+// (modernc.org/sqlite-specific) rather than a one-time PRAGMA exec: it's a
+// per-connection setting, and a PRAGMA exec only applies to the connection
+// live at the time it runs. If database/sql ever replaces the pooled
+// connection (e.g. after a driver-level ErrBadConn), a same-process PRAGMA
+// wouldn't follow it to the replacement, silently reverting to
+// foreign_keys=OFF — the DSN parameter is applied by the driver on every
+// new connection it opens, including that replacement. journal_mode stays
+// a PRAGMA exec deliberately: WAL is a durable property of the database
+// file itself (recorded in the file header), not a per-connection
+// setting, so a replacement connection sees it automatically.
 func openDB(ctx context.Context, path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path)
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)")
 	if err != nil {
 		return nil, fmt.Errorf("statebackend: open %s: %w", path, err)
 	}
@@ -249,10 +261,6 @@ func openDB(ctx context.Context, path string) (*sql.DB, error) {
 	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode = WAL"); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("statebackend: open %s: set journal_mode: %w", path, err)
-	}
-	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("statebackend: open %s: set foreign_keys: %w", path, err)
 	}
 	return db, nil
 }

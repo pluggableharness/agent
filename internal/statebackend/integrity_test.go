@@ -146,6 +146,19 @@ func TestStore_Open_corruptionTriggersRecovery(t *testing.T) {
 		t.Errorf(".corrupt file missing after recovery: %v", statErr)
 	}
 
+	// The recovered file installed at the canonical path must carry the
+	// same 0600 guarantee every session file does — recoverSession
+	// pre-creates it itself rather than leaving the mode up to
+	// sql.Open/modernc's own file creation (whose default is 0644 modulo
+	// umask).
+	recoveredInfo, statErr := os.Stat(path)
+	if statErr != nil {
+		t.Fatalf("Stat (recovered file): %v", statErr)
+	}
+	if perm := recoveredInfo.Mode().Perm(); perm != 0o600 {
+		t.Errorf("recovered file perm = %o, want %o", perm, 0o600)
+	}
+
 	gotMeta, err := opened.Meta(context.Background())
 	if err != nil {
 		t.Fatalf("Meta (recovered file): %v", err)

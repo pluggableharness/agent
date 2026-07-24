@@ -102,7 +102,10 @@ func (st *Store) checkIntegrity(ctx context.Context, path, sessionID string) (_ 
 	recovered, stats, recErr := st.recoverSession(ctx, corruptPath, path, sessionID)
 	if recErr != nil {
 		st.logger.WarnContext(ctx, "statebackend: recovery failed, session flagged unreadable", "session_id", sessionID, "corrupt_path", corruptPath, "err", recErr)
-		err = fmt.Errorf("statebackend: recover %s: %w", sessionID, ErrUnrecoverable)
+		// Double %w (Go 1.20+) keeps recErr in the chain for diagnosis
+		// while errors.Is(err, ErrUnrecoverable) still holds for callers
+		// that only care about the category.
+		err = fmt.Errorf("statebackend: recover %s: %w: %w", sessionID, ErrUnrecoverable, recErr)
 		return nil, err
 	}
 
@@ -161,8 +164,26 @@ func (st *Store) recoverSession(ctx context.Context, srcPath, dstPath, sessionID
 	recoveryPath := dstPath + ".recovering"
 	_ = os.Remove(recoveryPath) // best-effort: clear any stale attempt left by a previous crashed recovery
 
+	// Pre-create recoveryPath at 0600 ourselves, mirroring Create()'s
+	// pattern (statebackend.go). Left to sql.Open/modernc's own file
+	// creation, the file lands at whatever mode the SQLite library
+	// defaults to (0644 modulo umask), silently breaking this package's
+	// documented 0600 guarantee for any session that has been through
+	// recovery — os.Rename below then installs that file, mode and all,
+	// permanently at the canonical session path.
+	// #nosec G304 -- recoveryPath is derived from dstPath, itself derived from an already-ValidateSessionID-checked session ID, not attacker-controlled input.
+	f, err := os.OpenFile(recoveryPath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create recovery file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(recoveryPath)
+		return nil, nil, fmt.Errorf("create recovery file: %w", err)
+	}
+
 	recDB, err := openDB(ctx, recoveryPath)
 	if err != nil {
+		_ = os.Remove(recoveryPath)
 		return nil, nil, fmt.Errorf("create recovery file: %w", err)
 	}
 	// cleanupRecoveryFile guards a half-built recovery attempt: true until

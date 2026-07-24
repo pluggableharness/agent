@@ -477,6 +477,30 @@ func TestOpenDB_directoryPathFails(t *testing.T) {
 	}
 }
 
+// TestOpenDB_foreignKeysEnabled locks in the security-review fix: since
+// foreign_keys is a per-connection setting, it's requested via openDB's
+// DSN (_pragma=foreign_keys(1)) rather than a one-time PRAGMA exec, so a
+// replacement pooled connection still gets it. This asserts the
+// observable effect — PRAGMA foreign_keys reads back 1 — rather than
+// inspecting the DSN string itself.
+func TestOpenDB_foreignKeysEnabled(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "test.sqlite")
+	db, err := openDB(context.Background(), path)
+	if err != nil {
+		t.Fatalf("openDB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	var enabled int
+	if err := db.QueryRowContext(context.Background(), "PRAGMA foreign_keys").Scan(&enabled); err != nil {
+		t.Fatalf("PRAGMA foreign_keys: %v", err)
+	}
+	if enabled != 1 {
+		t.Errorf("PRAGMA foreign_keys = %d, want 1", enabled)
+	}
+}
+
 func TestPopulateCreatedFile_openDBFailure(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
