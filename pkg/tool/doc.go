@@ -11,8 +11,8 @@
 // wires up (GetSchema, Configure, Invoke, Render, Preview, Describe — the
 // first three plus Describe MUST be implemented by every provider; Render
 // and Preview MAY), docs/specifications/tool/data-types.md for the
-// ToolSchema / ToolCall / ToolEvent / ToolResult / ConcurrencySpec shapes,
-// and docs/specifications/tool/conformance.md for the ToolErrorCategory
+// Schema / Call / Event / Result / ConcurrencySpec shapes,
+// and docs/specifications/tool/conformance.md for the ErrorCategory
 // taxonomy and the full MUST/SHOULD/MAY summary matrix this package
 // enforces where it can.
 //
@@ -20,10 +20,10 @@
 //
 // docs/specifications/slashcommand/data-types.md mandates that the
 // slashcommand category reuse six of this package's types VERBATIM, with
-// no parallel redeclaration: ToolKind, RiskClass, ConcurrencySpec,
-// ToolResult, ToolError, and OutputStream. All six are declared at this
+// no parallel redeclaration: Kind, RiskClass, ConcurrencySpec,
+// Result, Error, and OutputStream. All six are declared at this
 // package's top level specifically so pkg/slashcommand can import and use
-// them directly, and none of the six embeds anything ToolCall-specific (no
+// them directly, and none of the six embeds anything Call-specific (no
 // tool_name, no call ID, nothing that wouldn't make equal sense reused for
 // a slash command's own direct-invoke result). A future reader MUST NOT
 // rename, reshape, or fork these six types into pkg/slashcommand or any

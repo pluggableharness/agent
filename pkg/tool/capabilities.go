@@ -8,8 +8,8 @@ import (
 )
 
 // BuildGetSchemaResponse assembles the full GetSchemaResponse for p: every
-// operation's ToolSchema (via p.Schema, converted and validated with
-// toProtoToolSchema), plus this provider's config schema, slash commands,
+// operation's Schema (via p.Schema, converted and validated with
+// toProtoSchema), plus this provider's config schema, slash commands,
 // and supported hook points when p additionally implements
 // ConfigSchemaProvider, SlashCommandProvider, or HookPointProvider — see
 // tool.go. This package does not re-validate a ConfigSchemaProvider's
@@ -24,7 +24,7 @@ func BuildGetSchemaResponse(ctx context.Context, p Provider) (*toolv1.GetSchemaR
 
 	tools := make([]*toolv1.ToolSchema, 0, len(schemas))
 	for _, s := range schemas {
-		ps, err := toProtoToolSchema(s)
+		ps, err := toProtoSchema(s)
 		if err != nil {
 			return nil, fmt.Errorf("tool: get schema: %w", err)
 		}

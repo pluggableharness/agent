@@ -22,12 +22,12 @@ import (
 // not mocking frameworks). Each method's behavior is controlled by a
 // caller-set func field; a nil field falls through to a harmless default.
 type fakeProvider struct {
-	schemaFunc    func(ctx context.Context) ([]*tool.ToolSchema, error)
+	schemaFunc    func(ctx context.Context) ([]*tool.Schema, error)
 	configureFunc func(ctx context.Context, config map[string]any) error
-	invokeFunc    func(ctx context.Context, call *tool.ToolCall, stream *tool.Stream) error
+	invokeFunc    func(ctx context.Context, call *tool.Call, stream *tool.Stream) error
 }
 
-func (f *fakeProvider) Schema(ctx context.Context) ([]*tool.ToolSchema, error) {
+func (f *fakeProvider) Schema(ctx context.Context) ([]*tool.Schema, error) {
 	if f.schemaFunc != nil {
 		return f.schemaFunc(ctx)
 	}
@@ -41,7 +41,7 @@ func (f *fakeProvider) Configure(ctx context.Context, config map[string]any) err
 	return nil
 }
 
-func (f *fakeProvider) Invoke(ctx context.Context, call *tool.ToolCall, stream *tool.Stream) error {
+func (f *fakeProvider) Invoke(ctx context.Context, call *tool.Call, stream *tool.Stream) error {
 	if f.invokeFunc != nil {
 		return f.invokeFunc(ctx, call, stream)
 	}
@@ -61,7 +61,7 @@ type fakeFullProvider struct {
 	*fakeProvider
 
 	renderFunc       func(ctx context.Context, payload []byte, schemaVersion string) (*renderv1.RenderTree, error)
-	previewFunc      func(ctx context.Context, call *tool.ToolCall) (*renderv1.RenderTree, error)
+	previewFunc      func(ctx context.Context, call *tool.Call) (*renderv1.RenderTree, error)
 	configSchemaFunc func() (*configv1.ConfigSchema, error)
 	slashCommands    []*commonv1.PromptExpansionSpec
 	hookPoints       []commonv1.HookPoint
@@ -71,7 +71,7 @@ func (f *fakeFullProvider) Render(ctx context.Context, payload []byte, schemaVer
 	return f.renderFunc(ctx, payload, schemaVersion)
 }
 
-func (f *fakeFullProvider) Preview(ctx context.Context, call *tool.ToolCall) (*renderv1.RenderTree, error) {
+func (f *fakeFullProvider) Preview(ctx context.Context, call *tool.Call) (*renderv1.RenderTree, error) {
 	return f.previewFunc(ctx, call)
 }
 
@@ -96,12 +96,12 @@ var (
 	_ tool.HookPointProvider    = (*fakeFullProvider)(nil)
 )
 
-// validToolSchema returns a minimally valid *tool.ToolSchema for tests
-// that just need something toProtoToolSchema accepts.
-func validToolSchema(name string) *tool.ToolSchema {
-	return &tool.ToolSchema{
+// validSchema returns a minimally valid *tool.Schema for tests
+// that just need something toProtoSchema accepts.
+func validSchema(name string) *tool.Schema {
+	return &tool.Schema{
 		Name:         name,
-		Kind:         tool.ToolKindDataSource,
+		Kind:         tool.KindDataSource,
 		Risk:         tool.RiskClassReadOnly,
 		Description:  "a test operation",
 		InputSchema:  &schemav1.Schema{Type: schemav1.SchemaType_SCHEMA_TYPE_OBJECT},

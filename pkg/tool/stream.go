@@ -21,7 +21,7 @@ var (
 	// cancelled. docs/specifications/tool/protocol.md#invoke: "A plugin
 	// MUST NOT synthesize a result claiming full success after a
 	// cancelled operation." — send a partial_result/output_chunk best-
-	// effort report, or an error event with ToolErrorCategoryCancelled,
+	// effort report, or an error event with ErrorCategoryCancelled,
 	// instead.
 	ErrResultAfterCancel = errors.New("tool: cannot send a success result after the stream's context was canceled")
 	// ErrDuplicateExitStatus is returned by Send on a second exit_status
@@ -42,7 +42,7 @@ var (
 //   - a success Result is refused once the stream's own context has been
 //     cancelled, so a Provider cannot synthesize a false "succeeded"
 //     terminal event after cancellation (ErrResultAfterCancel) — send a
-//     partial_result or an error event with ToolErrorCategoryCancelled
+//     partial_result or an error event with ErrorCategoryCancelled
 //     instead.
 //   - output_chunk (and every other event) ordering is preserved because
 //     Send serializes every call under one mutex rather than writing to
@@ -52,7 +52,7 @@ var (
 // on this particular call at all. docs/specifications/tool/protocol.md#invoke
 // restricts exit_status to process-backed (exec-family) operations, but
 // that fact lives in the *operation's* documentation/convention, not on
-// the wire ToolCall or ToolSchema — there is no process_backed field to
+// the wire Call or Schema — there is no process_backed field to
 // check against. Enforcing "at most once" is this package's chosen,
 // mechanically-checkable substitute; whether a given operation should ever
 // call NewExitStatusEvent at all remains a Provider-author discipline
@@ -81,7 +81,7 @@ func (s *Stream) Context() context.Context {
 // Send sends event, enforcing the stream contract documented on Stream.
 // Safe for concurrent use; concurrent Send calls serialize rather than
 // racing the underlying gRPC stream.
-func (s *Stream) Send(event *ToolEvent) error {
+func (s *Stream) Send(event *Event) error {
 	if event == nil {
 		return ErrNilEvent
 	}
@@ -108,7 +108,7 @@ func (s *Stream) Send(event *ToolEvent) error {
 		s.exitStatusSent = true
 	}
 
-	pe, err := toProtoToolEvent(event)
+	pe, err := toProtoEvent(event)
 	if err != nil {
 		return err
 	}

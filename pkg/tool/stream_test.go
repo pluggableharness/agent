@@ -76,7 +76,7 @@ func TestStreamSendTerminalClosesStream(t *testing.T) {
 
 	// A second terminal event — even a different one — after the first
 	// MUST be rejected: exactly one of result/error closes the stream.
-	err := s.Send(NewErrorEvent(&ToolError{Category: ToolErrorCategoryUnknown, Message: "too late"}))
+	err := s.Send(NewErrorEvent(&Error{Category: ErrorCategoryUnknown, Message: "too late"}))
 	if !errors.Is(err, ErrStreamClosed) {
 		t.Fatalf("second terminal Send() error = %v, want wrapping %v", err, ErrStreamClosed)
 	}
@@ -128,7 +128,7 @@ func TestStreamResultAfterCancelRejected(t *testing.T) {
 	if err := s.Send(NewPartialResultEvent(map[string]any{"partial": true})); err != nil {
 		t.Fatalf("Send(partial_result) after cancel: %v", err)
 	}
-	if err := s.Send(NewErrorEvent(&ToolError{Category: ToolErrorCategoryCancelled, Message: "cancelled"})); err != nil {
+	if err := s.Send(NewErrorEvent(&Error{Category: ErrorCategoryCancelled, Message: "cancelled"})); err != nil {
 		t.Fatalf("Send(error, cancelled) after cancel: %v", err)
 	}
 	if !s.closedTerminal() {

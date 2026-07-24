@@ -12,45 +12,45 @@ import (
 
 // Sentinel errors returned by the domain<->proto conversions in this file.
 var (
-	// ErrNilToolSchema is returned when converting a nil *ToolSchema.
-	ErrNilToolSchema = errors.New("tool: tool schema must not be nil")
-	// ErrNilToolResult is returned when converting a nil *ToolResult.
-	ErrNilToolResult = errors.New("tool: tool result must not be nil")
-	// ErrNilToolError is returned when converting a nil *ToolError.
-	ErrNilToolError = errors.New("tool: tool error must not be nil")
-	// ErrNilToolCall is returned when converting a nil *toolv1.ToolCall.
-	ErrNilToolCall = errors.New("tool: call must not be nil")
-	// ErrNilEvent is returned by Stream.Send and toProtoToolEvent for a
-	// nil *ToolEvent.
+	// ErrNilSchema is returned when converting a nil *Schema.
+	ErrNilSchema = errors.New("tool: tool schema must not be nil")
+	// ErrNilResult is returned when converting a nil *Result.
+	ErrNilResult = errors.New("tool: tool result must not be nil")
+	// ErrNilError is returned when converting a nil *Error.
+	ErrNilError = errors.New("tool: tool error must not be nil")
+	// ErrNilCall is returned when converting a nil *toolv1.ToolCall.
+	ErrNilCall = errors.New("tool: call must not be nil")
+	// ErrNilEvent is returned by Stream.Send and toProtoEvent for a
+	// nil *Event.
 	ErrNilEvent = errors.New("tool: event must not be nil")
-	// ErrEventFieldCount is returned when a ToolEvent does not have
+	// ErrEventFieldCount is returned when a Event does not have
 	// exactly one of its six fields set.
 	ErrEventFieldCount = errors.New("tool: event must set exactly one field")
 
-	// ErrEmptyName is returned when a ToolSchema's Name is empty.
+	// ErrEmptyName is returned when a Schema's Name is empty.
 	ErrEmptyName = errors.New("tool: name must not be empty")
-	// ErrUnspecifiedKind is returned when a ToolSchema's Kind is
-	// ToolKindUnspecified.
+	// ErrUnspecifiedKind is returned when a Schema's Kind is
+	// KindUnspecified.
 	ErrUnspecifiedKind = errors.New("tool: kind must not be unspecified")
-	// ErrEmptyDescription is returned when a ToolSchema's Description is
+	// ErrEmptyDescription is returned when a Schema's Description is
 	// empty.
 	ErrEmptyDescription = errors.New("tool: description must not be empty")
-	// ErrNilInputSchema is returned when a ToolSchema's InputSchema is
+	// ErrNilInputSchema is returned when a Schema's InputSchema is
 	// nil.
 	ErrNilInputSchema = errors.New("tool: input_schema must not be nil")
-	// ErrNilOutputSchema is returned when a ToolSchema's OutputSchema is
+	// ErrNilOutputSchema is returned when a Schema's OutputSchema is
 	// nil.
 	ErrNilOutputSchema = errors.New("tool: output_schema must not be nil")
-	// ErrInvalidRiskForKind is returned when a ToolSchema's Risk does not
+	// ErrInvalidRiskForKind is returned when a Schema's Risk does not
 	// match what its Kind requires — RiskClassReadOnly for
-	// ToolKindDataSource/ToolKindInteractive, one of
-	// low/moderate/high/critical for ToolKindResource.
+	// KindDataSource/KindInteractive, one of
+	// low/moderate/high/critical for KindResource.
 	ErrInvalidRiskForKind = errors.New("tool: risk does not match kind's required risk classification")
-	// ErrConcurrencyRequired is returned when a ToolSchema's Concurrency
-	// is nil for a kind other than ToolKindInteractive.
+	// ErrConcurrencyRequired is returned when a Schema's Concurrency
+	// is nil for a kind other than KindInteractive.
 	ErrConcurrencyRequired = errors.New("tool: concurrency must be set except for kind interactive")
 	// ErrConcurrencyForbiddenForInteractive is returned when a
-	// ToolKindInteractive ToolSchema declares a non-nil Concurrency.
+	// KindInteractive Schema declares a non-nil Concurrency.
 	// docs/specifications/tool/data-types.md#concurrencyspec says the
 	// kernel MUST ignore a declared ConcurrencySpec for an interactive
 	// operation and enforce sequential execution unconditionally; this
@@ -61,14 +61,14 @@ var (
 	ErrConcurrencyForbiddenForInteractive = errors.New("tool: concurrency must not be declared for kind interactive")
 )
 
-// toProtoToolKind converts k to its wire representation.
-func toProtoToolKind(k ToolKind) toolv1.ToolKind {
+// toProtoKind converts k to its wire representation.
+func toProtoKind(k Kind) toolv1.ToolKind {
 	switch k {
-	case ToolKindResource:
+	case KindResource:
 		return toolv1.ToolKind_TOOL_KIND_RESOURCE
-	case ToolKindDataSource:
+	case KindDataSource:
 		return toolv1.ToolKind_TOOL_KIND_DATA_SOURCE
-	case ToolKindInteractive:
+	case KindInteractive:
 		return toolv1.ToolKind_TOOL_KIND_INTERACTIVE
 	default:
 		return toolv1.ToolKind_TOOL_KIND_UNSPECIFIED
@@ -105,26 +105,26 @@ func toProtoOutputStream(s OutputStream) toolv1.OutputStream {
 	}
 }
 
-// toProtoToolErrorCategory converts c to its wire representation.
-func toProtoToolErrorCategory(c ToolErrorCategory) toolv1.ToolErrorCategory {
+// toProtoErrorCategory converts c to its wire representation.
+func toProtoErrorCategory(c ErrorCategory) toolv1.ToolErrorCategory {
 	switch c {
-	case ToolErrorCategoryInvalidArguments:
+	case ErrorCategoryInvalidArguments:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS
-	case ToolErrorCategoryNotFound:
+	case ErrorCategoryNotFound:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_NOT_FOUND
-	case ToolErrorCategoryPermissionDenied:
+	case ErrorCategoryPermissionDenied:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_PERMISSION_DENIED
-	case ToolErrorCategoryExecutionFailed:
+	case ErrorCategoryExecutionFailed:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_EXECUTION_FAILED
-	case ToolErrorCategoryTimeout:
+	case ErrorCategoryTimeout:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_TIMEOUT
-	case ToolErrorCategoryConcurrencyConflict:
+	case ErrorCategoryConcurrencyConflict:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_CONCURRENCY_CONFLICT
-	case ToolErrorCategoryCancelled:
+	case ErrorCategoryCancelled:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_CANCELLED
 	case toolErrorCategoryProcessCrashed:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_PROCESS_CRASHED
-	case ToolErrorCategoryUnknown:
+	case ErrorCategoryUnknown:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNKNOWN
 	default:
 		return toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
@@ -140,14 +140,14 @@ func toProtoConcurrencySpec(c *ConcurrencySpec) *toolv1.ConcurrencySpec {
 	return &toolv1.ConcurrencySpec{Safe: c.Safe, KeyFields: c.KeyFields}
 }
 
-// validateToolSchema checks the MUST-level invariants
+// validateSchema checks the MUST-level invariants
 // docs/specifications/tool/protocol.md#getschema and
-// docs/specifications/tool/data-types.md#riskclass place on a ToolSchema.
-func validateToolSchema(s *ToolSchema) error {
+// docs/specifications/tool/data-types.md#riskclass place on a Schema.
+func validateSchema(s *Schema) error {
 	if s.Name == "" {
 		return ErrEmptyName
 	}
-	if s.Kind == ToolKindUnspecified {
+	if s.Kind == KindUnspecified {
 		return ErrUnspecifiedKind
 	}
 	if s.Description == "" {
@@ -161,11 +161,11 @@ func validateToolSchema(s *ToolSchema) error {
 	}
 
 	switch s.Kind {
-	case ToolKindDataSource, ToolKindInteractive:
+	case KindDataSource, KindInteractive:
 		if s.Risk != RiskClassReadOnly {
 			return fmt.Errorf("%w: %s requires read_only, got %s", ErrInvalidRiskForKind, s.Kind, s.Risk)
 		}
-	case ToolKindResource:
+	case KindResource:
 		switch s.Risk {
 		case RiskClassLow, RiskClassModerate, RiskClassHigh, RiskClassCritical:
 		default:
@@ -173,7 +173,7 @@ func validateToolSchema(s *ToolSchema) error {
 		}
 	}
 
-	if s.Kind == ToolKindInteractive {
+	if s.Kind == KindInteractive {
 		if s.Concurrency != nil {
 			return ErrConcurrencyForbiddenForInteractive
 		}
@@ -184,19 +184,19 @@ func validateToolSchema(s *ToolSchema) error {
 	return nil
 }
 
-// toProtoToolSchema validates s and converts it to its wire
+// toProtoSchema validates s and converts it to its wire
 // representation.
-func toProtoToolSchema(s *ToolSchema) (*toolv1.ToolSchema, error) {
+func toProtoSchema(s *Schema) (*toolv1.ToolSchema, error) {
 	if s == nil {
-		return nil, ErrNilToolSchema
+		return nil, ErrNilSchema
 	}
-	if err := validateToolSchema(s); err != nil {
+	if err := validateSchema(s); err != nil {
 		return nil, fmt.Errorf("tool: tool schema %q: %w", s.Name, err)
 	}
 
 	ps := &toolv1.ToolSchema{
 		Name:         s.Name,
-		Kind:         toProtoToolKind(s.Kind),
+		Kind:         toProtoKind(s.Kind),
 		Risk:         toProtoRiskClass(s.Risk),
 		Description:  s.Description,
 		InputSchema:  s.InputSchema,
@@ -211,10 +211,10 @@ func toProtoToolSchema(s *ToolSchema) (*toolv1.ToolSchema, error) {
 	return ps, nil
 }
 
-// toProtoToolResult converts r to its wire representation.
-func toProtoToolResult(r *ToolResult) (*toolv1.ToolResult, error) {
+// toProtoResult converts r to its wire representation.
+func toProtoResult(r *Result) (*toolv1.ToolResult, error) {
 	if r == nil {
-		return nil, ErrNilToolResult
+		return nil, ErrNilResult
 	}
 	payload, err := mapToStruct(r.Payload)
 	if err != nil {
@@ -223,18 +223,18 @@ func toProtoToolResult(r *ToolResult) (*toolv1.ToolResult, error) {
 	return &toolv1.ToolResult{Payload: payload}, nil
 }
 
-// toProtoToolError validates e's category and converts it to its wire
+// toProtoError validates e's category and converts it to its wire
 // representation.
-func toProtoToolError(e *ToolError) (*toolv1.ToolError, error) {
+func toProtoError(e *Error) (*toolv1.ToolError, error) {
 	if e == nil {
-		return nil, ErrNilToolError
+		return nil, ErrNilError
 	}
 	if err := validateErrorCategory(e.Category); err != nil {
 		return nil, fmt.Errorf("tool: tool error: %w", err)
 	}
 
 	pe := &toolv1.ToolError{
-		Category:  toProtoToolErrorCategory(e.Category),
+		Category:  toProtoErrorCategory(e.Category),
 		Message:   e.Message,
 		Retryable: e.Retryable,
 	}
@@ -248,13 +248,13 @@ func toProtoToolError(e *ToolError) (*toolv1.ToolError, error) {
 	return pe, nil
 }
 
-// toProtoToolEvent converts e to its wire representation, rejecting a nil
+// toProtoEvent converts e to its wire representation, rejecting a nil
 // event or one that does not set exactly one field — the same "exactly
 // one of result/error closes the stream, everything else is optional but
 // still exactly-one-of-six-per-message" shape
 // docs/specifications/tool/data-types.md#toolcall--toolevent--toolresult
 // describes for the underlying oneof.
-func toProtoToolEvent(e *ToolEvent) (*toolv1.ToolEvent, error) {
+func toProtoEvent(e *Event) (*toolv1.ToolEvent, error) {
 	if e == nil {
 		return nil, ErrNilEvent
 	}
@@ -292,13 +292,13 @@ func toProtoToolEvent(e *ToolEvent) (*toolv1.ToolEvent, error) {
 			Signal:   e.ExitStatus.Signal,
 		}}}, nil
 	case e.Result != nil:
-		pr, err := toProtoToolResult(e.Result)
+		pr, err := toProtoResult(e.Result)
 		if err != nil {
 			return nil, fmt.Errorf("tool: tool event: %w", err)
 		}
 		return &toolv1.ToolEvent{Event: &toolv1.ToolEvent_Result{Result: pr}}, nil
 	default: // e.Error != nil, guaranteed by the exactly-one-field check above.
-		pe, err := toProtoToolError(e.Error)
+		pe, err := toProtoError(e.Error)
 		if err != nil {
 			return nil, fmt.Errorf("tool: tool event: %w", err)
 		}
@@ -306,12 +306,12 @@ func toProtoToolEvent(e *ToolEvent) (*toolv1.ToolEvent, error) {
 	}
 }
 
-// fromProtoToolCall converts c from its wire representation.
-func fromProtoToolCall(c *toolv1.ToolCall) (*ToolCall, error) {
+// fromProtoCall converts c from its wire representation.
+func fromProtoCall(c *toolv1.ToolCall) (*Call, error) {
 	if c == nil {
-		return nil, ErrNilToolCall
+		return nil, ErrNilCall
 	}
-	return &ToolCall{
+	return &Call{
 		ID:          c.GetId(),
 		ToolName:    c.GetToolName(),
 		Arguments:   structToMap(c.GetArguments()),

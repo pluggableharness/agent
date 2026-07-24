@@ -16,181 +16,181 @@ import (
 // structured detail" rule.
 const errorDomain = "tool.pluggableharness.dev"
 
-// ToolErrorCategory classifies why an Invoke call failed, per
+// ErrorCategory classifies why an Invoke call failed, per
 // docs/specifications/tool/conformance.md#error-taxonomy. Deliberately
 // distinct from the model category's own error taxonomy — there is no
 // rate_limited or context_length_exceeded here, those are model-vendor
 // concepts. One of the six types pkg/slashcommand reuses verbatim; see
 // doc.go.
-type ToolErrorCategory int
+type ErrorCategory int
 
 const (
-	// ToolErrorCategoryUnspecified is the zero value. Never valid for a
+	// ErrorCategoryUnspecified is the zero value. Never valid for a
 	// real error.
-	ToolErrorCategoryUnspecified ToolErrorCategory = iota
-	// ToolErrorCategoryInvalidArguments means input failed input_schema
+	ErrorCategoryUnspecified ErrorCategory = iota
+	// ErrorCategoryInvalidArguments means input failed input_schema
 	// validation.
-	ToolErrorCategoryInvalidArguments
-	// ToolErrorCategoryNotFound means the target of the operation
+	ErrorCategoryInvalidArguments
+	// ErrorCategoryNotFound means the target of the operation
 	// doesn't exist (path, URL, symbol, ...).
-	ToolErrorCategoryNotFound
-	// ToolErrorCategoryPermissionDenied means OS/policy denied the
+	ErrorCategoryNotFound
+	// ErrorCategoryPermissionDenied means OS/policy denied the
 	// underlying operation.
-	ToolErrorCategoryPermissionDenied
-	// ToolErrorCategoryExecutionFailed means the operation ran but
+	ErrorCategoryPermissionDenied
+	// ErrorCategoryExecutionFailed means the operation ran but
 	// failed on its own terms (non-zero exit, compiler error, HTTP
 	// 4xx/5xx) — not a plugin bug.
-	ToolErrorCategoryExecutionFailed
-	// ToolErrorCategoryTimeout means the operation exceeded a plugin- or
+	ErrorCategoryExecutionFailed
+	// ErrorCategoryTimeout means the operation exceeded a plugin- or
 	// kernel-enforced deadline.
-	ToolErrorCategoryTimeout
-	// ToolErrorCategoryConcurrencyConflict means the provider detected a
+	ErrorCategoryTimeout
+	// ErrorCategoryConcurrencyConflict means the provider detected a
 	// conflicting concurrent call it could not serialize itself —
 	// signals the kernel to retry serialized.
-	ToolErrorCategoryConcurrencyConflict
-	// ToolErrorCategoryCancelled means the stream was cancelled — not
+	ErrorCategoryConcurrencyConflict
+	// ErrorCategoryCancelled means the stream was cancelled — not
 	// "an error" in the failure sense; kept distinct so the kernel
 	// doesn't surface it to the model as a tool failure when the whole
 	// turn is being aborted anyway.
-	ToolErrorCategoryCancelled
+	ErrorCategoryCancelled
 	// toolErrorCategoryProcessCrashed is unexported and has no
 	// constructor: a plugin subprocess that crashes mid-Invoke obviously
 	// cannot emit this category about itself. It exists here only so
 	// GRPCCode and this type's String method can render/map a category
 	// value the kernel synthesizes on the transport side after a crash —
-	// see NewToolError's doc comment for how this package makes it
+	// see NewError's doc comment for how this package makes it
 	// unconstructable by a plugin author.
 	toolErrorCategoryProcessCrashed
-	// ToolErrorCategoryUnknown means anything else. Details MUST include
+	// ErrorCategoryUnknown means anything else. Details MUST include
 	// the raw underlying error.
-	ToolErrorCategoryUnknown
+	ErrorCategoryUnknown
 )
 
 // String returns c's wire-name-derived lowercase form, e.g.
 // "invalid_arguments".
-func (c ToolErrorCategory) String() string {
+func (c ErrorCategory) String() string {
 	switch c {
-	case ToolErrorCategoryUnspecified:
+	case ErrorCategoryUnspecified:
 		return "unspecified"
-	case ToolErrorCategoryInvalidArguments:
+	case ErrorCategoryInvalidArguments:
 		return "invalid_arguments"
-	case ToolErrorCategoryNotFound:
+	case ErrorCategoryNotFound:
 		return "not_found"
-	case ToolErrorCategoryPermissionDenied:
+	case ErrorCategoryPermissionDenied:
 		return "permission_denied"
-	case ToolErrorCategoryExecutionFailed:
+	case ErrorCategoryExecutionFailed:
 		return "execution_failed"
-	case ToolErrorCategoryTimeout:
+	case ErrorCategoryTimeout:
 		return "timeout"
-	case ToolErrorCategoryConcurrencyConflict:
+	case ErrorCategoryConcurrencyConflict:
 		return "concurrency_conflict"
-	case ToolErrorCategoryCancelled:
+	case ErrorCategoryCancelled:
 		return "cancelled"
 	case toolErrorCategoryProcessCrashed:
 		return "process_crashed"
-	case ToolErrorCategoryUnknown:
+	case ErrorCategoryUnknown:
 		return "unknown"
 	default:
 		return "unrecognized"
 	}
 }
 
-// ToolError is the terminal, failed outcome of an Invoke call, per
+// Error is the terminal, failed outcome of an Invoke call, per
 // docs/specifications/tool/conformance.md#error-taxonomy. Implements the
 // standard error interface via Error. One of the six types
 // pkg/slashcommand reuses verbatim; see doc.go. Deliberately holds nothing
-// ToolCall-specific so it reuses cleanly for a slash command's own
+// Call-specific so it reuses cleanly for a slash command's own
 // direct-invoke failure.
-type ToolError struct {
-	// Category MUST be set — see ToolErrorCategory. Never
-	// ToolErrorCategoryUnspecified and never the kernel-only
-	// process_crashed category; see NewToolError.
-	Category ToolErrorCategory
+type Error struct {
+	// Category MUST be set — see ErrorCategory. Never
+	// ErrorCategoryUnspecified and never the kernel-only
+	// process_crashed category; see NewError.
+	Category ErrorCategory
 	// Message is human-readable. MUST be set.
 	Message string
 	// Retryable MUST be set.
 	Retryable bool
 	// Details is provider-specific structured detail. MUST include the
-	// raw underlying error for ToolErrorCategoryUnknown.
+	// raw underlying error for ErrorCategoryUnknown.
 	Details map[string]any
 }
 
 // Error implements the standard error interface, returning Message.
-func (e *ToolError) Error() string {
+func (e *Error) Error() string {
 	if e == nil {
 		return ""
 	}
 	return e.Message
 }
 
-// Sentinel errors returned by NewToolError, checked with errors.Is.
+// Sentinel errors returned by NewError, checked with errors.Is.
 var (
 	// ErrEmptyMessage is returned when message is empty.
 	ErrEmptyMessage = errors.New("tool: message must not be empty")
 	// ErrUnspecifiedCategory is returned when category is
-	// ToolErrorCategoryUnspecified or any value outside the declared
+	// ErrorCategoryUnspecified or any value outside the declared
 	// enum.
 	ErrUnspecifiedCategory = errors.New("tool: category must not be unspecified")
 	// ErrProcessCrashedCategory is returned when category is the
 	// kernel-only process_crashed category. A plugin process that
 	// crashes mid-Invoke cannot emit an event about its own crash — the
 	// kernel synthesizes this category from the transport failure
-	// instead — so NewToolError refuses to construct one regardless of
+	// instead — so NewError refuses to construct one regardless of
 	// how the caller obtained the category value, closing the gap a bare
-	// unexported constant alone would leave open (ToolErrorCategory is
-	// just an int; a caller could still write ToolErrorCategory(8)).
+	// unexported constant alone would leave open (ErrorCategory is
+	// just an int; a caller could still write ErrorCategory(8)).
 	ErrProcessCrashedCategory = errors.New("tool: process_crashed is kernel-synthesized only and cannot be constructed by a plugin")
 )
 
-// NewToolError builds and validates a ToolError. It rejects an empty
-// message, ToolErrorCategoryUnspecified, and the kernel-only
+// NewError builds and validates a Error. It rejects an empty
+// message, ErrorCategoryUnspecified, and the kernel-only
 // process_crashed category (see ErrProcessCrashedCategory) — this is the
 // package's chosen mechanism for making process_crashed unconstructable by
 // a plugin author, per
 // docs/specifications/tool/conformance.md#error-taxonomy: "a plugin
 // process that crashes obviously cannot emit this itself."
-func NewToolError(category ToolErrorCategory, message string, retryable bool, details map[string]any) (*ToolError, error) {
+func NewError(category ErrorCategory, message string, retryable bool, details map[string]any) (*Error, error) {
 	if message == "" {
 		return nil, fmt.Errorf("tool: new tool error: %w", ErrEmptyMessage)
 	}
 	if err := validateErrorCategory(category); err != nil {
 		return nil, fmt.Errorf("tool: new tool error: %w", err)
 	}
-	return &ToolError{Category: category, Message: message, Retryable: retryable, Details: details}, nil
+	return &Error{Category: category, Message: message, Retryable: retryable, Details: details}, nil
 }
 
-// validateErrorCategory rejects ToolErrorCategoryUnspecified, the
+// validateErrorCategory rejects ErrorCategoryUnspecified, the
 // kernel-only process_crashed category, and any out-of-range value; every
 // other declared category is valid.
-func validateErrorCategory(c ToolErrorCategory) error {
+func validateErrorCategory(c ErrorCategory) error {
 	switch c {
-	case ToolErrorCategoryUnspecified:
+	case ErrorCategoryUnspecified:
 		return ErrUnspecifiedCategory
 	case toolErrorCategoryProcessCrashed:
 		return ErrProcessCrashedCategory
-	case ToolErrorCategoryInvalidArguments,
-		ToolErrorCategoryNotFound,
-		ToolErrorCategoryPermissionDenied,
-		ToolErrorCategoryExecutionFailed,
-		ToolErrorCategoryTimeout,
-		ToolErrorCategoryConcurrencyConflict,
-		ToolErrorCategoryCancelled,
-		ToolErrorCategoryUnknown:
+	case ErrorCategoryInvalidArguments,
+		ErrorCategoryNotFound,
+		ErrorCategoryPermissionDenied,
+		ErrorCategoryExecutionFailed,
+		ErrorCategoryTimeout,
+		ErrorCategoryConcurrencyConflict,
+		ErrorCategoryCancelled,
+		ErrorCategoryUnknown:
 		return nil
 	default:
 		return fmt.Errorf("%w: %d", ErrUnspecifiedCategory, int(c))
 	}
 }
 
-// GRPCCode maps a ToolErrorCategory to the grpc/codes.Code that best
-// represents it when a ToolError must cross the plugin boundary as a gRPC
+// GRPCCode maps a ErrorCategory to the grpc/codes.Code that best
+// represents it when a Error must cross the plugin boundary as a gRPC
 // status — as opposed to traveling in-band as an Invoke stream's terminal
-// `error` ToolEvent (the common case, see stream.go), which never becomes
+// `error` Event (the common case, see stream.go), which never becomes
 // a gRPC status at all.
 //
 // Two entries are judgment calls, recorded here per the task's request:
 //
-//   - ToolErrorCategoryExecutionFailed maps to codes.Internal.
+//   - ErrorCategoryExecutionFailed maps to codes.Internal.
 //     execution_failed means the operation ran and failed on its own
 //     terms (non-zero exit, compiler error, HTTP 4xx/5xx) rather than the
 //     RPC call itself being malformed, so none of the more specific
@@ -201,9 +201,9 @@ func validateErrorCategory(c ToolErrorCategory) error {
 //     as a protocol-level failure in the first place (conformance.md's
 //     reaction table: "Ordinary tool_result content, not a
 //     protocol-level failure"), so this mapping is only ever exercised
-//     on the rare path where an execution_failed ToolError has to cross
+//     on the rare path where an execution_failed Error has to cross
 //     as a status anyway (e.g. a hand-rolled Configure-time check).
-//   - ToolErrorCategoryConcurrencyConflict maps to codes.Aborted, not
+//   - ErrorCategoryConcurrencyConflict maps to codes.Aborted, not
 //     codes.FailedPrecondition. codes.Aborted's documented meaning ("the
 //     operation was aborted ... due to a concurrency issue ... the
 //     client should retry at a higher level") is a closer textual match
@@ -211,21 +211,21 @@ func validateErrorCategory(c ToolErrorCategory) error {
 //     until the system state has been explicitly fixed") —
 //     concurrency_conflict is specifically retryable-after-serialization
 //     (conformance.md), which is Aborted's documented retry semantics.
-func GRPCCode(category ToolErrorCategory) codes.Code {
+func GRPCCode(category ErrorCategory) codes.Code {
 	switch category {
-	case ToolErrorCategoryInvalidArguments:
+	case ErrorCategoryInvalidArguments:
 		return codes.InvalidArgument
-	case ToolErrorCategoryNotFound:
+	case ErrorCategoryNotFound:
 		return codes.NotFound
-	case ToolErrorCategoryPermissionDenied:
+	case ErrorCategoryPermissionDenied:
 		return codes.PermissionDenied
-	case ToolErrorCategoryExecutionFailed:
+	case ErrorCategoryExecutionFailed:
 		return codes.Internal
-	case ToolErrorCategoryTimeout:
+	case ErrorCategoryTimeout:
 		return codes.DeadlineExceeded
-	case ToolErrorCategoryConcurrencyConflict:
+	case ErrorCategoryConcurrencyConflict:
 		return codes.Aborted
-	case ToolErrorCategoryCancelled:
+	case ErrorCategoryCancelled:
 		return codes.Canceled
 	case toolErrorCategoryProcessCrashed:
 		return codes.Unavailable
@@ -239,11 +239,11 @@ func GRPCCode(category ToolErrorCategory) codes.Code {
 // codes.Code via GRPCCode and te.Details to string metadata. Use this for
 // an error that must fail the RPC itself (Configure, GetSchema, Render,
 // Preview) — never for Invoke's own result/error terminal events, which
-// travel in-band as a ToolEvent (see stream.go) rather than as a gRPC
+// travel in-band as a Event (see stream.go) rather than as a gRPC
 // status.
-func ToStatusError(te *ToolError) error {
+func ToStatusError(te *Error) error {
 	if te == nil {
-		return plugin.StatusError(codes.Internal, errorDomain, "nil_tool_error", "tool: nil ToolError", nil)
+		return plugin.StatusError(codes.Internal, errorDomain, "nil_tool_error", "tool: nil Error", nil)
 	}
 	return plugin.StatusError(GRPCCode(te.Category), errorDomain, strings.ToLower(te.Category.String()), te.Message, detailsToMetadata(te.Details))
 }

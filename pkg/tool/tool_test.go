@@ -6,25 +6,25 @@ import (
 	"github.com/pluggableharness/agent/pkg/tool"
 )
 
-func TestToolKindString(t *testing.T) {
+func TestKindString(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name string
-		kind tool.ToolKind
+		kind tool.Kind
 		want string
 	}{
-		{"unspecified", tool.ToolKindUnspecified, "unspecified"},
-		{"resource", tool.ToolKindResource, "resource"},
-		{"data_source", tool.ToolKindDataSource, "data_source"},
-		{"interactive", tool.ToolKindInteractive, "interactive"},
-		{"out of range", tool.ToolKind(99), "unknown"},
+		{"unspecified", tool.KindUnspecified, "unspecified"},
+		{"resource", tool.KindResource, "resource"},
+		{"data_source", tool.KindDataSource, "data_source"},
+		{"interactive", tool.KindInteractive, "interactive"},
+		{"out of range", tool.Kind(99), "unknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := tt.kind.String(); got != tt.want {
-				t.Errorf("ToolKind(%d).String() = %q, want %q", tt.kind, got, tt.want)
+				t.Errorf("Kind(%d).String() = %q, want %q", tt.kind, got, tt.want)
 			}
 		})
 	}
@@ -156,9 +156,9 @@ func TestNewResultEvent(t *testing.T) {
 func TestNewErrorEvent(t *testing.T) {
 	t.Parallel()
 
-	te, err := tool.NewToolError(tool.ToolErrorCategoryNotFound, "not found", false, nil)
+	te, err := tool.NewError(tool.ErrorCategoryNotFound, "not found", false, nil)
 	if err != nil {
-		t.Fatalf("NewToolError: %v", err)
+		t.Fatalf("NewError: %v", err)
 	}
 	ev := tool.NewErrorEvent(te)
 	if ev.Error != te {

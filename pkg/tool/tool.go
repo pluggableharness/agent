@@ -10,39 +10,39 @@ import (
 	schemav1 "github.com/pluggableharness/agent/pkg/schema/proto/v1"
 )
 
-// ToolKind classifies whether an operation is gated behind the plan/apply
+// Kind classifies whether an operation is gated behind the plan/apply
 // approval gate, executes freely, or blocks the current turn for human
 // input — see docs/specifications/tool/protocol.md#getschema and
 // docs/specifications/tool/protocol.md#kind-interactive. One of the six
 // types pkg/slashcommand reuses verbatim; see doc.go.
-type ToolKind int
+type Kind int
 
 const (
-	// ToolKindUnspecified is the zero value. Never valid for a real
+	// KindUnspecified is the zero value. Never valid for a real
 	// operation — its presence means an author forgot to set Kind.
-	ToolKindUnspecified ToolKind = iota
-	// ToolKindResource is a mutating operation, gated behind the
+	KindUnspecified Kind = iota
+	// KindResource is a mutating operation, gated behind the
 	// plan/apply approval gate.
-	ToolKindResource
-	// ToolKindDataSource is a read-only operation. Executes freely,
+	KindResource
+	// KindDataSource is a read-only operation. Executes freely,
 	// subject only to the policy precheck.
-	ToolKindDataSource
-	// ToolKindInteractive blocks the current turn for human input and
+	KindDataSource
+	// KindInteractive blocks the current turn for human input and
 	// produces no state mutation of its own — the human's answer becomes
 	// the result.
-	ToolKindInteractive
+	KindInteractive
 )
 
 // String returns k's wire-name-derived lowercase form, e.g. "data_source".
-func (k ToolKind) String() string {
+func (k Kind) String() string {
 	switch k {
-	case ToolKindUnspecified:
+	case KindUnspecified:
 		return "unspecified"
-	case ToolKindResource:
+	case KindResource:
 		return "resource"
-	case ToolKindDataSource:
+	case KindDataSource:
 		return "data_source"
-	case ToolKindInteractive:
+	case KindInteractive:
 		return "interactive"
 	default:
 		return "unknown"
@@ -50,7 +50,7 @@ func (k ToolKind) String() string {
 }
 
 // RiskClass classifies an operation's blast radius, orthogonal to
-// ToolKind: kind determines whether the plan/apply gate applies at all,
+// Kind: kind determines whether the plan/apply gate applies at all,
 // risk determines how significant the gated (or inherently ungated)
 // action is — see docs/specifications/tool/data-types.md#riskclass. One
 // of the six types pkg/slashcommand reuses verbatim; see doc.go.
@@ -61,8 +61,8 @@ const (
 	// operation.
 	RiskClassUnspecified RiskClass = iota
 	// RiskClassReadOnly is inherently unable to mutate anything the
-	// plugin controls. MUST be used for ToolKindDataSource and
-	// ToolKindInteractive alike.
+	// plugin controls. MUST be used for KindDataSource and
+	// KindInteractive alike.
 	RiskClassReadOnly
 	// RiskClassLow is a resource operation with narrow, easily-reversible
 	// blast radius, e.g. a write to a scratch path.
@@ -104,7 +104,7 @@ func (r RiskClass) String() string {
 // docs/specifications/tool/data-types.md#concurrencyspec. One of the six
 // types pkg/slashcommand reuses verbatim; see doc.go.
 type ConcurrencySpec struct {
-	// Safe is MUST-set for every operation except ToolKindInteractive.
+	// Safe is MUST-set for every operation except KindInteractive.
 	// false (the zero value) means the kernel MUST NOT run any other
 	// Invoke call against this provider process concurrently with this
 	// one — a coarse, provider-wide lock. true means concurrent Invoke
@@ -148,47 +148,47 @@ func (s OutputStream) String() string {
 	}
 }
 
-// ToolResult is the terminal, successful outcome of an Invoke call, per
+// Result is the terminal, successful outcome of an Invoke call, per
 // docs/specifications/tool/data-types.md#toolcall--toolevent--toolresult.
-// Payload MUST conform to the operation's declared ToolSchema.OutputSchema
+// Payload MUST conform to the operation's declared Schema.OutputSchema
 // — the kernel validates this strictly and rejects a non-conforming
 // payload rather than passing it through to history. One of the six types
 // pkg/slashcommand reuses verbatim; see doc.go. Deliberately holds nothing
-// ToolCall-specific (no call ID, no tool name) so it reuses cleanly for a
+// Call-specific (no call ID, no tool name) so it reuses cleanly for a
 // slash command's own direct-invoke result.
-type ToolResult struct {
+type Result struct {
 	// Payload is the already-decoded JSON result payload.
 	Payload map[string]any
 }
 
-// ToolSchema declares one operation a Provider exposes, per
+// Schema declares one operation a Provider exposes, per
 // docs/specifications/tool/protocol.md#getschema.
-type ToolSchema struct {
+type Schema struct {
 	// Name MUST be unique within this provider's namespace, e.g.
 	// "read_file".
 	Name string
 	// Kind MUST be set — drives the plan/apply gate.
-	Kind ToolKind
+	Kind Kind
 	// Risk MUST be set — see RiskClass. MUST be RiskClassReadOnly for
-	// ToolKindDataSource and ToolKindInteractive alike; MUST be one of
-	// low/moderate/high/critical for ToolKindResource.
+	// KindDataSource and KindInteractive alike; MUST be one of
+	// low/moderate/high/critical for KindResource.
 	Risk RiskClass
 	// Description MUST be set — shown to the model for tool selection
 	// and in plan diffs.
 	Description string
 	// InputSchema MUST be set — the common JSON-Schema subset (built with
-	// pkg/schema) describing ToolCall.Arguments's shape for this
+	// pkg/schema) describing Call.Arguments's shape for this
 	// operation.
 	InputSchema *schemav1.Schema
 	// OutputSchema MUST be set — the common JSON-Schema subset describing
-	// ToolResult.Payload's shape for this operation.
+	// Result.Payload's shape for this operation.
 	OutputSchema *schemav1.Schema
 	// Streaming MUST be set — true if Invoke may emit intermediate
 	// events (output_chunk, progress, partial_result) before the
 	// terminal event; false if Invoke always emits exactly one terminal
 	// event with no lead-up.
 	Streaming bool
-	// Concurrency MUST be set for every kind except ToolKindInteractive,
+	// Concurrency MUST be set for every kind except KindInteractive,
 	// for which it MUST be nil — see ConcurrencySpec.
 	Concurrency *ConcurrencySpec
 	// DefaultTimeout SHOULD be set — the deadline the kernel applies to
@@ -199,19 +199,19 @@ type ToolSchema struct {
 	// Idempotent is true iff re-running this operation with identical
 	// arguments cannot produce a different end state than running it
 	// once. Gates whether the kernel MAY auto-retry a retryable
-	// ToolError for a ToolKindResource operation —
+	// Error for a KindResource operation —
 	// docs/specifications/tool/conformance.md's retry interaction.
-	// ToolKindDataSource operations are implicitly safe to retry
+	// KindDataSource operations are implicitly safe to retry
 	// regardless of this field.
 	Idempotent bool
 }
 
-// ToolCall is one request to execute an operation, per
+// Call is one request to execute an operation, per
 // docs/specifications/tool/data-types.md#toolcall--toolevent--toolresult.
-type ToolCall struct {
-	// ID is kernel-assigned; echoed in every ToolEvent for this call.
+type Call struct {
+	// ID is kernel-assigned; echoed in every Event for this call.
 	ID string
-	// ToolName matches a ToolSchema.Name from this provider's Schema.
+	// ToolName matches a Schema.Name from this provider's Schema.
 	ToolName string
 	// Arguments is already-parsed JSON conforming to that operation's
 	// InputSchema.
@@ -260,76 +260,76 @@ type ExitStatusEvent struct {
 	Signal *string
 }
 
-// ToolEvent is one message a Provider's Invoke sends via *Stream, per
+// Event is one message a Provider's Invoke sends via *Stream, per
 // docs/specifications/tool/data-types.md#toolcall--toolevent--toolresult.
 // Exactly one field is set; construct one with NewOutputChunkEvent,
 // NewProgressEvent, NewPartialResultEvent, NewExitStatusEvent,
 // NewResultEvent, or NewErrorEvent rather than a struct literal — see
 // stream.go for the ordering, cardinality, and terminal-event contract
 // *Stream.Send enforces.
-type ToolEvent struct {
+type Event struct {
 	OutputChunk   *OutputChunkEvent
 	Progress      *ProgressEvent
 	PartialResult *PartialResultEvent
 	ExitStatus    *ExitStatusEvent
-	Result        *ToolResult
-	Error         *ToolError
+	Result        *Result
+	Error         *Error
 }
 
-// NewOutputChunkEvent builds a ToolEvent carrying one output chunk.
-func NewOutputChunkEvent(stream OutputStream, data []byte) *ToolEvent {
-	return &ToolEvent{OutputChunk: &OutputChunkEvent{Stream: stream, Data: data}}
+// NewOutputChunkEvent builds a Event carrying one output chunk.
+func NewOutputChunkEvent(stream OutputStream, data []byte) *Event {
+	return &Event{OutputChunk: &OutputChunkEvent{Stream: stream, Data: data}}
 }
 
-// NewProgressEvent builds a ToolEvent carrying a progress update.
+// NewProgressEvent builds a Event carrying a progress update.
 // fractionComplete may be nil.
-func NewProgressEvent(message string, fractionComplete *float64) *ToolEvent {
-	return &ToolEvent{Progress: &ProgressEvent{Message: message, FractionComplete: fractionComplete}}
+func NewProgressEvent(message string, fractionComplete *float64) *Event {
+	return &Event{Progress: &ProgressEvent{Message: message, FractionComplete: fractionComplete}}
 }
 
-// NewPartialResultEvent builds a ToolEvent carrying incremental structured
+// NewPartialResultEvent builds a Event carrying incremental structured
 // output.
-func NewPartialResultEvent(payload map[string]any) *ToolEvent {
-	return &ToolEvent{PartialResult: &PartialResultEvent{Payload: payload}}
+func NewPartialResultEvent(payload map[string]any) *Event {
+	return &Event{PartialResult: &PartialResultEvent{Payload: payload}}
 }
 
-// NewExitStatusEvent builds a ToolEvent carrying a child process's exit
+// NewExitStatusEvent builds a Event carrying a child process's exit
 // status. signal may be nil.
-func NewExitStatusEvent(exitCode int32, signal *string) *ToolEvent {
-	return &ToolEvent{ExitStatus: &ExitStatusEvent{ExitCode: exitCode, Signal: signal}}
+func NewExitStatusEvent(exitCode int32, signal *string) *Event {
+	return &Event{ExitStatus: &ExitStatusEvent{ExitCode: exitCode, Signal: signal}}
 }
 
-// NewResultEvent builds a ToolEvent carrying the terminal, successful
+// NewResultEvent builds a Event carrying the terminal, successful
 // result.
-func NewResultEvent(payload map[string]any) *ToolEvent {
-	return &ToolEvent{Result: &ToolResult{Payload: payload}}
+func NewResultEvent(payload map[string]any) *Event {
+	return &Event{Result: &Result{Payload: payload}}
 }
 
-// NewErrorEvent builds a ToolEvent carrying the terminal, failed result.
-func NewErrorEvent(err *ToolError) *ToolEvent {
-	return &ToolEvent{Error: err}
+// NewErrorEvent builds a Event carrying the terminal, failed result.
+func NewErrorEvent(err *Error) *Event {
+	return &Event{Error: err}
 }
 
 // Provider is the interface a tool plugin author implements; NewService
 // adapts it onto the generated toolv1.ToolServiceServer.
 type Provider interface {
-	// Schema returns the ToolSchema for every operation this plugin
+	// Schema returns the Schema for every operation this plugin
 	// exposes, per docs/specifications/tool/protocol.md#getschema. MUST
 	// be cheaply re-queryable and MUST NOT make a network call.
-	Schema(ctx context.Context) ([]*ToolSchema, error)
+	Schema(ctx context.Context) ([]*Schema, error)
 	// Configure decodes and validates this provider's agent.hcl block,
 	// already decoded from JSON into config. MUST reject with an error
 	// on a missing required field rather than deferring failure to the
-	// first Invoke. A returned *ToolError is surfaced with its own
+	// first Invoke. A returned *Error is surfaced with its own
 	// category/message; any other error defaults to
-	// ToolErrorCategoryInvalidArguments.
+	// ErrorCategoryInvalidArguments.
 	Configure(ctx context.Context, config map[string]any) error
 	// Invoke executes call, sending zero or more non-terminal events and
 	// exactly one terminal event (built with NewResultEvent or
 	// NewErrorEvent) via stream before returning. Returning a nil error
 	// without having sent a terminal event is a Provider bug the adapter
 	// surfaces as a failed RPC. See stream.go for the full contract.
-	Invoke(ctx context.Context, call *ToolCall, stream *Stream) error
+	Invoke(ctx context.Context, call *Call, stream *Stream) error
 }
 
 // Renderer is an optional interface a Provider MAY additionally implement
@@ -349,7 +349,7 @@ type Renderer interface {
 // If a Provider does not implement Previewer, a kernel falls back to
 // showing the call's raw arguments in the plan/apply gate's permission UI.
 type Previewer interface {
-	Preview(ctx context.Context, call *ToolCall) (*renderv1.RenderTree, error)
+	Preview(ctx context.Context, call *Call) (*renderv1.RenderTree, error)
 }
 
 // ConfigSchemaProvider is an optional interface a Provider MAY implement

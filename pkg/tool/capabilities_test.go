@@ -14,8 +14,8 @@ func TestBuildGetSchemaResponseBasic(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.ToolSchema, error) {
-			return []*tool.ToolSchema{validToolSchema("read_file"), validToolSchema("glob")}, nil
+		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
+			return []*tool.Schema{validSchema("read_file"), validSchema("glob")}, nil
 		},
 	}
 
@@ -42,7 +42,7 @@ func TestBuildGetSchemaResponseSchemaError(t *testing.T) {
 
 	wantErr := errors.New("boom")
 	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.ToolSchema, error) { return nil, wantErr },
+		schemaFunc: func(context.Context) ([]*tool.Schema, error) { return nil, wantErr },
 	}
 
 	_, err := tool.BuildGetSchemaResponse(t.Context(), p)
@@ -55,14 +55,14 @@ func TestBuildGetSchemaResponseInvalidSchema(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.ToolSchema, error) {
-			return []*tool.ToolSchema{{Name: ""}}, nil // missing everything
+		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
+			return []*tool.Schema{{Name: ""}}, nil // missing everything
 		},
 	}
 
 	_, err := tool.BuildGetSchemaResponse(t.Context(), p)
 	if err == nil {
-		t.Fatal("BuildGetSchemaResponse() with an invalid ToolSchema: want error, got nil")
+		t.Fatal("BuildGetSchemaResponse() with an invalid Schema: want error, got nil")
 	}
 }
 
@@ -70,8 +70,8 @@ func TestBuildGetSchemaResponseOptionalCapabilities(t *testing.T) {
 	t.Parallel()
 
 	base := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.ToolSchema, error) {
-			return []*tool.ToolSchema{validToolSchema("op")}, nil
+		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
+			return []*tool.Schema{validSchema("op")}, nil
 		},
 	}
 	wantSchema := &configv1.ConfigSchema{}
@@ -105,7 +105,7 @@ func TestBuildGetSchemaResponseConfigSchemaError(t *testing.T) {
 
 	wantErr := errors.New("bad config schema")
 	base := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.ToolSchema, error) { return nil, nil },
+		schemaFunc: func(context.Context) ([]*tool.Schema, error) { return nil, nil },
 	}
 	p := &fakeFullProvider{
 		fakeProvider:     base,

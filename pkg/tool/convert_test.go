@@ -8,10 +8,10 @@ import (
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 )
 
-func validSchema() *ToolSchema {
-	return &ToolSchema{
+func validSchema() *Schema {
+	return &Schema{
 		Name:         "read_file",
-		Kind:         ToolKindDataSource,
+		Kind:         KindDataSource,
 		Risk:         RiskClassReadOnly,
 		Description:  "reads a file",
 		InputSchema:  &schemav1.Schema{Type: schemav1.SchemaType_SCHEMA_TYPE_OBJECT},
@@ -22,13 +22,13 @@ func validSchema() *ToolSchema {
 	}
 }
 
-func TestToProtoToolSchemaValid(t *testing.T) {
+func TestToProtoSchemaValid(t *testing.T) {
 	t.Parallel()
 
 	s := validSchema()
-	ps, err := toProtoToolSchema(s)
+	ps, err := toProtoSchema(s)
 	if err != nil {
-		t.Fatalf("toProtoToolSchema: unexpected error: %v", err)
+		t.Fatalf("toProtoSchema: unexpected error: %v", err)
 	}
 	if ps.GetName() != "read_file" {
 		t.Errorf("Name = %q, want %q", ps.GetName(), "read_file")
@@ -44,45 +44,45 @@ func TestToProtoToolSchemaValid(t *testing.T) {
 	}
 }
 
-func TestToProtoToolSchemaInvariants(t *testing.T) {
+func TestToProtoSchemaInvariants(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
-		mutate  func(*ToolSchema)
+		mutate  func(*Schema)
 		wantErr error
 	}{
-		{"nil schema", nil, ErrNilToolSchema},
-		{"empty name", func(s *ToolSchema) { s.Name = "" }, ErrEmptyName},
-		{"unspecified kind", func(s *ToolSchema) { s.Kind = ToolKindUnspecified }, ErrUnspecifiedKind},
-		{"empty description", func(s *ToolSchema) { s.Description = "" }, ErrEmptyDescription},
-		{"nil input schema", func(s *ToolSchema) { s.InputSchema = nil }, ErrNilInputSchema},
-		{"nil output schema", func(s *ToolSchema) { s.OutputSchema = nil }, ErrNilOutputSchema},
-		{"data_source with non-read_only risk", func(s *ToolSchema) { s.Risk = RiskClassLow }, ErrInvalidRiskForKind},
-		{"interactive with non-read_only risk", func(s *ToolSchema) {
-			s.Kind = ToolKindInteractive
+		{"nil schema", nil, ErrNilSchema},
+		{"empty name", func(s *Schema) { s.Name = "" }, ErrEmptyName},
+		{"unspecified kind", func(s *Schema) { s.Kind = KindUnspecified }, ErrUnspecifiedKind},
+		{"empty description", func(s *Schema) { s.Description = "" }, ErrEmptyDescription},
+		{"nil input schema", func(s *Schema) { s.InputSchema = nil }, ErrNilInputSchema},
+		{"nil output schema", func(s *Schema) { s.OutputSchema = nil }, ErrNilOutputSchema},
+		{"data_source with non-read_only risk", func(s *Schema) { s.Risk = RiskClassLow }, ErrInvalidRiskForKind},
+		{"interactive with non-read_only risk", func(s *Schema) {
+			s.Kind = KindInteractive
 			s.Risk = RiskClassLow
 			s.Concurrency = nil
 		}, ErrInvalidRiskForKind},
-		{"resource with read_only risk", func(s *ToolSchema) {
-			s.Kind = ToolKindResource
+		{"resource with read_only risk", func(s *Schema) {
+			s.Kind = KindResource
 			s.Risk = RiskClassReadOnly
 		}, ErrInvalidRiskForKind},
-		{"resource with unspecified risk", func(s *ToolSchema) {
-			s.Kind = ToolKindResource
+		{"resource with unspecified risk", func(s *Schema) {
+			s.Kind = KindResource
 			s.Risk = RiskClassUnspecified
 		}, ErrInvalidRiskForKind},
-		{"interactive with concurrency declared", func(s *ToolSchema) {
-			s.Kind = ToolKindInteractive
+		{"interactive with concurrency declared", func(s *Schema) {
+			s.Kind = KindInteractive
 			s.Risk = RiskClassReadOnly
 			s.Concurrency = &ConcurrencySpec{Safe: true}
 		}, ErrConcurrencyForbiddenForInteractive},
-		{"resource missing concurrency", func(s *ToolSchema) {
-			s.Kind = ToolKindResource
+		{"resource missing concurrency", func(s *Schema) {
+			s.Kind = KindResource
 			s.Risk = RiskClassLow
 			s.Concurrency = nil
 		}, ErrConcurrencyRequired},
-		{"data_source missing concurrency", func(s *ToolSchema) {
+		{"data_source missing concurrency", func(s *Schema) {
 			s.Concurrency = nil
 		}, ErrConcurrencyRequired},
 	}
@@ -90,28 +90,28 @@ func TestToProtoToolSchemaInvariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var s *ToolSchema
+			var s *Schema
 			if tt.mutate != nil {
 				s = validSchema()
 				tt.mutate(s)
 			}
 
-			_, err := toProtoToolSchema(s)
+			_, err := toProtoSchema(s)
 			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("toProtoToolSchema() error = %v, want wrapping %v", err, tt.wantErr)
+				t.Fatalf("toProtoSchema() error = %v, want wrapping %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestToProtoToolSchemaDefaultTimeout(t *testing.T) {
+func TestToProtoSchemaDefaultTimeout(t *testing.T) {
 	t.Parallel()
 
 	s := validSchema()
 	s.DefaultTimeout = 30_000_000_000 // 30s, expressed in ns to avoid importing time here.
-	ps, err := toProtoToolSchema(s)
+	ps, err := toProtoSchema(s)
 	if err != nil {
-		t.Fatalf("toProtoToolSchema: %v", err)
+		t.Fatalf("toProtoSchema: %v", err)
 	}
 	if ps.GetDefaultTimeout() == nil {
 		t.Fatal("DefaultTimeout not set on proto schema")
@@ -121,30 +121,30 @@ func TestToProtoToolSchemaDefaultTimeout(t *testing.T) {
 	}
 
 	s2 := validSchema()
-	ps2, err := toProtoToolSchema(s2)
+	ps2, err := toProtoSchema(s2)
 	if err != nil {
-		t.Fatalf("toProtoToolSchema: %v", err)
+		t.Fatalf("toProtoSchema: %v", err)
 	}
 	if ps2.GetDefaultTimeout() != nil {
 		t.Errorf("DefaultTimeout = %v, want nil (unset)", ps2.GetDefaultTimeout())
 	}
 }
 
-func TestToProtoToolResult(t *testing.T) {
+func TestToProtoResult(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil", func(t *testing.T) {
 		t.Parallel()
-		if _, err := toProtoToolResult(nil); !errors.Is(err, ErrNilToolResult) {
-			t.Errorf("error = %v, want wrapping %v", err, ErrNilToolResult)
+		if _, err := toProtoResult(nil); !errors.Is(err, ErrNilResult) {
+			t.Errorf("error = %v, want wrapping %v", err, ErrNilResult)
 		}
 	})
 
 	t.Run("with payload", func(t *testing.T) {
 		t.Parallel()
-		pr, err := toProtoToolResult(&ToolResult{Payload: map[string]any{"ok": true}})
+		pr, err := toProtoResult(&Result{Payload: map[string]any{"ok": true}})
 		if err != nil {
-			t.Fatalf("toProtoToolResult: %v", err)
+			t.Fatalf("toProtoResult: %v", err)
 		}
 		if pr.GetPayload().AsMap()["ok"] != true {
 			t.Errorf("Payload = %v, want ok=true", pr.GetPayload().AsMap())
@@ -153,9 +153,9 @@ func TestToProtoToolResult(t *testing.T) {
 
 	t.Run("empty payload", func(t *testing.T) {
 		t.Parallel()
-		pr, err := toProtoToolResult(&ToolResult{})
+		pr, err := toProtoResult(&Result{})
 		if err != nil {
-			t.Fatalf("toProtoToolResult: %v", err)
+			t.Fatalf("toProtoResult: %v", err)
 		}
 		if pr.GetPayload() != nil {
 			t.Errorf("Payload = %v, want nil", pr.GetPayload())
@@ -163,30 +163,30 @@ func TestToProtoToolResult(t *testing.T) {
 	})
 }
 
-func TestToProtoToolError(t *testing.T) {
+func TestToProtoError(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil", func(t *testing.T) {
 		t.Parallel()
-		if _, err := toProtoToolError(nil); !errors.Is(err, ErrNilToolError) {
-			t.Errorf("error = %v, want wrapping %v", err, ErrNilToolError)
+		if _, err := toProtoError(nil); !errors.Is(err, ErrNilError) {
+			t.Errorf("error = %v, want wrapping %v", err, ErrNilError)
 		}
 	})
 
 	t.Run("process_crashed rejected", func(t *testing.T) {
 		t.Parallel()
-		e := &ToolError{Category: toolErrorCategoryProcessCrashed, Message: "died"}
-		if _, err := toProtoToolError(e); !errors.Is(err, ErrProcessCrashedCategory) {
+		e := &Error{Category: toolErrorCategoryProcessCrashed, Message: "died"}
+		if _, err := toProtoError(e); !errors.Is(err, ErrProcessCrashedCategory) {
 			t.Errorf("error = %v, want wrapping %v", err, ErrProcessCrashedCategory)
 		}
 	})
 
 	t.Run("valid with details", func(t *testing.T) {
 		t.Parallel()
-		e := &ToolError{Category: ToolErrorCategoryUnknown, Message: "boom", Retryable: false, Details: map[string]any{"raw": "panic: x"}}
-		pe, err := toProtoToolError(e)
+		e := &Error{Category: ErrorCategoryUnknown, Message: "boom", Retryable: false, Details: map[string]any{"raw": "panic: x"}}
+		pe, err := toProtoError(e)
 		if err != nil {
-			t.Fatalf("toProtoToolError: %v", err)
+			t.Fatalf("toProtoError: %v", err)
 		}
 		if pe.GetCategory() != toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNKNOWN {
 			t.Errorf("Category = %v, want UNKNOWN", pe.GetCategory())
@@ -197,48 +197,48 @@ func TestToProtoToolError(t *testing.T) {
 	})
 }
 
-func TestToProtoToolEvent(t *testing.T) {
+func TestToProtoEvent(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
-		event   *ToolEvent
+		event   *Event
 		wantErr error
 	}{
 		{"nil event", nil, ErrNilEvent},
-		{"no fields set", &ToolEvent{}, ErrEventFieldCount},
-		{"two fields set", &ToolEvent{OutputChunk: &OutputChunkEvent{}, Progress: &ProgressEvent{}}, ErrEventFieldCount},
+		{"no fields set", &Event{}, ErrEventFieldCount},
+		{"two fields set", &Event{OutputChunk: &OutputChunkEvent{}, Progress: &ProgressEvent{}}, ErrEventFieldCount},
 		{"output_chunk", NewOutputChunkEvent(OutputStreamStdout, []byte("hi")), nil},
 		{"progress", NewProgressEvent("working", nil), nil},
 		{"partial_result", NewPartialResultEvent(map[string]any{"n": 1.0}), nil},
 		{"exit_status", NewExitStatusEvent(0, nil), nil},
 		{"result", NewResultEvent(map[string]any{"ok": true}), nil},
-		{"error", NewErrorEvent(&ToolError{Category: ToolErrorCategoryTimeout, Message: "slow"}), nil},
+		{"error", NewErrorEvent(&Error{Category: ErrorCategoryTimeout, Message: "slow"}), nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := toProtoToolEvent(tt.event)
+			_, err := toProtoEvent(tt.event)
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
-					t.Fatalf("toProtoToolEvent() error = %v, want wrapping %v", err, tt.wantErr)
+					t.Fatalf("toProtoEvent() error = %v, want wrapping %v", err, tt.wantErr)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("toProtoToolEvent() unexpected error: %v", err)
+				t.Fatalf("toProtoEvent() unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestFromProtoToolCall(t *testing.T) {
+func TestFromProtoCall(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil", func(t *testing.T) {
 		t.Parallel()
-		if _, err := fromProtoToolCall(nil); !errors.Is(err, ErrNilToolCall) {
-			t.Errorf("error = %v, want wrapping %v", err, ErrNilToolCall)
+		if _, err := fromProtoCall(nil); !errors.Is(err, ErrNilCall) {
+			t.Errorf("error = %v, want wrapping %v", err, ErrNilCall)
 		}
 	})
 
@@ -249,9 +249,9 @@ func TestFromProtoToolCall(t *testing.T) {
 			t.Fatalf("mapToStruct: %v", err)
 		}
 		pc := &toolv1.ToolCall{Id: "call-1", ToolName: "read_file", Arguments: args}
-		c, err := fromProtoToolCall(pc)
+		c, err := fromProtoCall(pc)
 		if err != nil {
-			t.Fatalf("fromProtoToolCall: %v", err)
+			t.Fatalf("fromProtoCall: %v", err)
 		}
 		if c.ID != "call-1" || c.ToolName != "read_file" {
 			t.Errorf("got %+v", c)
@@ -266,18 +266,18 @@ func TestToProtoEnumConverters(t *testing.T) {
 	t.Parallel()
 
 	kindTests := []struct {
-		in   ToolKind
+		in   Kind
 		want toolv1.ToolKind
 	}{
-		{ToolKindResource, toolv1.ToolKind_TOOL_KIND_RESOURCE},
-		{ToolKindDataSource, toolv1.ToolKind_TOOL_KIND_DATA_SOURCE},
-		{ToolKindInteractive, toolv1.ToolKind_TOOL_KIND_INTERACTIVE},
-		{ToolKindUnspecified, toolv1.ToolKind_TOOL_KIND_UNSPECIFIED},
-		{ToolKind(99), toolv1.ToolKind_TOOL_KIND_UNSPECIFIED},
+		{KindResource, toolv1.ToolKind_TOOL_KIND_RESOURCE},
+		{KindDataSource, toolv1.ToolKind_TOOL_KIND_DATA_SOURCE},
+		{KindInteractive, toolv1.ToolKind_TOOL_KIND_INTERACTIVE},
+		{KindUnspecified, toolv1.ToolKind_TOOL_KIND_UNSPECIFIED},
+		{Kind(99), toolv1.ToolKind_TOOL_KIND_UNSPECIFIED},
 	}
 	for _, tt := range kindTests {
-		if got := toProtoToolKind(tt.in); got != tt.want {
-			t.Errorf("toProtoToolKind(%v) = %v, want %v", tt.in, got, tt.want)
+		if got := toProtoKind(tt.in); got != tt.want {
+			t.Errorf("toProtoKind(%v) = %v, want %v", tt.in, got, tt.want)
 		}
 	}
 
@@ -315,24 +315,24 @@ func TestToProtoEnumConverters(t *testing.T) {
 	}
 
 	categoryTests := []struct {
-		in   ToolErrorCategory
+		in   ErrorCategory
 		want toolv1.ToolErrorCategory
 	}{
-		{ToolErrorCategoryInvalidArguments, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS},
-		{ToolErrorCategoryNotFound, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_NOT_FOUND},
-		{ToolErrorCategoryPermissionDenied, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_PERMISSION_DENIED},
-		{ToolErrorCategoryExecutionFailed, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_EXECUTION_FAILED},
-		{ToolErrorCategoryTimeout, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_TIMEOUT},
-		{ToolErrorCategoryConcurrencyConflict, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_CONCURRENCY_CONFLICT},
-		{ToolErrorCategoryCancelled, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_CANCELLED},
+		{ErrorCategoryInvalidArguments, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS},
+		{ErrorCategoryNotFound, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_NOT_FOUND},
+		{ErrorCategoryPermissionDenied, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_PERMISSION_DENIED},
+		{ErrorCategoryExecutionFailed, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_EXECUTION_FAILED},
+		{ErrorCategoryTimeout, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_TIMEOUT},
+		{ErrorCategoryConcurrencyConflict, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_CONCURRENCY_CONFLICT},
+		{ErrorCategoryCancelled, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_CANCELLED},
 		{toolErrorCategoryProcessCrashed, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_PROCESS_CRASHED},
-		{ToolErrorCategoryUnknown, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNKNOWN},
-		{ToolErrorCategoryUnspecified, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED},
-		{ToolErrorCategory(99), toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED},
+		{ErrorCategoryUnknown, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNKNOWN},
+		{ErrorCategoryUnspecified, toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED},
+		{ErrorCategory(99), toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED},
 	}
 	for _, tt := range categoryTests {
-		if got := toProtoToolErrorCategory(tt.in); got != tt.want {
-			t.Errorf("toProtoToolErrorCategory(%v) = %v, want %v", tt.in, got, tt.want)
+		if got := toProtoErrorCategory(tt.in); got != tt.want {
+			t.Errorf("toProtoErrorCategory(%v) = %v, want %v", tt.in, got, tt.want)
 		}
 	}
 

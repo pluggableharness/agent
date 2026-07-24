@@ -21,8 +21,8 @@ func TestServiceGetSchema(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.ToolSchema, error) {
-			return []*tool.ToolSchema{validToolSchema("read_file")}, nil
+		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
+			return []*tool.Schema{validSchema("read_file")}, nil
 		},
 	}
 	client := newTestClient(t, p)
@@ -40,7 +40,7 @@ func TestServiceGetSchemaError(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.ToolSchema, error) { return nil, errors.New("boom") },
+		schemaFunc: func(context.Context) ([]*tool.Schema, error) { return nil, errors.New("boom") },
 	}
 	client := newTestClient(t, p)
 
@@ -78,12 +78,12 @@ func TestServiceConfigure(t *testing.T) {
 	}
 }
 
-func TestServiceConfigureRejectsWithToolError(t *testing.T) {
+func TestServiceConfigureRejectsWithError(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
 		configureFunc: func(context.Context, map[string]any) error {
-			return &tool.ToolError{Category: tool.ToolErrorCategoryInvalidArguments, Message: "missing root", Retryable: false}
+			return &tool.Error{Category: tool.ErrorCategoryInvalidArguments, Message: "missing root", Retryable: false}
 		},
 	}
 	client := newTestClient(t, p)
@@ -123,7 +123,7 @@ func TestServiceInvokeStreamsEvents(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		invokeFunc: func(_ context.Context, call *tool.ToolCall, stream *tool.Stream) error {
+		invokeFunc: func(_ context.Context, call *tool.Call, stream *tool.Stream) error {
 			if call.ToolName != "read_file" {
 				t.Errorf("call.ToolName = %q, want %q", call.ToolName, "read_file")
 			}
@@ -176,7 +176,7 @@ func TestServiceInvokeCancellationIsNotSurfacedAsError(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		invokeFunc: func(context.Context, *tool.ToolCall, *tool.Stream) error {
+		invokeFunc: func(context.Context, *tool.Call, *tool.Stream) error {
 			// Simulate a Provider that detects cancellation itself and
 			// returns context.Canceled rather than sending a terminal
 			// event — README.md#transport--lifecycle: cancellation is
@@ -201,7 +201,7 @@ func TestServiceInvokeGenericErrorMapsToUnknown(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		invokeFunc: func(context.Context, *tool.ToolCall, *tool.Stream) error {
+		invokeFunc: func(context.Context, *tool.Call, *tool.Stream) error {
 			return errors.New("provider panic recovered")
 		},
 	}
@@ -217,7 +217,7 @@ func TestServiceInvokeGenericErrorMapsToUnknown(t *testing.T) {
 		t.Fatalf("stream.Recv() error is not a *status.Status: %v", err)
 	}
 	if st.Code() != codes.Internal {
-		t.Errorf("code = %v, want %v (ToolErrorCategoryUnknown maps to codes.Internal)", st.Code(), codes.Internal)
+		t.Errorf("code = %v, want %v (ErrorCategoryUnknown maps to codes.Internal)", st.Code(), codes.Internal)
 	}
 }
 
@@ -240,7 +240,7 @@ func TestServiceInvokeWithoutTerminalEventFails(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		invokeFunc: func(context.Context, *tool.ToolCall, *tool.Stream) error { return nil },
+		invokeFunc: func(context.Context, *tool.Call, *tool.Stream) error { return nil },
 	}
 	client := newTestClient(t, p)
 
@@ -258,8 +258,8 @@ func TestServiceInvokeErrorEventTerminates(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeProvider{
-		invokeFunc: func(_ context.Context, _ *tool.ToolCall, stream *tool.Stream) error {
-			te, err := tool.NewToolError(tool.ToolErrorCategoryNotFound, "no such file", false, nil)
+		invokeFunc: func(_ context.Context, _ *tool.Call, stream *tool.Stream) error {
+			te, err := tool.NewError(tool.ErrorCategoryNotFound, "no such file", false, nil)
 			if err != nil {
 				return err
 			}
@@ -336,7 +336,7 @@ func TestServiceRenderAndPreview(t *testing.T) {
 			}
 			return &renderv1.RenderTree{Root: &renderv1.RenderNode{}}, nil
 		},
-		previewFunc: func(_ context.Context, call *tool.ToolCall) (*renderv1.RenderTree, error) {
+		previewFunc: func(_ context.Context, call *tool.Call) (*renderv1.RenderTree, error) {
 			if call.ToolName != "edit_file" {
 				t.Errorf("Preview call.ToolName = %q, want %q", call.ToolName, "edit_file")
 			}
@@ -374,7 +374,7 @@ func TestServiceInvokeSeesCallback(t *testing.T) {
 
 	var sawCallback bool
 	p := &fakeProvider{
-		invokeFunc: func(ctx context.Context, _ *tool.ToolCall, stream *tool.Stream) error {
+		invokeFunc: func(ctx context.Context, _ *tool.Call, stream *tool.Stream) error {
 			_, sawCallback = tool.CallbackFromContext(ctx)
 			return stream.Send(tool.NewResultEvent(nil))
 		},

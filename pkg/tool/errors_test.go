@@ -10,41 +10,41 @@ import (
 	"github.com/pluggableharness/agent/pkg/tool"
 )
 
-func TestToolErrorCategoryString(t *testing.T) {
+func TestErrorCategoryString(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name     string
-		category tool.ToolErrorCategory
+		category tool.ErrorCategory
 		want     string
 	}{
-		{"unspecified", tool.ToolErrorCategoryUnspecified, "unspecified"},
-		{"invalid_arguments", tool.ToolErrorCategoryInvalidArguments, "invalid_arguments"},
-		{"not_found", tool.ToolErrorCategoryNotFound, "not_found"},
-		{"permission_denied", tool.ToolErrorCategoryPermissionDenied, "permission_denied"},
-		{"execution_failed", tool.ToolErrorCategoryExecutionFailed, "execution_failed"},
-		{"timeout", tool.ToolErrorCategoryTimeout, "timeout"},
-		{"concurrency_conflict", tool.ToolErrorCategoryConcurrencyConflict, "concurrency_conflict"},
-		{"cancelled", tool.ToolErrorCategoryCancelled, "cancelled"},
-		{"unknown", tool.ToolErrorCategoryUnknown, "unknown"},
-		{"out of range", tool.ToolErrorCategory(99), "unrecognized"},
+		{"unspecified", tool.ErrorCategoryUnspecified, "unspecified"},
+		{"invalid_arguments", tool.ErrorCategoryInvalidArguments, "invalid_arguments"},
+		{"not_found", tool.ErrorCategoryNotFound, "not_found"},
+		{"permission_denied", tool.ErrorCategoryPermissionDenied, "permission_denied"},
+		{"execution_failed", tool.ErrorCategoryExecutionFailed, "execution_failed"},
+		{"timeout", tool.ErrorCategoryTimeout, "timeout"},
+		{"concurrency_conflict", tool.ErrorCategoryConcurrencyConflict, "concurrency_conflict"},
+		{"cancelled", tool.ErrorCategoryCancelled, "cancelled"},
+		{"unknown", tool.ErrorCategoryUnknown, "unknown"},
+		{"out of range", tool.ErrorCategory(99), "unrecognized"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := tt.category.String(); got != tt.want {
-				t.Errorf("ToolErrorCategory(%d).String() = %q, want %q", tt.category, got, tt.want)
+				t.Errorf("ErrorCategory(%d).String() = %q, want %q", tt.category, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestNewToolError(t *testing.T) {
+func TestNewError(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name      string
-		category  tool.ToolErrorCategory
+		category  tool.ErrorCategory
 		message   string
 		retryable bool
 		details   map[string]any
@@ -52,42 +52,42 @@ func TestNewToolError(t *testing.T) {
 	}{
 		{
 			name:      "valid invalid_arguments",
-			category:  tool.ToolErrorCategoryInvalidArguments,
+			category:  tool.ErrorCategoryInvalidArguments,
 			message:   "bad path",
 			retryable: false,
 		},
 		{
 			name:      "valid timeout retryable",
-			category:  tool.ToolErrorCategoryTimeout,
+			category:  tool.ErrorCategoryTimeout,
 			message:   "deadline exceeded",
 			retryable: true,
 			details:   map[string]any{"elapsed_ms": 5000},
 		},
 		{
 			name:     "empty message rejected",
-			category: tool.ToolErrorCategoryNotFound,
+			category: tool.ErrorCategoryNotFound,
 			message:  "",
 			wantErr:  tool.ErrEmptyMessage,
 		},
 		{
 			name:     "unspecified category rejected",
-			category: tool.ToolErrorCategoryUnspecified,
+			category: tool.ErrorCategoryUnspecified,
 			message:  "whatever",
 			wantErr:  tool.ErrUnspecifiedCategory,
 		},
 		{
 			// process_crashed's underlying int value (8) is not
-			// exported, but ToolErrorCategory is just an int — a
+			// exported, but ErrorCategory is just an int — a
 			// caller can still name the numeric value directly.
-			// NewToolError MUST refuse it regardless.
+			// NewError MUST refuse it regardless.
 			name:     "process_crashed numeric value rejected",
-			category: tool.ToolErrorCategory(8),
+			category: tool.ErrorCategory(8),
 			message:  "subprocess died",
 			wantErr:  tool.ErrProcessCrashedCategory,
 		},
 		{
 			name:     "out of range category rejected",
-			category: tool.ToolErrorCategory(99),
+			category: tool.ErrorCategory(99),
 			message:  "whatever",
 			wantErr:  tool.ErrUnspecifiedCategory,
 		},
@@ -96,18 +96,18 @@ func TestNewToolError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tool.NewToolError(tt.category, tt.message, tt.retryable, tt.details)
+			got, err := tool.NewError(tt.category, tt.message, tt.retryable, tt.details)
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
-					t.Fatalf("NewToolError(%v, %q, ...) error = %v, want wrapping %v", tt.category, tt.message, err, tt.wantErr)
+					t.Fatalf("NewError(%v, %q, ...) error = %v, want wrapping %v", tt.category, tt.message, err, tt.wantErr)
 				}
 				if got != nil {
-					t.Errorf("NewToolError(%v, %q, ...) = %v, want nil on error", tt.category, tt.message, got)
+					t.Errorf("NewError(%v, %q, ...) = %v, want nil on error", tt.category, tt.message, got)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("NewToolError(%v, %q, ...) unexpected error: %v", tt.category, tt.message, err)
+				t.Fatalf("NewError(%v, %q, ...) unexpected error: %v", tt.category, tt.message, err)
 			}
 			if got.Category != tt.category {
 				t.Errorf("Category = %v, want %v", got.Category, tt.category)
@@ -122,21 +122,21 @@ func TestNewToolError(t *testing.T) {
 	}
 }
 
-func TestToolErrorImplementsError(t *testing.T) {
+func TestErrorImplementsError(t *testing.T) {
 	t.Parallel()
 
-	te, err := tool.NewToolError(tool.ToolErrorCategoryExecutionFailed, "compile failed", false, nil)
+	te, err := tool.NewError(tool.ErrorCategoryExecutionFailed, "compile failed", false, nil)
 	if err != nil {
-		t.Fatalf("NewToolError: %v", err)
+		t.Fatalf("NewError: %v", err)
 	}
 	var asErr error = te
 	if asErr.Error() != "compile failed" {
 		t.Errorf("te.Error() = %q, want %q", asErr.Error(), "compile failed")
 	}
 
-	var nilTE *tool.ToolError
+	var nilTE *tool.Error
 	if nilTE.Error() != "" {
-		t.Errorf("nil ToolError.Error() = %q, want empty string", nilTE.Error())
+		t.Errorf("nil Error.Error() = %q, want empty string", nilTE.Error())
 	}
 }
 
@@ -144,19 +144,19 @@ func TestGRPCCode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		category tool.ToolErrorCategory
+		category tool.ErrorCategory
 		want     codes.Code
 	}{
-		{tool.ToolErrorCategoryInvalidArguments, codes.InvalidArgument},
-		{tool.ToolErrorCategoryNotFound, codes.NotFound},
-		{tool.ToolErrorCategoryPermissionDenied, codes.PermissionDenied},
-		{tool.ToolErrorCategoryExecutionFailed, codes.Internal},
-		{tool.ToolErrorCategoryTimeout, codes.DeadlineExceeded},
-		{tool.ToolErrorCategoryConcurrencyConflict, codes.Aborted},
-		{tool.ToolErrorCategoryCancelled, codes.Canceled},
-		{tool.ToolErrorCategoryUnknown, codes.Internal},
-		{tool.ToolErrorCategoryUnspecified, codes.Internal},
-		{tool.ToolErrorCategory(99), codes.Internal},
+		{tool.ErrorCategoryInvalidArguments, codes.InvalidArgument},
+		{tool.ErrorCategoryNotFound, codes.NotFound},
+		{tool.ErrorCategoryPermissionDenied, codes.PermissionDenied},
+		{tool.ErrorCategoryExecutionFailed, codes.Internal},
+		{tool.ErrorCategoryTimeout, codes.DeadlineExceeded},
+		{tool.ErrorCategoryConcurrencyConflict, codes.Aborted},
+		{tool.ErrorCategoryCancelled, codes.Canceled},
+		{tool.ErrorCategoryUnknown, codes.Internal},
+		{tool.ErrorCategoryUnspecified, codes.Internal},
+		{tool.ErrorCategory(99), codes.Internal},
 	}
 	for _, tt := range tests {
 		t.Run(tt.category.String(), func(t *testing.T) {
@@ -185,9 +185,9 @@ func TestToStatusError(t *testing.T) {
 
 	t.Run("with details", func(t *testing.T) {
 		t.Parallel()
-		te, err := tool.NewToolError(tool.ToolErrorCategoryNotFound, "no such file", false, map[string]any{"path": "/tmp/x"})
+		te, err := tool.NewError(tool.ErrorCategoryNotFound, "no such file", false, map[string]any{"path": "/tmp/x"})
 		if err != nil {
-			t.Fatalf("NewToolError: %v", err)
+			t.Fatalf("NewError: %v", err)
 		}
 		gotErr := tool.ToStatusError(te)
 		st, ok := status.FromError(gotErr)
