@@ -82,11 +82,13 @@ func (toolPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_, _ = client.Log(ctx, &kernelv1.LogRequest{
-			Entry: &logv1.LogEntry{
-				Level:   logv1.LogLevel_LOG_LEVEL_INFO,
-				Logger:  "pluginruntime.testdata.plugin",
-				Message: "fixture plugin started",
-				Time:    timestamppb.Now(),
+			Entries: []*logv1.LogEntry{
+				{
+					Level:   logv1.LogLevel_LOG_LEVEL_INFO,
+					Logger:  "pluginruntime.testdata.plugin",
+					Message: "fixture plugin started",
+					Time:    timestamppb.Now(),
+				},
 			},
 		})
 	}()

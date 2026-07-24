@@ -19,10 +19,12 @@ package noop
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	"github.com/pluggableharness/agent/internal/telemetry"
 )
@@ -63,8 +65,27 @@ func (noopLogExporter) Export(context.Context, []sdklog.Record) error { return n
 func (noopLogExporter) Shutdown(context.Context) error                { return nil }
 func (noopLogExporter) ForceFlush(context.Context) error              { return nil }
 
+// TraceUploader returns a discarding otlptrace.Client — the relay-path
+// analog of TraceExporter/LogExporter's own discard-everything behavior.
+// The SDK ships no noop otlptrace.Client (unlike tracetest.NewNoopExporter
+// for a real sdktrace.SpanExporter), so this is hand-written, same as
+// noopLogExporter above.
+func (*Backend) TraceUploader(context.Context) (otlptrace.Client, error) {
+	return noopTraceUploader{}, nil
+}
+
+// noopTraceUploader discards every relayed span it receives.
+type noopTraceUploader struct{}
+
+func (noopTraceUploader) Start(context.Context) error { return nil }
+func (noopTraceUploader) Stop(context.Context) error  { return nil }
+func (noopTraceUploader) UploadTraces(context.Context, []*tracepb.ResourceSpans) error {
+	return nil
+}
+
 // Name returns "noop".
 func (*Backend) Name() string { return "noop" }
 
 var _ telemetry.Backend = (*Backend)(nil)
 var _ sdklog.Exporter = noopLogExporter{}
+var _ otlptrace.Client = noopTraceUploader{}

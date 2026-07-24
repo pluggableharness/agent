@@ -71,7 +71,7 @@ func TestServer_Log_delegatesWithServerDerivedProducer(t *testing.T) {
 	// Deliberately no producer.WithProducer on the incoming ctx: Server.Log
 	// must derive attribution from its own baked-in producer, not from
 	// anything already on ctx.
-	req := &kernelv1.LogRequest{Entry: validEntry(t)}
+	req := &kernelv1.LogRequest{Entries: []*logv1.LogEntry{validEntry(t)}}
 	result, err := s.Log(t.Context(), req)
 	if err != nil {
 		t.Fatalf("Log: unexpected error: %v", err)
@@ -117,7 +117,7 @@ func TestServer_Log_ignoresContextProducer(t *testing.T) {
 	}
 	ctx := producer.WithProducer(t.Context(), spoofed)
 
-	_, err := s.Log(ctx, &kernelv1.LogRequest{Entry: validEntry(t)})
+	_, err := s.Log(ctx, &kernelv1.LogRequest{Entries: []*logv1.LogEntry{validEntry(t)}})
 	if err != nil {
 		t.Fatalf("Log: unexpected error: %v", err)
 	}

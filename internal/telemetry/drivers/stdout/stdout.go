@@ -6,13 +6,17 @@ package stdout
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pluggableharness/agent/internal/telemetry"
 )
@@ -57,7 +61,40 @@ func (*Backend) LogExporter(context.Context) (sdklog.Exporter, error) {
 	return exp, nil
 }
 
+// TraceUploader returns a Client that pretty-prints each relayed
+// ResourceSpans batch to stdout — the relay-path analog of TraceExporter,
+// since a relayed span (specifications/observability.md#the-relay-model)
+// never passes through this process's own sdktrace.TracerProvider/
+// stdouttrace exporter pipeline. There is no stdouttrace equivalent that
+// accepts already-built ResourceSpans protos directly, so this is
+// hand-written using protojson, matching this driver's existing
+// pretty-print-for-a-human intent.
+func (*Backend) TraceUploader(context.Context) (otlptrace.Client, error) {
+	return stdoutTraceUploader{}, nil
+}
+
+// stdoutTraceUploader writes each relayed ResourceSpans, pretty-printed,
+// to stdout.
+type stdoutTraceUploader struct{}
+
+func (stdoutTraceUploader) Start(context.Context) error { return nil }
+func (stdoutTraceUploader) Stop(context.Context) error  { return nil }
+func (stdoutTraceUploader) UploadTraces(_ context.Context, spans []*tracepb.ResourceSpans) error {
+	marshaler := protojson.MarshalOptions{Multiline: true}
+	for _, rs := range spans {
+		b, err := marshaler.Marshal(rs)
+		if err != nil {
+			return fmt.Errorf("telemetry: stdout: trace uploader: marshal: %w", err)
+		}
+		if _, err := os.Stdout.Write(append(b, '\n')); err != nil {
+			return fmt.Errorf("telemetry: stdout: trace uploader: write: %w", err)
+		}
+	}
+	return nil
+}
+
 // Name returns "stdout".
 func (*Backend) Name() string { return "stdout" }
 
 var _ telemetry.Backend = (*Backend)(nil)
+var _ otlptrace.Client = stdoutTraceUploader{}

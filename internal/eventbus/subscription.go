@@ -17,12 +17,13 @@ import (
 // ctx.
 type Handler func(ctx context.Context, event Event)
 
-// Subscription is one open registration on a Bus: a Topic, a Handler, and
-// the unbounded queue plus delivery goroutine that feeds it. The zero
-// value is not usable — obtain a Subscription from Bus.Subscribe.
+// Subscription is one open registration on a Bus: one or more topic
+// filters, a Handler, and the unbounded queue plus delivery goroutine that
+// feeds it. The zero value is not usable — obtain a Subscription from
+// Bus.Subscribe or Bus.SubscribeFilters.
 type Subscription struct {
 	bus     *Bus
-	topic   string
+	filters []string
 	handler Handler
 
 	ctx    context.Context
@@ -43,11 +44,11 @@ type Subscription struct {
 // that — so a caller can finish registering the Subscription in bus's
 // registry before its delivery goroutine can possibly call back into
 // bus.remove (see Bus.Subscribe's comment on why that ordering matters).
-func newSubscription(ctx context.Context, bus *Bus, topic string, handler Handler, logger *slog.Logger, prov *telemetry.Provider, queueWarnThreshold int) *Subscription {
+func newSubscription(ctx context.Context, bus *Bus, filters []string, handler Handler, logger *slog.Logger, prov *telemetry.Provider, queueWarnThreshold int) *Subscription {
 	subCtx, cancel := context.WithCancel(ctx)
 	return &Subscription{
 		bus:                bus,
-		topic:              topic,
+		filters:            filters,
 		handler:            handler,
 		ctx:                subCtx,
 		cancel:             cancel,
@@ -79,7 +80,7 @@ func (s *Subscription) enqueue(ctx context.Context, event Event) {
 	if depth := s.queue.len(); depth >= s.queueWarnThreshold {
 		s.warned = true
 		s.logger.WarnContext(ctx, "eventbus: subscriber queue depth crossed warn threshold",
-			"topic", s.topic, "depth", depth, "threshold", s.queueWarnThreshold)
+			"filters", s.filters, "depth", depth, "threshold", s.queueWarnThreshold)
 	}
 }
 
@@ -130,7 +131,7 @@ func (s *Subscription) deliverLoop() {
 func (s *Subscription) invoke(event Event) {
 	defer func() {
 		if r := recover(); r != nil {
-			s.logger.ErrorContext(s.ctx, "eventbus: subscriber handler panicked", "topic", s.topic, "panic", r)
+			s.logger.ErrorContext(s.ctx, "eventbus: subscriber handler panicked", "filters", s.filters, "panic", r)
 		}
 	}()
 

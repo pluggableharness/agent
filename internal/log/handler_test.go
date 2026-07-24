@@ -7,6 +7,7 @@ import (
 	"github.com/pluggableharness/agent/internal/producer"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
+	logv1 "github.com/pluggableharness/agent/pkg/log/proto/v1"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,7 +22,7 @@ func TestServer_Log_valid(t *testing.T) {
 	h := &fakeHandler{minLevel: LevelTrace}
 	s := newTestServer(h)
 
-	req := &kernelv1.LogRequest{Entry: validEntry(t)}
+	req := &kernelv1.LogRequest{Entries: []*logv1.LogEntry{validEntry(t)}}
 	result, err := s.Log(t.Context(), req)
 	if err != nil {
 		t.Fatalf("Log: unexpected error: %v", err)
@@ -37,26 +38,91 @@ func TestServer_Log_valid(t *testing.T) {
 	}
 }
 
-func TestServer_Log_nilEntry(t *testing.T) {
+func TestServer_Log_batch(t *testing.T) {
 	t.Parallel()
 	h := &fakeHandler{minLevel: LevelTrace}
 	s := newTestServer(h)
 
-	_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entry: nil})
+	entry1 := validEntry(t)
+	entry1.Message = "first"
+	entry2 := validEntry(t)
+	entry2.Message = "second"
+
+	req := &kernelv1.LogRequest{Entries: []*logv1.LogEntry{entry1, entry2}}
+	_, err := s.Log(t.Context(), req)
+	if err != nil {
+		t.Fatalf("Log: unexpected error: %v", err)
+	}
+	if len(h.records) != 2 {
+		t.Fatalf("handler captured %d records, want 2", len(h.records))
+	}
+	if h.records[0].Message != "first" || h.records[1].Message != "second" {
+		t.Fatalf("captured messages = [%q, %q], want [first, second] in order", h.records[0].Message, h.records[1].Message)
+	}
+}
+
+func TestServer_Log_emptyBatch(t *testing.T) {
+	t.Parallel()
+	h := &fakeHandler{minLevel: LevelTrace}
+	s := newTestServer(h)
+
+	_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entries: nil})
 	assertInvalidArgument(t, err)
 	if len(h.records) != 1 {
 		t.Fatalf("handler captured %d records, want 1 (the rejection WARN)", len(h.records))
 	}
 }
 
-func TestServer_Log_malformedEntry(t *testing.T) {
+func TestServer_Log_malformedEntrySkippedNotFailed(t *testing.T) {
 	t.Parallel()
 	h := &fakeHandler{minLevel: LevelTrace}
 	s := newTestServer(h)
 
-	entry := validEntry(t)
-	entry.Message = ""
-	_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entry: entry})
+	good := validEntry(t)
+	good.Message = "good entry"
+	bad := validEntry(t)
+	bad.Message = ""
+
+	req := &kernelv1.LogRequest{Entries: []*logv1.LogEntry{bad, good}}
+	_, err := s.Log(t.Context(), req)
+	if err != nil {
+		t.Fatalf("Log: unexpected error for a batch with one malformed entry alongside a valid one: %v", err)
+	}
+	if len(h.records) != 2 {
+		t.Fatalf("handler captured %d records, want 2 (1 rejection WARN + 1 accepted entry)", len(h.records))
+	}
+	if h.records[0].Level != slog.LevelWarn {
+		t.Fatalf("first record level = %v, want WARN (the malformed-entry rejection)", h.records[0].Level)
+	}
+	if h.records[1].Message != "good entry" {
+		t.Fatalf("second record message = %q, want %q", h.records[1].Message, "good entry")
+	}
+}
+
+func TestServer_Log_allEntriesMalformedFailsBatch(t *testing.T) {
+	t.Parallel()
+	h := &fakeHandler{minLevel: LevelTrace}
+	s := newTestServer(h)
+
+	bad1 := validEntry(t)
+	bad1.Message = ""
+	bad2 := validEntry(t)
+	bad2.Level = 0 // LOG_LEVEL_UNSPECIFIED, never valid on the wire
+
+	req := &kernelv1.LogRequest{Entries: []*logv1.LogEntry{bad1, bad2}}
+	_, err := s.Log(t.Context(), req)
+	assertInvalidArgument(t, err)
+	if len(h.records) != 2 {
+		t.Fatalf("handler captured %d records, want 2 (one rejection WARN per malformed entry)", len(h.records))
+	}
+}
+
+func TestServer_Log_nilEntryInBatch(t *testing.T) {
+	t.Parallel()
+	h := &fakeHandler{minLevel: LevelTrace}
+	s := newTestServer(h)
+
+	_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entries: []*logv1.LogEntry{nil}})
 	assertInvalidArgument(t, err)
 	if len(h.records) != 1 {
 		t.Fatalf("handler captured %d records, want 1 (the rejection WARN)", len(h.records))
@@ -71,7 +137,7 @@ func TestServer_Log_sessionID(t *testing.T) {
 		h := &fakeHandler{minLevel: LevelTrace}
 		s := newTestServer(h)
 		sessionID := "sess-123"
-		_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entry: validEntry(t), SessionId: &sessionID})
+		_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entries: []*logv1.LogEntry{validEntry(t)}, SessionId: &sessionID})
 		if err != nil {
 			t.Fatalf("Log: unexpected error: %v", err)
 		}
@@ -85,7 +151,7 @@ func TestServer_Log_sessionID(t *testing.T) {
 		t.Parallel()
 		h := &fakeHandler{minLevel: LevelTrace}
 		s := newTestServer(h)
-		_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entry: validEntry(t)})
+		_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entries: []*logv1.LogEntry{validEntry(t)}})
 		if err != nil {
 			t.Fatalf("Log: unexpected error: %v", err)
 		}
@@ -109,7 +175,7 @@ func TestServer_Log_producerAttribution(t *testing.T) {
 			Version:  "1.2.3",
 		}
 		ctx := producer.WithProducer(t.Context(), p)
-		_, err := s.Log(ctx, &kernelv1.LogRequest{Entry: validEntry(t)})
+		_, err := s.Log(ctx, &kernelv1.LogRequest{Entries: []*logv1.LogEntry{validEntry(t)}})
 		if err != nil {
 			t.Fatalf("Log: unexpected error: %v", err)
 		}
@@ -126,7 +192,7 @@ func TestServer_Log_producerAttribution(t *testing.T) {
 		t.Parallel()
 		h := &fakeHandler{minLevel: LevelTrace}
 		s := newTestServer(h)
-		_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entry: validEntry(t)})
+		_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entries: []*logv1.LogEntry{validEntry(t)}})
 		if err != nil {
 			t.Fatalf("Log: unexpected error: %v", err)
 		}
@@ -145,10 +211,10 @@ func TestServer_Log_invalidEntryWarns(t *testing.T) {
 		entry func(t *testing.T) *kernelv1.LogRequest
 	}{
 		{
-			name: "nil entry",
+			name: "empty batch",
 			entry: func(t *testing.T) *kernelv1.LogRequest {
 				t.Helper()
-				return &kernelv1.LogRequest{Entry: nil}
+				return &kernelv1.LogRequest{Entries: nil}
 			},
 		},
 		{
@@ -157,7 +223,7 @@ func TestServer_Log_invalidEntryWarns(t *testing.T) {
 				t.Helper()
 				entry := validEntry(t)
 				entry.Message = ""
-				return &kernelv1.LogRequest{Entry: entry}
+				return &kernelv1.LogRequest{Entries: []*logv1.LogEntry{entry}}
 			},
 		},
 	}
@@ -202,7 +268,7 @@ func TestServer_Log_invalidEntryWarnsWithProducer(t *testing.T) {
 	}
 	ctx := producer.WithProducer(t.Context(), p)
 
-	_, err := s.Log(ctx, &kernelv1.LogRequest{Entry: nil})
+	_, err := s.Log(ctx, &kernelv1.LogRequest{Entries: []*logv1.LogEntry{nil}})
 	assertInvalidArgument(t, err)
 
 	if len(h.records) != 1 {
@@ -226,7 +292,7 @@ func TestServer_Log_belowThresholdSkipsHandle(t *testing.T) {
 	s := newTestServer(h)
 
 	entry := validEntry(t) // LOG_LEVEL_INFO, below the ERROR threshold
-	_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entry: entry})
+	_, err := s.Log(t.Context(), &kernelv1.LogRequest{Entries: []*logv1.LogEntry{entry}})
 	if err != nil {
 		t.Fatalf("Log: unexpected error: %v", err)
 	}

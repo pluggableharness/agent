@@ -50,4 +50,12 @@ func TestBackend(t *testing.T) {
 	if err := logExp.Shutdown(ctx); err != nil {
 		t.Errorf("log exporter Shutdown: %v", err)
 	}
+
+	uploader, err := b.TraceUploader(ctx)
+	if err != nil {
+		t.Fatalf("TraceUploader: %v", err)
+	}
+	if err := uploader.Stop(ctx); err != nil {
+		t.Errorf("uploader Stop: %v", err)
+	}
 }

@@ -49,6 +49,20 @@ func TestBackend(t *testing.T) {
 	if err := logExp.Shutdown(ctx); err != nil {
 		t.Errorf("log exporter Shutdown: %v", err)
 	}
+
+	uploader, err := b.TraceUploader(ctx)
+	if err != nil {
+		t.Fatalf("TraceUploader: %v", err)
+	}
+	if err := uploader.Start(ctx); err != nil {
+		t.Errorf("uploader Start: %v", err)
+	}
+	if err := uploader.UploadTraces(ctx, nil); err != nil {
+		t.Errorf("UploadTraces: %v", err)
+	}
+	if err := uploader.Stop(ctx); err != nil {
+		t.Errorf("uploader Stop: %v", err)
+	}
 }
 
 // TestBackend_endToEnd wires the noop driver through telemetry.New and

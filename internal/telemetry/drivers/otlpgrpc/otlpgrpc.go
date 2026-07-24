@@ -9,6 +9,7 @@ import (
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -73,6 +74,22 @@ func (b *Backend) LogExporter(ctx context.Context) (sdklog.Exporter, error) {
 		return nil, fmt.Errorf("telemetry: otlpgrpc: log exporter: %w", err)
 	}
 	return exp, nil
+}
+
+// TraceUploader constructs an otlptracegrpc raw Client and starts it —
+// see telemetry.Backend.TraceUploader's doc comment for why this bypasses
+// otlptracegrpc.New's usual sdktrace.SpanExporter wrapping entirely. The
+// caller owns calling Client.Stop when done relaying.
+func (b *Backend) TraceUploader(ctx context.Context) (otlptrace.Client, error) {
+	opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(b.cfg.Endpoint)}
+	if b.cfg.Insecure {
+		opts = append(opts, otlptracegrpc.WithInsecure())
+	}
+	client := otlptracegrpc.NewClient(opts...)
+	if err := client.Start(ctx); err != nil {
+		return nil, fmt.Errorf("telemetry: otlpgrpc: trace uploader: %w", err)
+	}
+	return client, nil
 }
 
 // Name returns "otlpgrpc".

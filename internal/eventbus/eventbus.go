@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -18,12 +19,24 @@ import (
 // a serious amount of retained memory.
 const defaultQueueWarnThreshold = 1024
 
+// wildcardEntry is one Subscription's registration under one wildcard
+// filter — prefix is that filter with its trailing "*" already stripped
+// (filter.go's wildcardPrefix). Bus.wildcards holds one entry per
+// (Subscription, wildcard filter) pair, scanned linearly by Publish;
+// exact filters never appear here — they live in Bus.subs instead, which
+// stays a direct map lookup.
+type wildcardEntry struct {
+	prefix string
+	sub    *Subscription
+}
+
 // Bus is an ephemeral, in-process publish/subscribe fan-out — see doc.go
 // for the full contract. The zero value is not usable; construct one with
 // New.
 type Bus struct {
-	mu   sync.RWMutex
-	subs map[string]map[*Subscription]struct{} // topic -> that topic's open subscriptions
+	mu        sync.RWMutex
+	subs      map[string]map[*Subscription]struct{} // exact topic filter -> that topic's open subscriptions
+	wildcards []wildcardEntry                        // trailing-wildcard filters, scanned per Publish
 
 	logger             *slog.Logger
 	telemetry          *telemetry.Provider
@@ -136,9 +149,27 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 	// today) hold the lock indefinitely.
 	b.mu.RLock()
 	topicSubs := b.subs[event.Topic]
+	// seen dedupes a Subscription that matches via more than one
+	// registration (an exact hit and a wildcard hit, or two overlapping
+	// wildcard filters on the same Subscription) so it's enqueued exactly
+	// once per Publish call, never once per matching filter.
+	seen := make(map[*Subscription]struct{}, len(topicSubs))
 	targets := make([]*Subscription, 0, len(topicSubs))
 	for sub := range topicSubs {
+		if _, dup := seen[sub]; dup {
+			continue
+		}
+		seen[sub] = struct{}{}
 		targets = append(targets, sub)
+	}
+	for _, entry := range b.wildcards {
+		if _, dup := seen[entry.sub]; dup {
+			continue
+		}
+		if strings.HasPrefix(event.Topic, entry.prefix) {
+			seen[entry.sub] = struct{}{}
+			targets = append(targets, entry.sub)
+		}
 	}
 	b.mu.RUnlock()
 
@@ -153,12 +184,9 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 
 // Subscribe registers handler to receive every future Event published
 // with the given topic, returning a Subscription the caller uses to
-// unregister it (Subscription.Close). handler runs on a dedicated
-// delivery goroutine, out-of-band from any Publish call (Handler's doc
-// comment). The subscription's lifetime is bounded by both ctx (canceling
-// or letting ctx expire stops delivery, exactly as calling
-// Subscription.Close would) and by an explicit Close call — whichever
-// comes first.
+// unregister it (Subscription.Close). It is sugar for
+// SubscribeFilters(ctx, []string{topic}, handler) — see that method for
+// the full contract, including trailing-wildcard filter support.
 //
 // Subscribe returns ErrClosed if the Bus has already been closed,
 // ErrEmptyTopic if topic is empty, and ErrNilHandler if handler is nil.
@@ -166,21 +194,58 @@ func (b *Bus) Subscribe(ctx context.Context, topic string, handler Handler) (*Su
 	if topic == "" {
 		return nil, ErrEmptyTopic
 	}
+	return b.SubscribeFilters(ctx, []string{topic}, handler)
+}
+
+// SubscribeFilters registers handler to receive every future Event whose
+// Topic matches any of filters, returning a Subscription the caller uses
+// to unregister it (Subscription.Close). handler runs on a dedicated
+// delivery goroutine, out-of-band from any Publish call (Handler's doc
+// comment). The subscription's lifetime is bounded by both ctx (canceling
+// or letting ctx expire stops delivery, exactly as calling
+// Subscription.Close would) and by an explicit Close call — whichever
+// comes first.
+//
+// Each entry in filters is either an exact topic (matches only that exact
+// string) or a trailing-wildcard filter ending in "*" (matches any topic
+// sharing the filter's prefix — filter.go's isWildcardFilter/matchesFilter).
+// A single Subscription may mix both kinds; an Event matching more than
+// one of a Subscription's filters is still delivered to it exactly once
+// per Publish call (Publish's own dedup), never once per matching filter.
+//
+// SubscribeFilters returns ErrClosed if the Bus has already been closed,
+// ErrEmptyTopic if filters is empty or any entry is empty, and
+// ErrNilHandler if handler is nil.
+func (b *Bus) SubscribeFilters(ctx context.Context, filters []string, handler Handler) (*Subscription, error) {
+	if len(filters) == 0 {
+		return nil, ErrEmptyTopic
+	}
+	for _, f := range filters {
+		if f == "" {
+			return nil, ErrEmptyTopic
+		}
+	}
 	if handler == nil {
 		return nil, ErrNilHandler
 	}
 
-	sub := newSubscription(ctx, b, topic, handler, b.logger, b.telemetry, b.queueWarnThreshold)
+	sub := newSubscription(ctx, b, filters, handler, b.logger, b.telemetry, b.queueWarnThreshold)
 
 	b.mu.Lock()
 	if b.closed.Load() {
 		b.mu.Unlock()
 		return nil, ErrClosed
 	}
-	if b.subs[topic] == nil {
-		b.subs[topic] = make(map[*Subscription]struct{})
+	for _, f := range filters {
+		if isWildcardFilter(f) {
+			b.wildcards = append(b.wildcards, wildcardEntry{prefix: wildcardPrefix(f), sub: sub})
+			continue
+		}
+		if b.subs[f] == nil {
+			b.subs[f] = make(map[*Subscription]struct{})
+		}
+		b.subs[f][sub] = struct{}{}
 	}
-	b.subs[topic][sub] = struct{}{}
 	b.mu.Unlock()
 
 	// start is deliberately called only after the lock above is released:
@@ -190,13 +255,14 @@ func (b *Bus) Subscribe(ctx context.Context, topic string, handler Handler) (*Su
 	// goroutine's very first iteration.
 	sub.start()
 
-	b.logger.DebugContext(ctx, "eventbus: subscribed", "topic", topic)
+	b.logger.DebugContext(ctx, "eventbus: subscribed", "filters", filters)
 	b.telemetry.Instruments().EventBusSubscriptionsActive.Add(ctx, 1)
 	return sub, nil
 }
 
-// remove unregisters sub from b's registry. Called exactly once per
-// Subscription, from the end of its own deliverLoop — never called
+// remove unregisters sub from b's registry — every exact-filter bucket
+// and every wildcard entry it was registered under. Called exactly once
+// per Subscription, from the end of its own deliverLoop — never called
 // directly by Subscription.Close, which only signals and waits (see
 // subscription.go). Safe to call after Bus.Close has already cleared
 // b.subs: deleting from (and reading from) a nil map is a documented Go
@@ -205,12 +271,28 @@ func (b *Bus) remove(sub *Subscription) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if set, ok := b.subs[sub.topic]; ok {
-		delete(set, sub)
-		if len(set) == 0 {
-			delete(b.subs, sub.topic)
+	for _, f := range sub.filters {
+		if isWildcardFilter(f) {
+			continue // wildcard entries are pruned in the pass below
+		}
+		if set, ok := b.subs[f]; ok {
+			delete(set, sub)
+			if len(set) == 0 {
+				delete(b.subs, f)
+			}
 		}
 	}
+
+	if len(b.wildcards) > 0 {
+		kept := b.wildcards[:0]
+		for _, entry := range b.wildcards {
+			if entry.sub != sub {
+				kept = append(kept, entry)
+			}
+		}
+		b.wildcards = kept
+	}
+
 	b.telemetry.Instruments().EventBusSubscriptionsActive.Add(sub.ctx, -1)
 }
 

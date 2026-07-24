@@ -40,6 +40,25 @@ type Instruments struct {
 	EventBusEventsPublished     metric.Int64Counter
 	EventBusEventsDelivered     metric.Int64Counter
 	EventBusSubscriptionsActive metric.Int64UpDownCounter
+
+	// EventBusSubscribeStreamsClosed counts a kernelcallback Subscribe
+	// stream the kernel closed unilaterally for exceeding its per-stream
+	// backpressure bound (event-bus.md#backpressure) — a signal that a
+	// slow-consumer disconnect happened, distinct from an ordinary
+	// caller-initiated stream close.
+	EventBusSubscribeStreamsClosed metric.Int64Counter
+
+	// RelayedSpans counts spans successfully relayed via ExportSpans
+	// (observability.md#the-relay-model) — incremented once per span in
+	// a batch, not once per ExportSpans call.
+	RelayedSpans metric.Int64Counter
+
+	// RecordMetricsAttributesDropped counts attribute keys dropped by
+	// RecordDynamicMetric's cardinality bound
+	// (observability.md#the-tracing-metrics-asymmetry) — incremented by
+	// however many keys a single observation dropped, not once per
+	// observation.
+	RecordMetricsAttributesDropped metric.Int64Counter
 }
 
 // newInstruments registers every instrument against meter. An error here
@@ -127,6 +146,18 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		metric.WithDescription("Currently open internal/eventbus subscriptions, across all topics."))
 	check("pluggableharness.eventbus.subscriptions.active", err)
 
+	eventBusSubscribeStreamsClosed, err := meter.Int64Counter("pluggableharness.eventbus.subscribe_streams.closed",
+		metric.WithDescription("Subscribe streams the kernel closed unilaterally for exceeding their backpressure bound (slow-consumer disconnect)."))
+	check("pluggableharness.eventbus.subscribe_streams.closed", err)
+
+	relayedSpans, err := meter.Int64Counter("pluggableharness.telemetry.relayed_spans",
+		metric.WithDescription("Spans successfully relayed via ExportSpans, one per span."))
+	check("pluggableharness.telemetry.relayed_spans", err)
+
+	recordMetricsAttributesDropped, err := meter.Int64Counter("pluggableharness.telemetry.record_metrics.attributes_dropped",
+		metric.WithDescription("Attribute keys dropped by RecordMetrics' per-instrument cardinality bound."))
+	check("pluggableharness.telemetry.record_metrics.attributes_dropped", err)
+
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
@@ -150,5 +181,9 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		EventBusEventsPublished:     eventBusEventsPublished,
 		EventBusEventsDelivered:     eventBusEventsDelivered,
 		EventBusSubscriptionsActive: eventBusSubscriptionsActive,
+
+		EventBusSubscribeStreamsClosed: eventBusSubscribeStreamsClosed,
+		RelayedSpans:                   relayedSpans,
+		RecordMetricsAttributesDropped: recordMetricsAttributesDropped,
 	}, nil
 }

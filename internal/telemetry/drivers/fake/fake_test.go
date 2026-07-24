@@ -6,6 +6,7 @@ import (
 
 	otellog "go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
 )
@@ -43,6 +44,14 @@ func TestBackend(t *testing.T) {
 	if logExp != b.Logs {
 		t.Error("LogExporter did not return b.Logs")
 	}
+
+	uploader, err := b.TraceUploader(ctx)
+	if err != nil {
+		t.Fatalf("TraceUploader: %v", err)
+	}
+	if uploader != b.RelayedSpans {
+		t.Error("TraceUploader did not return b.RelayedSpans")
+	}
 }
 
 func TestNew_freshRecorders(t *testing.T) {
@@ -59,6 +68,42 @@ func TestNew_freshRecorders(t *testing.T) {
 	}
 	if b1.Logs == b2.Logs {
 		t.Error("New returned the same Logs recorder across two calls")
+	}
+	if b1.RelayedSpans == b2.RelayedSpans {
+		t.Error("New returned the same RelayedSpans recorder across two calls")
+	}
+}
+
+func TestRelayedSpansRecorder(t *testing.T) {
+	t.Parallel()
+
+	r := fake.NewRelayedSpansRecorder()
+	ctx := context.Background()
+
+	if got := r.ResourceSpans(); len(got) != 0 {
+		t.Fatalf("ResourceSpans() = %v, want empty", got)
+	}
+
+	span := &tracepb.ResourceSpans{}
+	if err := r.UploadTraces(ctx, []*tracepb.ResourceSpans{span}); err != nil {
+		t.Fatalf("UploadTraces: %v", err)
+	}
+
+	got := r.ResourceSpans()
+	if len(got) != 1 {
+		t.Fatalf("len(ResourceSpans()) = %d, want 1", len(got))
+	}
+
+	r.Reset()
+	if got := r.ResourceSpans(); len(got) != 0 {
+		t.Fatalf("ResourceSpans() after Reset = %v, want empty", got)
+	}
+
+	if err := r.Start(ctx); err != nil {
+		t.Errorf("Start: %v", err)
+	}
+	if err := r.Stop(ctx); err != nil {
+		t.Errorf("Stop: %v", err)
 	}
 }
 

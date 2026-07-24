@@ -43,6 +43,15 @@ const (
 	spanNameStateBackendPlanItemsQuery  = "statebackend.query.plan_items"
 
 	spanNameEventBusPublish = "eventbus.publish"
+
+	spanNameKernelCallbackExportSpans        = "kernelcallback.export_spans"
+	spanNameKernelCallbackRecordMetrics      = "kernelcallback.record_metrics"
+	spanNameKernelCallbackGetTelemetryConfig = "kernelcallback.get_telemetry_config"
+	spanNameKernelCallbackGetConfig          = "kernelcallback.get_config"
+	spanNameKernelCallbackPublish            = "kernelcallback.publish"
+	spanNameKernelCallbackSubscribe          = "kernelcallback.subscribe"
+	spanNameKernelCallbackReadEvents         = "kernelcallback.read_events"
+	spanNameKernelCallbackGetSession         = "kernelcallback.get_session"
 )
 
 // SessionSpan describes the session a StartSession call is opening
@@ -284,6 +293,64 @@ func (p *Provider) StartStateBackendPlanItemsQuery(ctx context.Context, sessionI
 // never to a metric (EventBusTopicKey's doc comment).
 func (p *Provider) StartEventBusPublish(ctx context.Context, topic string) (context.Context, trace.Span) {
 	return p.tracer.Start(ctx, spanNameEventBusPublish, trace.WithAttributes(EventBusTopicKey.String(topic)))
+}
+
+// StartKernelCallbackExportSpans opens the span covering one ExportSpans
+// call (kernel-callbacks.md's ExportSpans) — the relay-bridge handler's
+// own span, distinct from any span carried inside the relayed batch
+// itself (observability.md#the-relay-model).
+func (p *Provider) StartKernelCallbackExportSpans(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameKernelCallbackExportSpans, trace.WithAttributes(producerAttributes(producer)...))
+}
+
+// StartKernelCallbackRecordMetrics opens the span covering one
+// RecordMetrics call (kernel-callbacks.md's RecordMetrics).
+func (p *Provider) StartKernelCallbackRecordMetrics(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameKernelCallbackRecordMetrics, trace.WithAttributes(producerAttributes(producer)...))
+}
+
+// StartKernelCallbackGetTelemetryConfig opens the span covering one
+// GetTelemetryConfig call (kernel-callbacks.md's GetTelemetryConfig).
+func (p *Provider) StartKernelCallbackGetTelemetryConfig(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameKernelCallbackGetTelemetryConfig, trace.WithAttributes(producerAttributes(producer)...))
+}
+
+// StartKernelCallbackGetConfig opens the span covering one GetConfig call
+// (kernel-callbacks.md's GetConfig). The span carries only producer
+// attribution, never the config values themselves — GetConfig's own
+// MUST NOT-echo rule applies to spans exactly as it does to logs.
+func (p *Provider) StartKernelCallbackGetConfig(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameKernelCallbackGetConfig, trace.WithAttributes(producerAttributes(producer)...))
+}
+
+// StartKernelCallbackPublish opens the span covering one Publish call
+// (kernel-callbacks.md's Publish) — the RPC handler's own span, distinct
+// from StartEventBusPublish, which covers the underlying internal/eventbus
+// fan-out this handler calls into.
+func (p *Provider) StartKernelCallbackPublish(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameKernelCallbackPublish, trace.WithAttributes(producerAttributes(producer)...))
+}
+
+// StartKernelCallbackSubscribe opens the span covering one Subscribe
+// stream's whole lifetime, from the initial call to the stream closing
+// (kernel-callbacks.md's Subscribe) — a long-lived span, unlike this
+// file's other RPC spans.
+func (p *Provider) StartKernelCallbackSubscribe(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameKernelCallbackSubscribe, trace.WithAttributes(producerAttributes(producer)...))
+}
+
+// StartKernelCallbackReadEvents opens the span covering one ReadEvents
+// call (kernel-callbacks.md's ReadEvents).
+func (p *Provider) StartKernelCallbackReadEvents(ctx context.Context, sessionID string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{SessionIDKey.String(sessionID)}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameKernelCallbackReadEvents, trace.WithAttributes(attrs...))
+}
+
+// StartKernelCallbackGetSession opens the span covering one GetSession
+// call (kernel-callbacks.md's GetSession).
+func (p *Provider) StartKernelCallbackGetSession(ctx context.Context, sessionID string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{SessionIDKey.String(sessionID)}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameKernelCallbackGetSession, trace.WithAttributes(attrs...))
 }
 
 // EndSpan ends span, recording err onto it first if non-nil (RecordError

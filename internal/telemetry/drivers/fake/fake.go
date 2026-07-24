@@ -13,10 +13,12 @@ import (
 	"context"
 	"sync"
 
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	"github.com/pluggableharness/agent/internal/telemetry"
 )
@@ -26,19 +28,23 @@ import (
 // telemetry.Provider first, then Spans.GetSpans()); Metrics is the reader
 // a test calls Collect on directly to pull current instrument state; Logs
 // is the recorder log records were exported into (ForceFlush first, then
-// Logs.Records()).
+// Logs.Records()); RelayedSpans records every ExportSpans-relayed
+// ResourceSpans batch (TraceUploader), distinct from Spans, which only
+// ever receives spans created by this process's own tracer.
 type Backend struct {
-	Spans   *tracetest.InMemoryExporter
-	Metrics *sdkmetric.ManualReader
-	Logs    *LogRecorder
+	Spans        *tracetest.InMemoryExporter
+	Metrics      *sdkmetric.ManualReader
+	Logs         *LogRecorder
+	RelayedSpans *RelayedSpansRecorder
 }
 
 // New returns a Backend with fresh, empty recorders.
 func New() *Backend {
 	return &Backend{
-		Spans:   tracetest.NewInMemoryExporter(),
-		Metrics: sdkmetric.NewManualReader(),
-		Logs:    NewLogRecorder(),
+		Spans:        tracetest.NewInMemoryExporter(),
+		Metrics:      sdkmetric.NewManualReader(),
+		Logs:         NewLogRecorder(),
+		RelayedSpans: NewRelayedSpansRecorder(),
 	}
 }
 
@@ -57,10 +63,61 @@ func (b *Backend) LogExporter(context.Context) (sdklog.Exporter, error) {
 	return b.Logs, nil
 }
 
+// TraceUploader returns b.RelayedSpans.
+func (b *Backend) TraceUploader(context.Context) (otlptrace.Client, error) {
+	return b.RelayedSpans, nil
+}
+
 // Name returns "fake".
 func (*Backend) Name() string { return "fake" }
 
 var _ telemetry.Backend = (*Backend)(nil)
+
+// RelayedSpansRecorder is a hand-written in-memory otlptrace.Client test
+// double (go-testing.md: "fakes are hand-written"), used because the SDK
+// ships no in-memory otlptrace.Client the way tracetest.InMemoryExporter
+// covers a real sdktrace.SpanExporter.
+type RelayedSpansRecorder struct {
+	mu    sync.Mutex
+	spans []*tracepb.ResourceSpans
+}
+
+// NewRelayedSpansRecorder returns an empty RelayedSpansRecorder.
+func NewRelayedSpansRecorder() *RelayedSpansRecorder {
+	return &RelayedSpansRecorder{}
+}
+
+// Start is a no-op; nothing needs connecting.
+func (r *RelayedSpansRecorder) Start(context.Context) error { return nil }
+
+// Stop is a no-op; nothing needs releasing.
+func (r *RelayedSpansRecorder) Stop(context.Context) error { return nil }
+
+// UploadTraces records spans for later assertion via ResourceSpans.
+func (r *RelayedSpansRecorder) UploadTraces(_ context.Context, spans []*tracepb.ResourceSpans) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.spans = append(r.spans, spans...)
+	return nil
+}
+
+// ResourceSpans returns a copy of every ResourceSpans recorded so far.
+func (r *RelayedSpansRecorder) ResourceSpans() []*tracepb.ResourceSpans {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*tracepb.ResourceSpans, len(r.spans))
+	copy(out, r.spans)
+	return out
+}
+
+// Reset clears all recorded ResourceSpans.
+func (r *RelayedSpansRecorder) Reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.spans = nil
+}
+
+var _ otlptrace.Client = (*RelayedSpansRecorder)(nil)
 
 // LogRecorder is a hand-written in-memory sdklog.Exporter test double
 // (go-testing.md: "fakes are hand-written"), used because sdk/log v0.20.0

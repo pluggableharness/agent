@@ -88,4 +88,10 @@ func TestInstruments_smoke(t *testing.T) {
 	instruments.ToolDuration.Record(ctx, 1.0)
 	instruments.HookDuration.Record(ctx, 1.0)
 	instruments.ActiveSessions.Add(ctx, 1)
+	instruments.EventBusEventsPublished.Add(ctx, 1)
+	instruments.EventBusEventsDelivered.Add(ctx, 1)
+	instruments.EventBusSubscriptionsActive.Add(ctx, 1)
+	instruments.EventBusSubscribeStreamsClosed.Add(ctx, 1)
+	instruments.RelayedSpans.Add(ctx, 1)
+	instruments.RecordMetricsAttributesDropped.Add(ctx, 1)
 }

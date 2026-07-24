@@ -459,3 +459,147 @@ func hasMetric(rm metricdata.ResourceMetrics, name string) bool {
 	}
 	return false
 }
+
+func TestBus_subscribeFilters_wildcardMatch(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	t.Cleanup(func() { _ = b.Close() })
+
+	got := make(chan Event, 2)
+	sub, err := b.SubscribeFilters(context.Background(), []string{"plugin.tool.github.*"}, func(_ context.Context, ev Event) {
+		got <- ev
+	})
+	if err != nil {
+		t.Fatalf("SubscribeFilters: %v", err)
+	}
+	t.Cleanup(func() { _ = sub.Close() })
+
+	if err := b.Publish(context.Background(), Event{Topic: "plugin.tool.github.file_changed", Payload: "a"}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if err := b.Publish(context.Background(), Event{Topic: "plugin.tool.gitlab.file_changed", Payload: "b"}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if err := b.Publish(context.Background(), Event{Topic: "plugin.tool.github.pr_opened", Payload: "c"}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	first := recvOrTimeout(t, got)
+	second := recvOrTimeout(t, got)
+	if first.Payload != "a" || second.Payload != "c" {
+		t.Fatalf("got payloads %v, %v; want a, c (gitlab event must not match the github.* filter)", first.Payload, second.Payload)
+	}
+	select {
+	case ev := <-got:
+		t.Fatalf("received unexpected third event %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestBus_subscribeFilters_mixedExactAndWildcard(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	t.Cleanup(func() { _ = b.Close() })
+
+	got := make(chan Event, 4)
+	sub, err := b.SubscribeFilters(context.Background(), []string{"kernel.event.tool_call", "plugin.tool.github.*"}, func(_ context.Context, ev Event) {
+		got <- ev
+	})
+	if err != nil {
+		t.Fatalf("SubscribeFilters: %v", err)
+	}
+	t.Cleanup(func() { _ = sub.Close() })
+
+	if err := b.Publish(context.Background(), Event{Topic: "kernel.event.tool_call"}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if err := b.Publish(context.Background(), Event{Topic: "plugin.tool.github.file_changed"}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if err := b.Publish(context.Background(), Event{Topic: "kernel.event.message"}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	recvOrTimeout(t, got)
+	recvOrTimeout(t, got)
+	select {
+	case ev := <-got:
+		t.Fatalf("received unexpected third event %+v (kernel.event.message matches neither filter)", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestBus_subscribeFilters_overlappingFiltersDeliverOnce(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	t.Cleanup(func() { _ = b.Close() })
+
+	got := make(chan Event, 4)
+	// "kernel.*" and "kernel.event.*" both match "kernel.event.tool_call" —
+	// a single Subscription registered under both MUST still be invoked
+	// exactly once per Publish, not once per matching filter.
+	sub, err := b.SubscribeFilters(context.Background(), []string{"kernel.*", "kernel.event.*"}, func(_ context.Context, ev Event) {
+		got <- ev
+	})
+	if err != nil {
+		t.Fatalf("SubscribeFilters: %v", err)
+	}
+	t.Cleanup(func() { _ = sub.Close() })
+
+	if err := b.Publish(context.Background(), Event{Topic: "kernel.event.tool_call"}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	recvOrTimeout(t, got)
+	select {
+	case ev := <-got:
+		t.Fatalf("received a second delivery of the same Publish call: %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestBus_subscribeFilters_validation(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	t.Cleanup(func() { _ = b.Close() })
+
+	if _, err := b.SubscribeFilters(context.Background(), nil, func(context.Context, Event) {}); !errors.Is(err, ErrEmptyTopic) {
+		t.Errorf("SubscribeFilters(nil filters) = %v, want ErrEmptyTopic", err)
+	}
+	if _, err := b.SubscribeFilters(context.Background(), []string{"a", ""}, func(context.Context, Event) {}); !errors.Is(err, ErrEmptyTopic) {
+		t.Errorf("SubscribeFilters(one empty filter) = %v, want ErrEmptyTopic", err)
+	}
+	if _, err := b.SubscribeFilters(context.Background(), []string{"a.*"}, nil); !errors.Is(err, ErrNilHandler) {
+		t.Errorf("SubscribeFilters(nil handler) = %v, want ErrNilHandler", err)
+	}
+}
+
+func TestBus_remove_prunesWildcardEntries(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	t.Cleanup(func() { _ = b.Close() })
+
+	sub, err := b.SubscribeFilters(context.Background(), []string{"plugin.tool.github.*"}, func(context.Context, Event) {})
+	if err != nil {
+		t.Fatalf("SubscribeFilters: %v", err)
+	}
+	if len(b.wildcards) != 1 {
+		t.Fatalf("b.wildcards has %d entries after Subscribe, want 1", len(b.wildcards))
+	}
+
+	if err := sub.Close(); err != nil {
+		t.Fatalf("sub.Close: %v", err)
+	}
+
+	b.mu.RLock()
+	remaining := len(b.wildcards)
+	b.mu.RUnlock()
+	if remaining != 0 {
+		t.Fatalf("b.wildcards has %d entries after Close, want 0", remaining)
+	}
+}
