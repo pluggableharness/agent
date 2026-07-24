@@ -20,20 +20,68 @@ api/                     .proto sources — buf's module root (see buf.yaml).
 pkg/                     first-class, third-party-consumable Go integration —
                          the only thing a plugin author needs to import.
   <category>/             pkg/model/, pkg/tool/, pkg/context/, pkg/memory/,
-                         pkg/frontend/, pkg/widget/, plus pkg/kernel/ for the
-                         kernel-callback service (docs/specifications/kernel-callbacks.md)
-    *.go                   hand-written ergonomic SDK: the thin, idiomatic Go
-                         surface most plugin authors actually consume
+                         pkg/frontend/, pkg/widget/, pkg/slashcommand/,
+                         pkg/hook/ (the cross-category HookSubscriberService),
+                         plus pkg/kernel/ for the kernel-callback service
+                         (docs/specifications/kernel-callbacks.md)
+    *.go                   hand-written plugin-author SDK: domain types and
+                         the author-facing interface(s), converted to/from
+                         the generated wire types at the package boundary
+                         (see "The pkg/ vs internal/ boundary" below)
     proto/v1/*.pb.go        buf-generated message + gRPC stubs. Never
                          hand-edited — see proto.md and plugin-runtime.md.
+  plugin/                 the shared plugin-subprocess serving layer every
+                         category SDK builds on — handshake, multi-service
+                         muxing, the lazy kernel-callback handle, error
+                         helpers. No proto/ subtree of its own.
+  render/, config/, schema/, content/   shared, cross-category builder
+                         packages (RenderTree nodes, ConfigSchema,
+                         the tool/model JSON-Schema subset, ContentBlock)
+                         that every category SDK composes rather than
+                         reimplementing per category.
 docs/specifications/    protocol contracts (already exists, authoritative)
 ```
 
 Nothing generated lives at the repo root. `pkg/<category>/` is deliberately
 split in two: the `proto/v1/` subtree is 100% derived (`buf generate`
 output), while the sibling `.go` files in `pkg/<category>/` are hand-written
-and are where most plugin authors actually spend their time — a thin,
-idiomatic wrapper over the generated stubs, not the stubs themselves.
+and are where most plugin authors actually spend their time — the
+plugin-author-facing SDK, not a pass-through to the generated stubs. See
+"The pkg/ vs internal/ boundary" below for exactly what that SDK layer is
+and isn't allowed to do.
+
+## The pkg/ vs internal/ boundary
+
+`pkg/<category>/`'s hand-written `.go` files (never `proto/v1/`) and
+`internal/` sit on opposite sides of a deliberate asymmetry in how many Go
+representations a wire message gets:
+
+- **`pkg/<category>/` MAY define its own domain types** — plain Go structs
+  and enums shaped for how a plugin author actually thinks about the
+  category (e.g. `tool.Call`, `tool.Result`, `model.Spec`), converted
+  to/from the generated `pkg/<category>/proto/v1` message at the package
+  boundary (conventionally in a `convert.go`). This is a deliberate
+  ergonomics choice for the third-party-facing SDK: an author writing a
+  plugin should not have to hand-assemble `structpb.Struct` literals or
+  navigate a `oneof` wrapper type to implement one RPC. The conversion
+  layer is the SDK's job, not the author's.
+- **`internal/` MUST consume the same `pkg/<category>/proto/v1` generated
+  types the wire actually carries, directly** — never a second, parallel
+  internal type that gets translated to and from the generated one. The
+  kernel-side client stub (the interface/driver-pattern code described
+  above) imports `pkg/<category>/proto/v1` (and, where convenient, the
+  `pkg/<category>` SDK wrapper) exactly as a third-party plugin author does
+  on the other end of the connection. There is exactly one Go
+  representation of each wire message on the kernel side — this is
+  unchanged and remains load-bearing for `internal/`.
+
+A `pkg/<category>` domain type is real Go, not a wire type in disguise, but
+it stays a *thin* wrapper in spirit: no business logic lives in `convert.go`
+beyond validating the invariants the category's own spec states as MUST
+(`internal/`'s domain logic — policy, plan/apply, cost — is not
+duplicated here). If a `pkg/<category>` type starts accumulating behavior
+beyond "shape the RPC ergonomically and validate what the spec requires,"
+that behavior belongs in `internal/`, not the SDK.
 
 `cmd/` binaries MUST stay thin: parse config, construct dependencies via
 `internal/` constructors, call `Run`. If a `cmd/` file grows past simple
@@ -85,7 +133,7 @@ this same interface/driver shape internally.
 
 The kernel-side client stub imports the same `pkg/<category>/proto/v1`
 generated types (and, where convenient, the `pkg/<category>` SDK wrapper)
-that a third-party plugin author imports on the other end of the connection.
-There is exactly one Go representation of each wire message — the kernel
-does not maintain a second, parallel internal type that gets translated to
-and from the generated one.
+that a third-party plugin author imports on the other end of the connection
+— see "The pkg/ vs internal/ boundary" above for the full rule and the one
+place a second Go representation *is* allowed (the plugin-author-facing
+domain types inside `pkg/<category>` itself, never `internal/`).
