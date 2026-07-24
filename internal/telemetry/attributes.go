@@ -86,6 +86,12 @@ var (
 	// platforms a provider ships binaries for — so it's safe on both
 	// spans and metrics.
 	PlatformKey = attribute.Key("pluggableharness.agent.platform")
+
+	// EventBusTopicKey is the topic an internal/eventbus.Event was
+	// published on. Unbounded — a topic is caller-chosen, arbitrary
+	// string — so, per the cardinality rule above, span attribute only,
+	// never a metric attribute.
+	EventBusTopicKey = attribute.Key("pluggableharness.agent.eventbus.topic")
 )
 
 // Token type values for TokenTypeKey.

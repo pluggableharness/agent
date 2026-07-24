@@ -294,6 +294,23 @@ func TestStartPluginLaunch(t *testing.T) {
 	}
 }
 
+func TestStartEventBusPublish(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	_, span := p.StartEventBusPublish(context.Background(), "tool.result")
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "eventbus.publish" {
+		t.Errorf("Name = %q, want eventbus.publish", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.EventBusTopicKey).AsString() != "tool.result" {
+		t.Errorf("eventbus.topic = %q, want tool.result", findAttr(t, got.Attributes, telemetry.EventBusTopicKey).AsString())
+	}
+}
+
 func TestEndSpan_recordsError(t *testing.T) {
 	t.Parallel()
 	p, backend := newTestProvider(t)
