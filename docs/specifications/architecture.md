@@ -101,7 +101,7 @@ Hook points (`session-start`, `context-assemble`, `pre-model-call`, `post-model-
 
 Ordering within a hook is declaration order in `agent.hcl`, not runtime registration order — determinism matters especially for `context-assemble`, where order affects what the model attends to.
 
-The wire surface for all eight dispatchable points other than `context-assemble` (which stays on `ContextService.Contribute`, per [`context/protocol.md#contribute-the-context-assemble-rpc`](context/protocol.md#contribute-the-context-assemble-rpc)) is `pluggableharness.agent.hook.v1.HookSubscriberService` — one shared service every plugin category MAY implement, dispatched to over the same `hashicorp/go-plugin` connection as that plugin's own category service. See [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md) for the full dispatch mechanics and wire contract.
+The wire surface for all eight dispatchable points other than `context-assemble` (which stays on `ContextService.Contribute`, per [`context/protocol.md#contribute-the-context-assemble-rpc`](context/protocol.md#contribute-the-context-assemble-rpc)) is `pluggableharness.hook.v1.HookSubscriberService` — one shared service every plugin category MAY implement, dispatched to over the same `hashicorp/go-plugin` connection as that plugin's own category service. See [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md) for the full dispatch mechanics and wire contract.
 
 ## Canonical message / tool-schema format
 

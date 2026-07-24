@@ -21,9 +21,9 @@ service WidgetService {
 
 ```protobuf
 message WidgetCapabilities {
-  repeated pluggableharness.agent.render.v1.Region regions = 1;  // MUST — see render-tree.md#placement--regions
-  pluggableharness.agent.config.v1.ConfigSchema config_schema = 2;
-  repeated pluggableharness.agent.common.v1.HookPoint supported_hook_points = 3;
+  repeated pluggableharness.render.v1.Region regions = 1;  // MUST — see render-tree.md#placement--regions
+  pluggableharness.config.v1.ConfigSchema config_schema = 2;
+  repeated pluggableharness.common.v1.HookPoint supported_hook_points = 3;
 }
 ```
 
@@ -41,8 +41,8 @@ message AttachRequest {
 }
 
 message WidgetUpdate {
-  pluggableharness.agent.render.v1.Region region = 1;
-  pluggableharness.agent.render.v1.RenderTree content = 2;
+  pluggableharness.render.v1.Region region = 1;
+  pluggableharness.render.v1.RenderTree content = 2;
   bool replace = 3;  // true: replace this widget's prior content in `region`; false: append
 }
 ```

@@ -150,13 +150,13 @@ kind = enum {
                           // subscriber fails
                           // (agent-loop/hook-dispatch.md#subscriber-error-handling);
                           // payload shape is
-                          // pluggableharness.agent.hook.v1.HookError,
+                          // pluggableharness.hook.v1.HookError,
                           // wrapped by the forthcoming event.v1 package's
                           // HookErrorEvent
 }
 ```
 
-Each `kind` above decodes to exactly one concrete message in `pluggableharness.agent.event.v1` (`api/pluggableharness/agent/event/v1/event.proto`) — that package defines no enum of its own; this table, together with `kernel-callbacks.md#emit`'s restatement of the same enum, is the sole source of the kind → message mapping:
+Each `kind` above decodes to exactly one concrete message in `pluggableharness.event.v1` (`api/pluggableharness/event/v1/event.proto`) — that package defines no enum of its own; this table, together with `kernel-callbacks.md#emit`'s restatement of the same enum, is the sole source of the kind → message mapping:
 
 | `kind` | `event.v1` message |
 |---|---|

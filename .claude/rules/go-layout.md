@@ -16,7 +16,7 @@ cmd/                    thin entrypoints only — flag/env parsing, wiring, then
 internal/                all real logic. Never imported outside this module.
   <feature>/             one package per bounded concern (see "Interfaces" below)
 api/                     .proto sources — buf's module root (see buf.yaml).
-  pluggableharness/agent/<category>/v1/*.proto   one directory per category per protocol version
+  pluggableharness/<category>/v1/*.proto   one directory per category per protocol version
 pkg/                     first-class, third-party-consumable Go integration —
                          the only thing a plugin author needs to import.
   <category>/             pkg/model/, pkg/tool/, pkg/context/, pkg/memory/,

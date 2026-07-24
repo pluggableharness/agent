@@ -66,27 +66,27 @@ message ServerEvent {
   }
 
   message Render {
-    pluggableharness.agent.render.v1.PlacedContent content = 1;
+    pluggableharness.render.v1.PlacedContent content = 1;
   }
 
   message PermissionRequest {
-    pluggableharness.agent.plan.v1.PlanItem plan_item = 1;
+    pluggableharness.plan.v1.PlanItem plan_item = 1;
   }
 
   message PlanReady {
-    pluggableharness.agent.plan.v1.Plan plan = 1;
+    pluggableharness.plan.v1.Plan plan = 1;
   }
 
   message InteractiveRequest {
     string call_id = 1;
     string tool_name = 2;
-    pluggableharness.agent.render.v1.RenderTree prompt = 3;
+    pluggableharness.render.v1.RenderTree prompt = 3;
   }
 
   message SessionTreeUpdate {
     string parent_session_id = 1;
     string child_session_id = 2;
-    pluggableharness.agent.session.v1.SessionStatus status = 3;
+    pluggableharness.session.v1.SessionStatus status = 3;
   }
 
   message Error {
@@ -136,7 +136,7 @@ message ClientEvent {
   message UserMessage {
     // repeated ContentBlock, not a bare string — see "UserMessage carries
     // ContentBlocks" below.
-    repeated pluggableharness.agent.content.v1.ContentBlock content = 2;
+    repeated pluggableharness.content.v1.ContentBlock content = 2;
   }
 
   message SlashCommand {

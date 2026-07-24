@@ -13,7 +13,7 @@ This design reflects patterns observed across roughly 16 agentic coding systems 
 ## Reading order
 
 - [`turn-algorithm.md`](turn-algorithm.md) — the numbered `RunTurn` algorithm, turn-level tool-call concurrency, loop termination and bounds (independent bound dimensions, cost accounting, limit-reached behavior, done detection, doom-loop detection).
-- [`hook-dispatch.md`](hook-dispatch.md) — the `pluggableharness.agent.hook.v1` wire contract, dispatch order and payload flow, subscriber error handling, timeout behavior, parallelism within one hook point, and the `veto`-mode subscription trust model.
+- [`hook-dispatch.md`](hook-dispatch.md) — the `pluggableharness.hook.v1` wire contract, dispatch order and payload flow, subscriber error handling, timeout behavior, parallelism within one hook point, and the `veto`-mode subscription trust model.
 - [`plan-apply-gate.md`](plan-apply-gate.md) — plan construction and policy evaluation, decision semantics, the circuit breaker on repeated denials, and the `data_source`/`interactive` policy precheck.
 - [`subagents.md`](subagents.md) — `RunSession`'s data types, context isolation, concurrency limits, session-hierarchy bookkeeping, structural depth limits, tool scoping at spawn, cancellation propagation, and the (deliberate) absence of inter-session communication.
 - [`error-recovery.md`](error-recovery.md) — model-provider error handling and tool-provider (plugin) crash handling mid-turn.

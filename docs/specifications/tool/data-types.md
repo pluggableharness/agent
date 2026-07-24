@@ -36,7 +36,7 @@ ToolCall {
                           // model/data-types.md#tool-schema, the kernel's internal ToolCall
                           // representation always stores parsed arguments regardless of which
                           // model-provider adapter produced them
-  call_context   CallContext  // MUST be set by the kernel — pluggableharness.agent.common.v1.CallContext.
+  call_context   CallContext  // MUST be set by the kernel — pluggableharness.common.v1.CallContext.
                           // Carries session_id/turn_id, echoed by the plugin on its own
                           // KernelCallbackService.Emit/Log calls for attribution, and
                           // working_directory — the cwd a process-backed operation (exec/bash,

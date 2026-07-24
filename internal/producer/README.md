@@ -1,7 +1,7 @@
 # internal/producer
 
 Server-derived plugin-identity attribution
-(`pluggableharness.agent.common.v1.ProducerRef`), carried across a `context.Context`.
+(`pluggableharness.common.v1.ProducerRef`), carried across a `context.Context`.
 
 Producer identity is used to tag kernel-native output — log entries,
 spans, metrics — with which plugin (category/name/version) a given call is
