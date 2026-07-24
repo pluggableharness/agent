@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/context/v1/context.proto
+// source: pluggableharness/context/v1/context.proto
 
-// Package pluggableharness.agent.context.v1 defines the context provider plugin protocol
+// Package pluggableharness.context.v1 defines the context provider plugin protocol
 // described in specifications/context.md — plugins that hook
 // context-assemble and contribute content to the prompt before each model
 // call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/file-tree
@@ -12,7 +12,7 @@
 //
 // ContextSection and Stability — the section chain this protocol assembles
 // and the turn-to-turn-change hint each section carries — are defined in
-// pluggableharness.agent.content.v1, not here: that chain is consumed by
+// pluggableharness.content.v1, not here: that chain is consumed by
 // both this protocol and the model provider's completion request
 // (forthcoming), so it's homed alongside content.v1's other shared content
 // shapes rather than duplicated or owned by only one consumer.
@@ -32,11 +32,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ContextService_GetCapabilities_FullMethodName = "/pluggableharness.agent.context.v1.ContextService/GetCapabilities"
-	ContextService_Configure_FullMethodName       = "/pluggableharness.agent.context.v1.ContextService/Configure"
-	ContextService_Contribute_FullMethodName      = "/pluggableharness.agent.context.v1.ContextService/Contribute"
-	ContextService_Render_FullMethodName          = "/pluggableharness.agent.context.v1.ContextService/Render"
-	ContextService_Describe_FullMethodName        = "/pluggableharness.agent.context.v1.ContextService/Describe"
+	ContextService_GetCapabilities_FullMethodName = "/pluggableharness.context.v1.ContextService/GetCapabilities"
+	ContextService_Configure_FullMethodName       = "/pluggableharness.context.v1.ContextService/Configure"
+	ContextService_Contribute_FullMethodName      = "/pluggableharness.context.v1.ContextService/Contribute"
+	ContextService_Render_FullMethodName          = "/pluggableharness.context.v1.ContextService/Render"
+	ContextService_Describe_FullMethodName        = "/pluggableharness.context.v1.ContextService/Describe"
 )
 
 // ContextServiceClient is the client API for ContextService service.
@@ -345,7 +345,7 @@ func _ContextService_Describe_Handler(srv interface{}, ctx context.Context, dec 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ContextService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.context.v1.ContextService",
+	ServiceName: "pluggableharness.context.v1.ContextService",
 	HandlerType: (*ContextServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -370,5 +370,5 @@ var ContextService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pluggableharness/agent/context/v1/context.proto",
+	Metadata: "pluggableharness/context/v1/context.proto",
 }

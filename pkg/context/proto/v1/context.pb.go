@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/context/v1/context.proto
+// source: pluggableharness/context/v1/context.proto
 
-// Package pluggableharness.agent.context.v1 defines the context provider plugin protocol
+// Package pluggableharness.context.v1 defines the context provider plugin protocol
 // described in specifications/context.md — plugins that hook
 // context-assemble and contribute content to the prompt before each model
 // call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/file-tree
@@ -12,7 +12,7 @@
 //
 // ContextSection and Stability — the section chain this protocol assembles
 // and the turn-to-turn-change hint each section carries — are defined in
-// pluggableharness.agent.content.v1, not here: that chain is consumed by
+// pluggableharness.content.v1, not here: that chain is consumed by
 // both this protocol and the model provider's completion request
 // (forthcoming), so it's homed alongside content.v1's other shared content
 // shapes rather than duplicated or owned by only one consumer.
@@ -102,11 +102,11 @@ func (x ContextErrorCategory) String() string {
 }
 
 func (ContextErrorCategory) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_context_v1_context_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_context_v1_context_proto_enumTypes[0].Descriptor()
 }
 
 func (ContextErrorCategory) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_context_v1_context_proto_enumTypes[0]
+	return &file_pluggableharness_context_v1_context_proto_enumTypes[0]
 }
 
 func (x ContextErrorCategory) Number() protoreflect.EnumNumber {
@@ -115,7 +115,7 @@ func (x ContextErrorCategory) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContextErrorCategory.Descriptor instead.
 func (ContextErrorCategory) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{0}
 }
 
 // GetCapabilitiesRequest carries no fields — GetCapabilities takes no
@@ -128,7 +128,7 @@ type GetCapabilitiesRequest struct {
 
 func (x *GetCapabilitiesRequest) Reset() {
 	*x = GetCapabilitiesRequest{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[0]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -140,7 +140,7 @@ func (x *GetCapabilitiesRequest) String() string {
 func (*GetCapabilitiesRequest) ProtoMessage() {}
 
 func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[0]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -153,7 +153,7 @@ func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{0}
 }
 
 // GetCapabilitiesResponse wraps ContextCapabilities for the RPC signature,
@@ -167,7 +167,7 @@ type GetCapabilitiesResponse struct {
 
 func (x *GetCapabilitiesResponse) Reset() {
 	*x = GetCapabilitiesResponse{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[1]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -179,7 +179,7 @@ func (x *GetCapabilitiesResponse) String() string {
 func (*GetCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[1]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -192,7 +192,7 @@ func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetCapabilitiesResponse) GetCapabilities() *ContextCapabilities {
@@ -216,7 +216,7 @@ type ConfigureRequest struct {
 
 func (x *ConfigureRequest) Reset() {
 	*x = ConfigureRequest{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[2]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -228,7 +228,7 @@ func (x *ConfigureRequest) String() string {
 func (*ConfigureRequest) ProtoMessage() {}
 
 func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[2]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -241,7 +241,7 @@ func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureRequest.ProtoReflect.Descriptor instead.
 func (*ConfigureRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ConfigureRequest) GetConfig() *structpb.Struct {
@@ -263,7 +263,7 @@ type ContextCapabilities struct {
 	DefaultTokenBudget int64 `protobuf:"varint,1,opt,name=default_token_budget,json=defaultTokenBudget,proto3" json:"default_token_budget,omitempty"`
 	// Whether this provider's contributed content changes turn to turn. MUST
 	// be set. context.md §2, §7.
-	Stability v1.Stability `protobuf:"varint,2,opt,name=stability,proto3,enum=pluggableharness.agent.content.v1.Stability" json:"stability,omitempty"`
+	Stability v1.Stability `protobuf:"varint,2,opt,name=stability,proto3,enum=pluggableharness.content.v1.Stability" json:"stability,omitempty"`
 	// Whether this provider acts as a compactor: MAY rewrite, merge, or drop
 	// other providers' sections in the chain it receives, and MAY receive
 	// conversation_history on ContextRequest and return rewritten_history.
@@ -283,14 +283,14 @@ type ContextCapabilities struct {
 	// hook.v1 — hook.v1 imports this package's model/tool/plan dependencies,
 	// so a category capability message importing hook.v1 directly would
 	// cycle back through it; common.v1 is the shared leaf package instead.
-	SupportedHookPoints []v13.HookPoint `protobuf:"varint,6,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v13.HookPoint `protobuf:"varint,6,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ContextCapabilities) Reset() {
 	*x = ContextCapabilities{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[3]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -302,7 +302,7 @@ func (x *ContextCapabilities) String() string {
 func (*ContextCapabilities) ProtoMessage() {}
 
 func (x *ContextCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[3]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +315,7 @@ func (x *ContextCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextCapabilities.ProtoReflect.Descriptor instead.
 func (*ContextCapabilities) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ContextCapabilities) GetDefaultTokenBudget() int64 {
@@ -372,7 +372,7 @@ type ConfigureResponse struct {
 
 func (x *ConfigureResponse) Reset() {
 	*x = ConfigureResponse{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[4]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -384,7 +384,7 @@ func (x *ConfigureResponse) String() string {
 func (*ConfigureResponse) ProtoMessage() {}
 
 func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[4]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -397,7 +397,7 @@ func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureResponse.ProtoReflect.Descriptor instead.
 func (*ConfigureResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{4}
 }
 
 // ContextRequest is the context-assemble RPC's request, delivered to
@@ -453,7 +453,7 @@ type ContextRequest struct {
 
 func (x *ContextRequest) Reset() {
 	*x = ContextRequest{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[5]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -465,7 +465,7 @@ func (x *ContextRequest) String() string {
 func (*ContextRequest) ProtoMessage() {}
 
 func (x *ContextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[5]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -478,7 +478,7 @@ func (x *ContextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextRequest.ProtoReflect.Descriptor instead.
 func (*ContextRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ContextRequest) GetSessionId() string {
@@ -579,7 +579,7 @@ type ContextContribution struct {
 
 func (x *ContextContribution) Reset() {
 	*x = ContextContribution{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[6]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -591,7 +591,7 @@ func (x *ContextContribution) String() string {
 func (*ContextContribution) ProtoMessage() {}
 
 func (x *ContextContribution) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[6]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +604,7 @@ func (x *ContextContribution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextContribution.ProtoReflect.Descriptor instead.
 func (*ContextContribution) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ContextContribution) GetSections() []*v1.ContextSection {
@@ -627,7 +627,7 @@ func (x *ContextContribution) GetRewrittenHistory() []*v1.Message {
 type ContextError struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which category of failure this is.
-	Category ContextErrorCategory `protobuf:"varint,1,opt,name=category,proto3,enum=pluggableharness.agent.context.v1.ContextErrorCategory" json:"category,omitempty"`
+	Category ContextErrorCategory `protobuf:"varint,1,opt,name=category,proto3,enum=pluggableharness.context.v1.ContextErrorCategory" json:"category,omitempty"`
 	// Human-readable error detail, e.g. the raw plugin error message for
 	// CONTEXT_ERROR_CATEGORY_UNKNOWN.
 	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
@@ -639,7 +639,7 @@ type ContextError struct {
 
 func (x *ContextError) Reset() {
 	*x = ContextError{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[7]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -651,7 +651,7 @@ func (x *ContextError) String() string {
 func (*ContextError) ProtoMessage() {}
 
 func (x *ContextError) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[7]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -664,7 +664,7 @@ func (x *ContextError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextError.ProtoReflect.Descriptor instead.
 func (*ContextError) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ContextError) GetCategory() ContextErrorCategory {
@@ -709,7 +709,7 @@ type RenderRequest struct {
 
 func (x *RenderRequest) Reset() {
 	*x = RenderRequest{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[8]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -721,7 +721,7 @@ func (x *RenderRequest) String() string {
 func (*RenderRequest) ProtoMessage() {}
 
 func (x *RenderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[8]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -734,7 +734,7 @@ func (x *RenderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderRequest.ProtoReflect.Descriptor instead.
 func (*RenderRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RenderRequest) GetPayload() []byte {
@@ -763,7 +763,7 @@ type RenderResponse struct {
 
 func (x *RenderResponse) Reset() {
 	*x = RenderResponse{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[9]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -775,7 +775,7 @@ func (x *RenderResponse) String() string {
 func (*RenderResponse) ProtoMessage() {}
 
 func (x *RenderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[9]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -788,7 +788,7 @@ func (x *RenderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderResponse.ProtoReflect.Descriptor instead.
 func (*RenderResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RenderResponse) GetTree() *v15.RenderTree {
@@ -808,7 +808,7 @@ type DescribeRequest struct {
 
 func (x *DescribeRequest) Reset() {
 	*x = DescribeRequest{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[10]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -820,7 +820,7 @@ func (x *DescribeRequest) String() string {
 func (*DescribeRequest) ProtoMessage() {}
 
 func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[10]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -833,7 +833,7 @@ func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
 func (*DescribeRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{10}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{10}
 }
 
 // DescribeResponse reports this plugin build's own identity. See the
@@ -849,7 +849,7 @@ type DescribeResponse struct {
 
 func (x *DescribeResponse) Reset() {
 	*x = DescribeResponse{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[11]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -861,7 +861,7 @@ func (x *DescribeResponse) String() string {
 func (*DescribeResponse) ProtoMessage() {}
 
 func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[11]
+	mi := &file_pluggableharness_context_v1_context_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -874,7 +874,7 @@ func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeResponse.ProtoReflect.Descriptor instead.
 func (*DescribeResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{11}
+	return file_pluggableharness_context_v1_context_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DescribeResponse) GetProducer() *v13.ProducerRef {
@@ -884,132 +884,132 @@ func (x *DescribeResponse) GetProducer() *v13.ProducerRef {
 	return nil
 }
 
-var File_pluggableharness_agent_context_v1_context_proto protoreflect.FileDescriptor
+var File_pluggableharness_context_v1_context_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_context_v1_context_proto_rawDesc = "" +
+const file_pluggableharness_context_v1_context_proto_rawDesc = "" +
 	"\n" +
-	"/pluggableharness/agent/context/v1/context.proto\x12!pluggableharness.agent.context.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/common/v1/common.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x18\n" +
-	"\x16GetCapabilitiesRequest\"u\n" +
-	"\x17GetCapabilitiesResponse\x12Z\n" +
-	"\fcapabilities\x18\x01 \x01(\v26.pluggableharness.agent.context.v1.ContextCapabilitiesR\fcapabilities\"C\n" +
+	")pluggableharness/context/v1/context.proto\x12\x1bpluggableharness.context.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/common/v1/common.proto\x1a'pluggableharness/config/v1/config.proto\x1a)pluggableharness/content/v1/content.proto\x1a%pluggableharness/model/v1/model.proto\x1a'pluggableharness/render/v1/render.proto\x1a3pluggableharness/slashcommand/v1/slashcommand.proto\"\x18\n" +
+	"\x16GetCapabilitiesRequest\"o\n" +
+	"\x17GetCapabilitiesResponse\x12T\n" +
+	"\fcapabilities\x18\x01 \x01(\v20.pluggableharness.context.v1.ContextCapabilitiesR\fcapabilities\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
-	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\xc8\x03\n" +
+	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\xb0\x03\n" +
 	"\x13ContextCapabilities\x120\n" +
-	"\x14default_token_budget\x18\x01 \x01(\x03R\x12defaultTokenBudget\x12J\n" +
-	"\tstability\x18\x02 \x01(\x0e2,.pluggableharness.agent.content.v1.StabilityR\tstability\x12\x1c\n" +
-	"\tcompactor\x18\x03 \x01(\bR\tcompactor\x12_\n" +
-	"\x0eslash_commands\x18\x04 \x03(\v28.pluggableharness.agent.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12S\n" +
-	"\rconfig_schema\x18\x05 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\x12_\n" +
-	"\x15supported_hook_points\x18\x06 \x03(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x13supportedHookPoints\"\x13\n" +
-	"\x11ConfigureResponse\"\xd7\x04\n" +
+	"\x14default_token_budget\x18\x01 \x01(\x03R\x12defaultTokenBudget\x12D\n" +
+	"\tstability\x18\x02 \x01(\x0e2&.pluggableharness.content.v1.StabilityR\tstability\x12\x1c\n" +
+	"\tcompactor\x18\x03 \x01(\bR\tcompactor\x12Y\n" +
+	"\x0eslash_commands\x18\x04 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12M\n" +
+	"\rconfig_schema\x18\x05 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
+	"\x15supported_hook_points\x18\x06 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPoints\"\x13\n" +
+	"\x11ConfigureResponse\"\xc5\x04\n" +
 	"\x0eContextRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12*\n" +
 	"\x11parent_session_id\x18\x02 \x01(\tR\x0fparentSessionId\x12\x17\n" +
 	"\aturn_id\x18\x03 \x01(\tR\x06turnId\x12!\n" +
-	"\ftoken_budget\x18\x04 \x01(\x03R\vtokenBudget\x12O\n" +
-	"\fmodel_target\x18\x05 \x01(\v2,.pluggableharness.agent.model.v1.ModelTargetR\vmodelTarget\x12#\n" +
+	"\ftoken_budget\x18\x04 \x01(\x03R\vtokenBudget\x12I\n" +
+	"\fmodel_target\x18\x05 \x01(\v2&.pluggableharness.model.v1.ModelTargetR\vmodelTarget\x12#\n" +
 	"\rfiles_touched\x18\x06 \x03(\tR\ffilesTouched\x12+\n" +
-	"\x11working_directory\x18\a \x01(\tR\x10workingDirectory\x12X\n" +
-	"\x0eprior_sections\x18\b \x03(\v21.pluggableharness.agent.content.v1.ContextSectionR\rpriorSections\x12]\n" +
-	"\x14conversation_history\x18\t \x03(\v2*.pluggableharness.agent.content.v1.MessageR\x13conversationHistory\x12%\n" +
+	"\x11working_directory\x18\a \x01(\tR\x10workingDirectory\x12R\n" +
+	"\x0eprior_sections\x18\b \x03(\v2+.pluggableharness.content.v1.ContextSectionR\rpriorSections\x12W\n" +
+	"\x14conversation_history\x18\t \x03(\v2$.pluggableharness.content.v1.MessageR\x13conversationHistory\x12%\n" +
 	"\x0ehistory_tokens\x18\n" +
 	" \x01(\x03R\rhistoryTokens\x12;\n" +
-	"\x1aassembled_tokens_last_turn\x18\v \x01(\x03R\x17assembledTokensLastTurn\"\xbd\x01\n" +
-	"\x13ContextContribution\x12M\n" +
-	"\bsections\x18\x01 \x03(\v21.pluggableharness.agent.content.v1.ContextSectionR\bsections\x12W\n" +
-	"\x11rewritten_history\x18\x02 \x03(\v2*.pluggableharness.agent.content.v1.MessageR\x10rewrittenHistory\"\x9b\x01\n" +
-	"\fContextError\x12S\n" +
-	"\bcategory\x18\x01 \x01(\x0e27.pluggableharness.agent.context.v1.ContextErrorCategoryR\bcategory\x12\x18\n" +
+	"\x1aassembled_tokens_last_turn\x18\v \x01(\x03R\x17assembledTokensLastTurn\"\xb1\x01\n" +
+	"\x13ContextContribution\x12G\n" +
+	"\bsections\x18\x01 \x03(\v2+.pluggableharness.content.v1.ContextSectionR\bsections\x12Q\n" +
+	"\x11rewritten_history\x18\x02 \x03(\v2$.pluggableharness.content.v1.MessageR\x10rewrittenHistory\"\x95\x01\n" +
+	"\fContextError\x12M\n" +
+	"\bcategory\x18\x01 \x01(\x0e21.pluggableharness.context.v1.ContextErrorCategoryR\bcategory\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1c\n" +
 	"\tretryable\x18\x03 \x01(\bR\tretryable\"P\n" +
 	"\rRenderRequest\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12%\n" +
-	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersion\"R\n" +
-	"\x0eRenderResponse\x12@\n" +
-	"\x04tree\x18\x01 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\x04tree\"\x11\n" +
-	"\x0fDescribeRequest\"]\n" +
-	"\x10DescribeResponse\x12I\n" +
-	"\bproducer\x18\x01 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\bproducer*\x95\x02\n" +
+	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersion\"L\n" +
+	"\x0eRenderResponse\x12:\n" +
+	"\x04tree\x18\x01 \x01(\v2&.pluggableharness.render.v1.RenderTreeR\x04tree\"\x11\n" +
+	"\x0fDescribeRequest\"W\n" +
+	"\x10DescribeResponse\x12C\n" +
+	"\bproducer\x18\x01 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\bproducer*\x95\x02\n" +
 	"\x14ContextErrorCategory\x12&\n" +
 	"\"CONTEXT_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12-\n" +
 	")CONTEXT_ERROR_CATEGORY_SOURCE_UNAVAILABLE\x10\x01\x12*\n" +
 	"&CONTEXT_ERROR_CATEGORY_BUDGET_EXCEEDED\x10\x02\x12*\n" +
 	"&CONTEXT_ERROR_CATEGORY_SCOPE_VIOLATION\x10\x03\x12*\n" +
 	"&CONTEXT_ERROR_CATEGORY_INVALID_REQUEST\x10\x04\x12\"\n" +
-	"\x1eCONTEXT_ERROR_CATEGORY_UNKNOWN\x10\x052\xf0\x04\n" +
-	"\x0eContextService\x12\x88\x01\n" +
-	"\x0fGetCapabilities\x129.pluggableharness.agent.context.v1.GetCapabilitiesRequest\x1a:.pluggableharness.agent.context.v1.GetCapabilitiesResponse\x12v\n" +
-	"\tConfigure\x123.pluggableharness.agent.context.v1.ConfigureRequest\x1a4.pluggableharness.agent.context.v1.ConfigureResponse\x12w\n" +
+	"\x1eCONTEXT_ERROR_CATEGORY_UNKNOWN\x10\x052\xb3\x04\n" +
+	"\x0eContextService\x12|\n" +
+	"\x0fGetCapabilities\x123.pluggableharness.context.v1.GetCapabilitiesRequest\x1a4.pluggableharness.context.v1.GetCapabilitiesResponse\x12j\n" +
+	"\tConfigure\x12-.pluggableharness.context.v1.ConfigureRequest\x1a..pluggableharness.context.v1.ConfigureResponse\x12k\n" +
 	"\n" +
-	"Contribute\x121.pluggableharness.agent.context.v1.ContextRequest\x1a6.pluggableharness.agent.context.v1.ContextContribution\x12m\n" +
-	"\x06Render\x120.pluggableharness.agent.context.v1.RenderRequest\x1a1.pluggableharness.agent.context.v1.RenderResponse\x12s\n" +
-	"\bDescribe\x122.pluggableharness.agent.context.v1.DescribeRequest\x1a3.pluggableharness.agent.context.v1.DescribeResponseBBZ@github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1b\x06proto3"
+	"Contribute\x12+.pluggableharness.context.v1.ContextRequest\x1a0.pluggableharness.context.v1.ContextContribution\x12a\n" +
+	"\x06Render\x12*.pluggableharness.context.v1.RenderRequest\x1a+.pluggableharness.context.v1.RenderResponse\x12g\n" +
+	"\bDescribe\x12,.pluggableharness.context.v1.DescribeRequest\x1a-.pluggableharness.context.v1.DescribeResponseBBZ@github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_context_v1_context_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_context_v1_context_proto_rawDescData []byte
+	file_pluggableharness_context_v1_context_proto_rawDescOnce sync.Once
+	file_pluggableharness_context_v1_context_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_context_v1_context_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_context_v1_context_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_context_v1_context_proto_rawDesc), len(file_pluggableharness_agent_context_v1_context_proto_rawDesc)))
+func file_pluggableharness_context_v1_context_proto_rawDescGZIP() []byte {
+	file_pluggableharness_context_v1_context_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_context_v1_context_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_context_v1_context_proto_rawDesc), len(file_pluggableharness_context_v1_context_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescData
+	return file_pluggableharness_context_v1_context_proto_rawDescData
 }
 
-var file_pluggableharness_agent_context_v1_context_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_agent_context_v1_context_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
-var file_pluggableharness_agent_context_v1_context_proto_goTypes = []any{
-	(ContextErrorCategory)(0),       // 0: pluggableharness.agent.context.v1.ContextErrorCategory
-	(*GetCapabilitiesRequest)(nil),  // 1: pluggableharness.agent.context.v1.GetCapabilitiesRequest
-	(*GetCapabilitiesResponse)(nil), // 2: pluggableharness.agent.context.v1.GetCapabilitiesResponse
-	(*ConfigureRequest)(nil),        // 3: pluggableharness.agent.context.v1.ConfigureRequest
-	(*ContextCapabilities)(nil),     // 4: pluggableharness.agent.context.v1.ContextCapabilities
-	(*ConfigureResponse)(nil),       // 5: pluggableharness.agent.context.v1.ConfigureResponse
-	(*ContextRequest)(nil),          // 6: pluggableharness.agent.context.v1.ContextRequest
-	(*ContextContribution)(nil),     // 7: pluggableharness.agent.context.v1.ContextContribution
-	(*ContextError)(nil),            // 8: pluggableharness.agent.context.v1.ContextError
-	(*RenderRequest)(nil),           // 9: pluggableharness.agent.context.v1.RenderRequest
-	(*RenderResponse)(nil),          // 10: pluggableharness.agent.context.v1.RenderResponse
-	(*DescribeRequest)(nil),         // 11: pluggableharness.agent.context.v1.DescribeRequest
-	(*DescribeResponse)(nil),        // 12: pluggableharness.agent.context.v1.DescribeResponse
+var file_pluggableharness_context_v1_context_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_context_v1_context_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_pluggableharness_context_v1_context_proto_goTypes = []any{
+	(ContextErrorCategory)(0),       // 0: pluggableharness.context.v1.ContextErrorCategory
+	(*GetCapabilitiesRequest)(nil),  // 1: pluggableharness.context.v1.GetCapabilitiesRequest
+	(*GetCapabilitiesResponse)(nil), // 2: pluggableharness.context.v1.GetCapabilitiesResponse
+	(*ConfigureRequest)(nil),        // 3: pluggableharness.context.v1.ConfigureRequest
+	(*ContextCapabilities)(nil),     // 4: pluggableharness.context.v1.ContextCapabilities
+	(*ConfigureResponse)(nil),       // 5: pluggableharness.context.v1.ConfigureResponse
+	(*ContextRequest)(nil),          // 6: pluggableharness.context.v1.ContextRequest
+	(*ContextContribution)(nil),     // 7: pluggableharness.context.v1.ContextContribution
+	(*ContextError)(nil),            // 8: pluggableharness.context.v1.ContextError
+	(*RenderRequest)(nil),           // 9: pluggableharness.context.v1.RenderRequest
+	(*RenderResponse)(nil),          // 10: pluggableharness.context.v1.RenderResponse
+	(*DescribeRequest)(nil),         // 11: pluggableharness.context.v1.DescribeRequest
+	(*DescribeResponse)(nil),        // 12: pluggableharness.context.v1.DescribeResponse
 	(*structpb.Struct)(nil),         // 13: google.protobuf.Struct
-	(v1.Stability)(0),               // 14: pluggableharness.agent.content.v1.Stability
-	(*v11.SlashCommandSpec)(nil),    // 15: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	(*v12.ConfigSchema)(nil),        // 16: pluggableharness.agent.config.v1.ConfigSchema
-	(v13.HookPoint)(0),              // 17: pluggableharness.agent.common.v1.HookPoint
-	(*v14.ModelTarget)(nil),         // 18: pluggableharness.agent.model.v1.ModelTarget
-	(*v1.ContextSection)(nil),       // 19: pluggableharness.agent.content.v1.ContextSection
-	(*v1.Message)(nil),              // 20: pluggableharness.agent.content.v1.Message
-	(*v15.RenderTree)(nil),          // 21: pluggableharness.agent.render.v1.RenderTree
-	(*v13.ProducerRef)(nil),         // 22: pluggableharness.agent.common.v1.ProducerRef
+	(v1.Stability)(0),               // 14: pluggableharness.content.v1.Stability
+	(*v11.SlashCommandSpec)(nil),    // 15: pluggableharness.slashcommand.v1.SlashCommandSpec
+	(*v12.ConfigSchema)(nil),        // 16: pluggableharness.config.v1.ConfigSchema
+	(v13.HookPoint)(0),              // 17: pluggableharness.common.v1.HookPoint
+	(*v14.ModelTarget)(nil),         // 18: pluggableharness.model.v1.ModelTarget
+	(*v1.ContextSection)(nil),       // 19: pluggableharness.content.v1.ContextSection
+	(*v1.Message)(nil),              // 20: pluggableharness.content.v1.Message
+	(*v15.RenderTree)(nil),          // 21: pluggableharness.render.v1.RenderTree
+	(*v13.ProducerRef)(nil),         // 22: pluggableharness.common.v1.ProducerRef
 }
-var file_pluggableharness_agent_context_v1_context_proto_depIdxs = []int32{
-	4,  // 0: pluggableharness.agent.context.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.context.v1.ContextCapabilities
-	13, // 1: pluggableharness.agent.context.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
-	14, // 2: pluggableharness.agent.context.v1.ContextCapabilities.stability:type_name -> pluggableharness.agent.content.v1.Stability
-	15, // 3: pluggableharness.agent.context.v1.ContextCapabilities.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	16, // 4: pluggableharness.agent.context.v1.ContextCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
-	17, // 5: pluggableharness.agent.context.v1.ContextCapabilities.supported_hook_points:type_name -> pluggableharness.agent.common.v1.HookPoint
-	18, // 6: pluggableharness.agent.context.v1.ContextRequest.model_target:type_name -> pluggableharness.agent.model.v1.ModelTarget
-	19, // 7: pluggableharness.agent.context.v1.ContextRequest.prior_sections:type_name -> pluggableharness.agent.content.v1.ContextSection
-	20, // 8: pluggableharness.agent.context.v1.ContextRequest.conversation_history:type_name -> pluggableharness.agent.content.v1.Message
-	19, // 9: pluggableharness.agent.context.v1.ContextContribution.sections:type_name -> pluggableharness.agent.content.v1.ContextSection
-	20, // 10: pluggableharness.agent.context.v1.ContextContribution.rewritten_history:type_name -> pluggableharness.agent.content.v1.Message
-	0,  // 11: pluggableharness.agent.context.v1.ContextError.category:type_name -> pluggableharness.agent.context.v1.ContextErrorCategory
-	21, // 12: pluggableharness.agent.context.v1.RenderResponse.tree:type_name -> pluggableharness.agent.render.v1.RenderTree
-	22, // 13: pluggableharness.agent.context.v1.DescribeResponse.producer:type_name -> pluggableharness.agent.common.v1.ProducerRef
-	1,  // 14: pluggableharness.agent.context.v1.ContextService.GetCapabilities:input_type -> pluggableharness.agent.context.v1.GetCapabilitiesRequest
-	3,  // 15: pluggableharness.agent.context.v1.ContextService.Configure:input_type -> pluggableharness.agent.context.v1.ConfigureRequest
-	6,  // 16: pluggableharness.agent.context.v1.ContextService.Contribute:input_type -> pluggableharness.agent.context.v1.ContextRequest
-	9,  // 17: pluggableharness.agent.context.v1.ContextService.Render:input_type -> pluggableharness.agent.context.v1.RenderRequest
-	11, // 18: pluggableharness.agent.context.v1.ContextService.Describe:input_type -> pluggableharness.agent.context.v1.DescribeRequest
-	2,  // 19: pluggableharness.agent.context.v1.ContextService.GetCapabilities:output_type -> pluggableharness.agent.context.v1.GetCapabilitiesResponse
-	5,  // 20: pluggableharness.agent.context.v1.ContextService.Configure:output_type -> pluggableharness.agent.context.v1.ConfigureResponse
-	7,  // 21: pluggableharness.agent.context.v1.ContextService.Contribute:output_type -> pluggableharness.agent.context.v1.ContextContribution
-	10, // 22: pluggableharness.agent.context.v1.ContextService.Render:output_type -> pluggableharness.agent.context.v1.RenderResponse
-	12, // 23: pluggableharness.agent.context.v1.ContextService.Describe:output_type -> pluggableharness.agent.context.v1.DescribeResponse
+var file_pluggableharness_context_v1_context_proto_depIdxs = []int32{
+	4,  // 0: pluggableharness.context.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.context.v1.ContextCapabilities
+	13, // 1: pluggableharness.context.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
+	14, // 2: pluggableharness.context.v1.ContextCapabilities.stability:type_name -> pluggableharness.content.v1.Stability
+	15, // 3: pluggableharness.context.v1.ContextCapabilities.slash_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	16, // 4: pluggableharness.context.v1.ContextCapabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
+	17, // 5: pluggableharness.context.v1.ContextCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	18, // 6: pluggableharness.context.v1.ContextRequest.model_target:type_name -> pluggableharness.model.v1.ModelTarget
+	19, // 7: pluggableharness.context.v1.ContextRequest.prior_sections:type_name -> pluggableharness.content.v1.ContextSection
+	20, // 8: pluggableharness.context.v1.ContextRequest.conversation_history:type_name -> pluggableharness.content.v1.Message
+	19, // 9: pluggableharness.context.v1.ContextContribution.sections:type_name -> pluggableharness.content.v1.ContextSection
+	20, // 10: pluggableharness.context.v1.ContextContribution.rewritten_history:type_name -> pluggableharness.content.v1.Message
+	0,  // 11: pluggableharness.context.v1.ContextError.category:type_name -> pluggableharness.context.v1.ContextErrorCategory
+	21, // 12: pluggableharness.context.v1.RenderResponse.tree:type_name -> pluggableharness.render.v1.RenderTree
+	22, // 13: pluggableharness.context.v1.DescribeResponse.producer:type_name -> pluggableharness.common.v1.ProducerRef
+	1,  // 14: pluggableharness.context.v1.ContextService.GetCapabilities:input_type -> pluggableharness.context.v1.GetCapabilitiesRequest
+	3,  // 15: pluggableharness.context.v1.ContextService.Configure:input_type -> pluggableharness.context.v1.ConfigureRequest
+	6,  // 16: pluggableharness.context.v1.ContextService.Contribute:input_type -> pluggableharness.context.v1.ContextRequest
+	9,  // 17: pluggableharness.context.v1.ContextService.Render:input_type -> pluggableharness.context.v1.RenderRequest
+	11, // 18: pluggableharness.context.v1.ContextService.Describe:input_type -> pluggableharness.context.v1.DescribeRequest
+	2,  // 19: pluggableharness.context.v1.ContextService.GetCapabilities:output_type -> pluggableharness.context.v1.GetCapabilitiesResponse
+	5,  // 20: pluggableharness.context.v1.ContextService.Configure:output_type -> pluggableharness.context.v1.ConfigureResponse
+	7,  // 21: pluggableharness.context.v1.ContextService.Contribute:output_type -> pluggableharness.context.v1.ContextContribution
+	10, // 22: pluggableharness.context.v1.ContextService.Render:output_type -> pluggableharness.context.v1.RenderResponse
+	12, // 23: pluggableharness.context.v1.ContextService.Describe:output_type -> pluggableharness.context.v1.DescribeResponse
 	19, // [19:24] is the sub-list for method output_type
 	14, // [14:19] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name
@@ -1017,27 +1017,27 @@ var file_pluggableharness_agent_context_v1_context_proto_depIdxs = []int32{
 	0,  // [0:14] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_context_v1_context_proto_init() }
-func file_pluggableharness_agent_context_v1_context_proto_init() {
-	if File_pluggableharness_agent_context_v1_context_proto != nil {
+func init() { file_pluggableharness_context_v1_context_proto_init() }
+func file_pluggableharness_context_v1_context_proto_init() {
+	if File_pluggableharness_context_v1_context_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_context_v1_context_proto_rawDesc), len(file_pluggableharness_agent_context_v1_context_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_context_v1_context_proto_rawDesc), len(file_pluggableharness_context_v1_context_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_pluggableharness_agent_context_v1_context_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_context_v1_context_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_agent_context_v1_context_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_agent_context_v1_context_proto_msgTypes,
+		GoTypes:           file_pluggableharness_context_v1_context_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_context_v1_context_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_context_v1_context_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_context_v1_context_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_context_v1_context_proto = out.File
-	file_pluggableharness_agent_context_v1_context_proto_goTypes = nil
-	file_pluggableharness_agent_context_v1_context_proto_depIdxs = nil
+	File_pluggableharness_context_v1_context_proto = out.File
+	file_pluggableharness_context_v1_context_proto_goTypes = nil
+	file_pluggableharness_context_v1_context_proto_depIdxs = nil
 }

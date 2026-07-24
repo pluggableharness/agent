@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/kernel/v1/kernel.proto
+// source: pluggableharness/kernel/v1/kernel.proto
 
-// Package pluggableharness.agent.kernel.v1 defines the kernel-callback service described
+// Package pluggableharness.kernel.v1 defines the kernel-callback service described
 // in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
 // Log) — the plugin-to-kernel calling direction every plugin category gets
 // at handshake, the reverse of every other category's protocol in this
@@ -73,7 +73,7 @@ const (
 	// (agent-loop/hook-dispatch.md#subscriber-error-handling) — never
 	// emitted by a plugin's own Emit call, only by the kernel itself
 	// dispatching a hook. Payload shape is
-	// pluggableharness.agent.hook.v1.HookError, wrapped by the forthcoming
+	// pluggableharness.hook.v1.HookError, wrapped by the forthcoming
 	// event.v1 package's HookErrorEvent (state-backend.md §5).
 	EventKind_EVENT_KIND_HOOK_ERROR EventKind = 10
 )
@@ -119,11 +119,11 @@ func (x EventKind) String() string {
 }
 
 func (EventKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_kernel_v1_kernel_proto_enumTypes[0].Descriptor()
 }
 
 func (EventKind) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_kernel_v1_kernel_proto_enumTypes[0]
+	return &file_pluggableharness_kernel_v1_kernel_proto_enumTypes[0]
 }
 
 func (x EventKind) Number() protoreflect.EnumNumber {
@@ -132,7 +132,7 @@ func (x EventKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EventKind.Descriptor instead.
 func (EventKind) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{0}
 }
 
 // RunSessionRequest names the sub-agent profile to dispatch and carries
@@ -169,7 +169,7 @@ type RunSessionRequest struct {
 
 func (x *RunSessionRequest) Reset() {
 	*x = RunSessionRequest{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[0]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -181,7 +181,7 @@ func (x *RunSessionRequest) String() string {
 func (*RunSessionRequest) ProtoMessage() {}
 
 func (x *RunSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[0]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -194,7 +194,7 @@ func (x *RunSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunSessionRequest.ProtoReflect.Descriptor instead.
 func (*RunSessionRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *RunSessionRequest) GetProfile() string {
@@ -254,11 +254,11 @@ type RunSessionResult struct {
 	// The child session's terminal lifecycle status. Never
 	// SESSION_STATUS_RUNNING — a RunSession call only returns once the
 	// child session has reached a terminal state.
-	Status v12.SessionStatus `protobuf:"varint,3,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
+	Status v12.SessionStatus `protobuf:"varint,3,opt,name=status,proto3,enum=pluggableharness.session.v1.SessionStatus" json:"status,omitempty"`
 	// The child session's aggregate cost, in USD, summed across every turn
 	// it ran, including any of its own descendant sub-agent sessions. MUST
 	// be set. Deliberately a flat field, not a
-	// pluggableharness.agent.model.v1.Usage-shaped reference — this is a
+	// pluggableharness.model.v1.Usage-shaped reference — this is a
 	// whole-session rollup (state-backend.md's cost_ledger SUM, per
 	// .claude/rules/determinism.md's "Cost and budget rollup"), a different
 	// shape from one completion call's per-call Usage. Lets an orchestrator
@@ -280,7 +280,7 @@ type RunSessionResult struct {
 
 func (x *RunSessionResult) Reset() {
 	*x = RunSessionResult{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[1]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -292,7 +292,7 @@ func (x *RunSessionResult) String() string {
 func (*RunSessionResult) ProtoMessage() {}
 
 func (x *RunSessionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[1]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -305,7 +305,7 @@ func (x *RunSessionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunSessionResult.ProtoReflect.Descriptor instead.
 func (*RunSessionResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RunSessionResult) GetSessionId() string {
@@ -369,7 +369,7 @@ type CountTokensRequest struct {
 
 func (x *CountTokensRequest) Reset() {
 	*x = CountTokensRequest{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[2]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -381,7 +381,7 @@ func (x *CountTokensRequest) String() string {
 func (*CountTokensRequest) ProtoMessage() {}
 
 func (x *CountTokensRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[2]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -394,7 +394,7 @@ func (x *CountTokensRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CountTokensRequest.ProtoReflect.Descriptor instead.
 func (*CountTokensRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CountTokensRequest) GetContent() []*v11.ContentBlock {
@@ -428,7 +428,7 @@ type CountTokensResult struct {
 
 func (x *CountTokensResult) Reset() {
 	*x = CountTokensResult{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[3]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -440,7 +440,7 @@ func (x *CountTokensResult) String() string {
 func (*CountTokensResult) ProtoMessage() {}
 
 func (x *CountTokensResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[3]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -453,7 +453,7 @@ func (x *CountTokensResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CountTokensResult.ProtoReflect.Descriptor instead.
 func (*CountTokensResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CountTokensResult) GetCount() int64 {
@@ -479,7 +479,7 @@ type EmitRequest struct {
 	// actually invoked for.
 	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// The kind of event being emitted. MUST be set.
-	Kind EventKind `protobuf:"varint,2,opt,name=kind,proto3,enum=pluggableharness.agent.kernel.v1.EventKind" json:"kind,omitempty"`
+	Kind EventKind `protobuf:"varint,2,opt,name=kind,proto3,enum=pluggableharness.kernel.v1.EventKind" json:"kind,omitempty"`
 	// Versions the shape of `payload`, so a future kernel can still
 	// interpret an old event correctly — the "supersedes" mechanism
 	// described in docs/specifications/architecture.md. MUST be set.
@@ -496,7 +496,7 @@ type EmitRequest struct {
 
 func (x *EmitRequest) Reset() {
 	*x = EmitRequest{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[4]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -508,7 +508,7 @@ func (x *EmitRequest) String() string {
 func (*EmitRequest) ProtoMessage() {}
 
 func (x *EmitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[4]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +521,7 @@ func (x *EmitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmitRequest.ProtoReflect.Descriptor instead.
 func (*EmitRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EmitRequest) GetSessionId() string {
@@ -566,7 +566,7 @@ type EmitResult struct {
 
 func (x *EmitResult) Reset() {
 	*x = EmitResult{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[5]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -578,7 +578,7 @@ func (x *EmitResult) String() string {
 func (*EmitResult) ProtoMessage() {}
 
 func (x *EmitResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[5]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -591,7 +591,7 @@ func (x *EmitResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmitResult.ProtoReflect.Descriptor instead.
 func (*EmitResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *EmitResult) GetId() string {
@@ -625,7 +625,7 @@ type LogRequest struct {
 
 func (x *LogRequest) Reset() {
 	*x = LogRequest{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[6]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +637,7 @@ func (x *LogRequest) String() string {
 func (*LogRequest) ProtoMessage() {}
 
 func (x *LogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[6]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +650,7 @@ func (x *LogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRequest.ProtoReflect.Descriptor instead.
 func (*LogRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *LogRequest) GetSessionId() string {
@@ -677,7 +677,7 @@ type LogResult struct {
 
 func (x *LogResult) Reset() {
 	*x = LogResult{}
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[7]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -689,7 +689,7 @@ func (x *LogResult) String() string {
 func (*LogResult) ProtoMessage() {}
 
 func (x *LogResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[7]
+	mi := &file_pluggableharness_kernel_v1_kernel_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -702,52 +702,52 @@ func (x *LogResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogResult.ProtoReflect.Descriptor instead.
 func (*LogResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP(), []int{7}
 }
 
-var File_pluggableharness_agent_kernel_v1_kernel_proto protoreflect.FileDescriptor
+var File_pluggableharness_kernel_v1_kernel_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc = "" +
+const file_pluggableharness_kernel_v1_kernel_proto_rawDesc = "" +
 	"\n" +
-	"-pluggableharness/agent/kernel/v1/kernel.proto\x12 pluggableharness.agent.kernel.v1\x1a-pluggableharness/agent/common/v1/common.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a'pluggableharness/agent/log/v1/log.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a/pluggableharness/agent/session/v1/session.proto\"\xaf\x02\n" +
+	"'pluggableharness/kernel/v1/kernel.proto\x12\x1apluggableharness.kernel.v1\x1a'pluggableharness/common/v1/common.proto\x1a)pluggableharness/content/v1/content.proto\x1a!pluggableharness/log/v1/log.proto\x1a%pluggableharness/model/v1/model.proto\x1a)pluggableharness/session/v1/session.proto\"\xa9\x02\n" +
 	"\x11RunSessionRequest\x12\x18\n" +
 	"\aprofile\x18\x01 \x01(\tR\aprofile\x12\x16\n" +
 	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12*\n" +
 	"\x11parent_session_id\x18\x03 \x01(\tR\x0fparentSessionId\x12'\n" +
 	"\x0fremaining_depth\x18\x04 \x01(\x05R\x0eremainingDepth\x129\n" +
-	"\x19remaining_cost_budget_usd\x18\x05 \x01(\x01R\x16remainingCostBudgetUsd\x12X\n" +
-	"\x10scoped_providers\x18\x06 \x03(\v2-.pluggableharness.agent.common.v1.ProviderRefR\x0fscopedProviders\"\xd0\x02\n" +
+	"\x19remaining_cost_budget_usd\x18\x05 \x01(\x01R\x16remainingCostBudgetUsd\x12R\n" +
+	"\x10scoped_providers\x18\x06 \x03(\v2'.pluggableharness.common.v1.ProviderRefR\x0fscopedProviders\"\xc4\x02\n" +
 	"\x10RunSessionResult\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12O\n" +
-	"\rfinal_message\x18\x02 \x01(\v2*.pluggableharness.agent.content.v1.MessageR\ffinalMessage\x12H\n" +
-	"\x06status\x18\x03 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06status\x12$\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12I\n" +
+	"\rfinal_message\x18\x02 \x01(\v2$.pluggableharness.content.v1.MessageR\ffinalMessage\x12B\n" +
+	"\x06status\x18\x03 \x01(\x0e2*.pluggableharness.session.v1.SessionStatusR\x06status\x12$\n" +
 	"\x0etotal_cost_usd\x18\x04 \x01(\x01R\ftotalCostUsd\x12,\n" +
 	"\x12total_input_tokens\x18\x05 \x01(\x03R\x10totalInputTokens\x12.\n" +
-	"\x13total_output_tokens\x18\x06 \x01(\x03R\x11totalOutputTokens\"\xba\x01\n" +
-	"\x12CountTokensRequest\x12I\n" +
-	"\acontent\x18\x01 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\x12K\n" +
-	"\tmodel_ref\x18\x02 \x01(\v2).pluggableharness.agent.model.v1.ModelRefH\x00R\bmodelRef\x88\x01\x01B\f\n" +
+	"\x13total_output_tokens\x18\x06 \x01(\x03R\x11totalOutputTokens\"\xae\x01\n" +
+	"\x12CountTokensRequest\x12C\n" +
+	"\acontent\x18\x01 \x03(\v2).pluggableharness.content.v1.ContentBlockR\acontent\x12E\n" +
+	"\tmodel_ref\x18\x02 \x01(\v2#.pluggableharness.model.v1.ModelRefH\x00R\bmodelRef\x88\x01\x01B\f\n" +
 	"\n" +
 	"_model_ref\"?\n" +
 	"\x11CountTokensResult\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\x03R\x05count\x12\x14\n" +
-	"\x05exact\x18\x02 \x01(\bR\x05exact\"\xae\x01\n" +
+	"\x05exact\x18\x02 \x01(\bR\x05exact\"\xa8\x01\n" +
 	"\vEmitRequest\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12?\n" +
-	"\x04kind\x18\x02 \x01(\x0e2+.pluggableharness.agent.kernel.v1.EventKindR\x04kind\x12%\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x129\n" +
+	"\x04kind\x18\x02 \x01(\x0e2%.pluggableharness.kernel.v1.EventKindR\x04kind\x12%\n" +
 	"\x0eschema_version\x18\x03 \x01(\tR\rschemaVersion\x12\x18\n" +
 	"\apayload\x18\x04 \x01(\fR\apayload\"8\n" +
 	"\n" +
 	"EmitResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\bsequence\x18\x02 \x01(\x03R\bsequence\"~\n" +
+	"\bsequence\x18\x02 \x01(\x03R\bsequence\"x\n" +
 	"\n" +
 	"LogRequest\x12\"\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01\x12=\n" +
-	"\x05entry\x18\x02 \x01(\v2'.pluggableharness.agent.log.v1.LogEntryR\x05entryB\r\n" +
+	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01\x127\n" +
+	"\x05entry\x18\x02 \x01(\v2!.pluggableharness.log.v1.LogEntryR\x05entryB\r\n" +
 	"\v_session_id\"\v\n" +
 	"\tLogResult*\xb9\x02\n" +
 	"\tEventKind\x12\x1a\n" +
@@ -762,61 +762,61 @@ const file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc = "" +
 	"\x18EVENT_KIND_MEMORY_UPDATE\x10\b\x12\x1c\n" +
 	"\x18EVENT_KIND_MEMORY_DELETE\x10\t\x12\x19\n" +
 	"\x15EVENT_KIND_HOOK_ERROR\x10\n" +
-	"2\xcf\x03\n" +
-	"\x15KernelCallbackService\x12u\n" +
+	"2\x9f\x03\n" +
+	"\x15KernelCallbackService\x12i\n" +
 	"\n" +
-	"RunSession\x123.pluggableharness.agent.kernel.v1.RunSessionRequest\x1a2.pluggableharness.agent.kernel.v1.RunSessionResult\x12x\n" +
-	"\vCountTokens\x124.pluggableharness.agent.kernel.v1.CountTokensRequest\x1a3.pluggableharness.agent.kernel.v1.CountTokensResult\x12c\n" +
-	"\x04Emit\x12-.pluggableharness.agent.kernel.v1.EmitRequest\x1a,.pluggableharness.agent.kernel.v1.EmitResult\x12`\n" +
-	"\x03Log\x12,.pluggableharness.agent.kernel.v1.LogRequest\x1a+.pluggableharness.agent.kernel.v1.LogResultB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
+	"RunSession\x12-.pluggableharness.kernel.v1.RunSessionRequest\x1a,.pluggableharness.kernel.v1.RunSessionResult\x12l\n" +
+	"\vCountTokens\x12..pluggableharness.kernel.v1.CountTokensRequest\x1a-.pluggableharness.kernel.v1.CountTokensResult\x12W\n" +
+	"\x04Emit\x12'.pluggableharness.kernel.v1.EmitRequest\x1a&.pluggableharness.kernel.v1.EmitResult\x12T\n" +
+	"\x03Log\x12&.pluggableharness.kernel.v1.LogRequest\x1a%.pluggableharness.kernel.v1.LogResultB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescData []byte
+	file_pluggableharness_kernel_v1_kernel_proto_rawDescOnce sync.Once
+	file_pluggableharness_kernel_v1_kernel_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc), len(file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc)))
+func file_pluggableharness_kernel_v1_kernel_proto_rawDescGZIP() []byte {
+	file_pluggableharness_kernel_v1_kernel_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_kernel_v1_kernel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_kernel_v1_kernel_proto_rawDesc), len(file_pluggableharness_kernel_v1_kernel_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_kernel_v1_kernel_proto_rawDescData
+	return file_pluggableharness_kernel_v1_kernel_proto_rawDescData
 }
 
-var file_pluggableharness_agent_kernel_v1_kernel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_pluggableharness_agent_kernel_v1_kernel_proto_goTypes = []any{
-	(EventKind)(0),             // 0: pluggableharness.agent.kernel.v1.EventKind
-	(*RunSessionRequest)(nil),  // 1: pluggableharness.agent.kernel.v1.RunSessionRequest
-	(*RunSessionResult)(nil),   // 2: pluggableharness.agent.kernel.v1.RunSessionResult
-	(*CountTokensRequest)(nil), // 3: pluggableharness.agent.kernel.v1.CountTokensRequest
-	(*CountTokensResult)(nil),  // 4: pluggableharness.agent.kernel.v1.CountTokensResult
-	(*EmitRequest)(nil),        // 5: pluggableharness.agent.kernel.v1.EmitRequest
-	(*EmitResult)(nil),         // 6: pluggableharness.agent.kernel.v1.EmitResult
-	(*LogRequest)(nil),         // 7: pluggableharness.agent.kernel.v1.LogRequest
-	(*LogResult)(nil),          // 8: pluggableharness.agent.kernel.v1.LogResult
-	(*v1.ProviderRef)(nil),     // 9: pluggableharness.agent.common.v1.ProviderRef
-	(*v11.Message)(nil),        // 10: pluggableharness.agent.content.v1.Message
-	(v12.SessionStatus)(0),     // 11: pluggableharness.agent.session.v1.SessionStatus
-	(*v11.ContentBlock)(nil),   // 12: pluggableharness.agent.content.v1.ContentBlock
-	(*v13.ModelRef)(nil),       // 13: pluggableharness.agent.model.v1.ModelRef
-	(*v14.LogEntry)(nil),       // 14: pluggableharness.agent.log.v1.LogEntry
+var file_pluggableharness_kernel_v1_kernel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_kernel_v1_kernel_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_pluggableharness_kernel_v1_kernel_proto_goTypes = []any{
+	(EventKind)(0),             // 0: pluggableharness.kernel.v1.EventKind
+	(*RunSessionRequest)(nil),  // 1: pluggableharness.kernel.v1.RunSessionRequest
+	(*RunSessionResult)(nil),   // 2: pluggableharness.kernel.v1.RunSessionResult
+	(*CountTokensRequest)(nil), // 3: pluggableharness.kernel.v1.CountTokensRequest
+	(*CountTokensResult)(nil),  // 4: pluggableharness.kernel.v1.CountTokensResult
+	(*EmitRequest)(nil),        // 5: pluggableharness.kernel.v1.EmitRequest
+	(*EmitResult)(nil),         // 6: pluggableharness.kernel.v1.EmitResult
+	(*LogRequest)(nil),         // 7: pluggableharness.kernel.v1.LogRequest
+	(*LogResult)(nil),          // 8: pluggableharness.kernel.v1.LogResult
+	(*v1.ProviderRef)(nil),     // 9: pluggableharness.common.v1.ProviderRef
+	(*v11.Message)(nil),        // 10: pluggableharness.content.v1.Message
+	(v12.SessionStatus)(0),     // 11: pluggableharness.session.v1.SessionStatus
+	(*v11.ContentBlock)(nil),   // 12: pluggableharness.content.v1.ContentBlock
+	(*v13.ModelRef)(nil),       // 13: pluggableharness.model.v1.ModelRef
+	(*v14.LogEntry)(nil),       // 14: pluggableharness.log.v1.LogEntry
 }
-var file_pluggableharness_agent_kernel_v1_kernel_proto_depIdxs = []int32{
-	9,  // 0: pluggableharness.agent.kernel.v1.RunSessionRequest.scoped_providers:type_name -> pluggableharness.agent.common.v1.ProviderRef
-	10, // 1: pluggableharness.agent.kernel.v1.RunSessionResult.final_message:type_name -> pluggableharness.agent.content.v1.Message
-	11, // 2: pluggableharness.agent.kernel.v1.RunSessionResult.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
-	12, // 3: pluggableharness.agent.kernel.v1.CountTokensRequest.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	13, // 4: pluggableharness.agent.kernel.v1.CountTokensRequest.model_ref:type_name -> pluggableharness.agent.model.v1.ModelRef
-	0,  // 5: pluggableharness.agent.kernel.v1.EmitRequest.kind:type_name -> pluggableharness.agent.kernel.v1.EventKind
-	14, // 6: pluggableharness.agent.kernel.v1.LogRequest.entry:type_name -> pluggableharness.agent.log.v1.LogEntry
-	1,  // 7: pluggableharness.agent.kernel.v1.KernelCallbackService.RunSession:input_type -> pluggableharness.agent.kernel.v1.RunSessionRequest
-	3,  // 8: pluggableharness.agent.kernel.v1.KernelCallbackService.CountTokens:input_type -> pluggableharness.agent.kernel.v1.CountTokensRequest
-	5,  // 9: pluggableharness.agent.kernel.v1.KernelCallbackService.Emit:input_type -> pluggableharness.agent.kernel.v1.EmitRequest
-	7,  // 10: pluggableharness.agent.kernel.v1.KernelCallbackService.Log:input_type -> pluggableharness.agent.kernel.v1.LogRequest
-	2,  // 11: pluggableharness.agent.kernel.v1.KernelCallbackService.RunSession:output_type -> pluggableharness.agent.kernel.v1.RunSessionResult
-	4,  // 12: pluggableharness.agent.kernel.v1.KernelCallbackService.CountTokens:output_type -> pluggableharness.agent.kernel.v1.CountTokensResult
-	6,  // 13: pluggableharness.agent.kernel.v1.KernelCallbackService.Emit:output_type -> pluggableharness.agent.kernel.v1.EmitResult
-	8,  // 14: pluggableharness.agent.kernel.v1.KernelCallbackService.Log:output_type -> pluggableharness.agent.kernel.v1.LogResult
+var file_pluggableharness_kernel_v1_kernel_proto_depIdxs = []int32{
+	9,  // 0: pluggableharness.kernel.v1.RunSessionRequest.scoped_providers:type_name -> pluggableharness.common.v1.ProviderRef
+	10, // 1: pluggableharness.kernel.v1.RunSessionResult.final_message:type_name -> pluggableharness.content.v1.Message
+	11, // 2: pluggableharness.kernel.v1.RunSessionResult.status:type_name -> pluggableharness.session.v1.SessionStatus
+	12, // 3: pluggableharness.kernel.v1.CountTokensRequest.content:type_name -> pluggableharness.content.v1.ContentBlock
+	13, // 4: pluggableharness.kernel.v1.CountTokensRequest.model_ref:type_name -> pluggableharness.model.v1.ModelRef
+	0,  // 5: pluggableharness.kernel.v1.EmitRequest.kind:type_name -> pluggableharness.kernel.v1.EventKind
+	14, // 6: pluggableharness.kernel.v1.LogRequest.entry:type_name -> pluggableharness.log.v1.LogEntry
+	1,  // 7: pluggableharness.kernel.v1.KernelCallbackService.RunSession:input_type -> pluggableharness.kernel.v1.RunSessionRequest
+	3,  // 8: pluggableharness.kernel.v1.KernelCallbackService.CountTokens:input_type -> pluggableharness.kernel.v1.CountTokensRequest
+	5,  // 9: pluggableharness.kernel.v1.KernelCallbackService.Emit:input_type -> pluggableharness.kernel.v1.EmitRequest
+	7,  // 10: pluggableharness.kernel.v1.KernelCallbackService.Log:input_type -> pluggableharness.kernel.v1.LogRequest
+	2,  // 11: pluggableharness.kernel.v1.KernelCallbackService.RunSession:output_type -> pluggableharness.kernel.v1.RunSessionResult
+	4,  // 12: pluggableharness.kernel.v1.KernelCallbackService.CountTokens:output_type -> pluggableharness.kernel.v1.CountTokensResult
+	6,  // 13: pluggableharness.kernel.v1.KernelCallbackService.Emit:output_type -> pluggableharness.kernel.v1.EmitResult
+	8,  // 14: pluggableharness.kernel.v1.KernelCallbackService.Log:output_type -> pluggableharness.kernel.v1.LogResult
 	11, // [11:15] is the sub-list for method output_type
 	7,  // [7:11] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
@@ -824,29 +824,29 @@ var file_pluggableharness_agent_kernel_v1_kernel_proto_depIdxs = []int32{
 	0,  // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_kernel_v1_kernel_proto_init() }
-func file_pluggableharness_agent_kernel_v1_kernel_proto_init() {
-	if File_pluggableharness_agent_kernel_v1_kernel_proto != nil {
+func init() { file_pluggableharness_kernel_v1_kernel_proto_init() }
+func file_pluggableharness_kernel_v1_kernel_proto_init() {
+	if File_pluggableharness_kernel_v1_kernel_proto != nil {
 		return
 	}
-	file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[2].OneofWrappers = []any{}
-	file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes[6].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_kernel_proto_msgTypes[2].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_kernel_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc), len(file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_kernel_v1_kernel_proto_rawDesc), len(file_pluggableharness_kernel_v1_kernel_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_pluggableharness_agent_kernel_v1_kernel_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_kernel_v1_kernel_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_agent_kernel_v1_kernel_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_agent_kernel_v1_kernel_proto_msgTypes,
+		GoTypes:           file_pluggableharness_kernel_v1_kernel_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_kernel_v1_kernel_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_kernel_v1_kernel_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_kernel_v1_kernel_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_kernel_v1_kernel_proto = out.File
-	file_pluggableharness_agent_kernel_v1_kernel_proto_goTypes = nil
-	file_pluggableharness_agent_kernel_v1_kernel_proto_depIdxs = nil
+	File_pluggableharness_kernel_v1_kernel_proto = out.File
+	file_pluggableharness_kernel_v1_kernel_proto_goTypes = nil
+	file_pluggableharness_kernel_v1_kernel_proto_depIdxs = nil
 }

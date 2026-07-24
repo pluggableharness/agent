@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/memory/v1/memory.proto
+// source: pluggableharness/memory/v1/memory.proto
 
-// Package pluggableharness.agent.memory.v1 defines the memory provider plugin protocol
+// Package pluggableharness.memory.v1 defines the memory provider plugin protocol
 // described in specifications/memory.md — plugins that persist knowledge
 // across sessions (the write side) and recall it into future ones (the
 // read side). A distinct plugin category with its own protocol, not a
@@ -28,18 +28,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MemoryService_GetCapabilities_FullMethodName = "/pluggableharness.agent.memory.v1.MemoryService/GetCapabilities"
-	MemoryService_Configure_FullMethodName       = "/pluggableharness.agent.memory.v1.MemoryService/Configure"
-	MemoryService_Recall_FullMethodName          = "/pluggableharness.agent.memory.v1.MemoryService/Recall"
-	MemoryService_Record_FullMethodName          = "/pluggableharness.agent.memory.v1.MemoryService/Record"
-	MemoryService_UpdateRecord_FullMethodName    = "/pluggableharness.agent.memory.v1.MemoryService/UpdateRecord"
-	MemoryService_DeleteRecord_FullMethodName    = "/pluggableharness.agent.memory.v1.MemoryService/DeleteRecord"
-	MemoryService_ApproveRecord_FullMethodName   = "/pluggableharness.agent.memory.v1.MemoryService/ApproveRecord"
-	MemoryService_RejectRecord_FullMethodName    = "/pluggableharness.agent.memory.v1.MemoryService/RejectRecord"
-	MemoryService_Render_FullMethodName          = "/pluggableharness.agent.memory.v1.MemoryService/Render"
-	MemoryService_ListRecords_FullMethodName     = "/pluggableharness.agent.memory.v1.MemoryService/ListRecords"
-	MemoryService_GetRecord_FullMethodName       = "/pluggableharness.agent.memory.v1.MemoryService/GetRecord"
-	MemoryService_Describe_FullMethodName        = "/pluggableharness.agent.memory.v1.MemoryService/Describe"
+	MemoryService_GetCapabilities_FullMethodName = "/pluggableharness.memory.v1.MemoryService/GetCapabilities"
+	MemoryService_Configure_FullMethodName       = "/pluggableharness.memory.v1.MemoryService/Configure"
+	MemoryService_Recall_FullMethodName          = "/pluggableharness.memory.v1.MemoryService/Recall"
+	MemoryService_Record_FullMethodName          = "/pluggableharness.memory.v1.MemoryService/Record"
+	MemoryService_UpdateRecord_FullMethodName    = "/pluggableharness.memory.v1.MemoryService/UpdateRecord"
+	MemoryService_DeleteRecord_FullMethodName    = "/pluggableharness.memory.v1.MemoryService/DeleteRecord"
+	MemoryService_ApproveRecord_FullMethodName   = "/pluggableharness.memory.v1.MemoryService/ApproveRecord"
+	MemoryService_RejectRecord_FullMethodName    = "/pluggableharness.memory.v1.MemoryService/RejectRecord"
+	MemoryService_Render_FullMethodName          = "/pluggableharness.memory.v1.MemoryService/Render"
+	MemoryService_ListRecords_FullMethodName     = "/pluggableharness.memory.v1.MemoryService/ListRecords"
+	MemoryService_GetRecord_FullMethodName       = "/pluggableharness.memory.v1.MemoryService/GetRecord"
+	MemoryService_Describe_FullMethodName        = "/pluggableharness.memory.v1.MemoryService/Describe"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -583,7 +583,7 @@ func _MemoryService_Describe_Handler(srv interface{}, ctx context.Context, dec f
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var MemoryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.memory.v1.MemoryService",
+	ServiceName: "pluggableharness.memory.v1.MemoryService",
 	HandlerType: (*MemoryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -636,5 +636,5 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pluggableharness/agent/memory/v1/memory.proto",
+	Metadata: "pluggableharness/memory/v1/memory.proto",
 }

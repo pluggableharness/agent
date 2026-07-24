@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/frontend/v1/frontend.proto
+// source: pluggableharness/frontend/v1/frontend.proto
 
-// Package pluggableharness.agent.frontend.v1 defines the frontend provider plugin protocol
+// Package pluggableharness.frontend.v1 defines the frontend provider plugin protocol
 // described in specifications/frontend.md §3 (Attach, ServerEvent,
 // ClientEvent, ...).
 
@@ -23,10 +23,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FrontendService_GetCapabilities_FullMethodName = "/pluggableharness.agent.frontend.v1.FrontendService/GetCapabilities"
-	FrontendService_Configure_FullMethodName       = "/pluggableharness.agent.frontend.v1.FrontendService/Configure"
-	FrontendService_Attach_FullMethodName          = "/pluggableharness.agent.frontend.v1.FrontendService/Attach"
-	FrontendService_Describe_FullMethodName        = "/pluggableharness.agent.frontend.v1.FrontendService/Describe"
+	FrontendService_GetCapabilities_FullMethodName = "/pluggableharness.frontend.v1.FrontendService/GetCapabilities"
+	FrontendService_Configure_FullMethodName       = "/pluggableharness.frontend.v1.FrontendService/Configure"
+	FrontendService_Attach_FullMethodName          = "/pluggableharness.frontend.v1.FrontendService/Attach"
+	FrontendService_Describe_FullMethodName        = "/pluggableharness.frontend.v1.FrontendService/Describe"
 )
 
 // FrontendServiceClient is the client API for FrontendService service.
@@ -302,7 +302,7 @@ func _FrontendService_Describe_Handler(srv interface{}, ctx context.Context, dec
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var FrontendService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.frontend.v1.FrontendService",
+	ServiceName: "pluggableharness.frontend.v1.FrontendService",
 	HandlerType: (*FrontendServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -326,5 +326,5 @@ var FrontendService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "pluggableharness/agent/frontend/v1/frontend.proto",
+	Metadata: "pluggableharness/frontend/v1/frontend.proto",
 }

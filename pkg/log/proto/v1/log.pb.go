@@ -2,12 +2,12 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: pluggableharness/agent/log/v1/log.proto
+// source: pluggableharness/log/v1/log.proto
 
-// Package pluggableharness.agent.log.v1 defines the structured log entry types described
+// Package pluggableharness.log.v1 defines the structured log entry types described
 // in specifications/kernel-callbacks.md §5 — how a plugin's own log output
 // reaches the kernel's centralized logging instead of vanishing into an
-// unread subprocess stderr. Consumed by pluggableharness.agent.kernel.v1's Log RPC
+// unread subprocess stderr. Consumed by pluggableharness.kernel.v1's Log RPC
 // (KernelCallbackService), the plugin-to-kernel calling channel every
 // plugin gets at handshake.
 
@@ -85,11 +85,11 @@ func (x LogLevel) String() string {
 }
 
 func (LogLevel) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_log_v1_log_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_log_v1_log_proto_enumTypes[0].Descriptor()
 }
 
 func (LogLevel) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_log_v1_log_proto_enumTypes[0]
+	return &file_pluggableharness_log_v1_log_proto_enumTypes[0]
 }
 
 func (x LogLevel) Number() protoreflect.EnumNumber {
@@ -98,7 +98,7 @@ func (x LogLevel) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LogLevel.Descriptor instead.
 func (LogLevel) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_log_v1_log_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_log_v1_log_proto_rawDescGZIP(), []int{0}
 }
 
 // LogEntry is one structured log line, mirroring Go's log/slog record
@@ -107,7 +107,7 @@ func (LogLevel) EnumDescriptor() ([]byte, []int) {
 type LogEntry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// This entry's severity. MUST be set.
-	Level LogLevel `protobuf:"varint,1,opt,name=level,proto3,enum=pluggableharness.agent.log.v1.LogLevel" json:"level,omitempty"`
+	Level LogLevel `protobuf:"varint,1,opt,name=level,proto3,enum=pluggableharness.log.v1.LogLevel" json:"level,omitempty"`
 	// A dotted sub-component name within the plugin, e.g. "anthropic.retry",
 	// mirroring slog's logger-naming convention. MAY be empty (the plugin's
 	// root/unnamed logger).
@@ -128,7 +128,7 @@ type LogEntry struct {
 
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
-	mi := &file_pluggableharness_agent_log_v1_log_proto_msgTypes[0]
+	mi := &file_pluggableharness_log_v1_log_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -140,7 +140,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_log_v1_log_proto_msgTypes[0]
+	mi := &file_pluggableharness_log_v1_log_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -153,7 +153,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_log_v1_log_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_log_v1_log_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *LogEntry) GetLevel() LogLevel {
@@ -191,13 +191,13 @@ func (x *LogEntry) GetTime() *timestamppb.Timestamp {
 	return nil
 }
 
-var File_pluggableharness_agent_log_v1_log_proto protoreflect.FileDescriptor
+var File_pluggableharness_log_v1_log_proto protoreflect.FileDescriptor
 
-const file_pluggableharness_agent_log_v1_log_proto_rawDesc = "" +
+const file_pluggableharness_log_v1_log_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/agent/log/v1/log.proto\x12\x1dpluggableharness.agent.log.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdc\x01\n" +
-	"\bLogEntry\x12=\n" +
-	"\x05level\x18\x01 \x01(\x0e2'.pluggableharness.agent.log.v1.LogLevelR\x05level\x12\x16\n" +
+	"!pluggableharness/log/v1/log.proto\x12\x17pluggableharness.log.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd6\x01\n" +
+	"\bLogEntry\x127\n" +
+	"\x05level\x18\x01 \x01(\x0e2!.pluggableharness.log.v1.LogLevelR\x05level\x12\x16\n" +
 	"\x06logger\x18\x02 \x01(\tR\x06logger\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12/\n" +
 	"\x06fields\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06fields\x12.\n" +
@@ -212,29 +212,29 @@ const file_pluggableharness_agent_log_v1_log_proto_rawDesc = "" +
 	"\x0fLOG_LEVEL_FATAL\x10\x06B:Z8github.com/pluggableharness/agent/pkg/log/proto/v1;logv1b\x06proto3"
 
 var (
-	file_pluggableharness_agent_log_v1_log_proto_rawDescOnce sync.Once
-	file_pluggableharness_agent_log_v1_log_proto_rawDescData []byte
+	file_pluggableharness_log_v1_log_proto_rawDescOnce sync.Once
+	file_pluggableharness_log_v1_log_proto_rawDescData []byte
 )
 
-func file_pluggableharness_agent_log_v1_log_proto_rawDescGZIP() []byte {
-	file_pluggableharness_agent_log_v1_log_proto_rawDescOnce.Do(func() {
-		file_pluggableharness_agent_log_v1_log_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_log_v1_log_proto_rawDesc), len(file_pluggableharness_agent_log_v1_log_proto_rawDesc)))
+func file_pluggableharness_log_v1_log_proto_rawDescGZIP() []byte {
+	file_pluggableharness_log_v1_log_proto_rawDescOnce.Do(func() {
+		file_pluggableharness_log_v1_log_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pluggableharness_log_v1_log_proto_rawDesc), len(file_pluggableharness_log_v1_log_proto_rawDesc)))
 	})
-	return file_pluggableharness_agent_log_v1_log_proto_rawDescData
+	return file_pluggableharness_log_v1_log_proto_rawDescData
 }
 
-var file_pluggableharness_agent_log_v1_log_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_agent_log_v1_log_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_pluggableharness_agent_log_v1_log_proto_goTypes = []any{
-	(LogLevel)(0),                 // 0: pluggableharness.agent.log.v1.LogLevel
-	(*LogEntry)(nil),              // 1: pluggableharness.agent.log.v1.LogEntry
+var file_pluggableharness_log_v1_log_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_log_v1_log_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_pluggableharness_log_v1_log_proto_goTypes = []any{
+	(LogLevel)(0),                 // 0: pluggableharness.log.v1.LogLevel
+	(*LogEntry)(nil),              // 1: pluggableharness.log.v1.LogEntry
 	(*structpb.Struct)(nil),       // 2: google.protobuf.Struct
 	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 }
-var file_pluggableharness_agent_log_v1_log_proto_depIdxs = []int32{
-	0, // 0: pluggableharness.agent.log.v1.LogEntry.level:type_name -> pluggableharness.agent.log.v1.LogLevel
-	2, // 1: pluggableharness.agent.log.v1.LogEntry.fields:type_name -> google.protobuf.Struct
-	3, // 2: pluggableharness.agent.log.v1.LogEntry.time:type_name -> google.protobuf.Timestamp
+var file_pluggableharness_log_v1_log_proto_depIdxs = []int32{
+	0, // 0: pluggableharness.log.v1.LogEntry.level:type_name -> pluggableharness.log.v1.LogLevel
+	2, // 1: pluggableharness.log.v1.LogEntry.fields:type_name -> google.protobuf.Struct
+	3, // 2: pluggableharness.log.v1.LogEntry.time:type_name -> google.protobuf.Timestamp
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -242,27 +242,27 @@ var file_pluggableharness_agent_log_v1_log_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_pluggableharness_agent_log_v1_log_proto_init() }
-func file_pluggableharness_agent_log_v1_log_proto_init() {
-	if File_pluggableharness_agent_log_v1_log_proto != nil {
+func init() { file_pluggableharness_log_v1_log_proto_init() }
+func file_pluggableharness_log_v1_log_proto_init() {
+	if File_pluggableharness_log_v1_log_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_log_v1_log_proto_rawDesc), len(file_pluggableharness_agent_log_v1_log_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_log_v1_log_proto_rawDesc), len(file_pluggableharness_log_v1_log_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_pluggableharness_agent_log_v1_log_proto_goTypes,
-		DependencyIndexes: file_pluggableharness_agent_log_v1_log_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_agent_log_v1_log_proto_enumTypes,
-		MessageInfos:      file_pluggableharness_agent_log_v1_log_proto_msgTypes,
+		GoTypes:           file_pluggableharness_log_v1_log_proto_goTypes,
+		DependencyIndexes: file_pluggableharness_log_v1_log_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_log_v1_log_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_log_v1_log_proto_msgTypes,
 	}.Build()
-	File_pluggableharness_agent_log_v1_log_proto = out.File
-	file_pluggableharness_agent_log_v1_log_proto_goTypes = nil
-	file_pluggableharness_agent_log_v1_log_proto_depIdxs = nil
+	File_pluggableharness_log_v1_log_proto = out.File
+	file_pluggableharness_log_v1_log_proto_goTypes = nil
+	file_pluggableharness_log_v1_log_proto_depIdxs = nil
 }

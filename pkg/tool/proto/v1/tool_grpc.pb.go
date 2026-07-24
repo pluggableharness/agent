@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: pluggableharness/agent/tool/v1/tool.proto
+// source: pluggableharness/tool/v1/tool.proto
 
-// Package pluggableharness.agent.tool.v1 defines the tool provider plugin protocol
+// Package pluggableharness.tool.v1 defines the tool provider plugin protocol
 // described in specifications/tool.md — the wire contract for file I/O,
 // shell execution, search, web access, task tracking, sub-agent spawning,
 // and similar operations.
@@ -24,12 +24,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ToolService_GetSchema_FullMethodName = "/pluggableharness.agent.tool.v1.ToolService/GetSchema"
-	ToolService_Configure_FullMethodName = "/pluggableharness.agent.tool.v1.ToolService/Configure"
-	ToolService_Invoke_FullMethodName    = "/pluggableharness.agent.tool.v1.ToolService/Invoke"
-	ToolService_Render_FullMethodName    = "/pluggableharness.agent.tool.v1.ToolService/Render"
-	ToolService_Preview_FullMethodName   = "/pluggableharness.agent.tool.v1.ToolService/Preview"
-	ToolService_Describe_FullMethodName  = "/pluggableharness.agent.tool.v1.ToolService/Describe"
+	ToolService_GetSchema_FullMethodName = "/pluggableharness.tool.v1.ToolService/GetSchema"
+	ToolService_Configure_FullMethodName = "/pluggableharness.tool.v1.ToolService/Configure"
+	ToolService_Invoke_FullMethodName    = "/pluggableharness.tool.v1.ToolService/Invoke"
+	ToolService_Render_FullMethodName    = "/pluggableharness.tool.v1.ToolService/Render"
+	ToolService_Preview_FullMethodName   = "/pluggableharness.tool.v1.ToolService/Preview"
+	ToolService_Describe_FullMethodName  = "/pluggableharness.tool.v1.ToolService/Describe"
 )
 
 // ToolServiceClient is the client API for ToolService service.
@@ -349,7 +349,7 @@ func _ToolService_Describe_Handler(srv interface{}, ctx context.Context, dec fun
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ToolService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pluggableharness.agent.tool.v1.ToolService",
+	ServiceName: "pluggableharness.tool.v1.ToolService",
 	HandlerType: (*ToolServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -380,5 +380,5 @@ var ToolService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "pluggableharness/agent/tool/v1/tool.proto",
+	Metadata: "pluggableharness/tool/v1/tool.proto",
 }

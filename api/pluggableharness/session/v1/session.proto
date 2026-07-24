@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+// Package pluggableharness.session.v1 defines the session lifecycle status enum
+// shared by kernel-callbacks.md §1's RunSessionResult, state-backend.md
+// §4.2's session_meta.status column, and frontend.md §3.2's
+// session_tree_update ServerEvent.
+package pluggableharness.session.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/session/proto/v1;sessionv1";
+
+// SessionStatus is a session's lifecycle state. RUNNING is the only value
+// a live (non-terminal) session can be in; every other value is terminal.
+// agent-loop.md §7.1's RunSessionResult never carries RUNNING (a
+// RunSession call only returns once its child session has reached a
+// terminal state) — it reuses this same enum rather than defining a
+// narrower terminal-only one, since the two are the same status space
+// observed at different times.
+enum SessionStatus {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  SESSION_STATUS_UNSPECIFIED = 0;
+  // The session is still in progress.
+  SESSION_STATUS_RUNNING = 1;
+  // The session finished normally.
+  SESSION_STATUS_COMPLETED = 2;
+  // The session hit its configured max-turns bound (agent-loop.md §3.2).
+  SESSION_STATUS_ERROR_MAX_TURNS = 3;
+  // The session hit its configured max-cost-USD bound.
+  SESSION_STATUS_ERROR_MAX_BUDGET_USD = 4;
+  // The session hit its configured max-wall-clock bound.
+  SESSION_STATUS_ERROR_MAX_WALL_CLOCK = 5;
+  // The session was cancelled (user interrupt, parent cancellation
+  // propagation per agent-loop.md §7.7).
+  SESSION_STATUS_CANCELLED = 6;
+  // The session ended due to an unrecoverable error.
+  SESSION_STATUS_FAILED = 7;
+}
+
+// SessionInfo is a session's shareable summary, mirroring
+// state-backend.md's session_meta row plus a cheap cost_ledger SUM. Used
+// by frontend.md's SessionCreated/SessionAttached/SessionList ServerEvent
+// variants — the frontend protocol's read-only view of session lifecycle
+// state, never mutated by a frontend directly.
+message SessionInfo {
+  // The session's id. ULID, matches the session's sqlite filename stem
+  // (state-backend.md §"File layout").
+  string session_id = 1;
+
+  // The parent session's id, when this is a sub-agent session
+  // (agent-loop/subagents.md). Absent for a root session — mirrors
+  // session_meta.parent_session_id.
+  optional string parent_session_id = 2;
+
+  // The agent.hcl profile this session was created under.
+  string profile = 3;
+
+  // The session's current lifecycle status.
+  SessionStatus status = 4;
+
+  // The session's depth in its ancestor chain — mirrors
+  // session_meta.depth (agent-loop/subagents.md#depth-limits).
+  int32 depth = 5;
+
+  // When the session was created. Mirrors session_meta.started_at.
+  google.protobuf.Timestamp started_at = 6;
+
+  // When the session reached a terminal status. Absent while RUNNING.
+  // Mirrors session_meta.ended_at.
+  optional google.protobuf.Timestamp ended_at = 7;
+
+  // The session's running total spend — SUM(cost_usd) over
+  // state-backend.md's cost_ledger table for this session. Absent if no
+  // cost has been incurred yet, rather than a meaningless zero.
+  optional double cost_usd = 8;
+}
