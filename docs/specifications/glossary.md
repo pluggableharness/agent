@@ -14,6 +14,8 @@ Terminology used throughout `docs/specifications/`.
 | **Hook** | A named lifecycle point in the agent loop that plugins and first-party policy can subscribe to (`session-start`, `context-assemble`, `pre-model-call`, `post-model-response`, `pre-tool-call`, `post-tool-call`, `plan-ready`, `post-apply`, `session-end`). See [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md). |
 | **Hook mode** | How a hook subscriber participates: `observe` (read-only), `transform` (returns a modified payload for the next subscriber), or `veto` (can short-circuit with an explicit decision). |
 | **Emit** | A plugin sending a raw, opaque-payload event into the kernel, persisted verbatim to the state backend. |
+| **Event payload schema** | The `event.v1` message a given event kind's payload marshals to/from — schema_version `"1"` of that kind. Normative for the emitting owner, still opaque to the kernel at write time. See [`state-backend.md`](state-backend.md#the-kind-enum). |
+| **Backfill** | The unicast replay a frontend receives on attaching to a session: persisted events re-rendered in sequence order through the supersedes path, bracketed by `SessionAttached` and `BackfillComplete`. See [`frontend/frontend-protocol.md`](frontend/frontend-protocol.md). |
 | **Render** | A producer plugin turning its own previously-emitted payload into a display-agnostic `RenderTree`, on request from the kernel. |
 | **Paint** | A frontend plugin turning a `RenderTree` into actual pixels/text/audio. |
 | **RenderTree** | The display-agnostic intermediate representation every `Render` call returns — formally defined in [`frontend/render-tree.md`](frontend/render-tree.md) and shared verbatim by every category's `Render` RPC. |
