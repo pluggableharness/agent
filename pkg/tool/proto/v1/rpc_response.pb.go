@@ -7,10 +7,9 @@
 package toolv1
 
 import (
-	v12 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v13 "github.com/pluggableharness/agent/pkg/render/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
+	v12 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -30,11 +29,15 @@ type GetSchemaResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// One entry per operation this plugin exposes.
 	Tools []*ToolSchema `protobuf:"bytes,1,rep,name=tools,proto3" json:"tools,omitempty"`
-	// Slash commands this provider contributes, per tool.md §2.1. MAY be
-	// empty. Each entry's tool_name MUST reference one of this same
-	// provider's own operations declared in `tools` above — a provider
-	// cannot declare a slash command that invokes another provider's tool.
-	SlashCommands []*v1.SlashCommandSpec `protobuf:"bytes,2,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	// Prompt-expansion slash commands this provider contributes, per
+	// tool.md §2.1. MAY be empty. A direct-invoke command — one that
+	// actually executes something — is declared by a slashcommand.v1
+	// provider instead (specifications/slashcommand/), never here; a
+	// tool provider wanting a direct-invoke shortcut into one of its own
+	// operations implements SlashCommandService alongside ToolService in
+	// the same process (go-plugin muxes multiple services per connection,
+	// per hook.v1's precedent).
+	SlashCommands []*v1.PromptExpansionSpec `protobuf:"bytes,2,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// This provider's agent.hcl config schema, per configuration.md §4 —
 	// what fields Configure's request may be decoded from.
 	ConfigSchema *v11.ConfigSchema `protobuf:"bytes,3,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
@@ -43,7 +46,7 @@ type GetSchemaResponse struct {
 	// agent.hcl hook{} blocks. Lets the kernel validate a hook{} declaration
 	// at config-load time instead of discovering an unsupported subscription
 	// only when that hook point first fires.
-	SupportedHookPoints []v12.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v1.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -85,7 +88,7 @@ func (x *GetSchemaResponse) GetTools() []*ToolSchema {
 	return nil
 }
 
-func (x *GetSchemaResponse) GetSlashCommands() []*v1.SlashCommandSpec {
+func (x *GetSchemaResponse) GetSlashCommands() []*v1.PromptExpansionSpec {
 	if x != nil {
 		return x.SlashCommands
 	}
@@ -99,7 +102,7 @@ func (x *GetSchemaResponse) GetConfigSchema() *v11.ConfigSchema {
 	return nil
 }
 
-func (x *GetSchemaResponse) GetSupportedHookPoints() []v12.HookPoint {
+func (x *GetSchemaResponse) GetSupportedHookPoints() []v1.HookPoint {
 	if x != nil {
 		return x.SupportedHookPoints
 	}
@@ -151,7 +154,7 @@ func (*ConfigureResponse) Descriptor() ([]byte, []int) {
 type RenderResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The rendered tree.
-	Tree          *v13.RenderTree `protobuf:"bytes,1,opt,name=tree,proto3" json:"tree,omitempty"`
+	Tree          *v12.RenderTree `protobuf:"bytes,1,opt,name=tree,proto3" json:"tree,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -186,7 +189,7 @@ func (*RenderResponse) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_tool_v1_rpc_response_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RenderResponse) GetTree() *v13.RenderTree {
+func (x *RenderResponse) GetTree() *v12.RenderTree {
 	if x != nil {
 		return x.Tree
 	}
@@ -207,7 +210,7 @@ type PreviewResponse struct {
 	// mutate anything and MUST be side-effect-free — the same guarantee
 	// TOOL_KIND_DATA_SOURCE operations make, but unconditionally, regardless
 	// of the call's actual ToolKind.
-	Preview       *v13.RenderTree `protobuf:"bytes,1,opt,name=preview,proto3" json:"preview,omitempty"`
+	Preview       *v12.RenderTree `protobuf:"bytes,1,opt,name=preview,proto3" json:"preview,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -242,7 +245,7 @@ func (*PreviewResponse) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_tool_v1_rpc_response_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *PreviewResponse) GetPreview() *v13.RenderTree {
+func (x *PreviewResponse) GetPreview() *v12.RenderTree {
 	if x != nil {
 		return x.Preview
 	}
@@ -257,7 +260,7 @@ func (x *PreviewResponse) GetPreview() *v13.RenderTree {
 type DescribeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// This plugin build's identity.
-	Producer      *v12.ProducerRef `protobuf:"bytes,1,opt,name=producer,proto3" json:"producer,omitempty"`
+	Producer      *v1.ProducerRef `protobuf:"bytes,1,opt,name=producer,proto3" json:"producer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -292,7 +295,7 @@ func (*DescribeResponse) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_tool_v1_rpc_response_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *DescribeResponse) GetProducer() *v12.ProducerRef {
+func (x *DescribeResponse) GetProducer() *v1.ProducerRef {
 	if x != nil {
 		return x.Producer
 	}
@@ -303,10 +306,10 @@ var File_pluggableharness_tool_v1_rpc_response_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_tool_v1_rpc_response_proto_rawDesc = "" +
 	"\n" +
-	"+pluggableharness/tool/v1/rpc_response.proto\x12\x18pluggableharness.tool.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\x1a$pluggableharness/tool/v1/types.proto\"\xd4\x02\n" +
+	"+pluggableharness/tool/v1/rpc_response.proto\x12\x18pluggableharness.tool.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a$pluggableharness/tool/v1/types.proto\"\xd1\x02\n" +
 	"\x11GetSchemaResponse\x12:\n" +
-	"\x05tools\x18\x01 \x03(\v2$.pluggableharness.tool.v1.ToolSchemaR\x05tools\x12Y\n" +
-	"\x0eslash_commands\x18\x02 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12M\n" +
+	"\x05tools\x18\x01 \x03(\v2$.pluggableharness.tool.v1.ToolSchemaR\x05tools\x12V\n" +
+	"\x0eslash_commands\x18\x02 \x03(\v2/.pluggableharness.common.v1.PromptExpansionSpecR\rslashCommands\x12M\n" +
 	"\rconfig_schema\x18\x03 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
 	"\x15supported_hook_points\x18\x04 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPoints\"\x13\n" +
 	"\x11ConfigureResponse\"L\n" +
@@ -331,21 +334,21 @@ func file_pluggableharness_tool_v1_rpc_response_proto_rawDescGZIP() []byte {
 
 var file_pluggableharness_tool_v1_rpc_response_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pluggableharness_tool_v1_rpc_response_proto_goTypes = []any{
-	(*GetSchemaResponse)(nil),   // 0: pluggableharness.tool.v1.GetSchemaResponse
-	(*ConfigureResponse)(nil),   // 1: pluggableharness.tool.v1.ConfigureResponse
-	(*RenderResponse)(nil),      // 2: pluggableharness.tool.v1.RenderResponse
-	(*PreviewResponse)(nil),     // 3: pluggableharness.tool.v1.PreviewResponse
-	(*DescribeResponse)(nil),    // 4: pluggableharness.tool.v1.DescribeResponse
-	(*ToolSchema)(nil),          // 5: pluggableharness.tool.v1.ToolSchema
-	(*v1.SlashCommandSpec)(nil), // 6: pluggableharness.slashcommand.v1.SlashCommandSpec
-	(*v11.ConfigSchema)(nil),    // 7: pluggableharness.config.v1.ConfigSchema
-	(v12.HookPoint)(0),          // 8: pluggableharness.common.v1.HookPoint
-	(*v13.RenderTree)(nil),      // 9: pluggableharness.render.v1.RenderTree
-	(*v12.ProducerRef)(nil),     // 10: pluggableharness.common.v1.ProducerRef
+	(*GetSchemaResponse)(nil),      // 0: pluggableharness.tool.v1.GetSchemaResponse
+	(*ConfigureResponse)(nil),      // 1: pluggableharness.tool.v1.ConfigureResponse
+	(*RenderResponse)(nil),         // 2: pluggableharness.tool.v1.RenderResponse
+	(*PreviewResponse)(nil),        // 3: pluggableharness.tool.v1.PreviewResponse
+	(*DescribeResponse)(nil),       // 4: pluggableharness.tool.v1.DescribeResponse
+	(*ToolSchema)(nil),             // 5: pluggableharness.tool.v1.ToolSchema
+	(*v1.PromptExpansionSpec)(nil), // 6: pluggableharness.common.v1.PromptExpansionSpec
+	(*v11.ConfigSchema)(nil),       // 7: pluggableharness.config.v1.ConfigSchema
+	(v1.HookPoint)(0),              // 8: pluggableharness.common.v1.HookPoint
+	(*v12.RenderTree)(nil),         // 9: pluggableharness.render.v1.RenderTree
+	(*v1.ProducerRef)(nil),         // 10: pluggableharness.common.v1.ProducerRef
 }
 var file_pluggableharness_tool_v1_rpc_response_proto_depIdxs = []int32{
 	5,  // 0: pluggableharness.tool.v1.GetSchemaResponse.tools:type_name -> pluggableharness.tool.v1.ToolSchema
-	6,  // 1: pluggableharness.tool.v1.GetSchemaResponse.slash_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	6,  // 1: pluggableharness.tool.v1.GetSchemaResponse.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
 	7,  // 2: pluggableharness.tool.v1.GetSchemaResponse.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
 	8,  // 3: pluggableharness.tool.v1.GetSchemaResponse.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
 	9,  // 4: pluggableharness.tool.v1.RenderResponse.tree:type_name -> pluggableharness.render.v1.RenderTree

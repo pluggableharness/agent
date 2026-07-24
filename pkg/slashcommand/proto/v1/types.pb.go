@@ -4,18 +4,16 @@
 // 	protoc        (unknown)
 // source: pluggableharness/slashcommand/v1/types.proto
 
-// Package pluggableharness.slashcommand.v1 defines the slash-command declaration
-// shape described in specifications/configuration.md §5 (and equivalently
-// specifications/frontend.md §5). Declarable as an optional repeated field
-// in every category's capability response: model.md §2 Capabilities,
-// tool.md §2 GetSchemaResponse, context.md §2 ContextCapabilities,
-// memory.md §3 MemoryCapabilities.
-
 package slashcommandv1
 
 import (
+	v12 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/schema/proto/v1"
+	v11 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -28,84 +26,50 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Dispatch selects how a slash command reaches the kernel when invoked.
-type Dispatch int32
-
-const (
-	// Zero value. Never valid for a real command; its presence on the wire
-	// means a caller forgot to set the field.
-	Dispatch_DISPATCH_UNSPECIFIED Dispatch = 0
-	// Maps the command's arguments directly to a tool call's input_schema
-	// and dispatches through the normal Invoke/plan-apply pipeline,
-	// including policy evaluation. Costs no model turn; the result is
-	// appended to history as an ordinary tool_result.
-	Dispatch_DISPATCH_DIRECT_INVOKE Dispatch = 1
-	// Expands SlashCommandSpec.template with the command's arguments and
-	// submits the result as an ordinary user_message. Costs a model turn.
-	Dispatch_DISPATCH_PROMPT_EXPANSION Dispatch = 2
-)
-
-// Enum value maps for Dispatch.
-var (
-	Dispatch_name = map[int32]string{
-		0: "DISPATCH_UNSPECIFIED",
-		1: "DISPATCH_DIRECT_INVOKE",
-		2: "DISPATCH_PROMPT_EXPANSION",
-	}
-	Dispatch_value = map[string]int32{
-		"DISPATCH_UNSPECIFIED":      0,
-		"DISPATCH_DIRECT_INVOKE":    1,
-		"DISPATCH_PROMPT_EXPANSION": 2,
-	}
-)
-
-func (x Dispatch) Enum() *Dispatch {
-	p := new(Dispatch)
-	*p = x
-	return p
-}
-
-func (x Dispatch) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Dispatch) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_slashcommand_v1_types_proto_enumTypes[0].Descriptor()
-}
-
-func (Dispatch) Type() protoreflect.EnumType {
-	return &file_pluggableharness_slashcommand_v1_types_proto_enumTypes[0]
-}
-
-func (x Dispatch) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Dispatch.Descriptor instead.
-func (Dispatch) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_slashcommand_v1_types_proto_rawDescGZIP(), []int{0}
-}
-
-// SlashCommandSpec declares one slash command a plugin contributes.
+// SlashCommandSpec declares one directly-invocable command this
+// provider exposes — a tool-shaped operation in its own right, invoked
+// via this same provider's own SlashCommandService.Invoke, never by
+// naming another provider's tool operation. kind/risk/concurrency are
+// pluggableharness.tool.v1 types, reused verbatim: a direct-invoke
+// command flows through the identical plan/apply gate a tool call does
+// (pluggableharness.plan.v1.PlanItem), so it needs the identical
+// classification vocabulary, not a parallel copy of it.
 type SlashCommandSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The command's name, without the leading "/". MUST be unique across
-	// every provider in the session — a name collision at config-load time
-	// is a hard error (configuration.md §5).
+	// every direct-invoke command declared by every provider in the
+	// session — a name collision at config-load time is a hard error
+	// (configuration.md §5).
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Shown in the frontend's hotkey_hints region (frontend.md §2) and
-	// wherever else the frontend surfaces available commands.
+	// Shown in the frontend's hotkey_hints region and wherever else the
+	// frontend surfaces available commands.
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	// How this command is dispatched when invoked.
-	Dispatch Dispatch `protobuf:"varint,3,opt,name=dispatch,proto3,enum=pluggableharness.slashcommand.v1.Dispatch" json:"dispatch,omitempty"`
-	// The tool operation to invoke. MUST be set if and only if
-	// dispatch == DISPATCH_DIRECT_INVOKE, and MUST name one of this same
-	// provider's own tool operations (tool.md §2.1) — a provider cannot
-	// declare a slash command that invokes another provider's tool.
-	ToolName *string `protobuf:"bytes,4,opt,name=tool_name,json=toolName,proto3,oneof" json:"tool_name,omitempty"`
-	// The prompt template to expand, using "{arg}"-style placeholders. MUST
-	// be set if and only if dispatch == DISPATCH_PROMPT_EXPANSION.
-	Template      *string `protobuf:"bytes,5,opt,name=template,proto3,oneof" json:"template,omitempty"`
+	// MUST — the common JSON-Schema subset per model.md §6, describing
+	// the shape of SlashCommandCall.arguments for this command.
+	InputSchema *v1.Schema `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	// MUST — drives the plan/apply gate, identically to
+	// pluggableharness.tool.v1.ToolSchema.kind.
+	Kind v11.ToolKind `protobuf:"varint,4,opt,name=kind,proto3,enum=pluggableharness.tool.v1.ToolKind" json:"kind,omitempty"`
+	// MUST — see pluggableharness.tool.v1.RiskClass.
+	Risk v11.RiskClass `protobuf:"varint,5,opt,name=risk,proto3,enum=pluggableharness.tool.v1.RiskClass" json:"risk,omitempty"`
+	// MUST, except MUST NOT be meaningfully set for TOOL_KIND_INTERACTIVE.
+	Concurrency *v11.ConcurrencySpec `protobuf:"bytes,6,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
+	// MUST — true if Invoke may emit intermediate SlashCommandEvents
+	// (output_chunk, progress, partial_result) before the terminal event;
+	// false if Invoke always emits exactly one terminal event with no
+	// lead-up.
+	Streaming bool `protobuf:"varint,7,opt,name=streaming,proto3" json:"streaming,omitempty"`
+	// SHOULD — the deadline the kernel applies to Invoke for this command
+	// absent an agent.hcl override. Absent means the kernel's global
+	// default applies instead (configuration/settings-and-global.md).
+	DefaultTimeout *durationpb.Duration `protobuf:"bytes,8,opt,name=default_timeout,json=defaultTimeout,proto3,oneof" json:"default_timeout,omitempty"`
+	// True iff re-running this command with identical arguments cannot
+	// produce a different end state than running it once. Gates whether
+	// the kernel MAY auto-retry a retryable
+	// pluggableharness.tool.v1.ToolError for a TOOL_KIND_RESOURCE command
+	// — see tool/conformance.md#error-taxonomy's retry interaction, reused
+	// verbatim.
+	Idempotent    bool `protobuf:"varint,9,opt,name=idempotent,proto3" json:"idempotent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -154,45 +118,157 @@ func (x *SlashCommandSpec) GetDescription() string {
 	return ""
 }
 
-func (x *SlashCommandSpec) GetDispatch() Dispatch {
+func (x *SlashCommandSpec) GetInputSchema() *v1.Schema {
 	if x != nil {
-		return x.Dispatch
+		return x.InputSchema
 	}
-	return Dispatch_DISPATCH_UNSPECIFIED
+	return nil
 }
 
-func (x *SlashCommandSpec) GetToolName() string {
-	if x != nil && x.ToolName != nil {
-		return *x.ToolName
+func (x *SlashCommandSpec) GetKind() v11.ToolKind {
+	if x != nil {
+		return x.Kind
+	}
+	return v11.ToolKind(0)
+}
+
+func (x *SlashCommandSpec) GetRisk() v11.RiskClass {
+	if x != nil {
+		return x.Risk
+	}
+	return v11.RiskClass(0)
+}
+
+func (x *SlashCommandSpec) GetConcurrency() *v11.ConcurrencySpec {
+	if x != nil {
+		return x.Concurrency
+	}
+	return nil
+}
+
+func (x *SlashCommandSpec) GetStreaming() bool {
+	if x != nil {
+		return x.Streaming
+	}
+	return false
+}
+
+func (x *SlashCommandSpec) GetDefaultTimeout() *durationpb.Duration {
+	if x != nil {
+		return x.DefaultTimeout
+	}
+	return nil
+}
+
+func (x *SlashCommandSpec) GetIdempotent() bool {
+	if x != nil {
+		return x.Idempotent
+	}
+	return false
+}
+
+// SlashCommandCall is one request to execute a direct-invoke command,
+// structurally identical to pluggableharness.tool.v1.ToolCall.
+type SlashCommandCall struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// MUST — kernel-assigned. Echoed in every SlashCommandEvent for this
+	// call, for correlation.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// MUST — matches a SlashCommandSpec.name from this provider's
+	// GetCapabilities response.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// MUST — already-parsed JSON conforming to that SlashCommandSpec's
+	// input_schema.
+	Arguments *structpb.Struct `protobuf:"bytes,3,opt,name=arguments,proto3" json:"arguments,omitempty"`
+	// MUST be set by the kernel. Carries the session_id/turn_id this call
+	// executes for and the session's working_directory, identically to
+	// pluggableharness.tool.v1.ToolCall.call_context.
+	CallContext   *v12.CallContext `protobuf:"bytes,4,opt,name=call_context,json=callContext,proto3" json:"call_context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SlashCommandCall) Reset() {
+	*x = SlashCommandCall{}
+	mi := &file_pluggableharness_slashcommand_v1_types_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SlashCommandCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SlashCommandCall) ProtoMessage() {}
+
+func (x *SlashCommandCall) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_slashcommand_v1_types_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SlashCommandCall.ProtoReflect.Descriptor instead.
+func (*SlashCommandCall) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_slashcommand_v1_types_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SlashCommandCall) GetId() string {
+	if x != nil {
+		return x.Id
 	}
 	return ""
 }
 
-func (x *SlashCommandSpec) GetTemplate() string {
-	if x != nil && x.Template != nil {
-		return *x.Template
+func (x *SlashCommandCall) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
+}
+
+func (x *SlashCommandCall) GetArguments() *structpb.Struct {
+	if x != nil {
+		return x.Arguments
+	}
+	return nil
+}
+
+func (x *SlashCommandCall) GetCallContext() *v12.CallContext {
+	if x != nil {
+		return x.CallContext
+	}
+	return nil
 }
 
 var File_pluggableharness_slashcommand_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_slashcommand_v1_types_proto_rawDesc = "" +
 	"\n" +
-	",pluggableharness/slashcommand/v1/types.proto\x12 pluggableharness.slashcommand.v1\"\xee\x01\n" +
+	",pluggableharness/slashcommand/v1/types.proto\x12 pluggableharness.slashcommand.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/schema/v1/types.proto\x1a$pluggableharness/tool/v1/types.proto\"\xe8\x03\n" +
 	"\x10SlashCommandSpec\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\x12F\n" +
-	"\bdispatch\x18\x03 \x01(\x0e2*.pluggableharness.slashcommand.v1.DispatchR\bdispatch\x12 \n" +
-	"\ttool_name\x18\x04 \x01(\tH\x00R\btoolName\x88\x01\x01\x12\x1f\n" +
-	"\btemplate\x18\x05 \x01(\tH\x01R\btemplate\x88\x01\x01B\f\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12E\n" +
+	"\finput_schema\x18\x03 \x01(\v2\".pluggableharness.schema.v1.SchemaR\vinputSchema\x126\n" +
+	"\x04kind\x18\x04 \x01(\x0e2\".pluggableharness.tool.v1.ToolKindR\x04kind\x127\n" +
+	"\x04risk\x18\x05 \x01(\x0e2#.pluggableharness.tool.v1.RiskClassR\x04risk\x12K\n" +
+	"\vconcurrency\x18\x06 \x01(\v2).pluggableharness.tool.v1.ConcurrencySpecR\vconcurrency\x12\x1c\n" +
+	"\tstreaming\x18\a \x01(\bR\tstreaming\x12G\n" +
+	"\x0fdefault_timeout\x18\b \x01(\v2\x19.google.protobuf.DurationH\x00R\x0edefaultTimeout\x88\x01\x01\x12\x1e\n" +
 	"\n" +
-	"_tool_nameB\v\n" +
-	"\t_template*_\n" +
-	"\bDispatch\x12\x18\n" +
-	"\x14DISPATCH_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16DISPATCH_DIRECT_INVOKE\x10\x01\x12\x1d\n" +
-	"\x19DISPATCH_PROMPT_EXPANSION\x10\x02BLZJgithub.com/pluggableharness/agent/pkg/slashcommand/proto/v1;slashcommandv1b\x06proto3"
+	"idempotent\x18\t \x01(\bR\n" +
+	"idempotentB\x12\n" +
+	"\x10_default_timeout\"\xb9\x01\n" +
+	"\x10SlashCommandCall\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x125\n" +
+	"\targuments\x18\x03 \x01(\v2\x17.google.protobuf.StructR\targuments\x12J\n" +
+	"\fcall_context\x18\x04 \x01(\v2'.pluggableharness.common.v1.CallContextR\vcallContextBLZJgithub.com/pluggableharness/agent/pkg/slashcommand/proto/v1;slashcommandv1b\x06proto3"
 
 var (
 	file_pluggableharness_slashcommand_v1_types_proto_rawDescOnce sync.Once
@@ -206,19 +282,31 @@ func file_pluggableharness_slashcommand_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_slashcommand_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_slashcommand_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_slashcommand_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_pluggableharness_slashcommand_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_pluggableharness_slashcommand_v1_types_proto_goTypes = []any{
-	(Dispatch)(0),            // 0: pluggableharness.slashcommand.v1.Dispatch
-	(*SlashCommandSpec)(nil), // 1: pluggableharness.slashcommand.v1.SlashCommandSpec
+	(*SlashCommandSpec)(nil),    // 0: pluggableharness.slashcommand.v1.SlashCommandSpec
+	(*SlashCommandCall)(nil),    // 1: pluggableharness.slashcommand.v1.SlashCommandCall
+	(*v1.Schema)(nil),           // 2: pluggableharness.schema.v1.Schema
+	(v11.ToolKind)(0),           // 3: pluggableharness.tool.v1.ToolKind
+	(v11.RiskClass)(0),          // 4: pluggableharness.tool.v1.RiskClass
+	(*v11.ConcurrencySpec)(nil), // 5: pluggableharness.tool.v1.ConcurrencySpec
+	(*durationpb.Duration)(nil), // 6: google.protobuf.Duration
+	(*structpb.Struct)(nil),     // 7: google.protobuf.Struct
+	(*v12.CallContext)(nil),     // 8: pluggableharness.common.v1.CallContext
 }
 var file_pluggableharness_slashcommand_v1_types_proto_depIdxs = []int32{
-	0, // 0: pluggableharness.slashcommand.v1.SlashCommandSpec.dispatch:type_name -> pluggableharness.slashcommand.v1.Dispatch
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: pluggableharness.slashcommand.v1.SlashCommandSpec.input_schema:type_name -> pluggableharness.schema.v1.Schema
+	3, // 1: pluggableharness.slashcommand.v1.SlashCommandSpec.kind:type_name -> pluggableharness.tool.v1.ToolKind
+	4, // 2: pluggableharness.slashcommand.v1.SlashCommandSpec.risk:type_name -> pluggableharness.tool.v1.RiskClass
+	5, // 3: pluggableharness.slashcommand.v1.SlashCommandSpec.concurrency:type_name -> pluggableharness.tool.v1.ConcurrencySpec
+	6, // 4: pluggableharness.slashcommand.v1.SlashCommandSpec.default_timeout:type_name -> google.protobuf.Duration
+	7, // 5: pluggableharness.slashcommand.v1.SlashCommandCall.arguments:type_name -> google.protobuf.Struct
+	8, // 6: pluggableharness.slashcommand.v1.SlashCommandCall.call_context:type_name -> pluggableharness.common.v1.CallContext
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_slashcommand_v1_types_proto_init() }
@@ -232,14 +320,13 @@ func file_pluggableharness_slashcommand_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_slashcommand_v1_types_proto_rawDesc), len(file_pluggableharness_slashcommand_v1_types_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   1,
+			NumEnums:      0,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_pluggableharness_slashcommand_v1_types_proto_goTypes,
 		DependencyIndexes: file_pluggableharness_slashcommand_v1_types_proto_depIdxs,
-		EnumInfos:         file_pluggableharness_slashcommand_v1_types_proto_enumTypes,
 		MessageInfos:      file_pluggableharness_slashcommand_v1_types_proto_msgTypes,
 	}.Build()
 	File_pluggableharness_slashcommand_v1_types_proto = out.File

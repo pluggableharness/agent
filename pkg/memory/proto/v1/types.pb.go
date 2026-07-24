@@ -7,10 +7,9 @@
 package memoryv1
 
 import (
-	v12 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v13 "github.com/pluggableharness/agent/pkg/content/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
+	v12 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -235,10 +234,13 @@ type MemoryCapabilities struct {
 	// Whether this provider implements the ApproveRecord/RejectRecord
 	// ratification pattern (memory.md §8). MUST be set; defaults to false.
 	RatificationSupported bool `protobuf:"varint,4,opt,name=ratification_supported,json=ratificationSupported,proto3" json:"ratification_supported,omitempty"`
-	// Slash commands this provider contributes, per frontend.md §5. MAY be
-	// empty — the reference tools (memory.md §9.2) already cover the common
-	// remember/forget/search cases via the ordinary tool-provider path.
-	SlashCommands []*v1.SlashCommandSpec `protobuf:"bytes,5,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	// Prompt-expansion slash commands this provider contributes, per
+	// frontend.md §5. MAY be empty — the reference tools (memory.md §9.2)
+	// already cover the common remember/forget/search cases via the
+	// ordinary tool-provider path. A direct-invoke command is declared by
+	// a slashcommand.v1 provider instead (specifications/slashcommand/),
+	// never here.
+	SlashCommands []*v1.PromptExpansionSpec `protobuf:"bytes,5,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// This provider's agent.hcl config schema, per configuration.md §4.
 	ConfigSchema *v11.ConfigSchema `protobuf:"bytes,6,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
 	// Which hook points (agent-loop/hook-dispatch.md) this provider declares
@@ -251,7 +253,7 @@ type MemoryCapabilities struct {
 	// imports this package's model/tool/plan dependencies, so a category
 	// capability message importing hook.v1 directly would cycle back
 	// through it; common.v1 is the shared leaf package instead.
-	SupportedHookPoints []v12.HookPoint `protobuf:"varint,7,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v1.HookPoint `protobuf:"varint,7,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -314,7 +316,7 @@ func (x *MemoryCapabilities) GetRatificationSupported() bool {
 	return false
 }
 
-func (x *MemoryCapabilities) GetSlashCommands() []*v1.SlashCommandSpec {
+func (x *MemoryCapabilities) GetSlashCommands() []*v1.PromptExpansionSpec {
 	if x != nil {
 		return x.SlashCommands
 	}
@@ -328,7 +330,7 @@ func (x *MemoryCapabilities) GetConfigSchema() *v11.ConfigSchema {
 	return nil
 }
 
-func (x *MemoryCapabilities) GetSupportedHookPoints() []v12.HookPoint {
+func (x *MemoryCapabilities) GetSupportedHookPoints() []v1.HookPoint {
 	if x != nil {
 		return x.SupportedHookPoints
 	}
@@ -351,7 +353,7 @@ type MemoryRecord struct {
 	Title string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
 	// The record's content. Text-only in v1, same constraint as context.md
 	// §4.
-	Content []*v13.ContentBlock `protobuf:"bytes,5,rep,name=content,proto3" json:"content,omitempty"`
+	Content []*v12.ContentBlock `protobuf:"bytes,5,rep,name=content,proto3" json:"content,omitempty"`
 	// This record's size, computed via the kernel's CountTokens callback
 	// (kernel-callbacks.md §2), never a provider-local heuristic.
 	Tokens int64 `protobuf:"varint,6,opt,name=tokens,proto3" json:"tokens,omitempty"`
@@ -441,7 +443,7 @@ func (x *MemoryRecord) GetTitle() string {
 	return ""
 }
 
-func (x *MemoryRecord) GetContent() []*v13.ContentBlock {
+func (x *MemoryRecord) GetContent() []*v12.ContentBlock {
 	if x != nil {
 		return x.Content
 	}
@@ -678,13 +680,13 @@ var File_pluggableharness_memory_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_memory_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"&pluggableharness/memory/v1/types.proto\x12\x1apluggableharness.memory.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\xa7\x04\n" +
+	"&pluggableharness/memory/v1/types.proto\x12\x1apluggableharness.memory.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\"\xa4\x04\n" +
 	"\x12MemoryCapabilities\x120\n" +
 	"\x14default_token_budget\x18\x01 \x01(\x03R\x12defaultTokenBudget\x12O\n" +
 	"\x0fsupported_types\x18\x02 \x03(\x0e2&.pluggableharness.memory.v1.MemoryTypeR\x0esupportedTypes\x12R\n" +
 	"\x10supported_scopes\x18\x03 \x03(\x0e2'.pluggableharness.memory.v1.MemoryScopeR\x0fsupportedScopes\x125\n" +
-	"\x16ratification_supported\x18\x04 \x01(\bR\x15ratificationSupported\x12Y\n" +
-	"\x0eslash_commands\x18\x05 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12M\n" +
+	"\x16ratification_supported\x18\x04 \x01(\bR\x15ratificationSupported\x12V\n" +
+	"\x0eslash_commands\x18\x05 \x03(\v2/.pluggableharness.common.v1.PromptExpansionSpecR\rslashCommands\x12M\n" +
 	"\rconfig_schema\x18\x06 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
 	"\x15supported_hook_points\x18\a \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPoints\"\xe4\x04\n" +
 	"\fMemoryRecord\x12\x0e\n" +
@@ -750,24 +752,24 @@ func file_pluggableharness_memory_v1_types_proto_rawDescGZIP() []byte {
 var file_pluggableharness_memory_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_pluggableharness_memory_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pluggableharness_memory_v1_types_proto_goTypes = []any{
-	(MemoryType)(0),               // 0: pluggableharness.memory.v1.MemoryType
-	(MemoryScope)(0),              // 1: pluggableharness.memory.v1.MemoryScope
-	(RecordStatus)(0),             // 2: pluggableharness.memory.v1.RecordStatus
-	(*MemoryCapabilities)(nil),    // 3: pluggableharness.memory.v1.MemoryCapabilities
-	(*MemoryRecord)(nil),          // 4: pluggableharness.memory.v1.MemoryRecord
-	(*Provenance)(nil),            // 5: pluggableharness.memory.v1.Provenance
-	(*RecordResult)(nil),          // 6: pluggableharness.memory.v1.RecordResult
-	(*DeleteResult)(nil),          // 7: pluggableharness.memory.v1.DeleteResult
-	(*v1.SlashCommandSpec)(nil),   // 8: pluggableharness.slashcommand.v1.SlashCommandSpec
-	(*v11.ConfigSchema)(nil),      // 9: pluggableharness.config.v1.ConfigSchema
-	(v12.HookPoint)(0),            // 10: pluggableharness.common.v1.HookPoint
-	(*v13.ContentBlock)(nil),      // 11: pluggableharness.content.v1.ContentBlock
-	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
+	(MemoryType)(0),                // 0: pluggableharness.memory.v1.MemoryType
+	(MemoryScope)(0),               // 1: pluggableharness.memory.v1.MemoryScope
+	(RecordStatus)(0),              // 2: pluggableharness.memory.v1.RecordStatus
+	(*MemoryCapabilities)(nil),     // 3: pluggableharness.memory.v1.MemoryCapabilities
+	(*MemoryRecord)(nil),           // 4: pluggableharness.memory.v1.MemoryRecord
+	(*Provenance)(nil),             // 5: pluggableharness.memory.v1.Provenance
+	(*RecordResult)(nil),           // 6: pluggableharness.memory.v1.RecordResult
+	(*DeleteResult)(nil),           // 7: pluggableharness.memory.v1.DeleteResult
+	(*v1.PromptExpansionSpec)(nil), // 8: pluggableharness.common.v1.PromptExpansionSpec
+	(*v11.ConfigSchema)(nil),       // 9: pluggableharness.config.v1.ConfigSchema
+	(v1.HookPoint)(0),              // 10: pluggableharness.common.v1.HookPoint
+	(*v12.ContentBlock)(nil),       // 11: pluggableharness.content.v1.ContentBlock
+	(*timestamppb.Timestamp)(nil),  // 12: google.protobuf.Timestamp
 }
 var file_pluggableharness_memory_v1_types_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.memory.v1.MemoryCapabilities.supported_types:type_name -> pluggableharness.memory.v1.MemoryType
 	1,  // 1: pluggableharness.memory.v1.MemoryCapabilities.supported_scopes:type_name -> pluggableharness.memory.v1.MemoryScope
-	8,  // 2: pluggableharness.memory.v1.MemoryCapabilities.slash_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	8,  // 2: pluggableharness.memory.v1.MemoryCapabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
 	9,  // 3: pluggableharness.memory.v1.MemoryCapabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
 	10, // 4: pluggableharness.memory.v1.MemoryCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
 	0,  // 5: pluggableharness.memory.v1.MemoryRecord.type:type_name -> pluggableharness.memory.v1.MemoryType

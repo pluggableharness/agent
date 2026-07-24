@@ -3,6 +3,7 @@ syntax = "proto3";
 package pluggableharness.frontend.v1;
 
 import "google/protobuf/struct.proto";
+import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/frontend/v1/errors.proto";
 import "pluggableharness/model/v1/types.proto";
@@ -183,11 +184,24 @@ message ServerEvent {
 
   // SlashCommandRegistry is the profile-scoped aggregate of every loaded
   // provider's declared slash commands for this session, per
-  // frontend.md §"Slash commands".
+  // frontend.md §"Slash commands" and specifications/slashcommand/. Two
+  // separate lists rather than one, since the two kinds are declared by
+  // different provider categories and dispatched differently — a
+  // frontend distinguishes them the same way it renders them (a `/name`
+  // lookup checks both), but the kernel keeps their namespaces distinct
+  // per-list while still enforcing one combined collision check across
+  // both at config-load time.
   message SlashCommandRegistry {
-    // Every registered command, name-collision-checked at config-load
-    // time (frontend.md §"Slash commands").
-    repeated pluggableharness.slashcommand.v1.SlashCommandSpec commands = 1;
+    // Every registered direct-invoke command, declared by a
+    // slashcommand.v1 provider's own GetCapabilities response.
+    // Name-collision-checked (jointly with prompt_expansion_commands
+    // below) at config-load time (frontend.md §"Slash commands").
+    repeated pluggableharness.slashcommand.v1.SlashCommandSpec direct_invoke_commands = 1;
+
+    // Every registered prompt-expansion command, declared by any
+    // category's own capability response. Name-collision-checked
+    // (jointly with direct_invoke_commands above) at config-load time.
+    repeated pluggableharness.common.v1.PromptExpansionSpec prompt_expansion_commands = 2;
   }
 
   // UsageUpdate carries one turn's token/cost accounting and the

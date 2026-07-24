@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package pluggableharness.slashcommand.v1;
+
+import "google/protobuf/struct.proto";
+import "pluggableharness/tool/v1/errors.proto";
+import "pluggableharness/tool/v1/events.proto";
+import "pluggableharness/tool/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1;slashcommandv1";
+
+// Occurrence-shaped messages streamed by Invoke.
+
+// InvokeResponse wraps one message in the stream Invoke returns. A thin
+// per-RPC envelope around SlashCommandEvent, which keeps its own rich
+// structure independent of the RPC signature.
+message InvokeResponse {
+  // The event.
+  SlashCommandEvent event = 1;
+}
+
+// SlashCommandEvent is one message in the stream Invoke returns,
+// structurally identical to pluggableharness.tool.v1.ToolEvent — the
+// same streaming contract applies verbatim (exactly one of
+// `result`/`error` closes the stream; `output_chunk`, `progress`, and
+// `partial_result` MAY each appear zero or more times before it;
+// `exit_status` MAY appear at most once; the relative order of
+// `output_chunk` events MUST be preserved by the transport). The
+// terminal result/error and the output-stream discriminator are the
+// same pluggableharness.tool.v1 types tool.v1.ToolEvent uses, reused
+// here rather than redeclared — a direct-invoke command's result is the
+// same kind of thing a tool call's result is.
+message SlashCommandEvent {
+  oneof event {
+    // Incremental raw output from a process-backed command.
+    OutputChunk output_chunk = 1;
+
+    // A human-readable progress update.
+    Progress progress = 2;
+
+    // Incremental structured output, e.g. search hits as they're found.
+    PartialResult partial_result = 3;
+
+    // The exit status of a process-backed command's child process.
+    ExitStatus exit_status = 4;
+
+    // The terminal, successful result of this call.
+    pluggableharness.tool.v1.ToolResult result = 5;
+
+    // The terminal, failed result of this call.
+    pluggableharness.tool.v1.ToolError error = 6;
+  }
+
+  // OutputChunk carries one slice of raw stdout/stderr-shaped output
+  // from a process-backed command.
+  message OutputChunk {
+    // Which stream this chunk came from.
+    pluggableharness.tool.v1.OutputStream stream = 1;
+
+    // The chunk's raw bytes.
+    bytes data = 2;
+  }
+
+  // Progress carries a human-readable status update for a long-running
+  // call.
+  message Progress {
+    // A human-readable description of the current step.
+    string message = 1;
+
+    // How far through the operation this call is, in [0.0, 1.0]. Absent
+    // means the provider cannot estimate completion fraction.
+    optional double fraction_complete = 2;
+  }
+
+  // PartialResult carries incremental structured output before the
+  // terminal result, e.g. search hits as they're found.
+  message PartialResult {
+    // The incremental structured payload.
+    google.protobuf.Struct payload = 1;
+  }
+
+  // ExitStatus carries a process-backed command's child process exit
+  // information. Only meaningful for a command whose implementation
+  // shells out — a command with no child process MUST NOT emit this.
+  // Appears at most once per Invoke stream.
+  message ExitStatus {
+    // The child process's exit code.
+    int32 exit_code = 1;
+
+    // The signal that terminated the child process, if any. Absent
+    // means the process exited normally (exit_code is meaningful on its
+    // own).
+    optional string signal = 2;
+  }
+}

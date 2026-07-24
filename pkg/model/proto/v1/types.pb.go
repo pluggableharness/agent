@@ -7,10 +7,9 @@
 package modelv1
 
 import (
-	v12 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v13 "github.com/pluggableharness/agent/pkg/schema/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
+	v12 "github.com/pluggableharness/agent/pkg/schema/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -231,10 +230,12 @@ type Capabilities struct {
 	// One ModelSpec per model the plugin can serve. MUST have at least one
 	// entry.
 	Models []*ModelSpec `protobuf:"bytes,1,rep,name=models,proto3" json:"models,omitempty"`
-	// Slash commands this provider contributes, declared once for the
-	// provider as a whole (not per model), per model.md §2 and
-	// configuration.md §5 / frontend.md §5. MAY be empty.
-	SlashCommands []*v1.SlashCommandSpec `protobuf:"bytes,2,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	// Prompt-expansion slash commands this provider contributes, declared
+	// once for the provider as a whole (not per model), per model.md §2
+	// and configuration.md §5 / frontend.md §5. MAY be empty. A
+	// direct-invoke command is declared by a slashcommand.v1 provider
+	// instead (specifications/slashcommand/), never here.
+	SlashCommands []*v1.PromptExpansionSpec `protobuf:"bytes,2,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// The provider's agent.hcl config schema, returned alongside
 	// capabilities so the kernel knows what fields Configure expects, per
 	// configuration.md §4.
@@ -251,7 +252,7 @@ type Capabilities struct {
 	// `buf build`, which rejects it outright ("detected cyclic import").
 	// HookPoint itself lives in common.v1 for exactly this reason (see
 	// common/v1/types.proto), already imported here for CallContext/Describe.
-	SupportedHookPoints []v12.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v1.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -293,7 +294,7 @@ func (x *Capabilities) GetModels() []*ModelSpec {
 	return nil
 }
 
-func (x *Capabilities) GetSlashCommands() []*v1.SlashCommandSpec {
+func (x *Capabilities) GetSlashCommands() []*v1.PromptExpansionSpec {
 	if x != nil {
 		return x.SlashCommands
 	}
@@ -307,7 +308,7 @@ func (x *Capabilities) GetConfigSchema() *v11.ConfigSchema {
 	return nil
 }
 
-func (x *Capabilities) GetSupportedHookPoints() []v12.HookPoint {
+func (x *Capabilities) GetSupportedHookPoints() []v1.HookPoint {
 	if x != nil {
 		return x.SupportedHookPoints
 	}
@@ -1062,7 +1063,7 @@ type ToolDeclaration struct {
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// The tool's input shape, in the restricted JSON-Schema subset shared
 	// across categories (model.md §6, pluggableharness.schema.v1.Schema).
-	InputSchema   *v13.Schema `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	InputSchema   *v12.Schema `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1111,7 +1112,7 @@ func (x *ToolDeclaration) GetDescription() string {
 	return ""
 }
 
-func (x *ToolDeclaration) GetInputSchema() *v13.Schema {
+func (x *ToolDeclaration) GetInputSchema() *v12.Schema {
 	if x != nil {
 		return x.InputSchema
 	}
@@ -1596,10 +1597,10 @@ var File_pluggableharness_model_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"%pluggableharness/model/v1/types.proto\x12\x19pluggableharness.model.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/schema/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\xd1\x02\n" +
+	"%pluggableharness/model/v1/types.proto\x12\x19pluggableharness.model.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/schema/v1/types.proto\"\xce\x02\n" +
 	"\fCapabilities\x12<\n" +
-	"\x06models\x18\x01 \x03(\v2$.pluggableharness.model.v1.ModelSpecR\x06models\x12Y\n" +
-	"\x0eslash_commands\x18\x02 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12M\n" +
+	"\x06models\x18\x01 \x03(\v2$.pluggableharness.model.v1.ModelSpecR\x06models\x12V\n" +
+	"\x0eslash_commands\x18\x02 \x03(\v2/.pluggableharness.common.v1.PromptExpansionSpecR\rslashCommands\x12M\n" +
 	"\rconfig_schema\x18\x03 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
 	"\x15supported_hook_points\x18\x04 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPoints\"\xb7\x05\n" +
 	"\tModelSpec\x12\x0e\n" +
@@ -1760,15 +1761,15 @@ var file_pluggableharness_model_v1_types_proto_goTypes = []any{
 	(*ModelRef)(nil),                              // 16: pluggableharness.model.v1.ModelRef
 	(*CacheBreakpoint_AfterAssembledContext)(nil), // 17: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
 	(*CacheBreakpoint_AfterTools)(nil),            // 18: pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	(*v1.SlashCommandSpec)(nil),                   // 19: pluggableharness.slashcommand.v1.SlashCommandSpec
+	(*v1.PromptExpansionSpec)(nil),                // 19: pluggableharness.common.v1.PromptExpansionSpec
 	(*v11.ConfigSchema)(nil),                      // 20: pluggableharness.config.v1.ConfigSchema
-	(v12.HookPoint)(0),                            // 21: pluggableharness.common.v1.HookPoint
+	(v1.HookPoint)(0),                             // 21: pluggableharness.common.v1.HookPoint
 	(*timestamppb.Timestamp)(nil),                 // 22: google.protobuf.Timestamp
-	(*v13.Schema)(nil),                            // 23: pluggableharness.schema.v1.Schema
+	(*v12.Schema)(nil),                            // 23: pluggableharness.schema.v1.Schema
 }
 var file_pluggableharness_model_v1_types_proto_depIdxs = []int32{
 	4,  // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
-	19, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	19, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
 	20, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
 	21, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
 	6,  // 4: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec

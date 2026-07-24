@@ -2,14 +2,16 @@ syntax = "proto3";
 
 // Package pluggableharness.plan.v1 defines the plan/apply gate's data types
 // (specifications/agent-loop.md §5.1). A Plan collects every resource call
-// identified in a turn; each PlanItem is evaluated independently against
-// policy (agent-loop.md §5.1: three resource calls against three
-// different tool providers MUST receive three independently evaluated
-// decisions, even if presentation batches them into one approval UI
-// interaction).
+// identified in a turn — from a tool.v1 provider or a slashcommand.v1
+// provider alike, see PlanItem.producer_category — and each PlanItem is
+// evaluated independently against policy (agent-loop.md §5.1: three
+// resource calls against three different providers MUST receive three
+// independently evaluated decisions, even if presentation batches them
+// into one approval UI interaction).
 package pluggableharness.plan.v1;
 
 import "google/protobuf/struct.proto";
+import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/render/v1/types.proto";
 import "pluggableharness/tool/v1/errors.proto";
 import "pluggableharness/tool/v1/types.proto";
@@ -43,24 +45,34 @@ enum PlanDecision {
 }
 
 // PlanItem is one resource (or policy-checked data_source/interactive)
-// call awaiting or having received a plan/apply decision.
+// call awaiting or having received a plan/apply decision. Produced by
+// either a tool.v1 provider (a ToolCall) or a slashcommand.v1 provider
+// (a SlashCommandCall) — both flow through the identical plan/apply
+// gate, so this message is deliberately provider-category-agnostic
+// rather than tool-exclusive; `producer_category` below is what tells a
+// consumer which one produced a given item.
 message PlanItem {
   // This item's own id, stable within the plan.
   string id = 1;
 
-  // The originating tool call's id (matches pluggableharness.content.v1
-  // ToolUseBlock.id / pluggableharness.tool.v1 ToolCall.id).
-  string tool_call_id = 2;
+  // The originating call's id (matches pluggableharness.content.v1
+  // ToolUseBlock.id, and — depending on producer_category — either
+  // pluggableharness.tool.v1 ToolCall.id or
+  // pluggableharness.slashcommand.v1 SlashCommandCall.id).
+  string call_id = 2;
 
-  // The declared name of the tool provider plugin this call targets.
+  // The declared name of the provider plugin this call targets.
   string provider = 3;
 
-  // The tool operation being called (tool.md §2 ToolSchema.name).
-  string tool_name = 4;
+  // The operation being called: a pluggableharness.tool.v1.ToolSchema.name
+  // when producer_category == CATEGORY_TOOL, or a
+  // pluggableharness.slashcommand.v1.SlashCommandSpec.name when
+  // producer_category == CATEGORY_SLASHCOMMAND.
+  string operation_name = 4;
 
-  // The call's parsed arguments — the kernel's canonical ToolCall
-  // representation (model.md §6 / pluggableharness.schema.v1's subset governs
-  // its shape). A Struct per .claude/rules/proto.md's runtime-JSON
+  // The call's parsed arguments — the kernel's canonical representation
+  // (model.md §6 / pluggableharness.schema.v1's subset governs its
+  // shape). A Struct per .claude/rules/proto.md's runtime-JSON
   // carve-out.
   google.protobuf.Struct input = 5;
 
@@ -73,34 +85,48 @@ message PlanItem {
 
   // --- Snapshot fields (agent-loop/plan-apply-gate.md#plan-construction-and-policy-evaluation) ---
   //
-  // The four fields below are captured from the originating tool
-  // operation's ToolSchema at plan-construction time, not looked up live
-  // at display or audit time. A later agent.hcl change to the provider's
-  // schema (a re-classified kind/risk, an edited description) MUST NOT
+  // The four fields below are captured from the originating operation's
+  // schema (ToolSchema or SlashCommandSpec, per producer_category) at
+  // plan-construction time, not looked up live at display or audit
+  // time. A later agent.hcl change to the provider's schema (a
+  // re-classified kind/risk, an edited description) MUST NOT
   // retroactively alter a historical plan's audit record — the snapshot
   // is what a frontend renders and what state-backend.md's plan_items
   // table persists, independent of whatever the schema looks like now.
 
-  // Snapshot of ToolSchema.kind (tool/data-types.md#toolschema) for the
-  // operation this item calls, at plan-construction time.
+  // Snapshot of the originating operation's kind (ToolSchema.kind or
+  // SlashCommandSpec.kind — the same pluggableharness.tool.v1.ToolKind
+  // type either way, per tool/data-types.md#toolschema), at
+  // plan-construction time.
   pluggableharness.tool.v1.ToolKind kind = 8;
 
-  // Snapshot of ToolSchema.risk, at plan-construction time.
+  // Snapshot of the originating operation's risk (ToolSchema.risk or
+  // SlashCommandSpec.risk — the same pluggableharness.tool.v1.RiskClass
+  // type either way), at plan-construction time.
   pluggableharness.tool.v1.RiskClass risk = 9;
 
-  // Snapshot of ToolSchema.description, at plan-construction time.
+  // Snapshot of the originating operation's description, at
+  // plan-construction time.
   string description = 10;
 
-  // The tool provider's dry-run preview of this call's effect, when the
-  // provider implements ToolService.Preview (tool/protocol.md#preview).
-  // The kernel calls Preview at plan-construction time for
+  // The provider's dry-run preview of this call's effect, when the
+  // provider implements Preview (tool/protocol.md#preview or
+  // slashcommand/protocol.md#preview, per producer_category). The
+  // kernel calls Preview at plan-construction time for
   // TOOL_KIND_RESOURCE items whose provider implements it; absent when
   // the provider has no Preview implementation, in which case a frontend
   // falls back to rendering the raw `input` above. Pinned to
-  // render.v1.RenderTree — the exact type ToolService.Preview's own
+  // render.v1.RenderTree — the exact type either category's Preview
   // response carries, so this stored snapshot and the RPC's live output
   // share one wire shape (agent-loop/plan-apply-gate.md#preview-flow).
   optional pluggableharness.render.v1.RenderTree preview = 11;
+
+  // Which category produced this item — CATEGORY_TOOL or
+  // CATEGORY_SLASHCOMMAND today, though nothing about this message
+  // assumes only those two will ever reach the plan/apply gate. Governs
+  // which category's Invoke/Preview RPC the kernel calls at apply time
+  // and how `call_id`/`operation_name` above should be interpreted.
+  pluggableharness.common.v1.Category producer_category = 12;
 }
 
 // Plan collects every policy-evaluated call identified during one turn.
@@ -133,9 +159,9 @@ message ApplyResult {
     // The originating PlanItem.id this outcome is for. MUST be set.
     string plan_item_id = 1;
 
-    // The originating PlanItem.tool_call_id this outcome is for. MUST
-    // be set.
-    string tool_call_id = 2;
+    // The originating PlanItem.call_id this outcome is for. MUST be
+    // set.
+    string call_id = 2;
 
     // How this item's apply attempt concluded. MUST be set (never
     // APPLY_OUTCOME_UNSPECIFIED).

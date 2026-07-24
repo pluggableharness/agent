@@ -6,7 +6,6 @@ import "google/protobuf/timestamp.proto";
 import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/config/v1/types.proto";
 import "pluggableharness/content/v1/types.proto";
-import "pluggableharness/slashcommand/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1";
 
@@ -89,10 +88,13 @@ message MemoryCapabilities {
   // ratification pattern (memory.md §8). MUST be set; defaults to false.
   bool ratification_supported = 4;
 
-  // Slash commands this provider contributes, per frontend.md §5. MAY be
-  // empty — the reference tools (memory.md §9.2) already cover the common
-  // remember/forget/search cases via the ordinary tool-provider path.
-  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 5;
+  // Prompt-expansion slash commands this provider contributes, per
+  // frontend.md §5. MAY be empty — the reference tools (memory.md §9.2)
+  // already cover the common remember/forget/search cases via the
+  // ordinary tool-provider path. A direct-invoke command is declared by
+  // a slashcommand.v1 provider instead (specifications/slashcommand/),
+  // never here.
+  repeated pluggableharness.common.v1.PromptExpansionSpec slash_commands = 5;
 
   // This provider's agent.hcl config schema, per configuration.md §4.
   pluggableharness.config.v1.ConfigSchema config_schema = 6;

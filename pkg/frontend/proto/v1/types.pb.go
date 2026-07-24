@@ -7,10 +7,9 @@
 package frontendv1
 
 import (
-	v13 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
 	v12 "github.com/pluggableharness/agent/pkg/render/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -29,8 +28,10 @@ const (
 // by GetCapabilities (frontend.md §3.1).
 type FrontendCapabilities struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Slash commands this frontend contributes. MAY be empty.
-	SlashCommands []*v1.SlashCommandSpec `protobuf:"bytes,1,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	// Prompt-expansion slash commands this frontend contributes. MAY be
+	// empty. A direct-invoke command is declared by a slashcommand.v1
+	// provider instead (specifications/slashcommand/), never here.
+	SlashCommands []*v1.PromptExpansionSpec `protobuf:"bytes,1,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// This provider's `agent.hcl` configuration schema (configuration.md §4).
 	ConfigSchema *v11.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
 	// Regions this frontend proactively declares it can render into. A
@@ -43,7 +44,7 @@ type FrontendCapabilities struct {
 	// so a mis-declared agent.hcl hook{} block naming an unsupported point
 	// can be rejected at config-load time rather than failing at first
 	// dispatch.
-	SupportedHookPoints []v13.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v1.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -78,7 +79,7 @@ func (*FrontendCapabilities) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_frontend_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *FrontendCapabilities) GetSlashCommands() []*v1.SlashCommandSpec {
+func (x *FrontendCapabilities) GetSlashCommands() []*v1.PromptExpansionSpec {
 	if x != nil {
 		return x.SlashCommands
 	}
@@ -99,7 +100,7 @@ func (x *FrontendCapabilities) GetSupportedRegions() []v12.Region {
 	return nil
 }
 
-func (x *FrontendCapabilities) GetSupportedHookPoints() []v13.HookPoint {
+func (x *FrontendCapabilities) GetSupportedHookPoints() []v1.HookPoint {
 	if x != nil {
 		return x.SupportedHookPoints
 	}
@@ -110,9 +111,9 @@ var File_pluggableharness_frontend_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_frontend_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"(pluggableharness/frontend/v1/types.proto\x12\x1cpluggableharness.frontend.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\xec\x02\n" +
-	"\x14FrontendCapabilities\x12Y\n" +
-	"\x0eslash_commands\x18\x01 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12M\n" +
+	"(pluggableharness/frontend/v1/types.proto\x12\x1cpluggableharness.frontend.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\"\xe9\x02\n" +
+	"\x14FrontendCapabilities\x12V\n" +
+	"\x0eslash_commands\x18\x01 \x03(\v2/.pluggableharness.common.v1.PromptExpansionSpecR\rslashCommands\x12M\n" +
 	"\rconfig_schema\x18\x02 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12O\n" +
 	"\x11supported_regions\x18\x03 \x03(\x0e2\".pluggableharness.render.v1.RegionR\x10supportedRegions\x12Y\n" +
 	"\x15supported_hook_points\x18\x04 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPointsBDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
@@ -131,14 +132,14 @@ func file_pluggableharness_frontend_v1_types_proto_rawDescGZIP() []byte {
 
 var file_pluggableharness_frontend_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_pluggableharness_frontend_v1_types_proto_goTypes = []any{
-	(*FrontendCapabilities)(nil), // 0: pluggableharness.frontend.v1.FrontendCapabilities
-	(*v1.SlashCommandSpec)(nil),  // 1: pluggableharness.slashcommand.v1.SlashCommandSpec
-	(*v11.ConfigSchema)(nil),     // 2: pluggableharness.config.v1.ConfigSchema
-	(v12.Region)(0),              // 3: pluggableharness.render.v1.Region
-	(v13.HookPoint)(0),           // 4: pluggableharness.common.v1.HookPoint
+	(*FrontendCapabilities)(nil),   // 0: pluggableharness.frontend.v1.FrontendCapabilities
+	(*v1.PromptExpansionSpec)(nil), // 1: pluggableharness.common.v1.PromptExpansionSpec
+	(*v11.ConfigSchema)(nil),       // 2: pluggableharness.config.v1.ConfigSchema
+	(v12.Region)(0),                // 3: pluggableharness.render.v1.Region
+	(v1.HookPoint)(0),              // 4: pluggableharness.common.v1.HookPoint
 }
 var file_pluggableharness_frontend_v1_types_proto_depIdxs = []int32{
-	1, // 0: pluggableharness.frontend.v1.FrontendCapabilities.slash_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	1, // 0: pluggableharness.frontend.v1.FrontendCapabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
 	2, // 1: pluggableharness.frontend.v1.FrontendCapabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
 	3, // 2: pluggableharness.frontend.v1.FrontendCapabilities.supported_regions:type_name -> pluggableharness.render.v1.Region
 	4, // 3: pluggableharness.frontend.v1.FrontendCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint

@@ -29,7 +29,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Category identifies which of the six plugin categories a producer
+// Category identifies which of the seven plugin categories a producer
 // implements. Used wherever a message needs to refer to "a producer of any
 // kind" generically — e.g. the kernel's producer registry and the
 // state-backend's producers table (specifications/state-backend.md §4).
@@ -51,6 +51,8 @@ const (
 	Category_CATEGORY_FRONTEND Category = 5
 	// A widget provider — specifications/frontend.md §4.
 	Category_CATEGORY_WIDGET Category = 6
+	// A slashcommand provider — specifications/slashcommand/.
+	Category_CATEGORY_SLASHCOMMAND Category = 7
 )
 
 // Enum value maps for Category.
@@ -63,15 +65,17 @@ var (
 		4: "CATEGORY_MEMORY",
 		5: "CATEGORY_FRONTEND",
 		6: "CATEGORY_WIDGET",
+		7: "CATEGORY_SLASHCOMMAND",
 	}
 	Category_value = map[string]int32{
-		"CATEGORY_UNSPECIFIED": 0,
-		"CATEGORY_MODEL":       1,
-		"CATEGORY_TOOL":        2,
-		"CATEGORY_CONTEXT":     3,
-		"CATEGORY_MEMORY":      4,
-		"CATEGORY_FRONTEND":    5,
-		"CATEGORY_WIDGET":      6,
+		"CATEGORY_UNSPECIFIED":  0,
+		"CATEGORY_MODEL":        1,
+		"CATEGORY_TOOL":         2,
+		"CATEGORY_CONTEXT":      3,
+		"CATEGORY_MEMORY":       4,
+		"CATEGORY_FRONTEND":     5,
+		"CATEGORY_WIDGET":       6,
+		"CATEGORY_SLASHCOMMAND": 7,
 	}
 )
 
@@ -220,7 +224,7 @@ type ProducerRef struct {
 	// "github.com/agentco/anthropic-provider". Matches the address format
 	// used in agent.hcl's provider {} and required_providers {} blocks.
 	Source string `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
-	// Which of the six plugin categories this producer implements.
+	// Which of the seven plugin categories this producer implements.
 	Category Category `protobuf:"varint,4,opt,name=category,proto3,enum=pluggableharness.common.v1.Category" json:"category,omitempty"`
 	// The go-plugin handshake protocol version this producer build was
 	// compiled against (.claude/rules/plugin-runtime.md). A version bump
@@ -305,7 +309,7 @@ func (x *ProducerRef) GetProtocolVersion() uint32 {
 // ProviderRef when only the logical identity does.
 type ProviderRef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which of the six plugin categories this reference names.
+	// Which of the seven plugin categories this reference names.
 	Category Category `protobuf:"varint,1,opt,name=category,proto3,enum=pluggableharness.common.v1.Category" json:"category,omitempty"`
 	// The plugin's declared name, e.g. "anthropic". Unique within a category,
 	// not globally — matches ProducerRef.name's uniqueness scope.
@@ -430,6 +434,88 @@ func (x *CallContext) GetWorkingDirectory() string {
 	return ""
 }
 
+// PromptExpansionSpec declares a static template-expansion slash
+// command: never executes anything, the kernel expands `template` with
+// the user's arguments and submits the result as an ordinary
+// user_message, costing a model turn. Declarable directly in any
+// category's own capability response (model.md §2 Capabilities, tool.md
+// §2 GetSchemaResponse, context.md §2 ContextCapabilities, memory.md §3
+// MemoryCapabilities, frontend.md §2 FrontendCapabilities). Lives here
+// rather than in slashcommand.v1 specifically because it has zero
+// dependency on that package's own vocabulary (kind/risk/concurrency,
+// borrowed from tool.v1) — homing it in the import-nothing leaf avoids
+// giving every embedding category's package an edge into slashcommand.v1
+// merely to declare a field that never invokes anything. A
+// directly-invocable slash command is a different, tool-shaped thing —
+// see pluggableharness.slashcommand.v1.SlashCommandSpec.
+type PromptExpansionSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The command's name, without the leading "/". MUST be unique across
+	// every prompt-expansion command declared by every provider in the
+	// session — a name collision at config-load time is a hard error
+	// (configuration.md §5), independent of the direct-invoke namespace
+	// pluggableharness.slashcommand.v1.SlashCommandSpec.name occupies.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Shown in the frontend's hotkey_hints region and wherever else the
+	// frontend surfaces available commands.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// The prompt template to expand, using "{arg}"-style placeholders.
+	Template      string `protobuf:"bytes,3,opt,name=template,proto3" json:"template,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PromptExpansionSpec) Reset() {
+	*x = PromptExpansionSpec{}
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromptExpansionSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromptExpansionSpec) ProtoMessage() {}
+
+func (x *PromptExpansionSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_common_v1_types_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromptExpansionSpec.ProtoReflect.Descriptor instead.
+func (*PromptExpansionSpec) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_common_v1_types_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PromptExpansionSpec) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PromptExpansionSpec) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *PromptExpansionSpec) GetTemplate() string {
+	if x != nil {
+		return x.Template
+	}
+	return ""
+}
+
 var File_pluggableharness_common_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_common_v1_types_proto_rawDesc = "" +
@@ -448,7 +534,11 @@ const file_pluggableharness_common_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
 	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12+\n" +
-	"\x11working_directory\x18\x03 \x01(\tR\x10workingDirectory*\xa2\x01\n" +
+	"\x11working_directory\x18\x03 \x01(\tR\x10workingDirectory\"g\n" +
+	"\x13PromptExpansionSpec\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1a\n" +
+	"\btemplate\x18\x03 \x01(\tR\btemplate*\xbd\x01\n" +
 	"\bCategory\x12\x18\n" +
 	"\x14CATEGORY_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eCATEGORY_MODEL\x10\x01\x12\x11\n" +
@@ -456,7 +546,8 @@ const file_pluggableharness_common_v1_types_proto_rawDesc = "" +
 	"\x10CATEGORY_CONTEXT\x10\x03\x12\x13\n" +
 	"\x0fCATEGORY_MEMORY\x10\x04\x12\x15\n" +
 	"\x11CATEGORY_FRONTEND\x10\x05\x12\x13\n" +
-	"\x0fCATEGORY_WIDGET\x10\x06*\x97\x02\n" +
+	"\x0fCATEGORY_WIDGET\x10\x06\x12\x19\n" +
+	"\x15CATEGORY_SLASHCOMMAND\x10\a*\x97\x02\n" +
 	"\tHookPoint\x12\x1a\n" +
 	"\x16HOOK_POINT_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18HOOK_POINT_SESSION_START\x10\x01\x12\x1d\n" +
@@ -481,13 +572,14 @@ func file_pluggableharness_common_v1_types_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_common_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_common_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_pluggableharness_common_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_pluggableharness_common_v1_types_proto_goTypes = []any{
-	(Category)(0),       // 0: pluggableharness.common.v1.Category
-	(HookPoint)(0),      // 1: pluggableharness.common.v1.HookPoint
-	(*ProducerRef)(nil), // 2: pluggableharness.common.v1.ProducerRef
-	(*ProviderRef)(nil), // 3: pluggableharness.common.v1.ProviderRef
-	(*CallContext)(nil), // 4: pluggableharness.common.v1.CallContext
+	(Category)(0),               // 0: pluggableharness.common.v1.Category
+	(HookPoint)(0),              // 1: pluggableharness.common.v1.HookPoint
+	(*ProducerRef)(nil),         // 2: pluggableharness.common.v1.ProducerRef
+	(*ProviderRef)(nil),         // 3: pluggableharness.common.v1.ProviderRef
+	(*CallContext)(nil),         // 4: pluggableharness.common.v1.CallContext
+	(*PromptExpansionSpec)(nil), // 5: pluggableharness.common.v1.PromptExpansionSpec
 }
 var file_pluggableharness_common_v1_types_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.common.v1.ProducerRef.category:type_name -> pluggableharness.common.v1.Category
@@ -510,7 +602,7 @@ func file_pluggableharness_common_v1_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_common_v1_types_proto_rawDesc), len(file_pluggableharness_common_v1_types_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

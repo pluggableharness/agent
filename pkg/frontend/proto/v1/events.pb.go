@@ -7,8 +7,9 @@
 package frontendv1
 
 import (
-	v15 "github.com/pluggableharness/agent/pkg/content/proto/v1"
-	v14 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	v14 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v16 "github.com/pluggableharness/agent/pkg/content/proto/v1"
+	v15 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 	v1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 	v12 "github.com/pluggableharness/agent/pkg/session/proto/v1"
@@ -1382,14 +1383,26 @@ func (x *ServerEvent_SessionList) GetSessions() []*v12.SessionInfo {
 
 // SlashCommandRegistry is the profile-scoped aggregate of every loaded
 // provider's declared slash commands for this session, per
-// frontend.md §"Slash commands".
+// frontend.md §"Slash commands" and specifications/slashcommand/. Two
+// separate lists rather than one, since the two kinds are declared by
+// different provider categories and dispatched differently — a
+// frontend distinguishes them the same way it renders them (a `/name`
+// lookup checks both), but the kernel keeps their namespaces distinct
+// per-list while still enforcing one combined collision check across
+// both at config-load time.
 type ServerEvent_SlashCommandRegistry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every registered command, name-collision-checked at config-load
-	// time (frontend.md §"Slash commands").
-	Commands      []*v13.SlashCommandSpec `protobuf:"bytes,1,rep,name=commands,proto3" json:"commands,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Every registered direct-invoke command, declared by a
+	// slashcommand.v1 provider's own GetCapabilities response.
+	// Name-collision-checked (jointly with prompt_expansion_commands
+	// below) at config-load time (frontend.md §"Slash commands").
+	DirectInvokeCommands []*v13.SlashCommandSpec `protobuf:"bytes,1,rep,name=direct_invoke_commands,json=directInvokeCommands,proto3" json:"direct_invoke_commands,omitempty"`
+	// Every registered prompt-expansion command, declared by any
+	// category's own capability response. Name-collision-checked
+	// (jointly with direct_invoke_commands above) at config-load time.
+	PromptExpansionCommands []*v14.PromptExpansionSpec `protobuf:"bytes,2,rep,name=prompt_expansion_commands,json=promptExpansionCommands,proto3" json:"prompt_expansion_commands,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ServerEvent_SlashCommandRegistry) Reset() {
@@ -1422,9 +1435,16 @@ func (*ServerEvent_SlashCommandRegistry) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_frontend_v1_events_proto_rawDescGZIP(), []int{0, 12}
 }
 
-func (x *ServerEvent_SlashCommandRegistry) GetCommands() []*v13.SlashCommandSpec {
+func (x *ServerEvent_SlashCommandRegistry) GetDirectInvokeCommands() []*v13.SlashCommandSpec {
 	if x != nil {
-		return x.Commands
+		return x.DirectInvokeCommands
+	}
+	return nil
+}
+
+func (x *ServerEvent_SlashCommandRegistry) GetPromptExpansionCommands() []*v14.PromptExpansionSpec {
+	if x != nil {
+		return x.PromptExpansionCommands
 	}
 	return nil
 }
@@ -1434,7 +1454,7 @@ func (x *ServerEvent_SlashCommandRegistry) GetCommands() []*v13.SlashCommandSpec
 type ServerEvent_UsageUpdate struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// This turn's token accounting.
-	Turn *v14.Usage `protobuf:"bytes,1,opt,name=turn,proto3" json:"turn,omitempty"`
+	Turn *v15.Usage `protobuf:"bytes,1,opt,name=turn,proto3" json:"turn,omitempty"`
 	// The session's running total spend in USD, mirroring
 	// session.v1.SessionInfo.cost_usd.
 	CumulativeCostUsd float64 `protobuf:"fixed64,2,opt,name=cumulative_cost_usd,json=cumulativeCostUsd,proto3" json:"cumulative_cost_usd,omitempty"`
@@ -1479,7 +1499,7 @@ func (*ServerEvent_UsageUpdate) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_frontend_v1_events_proto_rawDescGZIP(), []int{0, 13}
 }
 
-func (x *ServerEvent_UsageUpdate) GetTurn() *v14.Usage {
+func (x *ServerEvent_UsageUpdate) GetTurn() *v15.Usage {
 	if x != nil {
 		return x.Turn
 	}
@@ -1560,7 +1580,7 @@ type ClientEvent_UserMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The message content, in emission order. MUST contain at least one
 	// block.
-	Content       []*v15.ContentBlock `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty"`
+	Content       []*v16.ContentBlock `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1595,7 +1615,7 @@ func (*ClientEvent_UserMessage) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_frontend_v1_events_proto_rawDescGZIP(), []int{1, 0}
 }
 
-func (x *ClientEvent_UserMessage) GetContent() []*v15.ContentBlock {
+func (x *ClientEvent_UserMessage) GetContent() []*v16.ContentBlock {
 	if x != nil {
 		return x.Content
 	}
@@ -2296,7 +2316,7 @@ var File_pluggableharness_frontend_v1_events_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_frontend_v1_events_proto_rawDesc = "" +
 	"\n" +
-	")pluggableharness/frontend/v1/events.proto\x12\x1cpluggableharness.frontend.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/content/v1/types.proto\x1a)pluggableharness/frontend/v1/errors.proto\x1a%pluggableharness/model/v1/types.proto\x1a$pluggableharness/plan/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a'pluggableharness/session/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\xd1\x17\n" +
+	")pluggableharness/frontend/v1/events.proto\x12\x1cpluggableharness.frontend.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a)pluggableharness/frontend/v1/errors.proto\x1a%pluggableharness/model/v1/types.proto\x1a$pluggableharness/plan/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a'pluggableharness/session/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\xd9\x18\n" +
 	"\vServerEvent\x12\x1d\n" +
 	"\n" +
 	"session_id\x18d \x01(\tR\tsessionId\x12\"\n" +
@@ -2346,9 +2366,10 @@ const file_pluggableharness_frontend_v1_events_proto_rawDesc = "" +
 	"\rlast_sequence\x18\x01 \x01(\x03R\flastSequence\x1a\x11\n" +
 	"\x0fSessionDetached\x1aS\n" +
 	"\vSessionList\x12D\n" +
-	"\bsessions\x18\x01 \x03(\v2(.pluggableharness.session.v1.SessionInfoR\bsessions\x1af\n" +
-	"\x14SlashCommandRegistry\x12N\n" +
-	"\bcommands\x18\x01 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\bcommands\x1a\xc1\x01\n" +
+	"\bsessions\x18\x01 \x03(\v2(.pluggableharness.session.v1.SessionInfoR\bsessions\x1a\xed\x01\n" +
+	"\x14SlashCommandRegistry\x12h\n" +
+	"\x16direct_invoke_commands\x18\x01 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\x14directInvokeCommands\x12k\n" +
+	"\x19prompt_expansion_commands\x18\x02 \x03(\v2/.pluggableharness.common.v1.PromptExpansionSpecR\x17promptExpansionCommands\x1a\xc1\x01\n" +
 	"\vUsageUpdate\x124\n" +
 	"\x04turn\x18\x01 \x01(\v2 .pluggableharness.model.v1.UsageR\x04turn\x12.\n" +
 	"\x13cumulative_cost_usd\x18\x02 \x01(\x01R\x11cumulativeCostUsd\x12\x1f\n" +
@@ -2497,9 +2518,10 @@ var file_pluggableharness_frontend_v1_events_proto_goTypes = []any{
 	(*FrontendError)(nil),                    // 36: pluggableharness.frontend.v1.FrontendError
 	(*v12.SessionInfo)(nil),                  // 37: pluggableharness.session.v1.SessionInfo
 	(*v13.SlashCommandSpec)(nil),             // 38: pluggableharness.slashcommand.v1.SlashCommandSpec
-	(*v14.Usage)(nil),                        // 39: pluggableharness.model.v1.Usage
-	(*v15.ContentBlock)(nil),                 // 40: pluggableharness.content.v1.ContentBlock
-	(*structpb.Struct)(nil),                  // 41: google.protobuf.Struct
+	(*v14.PromptExpansionSpec)(nil),          // 39: pluggableharness.common.v1.PromptExpansionSpec
+	(*v15.Usage)(nil),                        // 40: pluggableharness.model.v1.Usage
+	(*v16.ContentBlock)(nil),                 // 41: pluggableharness.content.v1.ContentBlock
+	(*structpb.Struct)(nil),                  // 42: google.protobuf.Struct
 }
 var file_pluggableharness_frontend_v1_events_proto_depIdxs = []int32{
 	4,  // 0: pluggableharness.frontend.v1.ServerEvent.stream_delta:type_name -> pluggableharness.frontend.v1.ServerEvent.StreamDelta
@@ -2538,21 +2560,22 @@ var file_pluggableharness_frontend_v1_events_proto_depIdxs = []int32{
 	37, // 33: pluggableharness.frontend.v1.ServerEvent.SessionCreated.info:type_name -> pluggableharness.session.v1.SessionInfo
 	37, // 34: pluggableharness.frontend.v1.ServerEvent.SessionAttached.info:type_name -> pluggableharness.session.v1.SessionInfo
 	37, // 35: pluggableharness.frontend.v1.ServerEvent.SessionList.sessions:type_name -> pluggableharness.session.v1.SessionInfo
-	38, // 36: pluggableharness.frontend.v1.ServerEvent.SlashCommandRegistry.commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
-	39, // 37: pluggableharness.frontend.v1.ServerEvent.UsageUpdate.turn:type_name -> pluggableharness.model.v1.Usage
-	35, // 38: pluggableharness.frontend.v1.ServerEvent.SessionStatusUpdate.status:type_name -> pluggableharness.session.v1.SessionStatus
-	40, // 39: pluggableharness.frontend.v1.ClientEvent.UserMessage.content:type_name -> pluggableharness.content.v1.ContentBlock
-	0,  // 40: pluggableharness.frontend.v1.ClientEvent.PlanDecision.decision:type_name -> pluggableharness.frontend.v1.ClientDecision
-	41, // 41: pluggableharness.frontend.v1.ClientEvent.PlanDecision.corrected_input:type_name -> google.protobuf.Struct
-	1,  // 42: pluggableharness.frontend.v1.ClientEvent.PlanDecision.scope:type_name -> pluggableharness.frontend.v1.PlanDecisionScope
-	41, // 43: pluggableharness.frontend.v1.ClientEvent.InteractiveResponse.response:type_name -> google.protobuf.Struct
-	41, // 44: pluggableharness.frontend.v1.ClientEvent.ActionTrigger.args:type_name -> google.protobuf.Struct
-	35, // 45: pluggableharness.frontend.v1.ClientEvent.ListSessions.status:type_name -> pluggableharness.session.v1.SessionStatus
-	46, // [46:46] is the sub-list for method output_type
-	46, // [46:46] is the sub-list for method input_type
-	46, // [46:46] is the sub-list for extension type_name
-	46, // [46:46] is the sub-list for extension extendee
-	0,  // [0:46] is the sub-list for field type_name
+	38, // 36: pluggableharness.frontend.v1.ServerEvent.SlashCommandRegistry.direct_invoke_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	39, // 37: pluggableharness.frontend.v1.ServerEvent.SlashCommandRegistry.prompt_expansion_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
+	40, // 38: pluggableharness.frontend.v1.ServerEvent.UsageUpdate.turn:type_name -> pluggableharness.model.v1.Usage
+	35, // 39: pluggableharness.frontend.v1.ServerEvent.SessionStatusUpdate.status:type_name -> pluggableharness.session.v1.SessionStatus
+	41, // 40: pluggableharness.frontend.v1.ClientEvent.UserMessage.content:type_name -> pluggableharness.content.v1.ContentBlock
+	0,  // 41: pluggableharness.frontend.v1.ClientEvent.PlanDecision.decision:type_name -> pluggableharness.frontend.v1.ClientDecision
+	42, // 42: pluggableharness.frontend.v1.ClientEvent.PlanDecision.corrected_input:type_name -> google.protobuf.Struct
+	1,  // 43: pluggableharness.frontend.v1.ClientEvent.PlanDecision.scope:type_name -> pluggableharness.frontend.v1.PlanDecisionScope
+	42, // 44: pluggableharness.frontend.v1.ClientEvent.InteractiveResponse.response:type_name -> google.protobuf.Struct
+	42, // 45: pluggableharness.frontend.v1.ClientEvent.ActionTrigger.args:type_name -> google.protobuf.Struct
+	35, // 46: pluggableharness.frontend.v1.ClientEvent.ListSessions.status:type_name -> pluggableharness.session.v1.SessionStatus
+	47, // [47:47] is the sub-list for method output_type
+	47, // [47:47] is the sub-list for method input_type
+	47, // [47:47] is the sub-list for extension type_name
+	47, // [47:47] is the sub-list for extension extendee
+	0,  // [0:47] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_frontend_v1_events_proto_init() }

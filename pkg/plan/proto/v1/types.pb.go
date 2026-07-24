@@ -6,15 +6,17 @@
 
 // Package pluggableharness.plan.v1 defines the plan/apply gate's data types
 // (specifications/agent-loop.md §5.1). A Plan collects every resource call
-// identified in a turn; each PlanItem is evaluated independently against
-// policy (agent-loop.md §5.1: three resource calls against three
-// different tool providers MUST receive three independently evaluated
-// decisions, even if presentation batches them into one approval UI
-// interaction).
+// identified in a turn — from a tool.v1 provider or a slashcommand.v1
+// provider alike, see PlanItem.producer_category — and each PlanItem is
+// evaluated independently against policy (agent-loop.md §5.1: three
+// resource calls against three different providers MUST receive three
+// independently evaluated decisions, even if presentation batches them
+// into one approval UI interaction).
 
 package planv1
 
 import (
+	v12 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 	v1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -177,21 +179,31 @@ func (ApplyResult_ApplyOutcome) EnumDescriptor() ([]byte, []int) {
 }
 
 // PlanItem is one resource (or policy-checked data_source/interactive)
-// call awaiting or having received a plan/apply decision.
+// call awaiting or having received a plan/apply decision. Produced by
+// either a tool.v1 provider (a ToolCall) or a slashcommand.v1 provider
+// (a SlashCommandCall) — both flow through the identical plan/apply
+// gate, so this message is deliberately provider-category-agnostic
+// rather than tool-exclusive; `producer_category` below is what tells a
+// consumer which one produced a given item.
 type PlanItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// This item's own id, stable within the plan.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The originating tool call's id (matches pluggableharness.content.v1
-	// ToolUseBlock.id / pluggableharness.tool.v1 ToolCall.id).
-	ToolCallId string `protobuf:"bytes,2,opt,name=tool_call_id,json=toolCallId,proto3" json:"tool_call_id,omitempty"`
-	// The declared name of the tool provider plugin this call targets.
+	// The originating call's id (matches pluggableharness.content.v1
+	// ToolUseBlock.id, and — depending on producer_category — either
+	// pluggableharness.tool.v1 ToolCall.id or
+	// pluggableharness.slashcommand.v1 SlashCommandCall.id).
+	CallId string `protobuf:"bytes,2,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
+	// The declared name of the provider plugin this call targets.
 	Provider string `protobuf:"bytes,3,opt,name=provider,proto3" json:"provider,omitempty"`
-	// The tool operation being called (tool.md §2 ToolSchema.name).
-	ToolName string `protobuf:"bytes,4,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	// The call's parsed arguments — the kernel's canonical ToolCall
-	// representation (model.md §6 / pluggableharness.schema.v1's subset governs
-	// its shape). A Struct per .claude/rules/proto.md's runtime-JSON
+	// The operation being called: a pluggableharness.tool.v1.ToolSchema.name
+	// when producer_category == CATEGORY_TOOL, or a
+	// pluggableharness.slashcommand.v1.SlashCommandSpec.name when
+	// producer_category == CATEGORY_SLASHCOMMAND.
+	OperationName string `protobuf:"bytes,4,opt,name=operation_name,json=operationName,proto3" json:"operation_name,omitempty"`
+	// The call's parsed arguments — the kernel's canonical representation
+	// (model.md §6 / pluggableharness.schema.v1's subset governs its
+	// shape). A Struct per .claude/rules/proto.md's runtime-JSON
 	// carve-out.
 	Input *structpb.Struct `protobuf:"bytes,5,opt,name=input,proto3" json:"input,omitempty"`
 	// This item's current decision.
@@ -199,25 +211,37 @@ type PlanItem struct {
 	// The name of the policy rule or subscriber that produced `decision`,
 	// for audit (state-backend.md §4.4 plan_items.decided_by).
 	DecidedBy string `protobuf:"bytes,7,opt,name=decided_by,json=decidedBy,proto3" json:"decided_by,omitempty"`
-	// Snapshot of ToolSchema.kind (tool/data-types.md#toolschema) for the
-	// operation this item calls, at plan-construction time.
+	// Snapshot of the originating operation's kind (ToolSchema.kind or
+	// SlashCommandSpec.kind — the same pluggableharness.tool.v1.ToolKind
+	// type either way, per tool/data-types.md#toolschema), at
+	// plan-construction time.
 	Kind v1.ToolKind `protobuf:"varint,8,opt,name=kind,proto3,enum=pluggableharness.tool.v1.ToolKind" json:"kind,omitempty"`
-	// Snapshot of ToolSchema.risk, at plan-construction time.
+	// Snapshot of the originating operation's risk (ToolSchema.risk or
+	// SlashCommandSpec.risk — the same pluggableharness.tool.v1.RiskClass
+	// type either way), at plan-construction time.
 	Risk v1.RiskClass `protobuf:"varint,9,opt,name=risk,proto3,enum=pluggableharness.tool.v1.RiskClass" json:"risk,omitempty"`
-	// Snapshot of ToolSchema.description, at plan-construction time.
+	// Snapshot of the originating operation's description, at
+	// plan-construction time.
 	Description string `protobuf:"bytes,10,opt,name=description,proto3" json:"description,omitempty"`
-	// The tool provider's dry-run preview of this call's effect, when the
-	// provider implements ToolService.Preview (tool/protocol.md#preview).
-	// The kernel calls Preview at plan-construction time for
+	// The provider's dry-run preview of this call's effect, when the
+	// provider implements Preview (tool/protocol.md#preview or
+	// slashcommand/protocol.md#preview, per producer_category). The
+	// kernel calls Preview at plan-construction time for
 	// TOOL_KIND_RESOURCE items whose provider implements it; absent when
 	// the provider has no Preview implementation, in which case a frontend
 	// falls back to rendering the raw `input` above. Pinned to
-	// render.v1.RenderTree — the exact type ToolService.Preview's own
+	// render.v1.RenderTree — the exact type either category's Preview
 	// response carries, so this stored snapshot and the RPC's live output
 	// share one wire shape (agent-loop/plan-apply-gate.md#preview-flow).
-	Preview       *v11.RenderTree `protobuf:"bytes,11,opt,name=preview,proto3,oneof" json:"preview,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Preview *v11.RenderTree `protobuf:"bytes,11,opt,name=preview,proto3,oneof" json:"preview,omitempty"`
+	// Which category produced this item — CATEGORY_TOOL or
+	// CATEGORY_SLASHCOMMAND today, though nothing about this message
+	// assumes only those two will ever reach the plan/apply gate. Governs
+	// which category's Invoke/Preview RPC the kernel calls at apply time
+	// and how `call_id`/`operation_name` above should be interpreted.
+	ProducerCategory v12.Category `protobuf:"varint,12,opt,name=producer_category,json=producerCategory,proto3,enum=pluggableharness.common.v1.Category" json:"producer_category,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *PlanItem) Reset() {
@@ -257,9 +281,9 @@ func (x *PlanItem) GetId() string {
 	return ""
 }
 
-func (x *PlanItem) GetToolCallId() string {
+func (x *PlanItem) GetCallId() string {
 	if x != nil {
-		return x.ToolCallId
+		return x.CallId
 	}
 	return ""
 }
@@ -271,9 +295,9 @@ func (x *PlanItem) GetProvider() string {
 	return ""
 }
 
-func (x *PlanItem) GetToolName() string {
+func (x *PlanItem) GetOperationName() string {
 	if x != nil {
-		return x.ToolName
+		return x.OperationName
 	}
 	return ""
 }
@@ -325,6 +349,13 @@ func (x *PlanItem) GetPreview() *v11.RenderTree {
 		return x.Preview
 	}
 	return nil
+}
+
+func (x *PlanItem) GetProducerCategory() v12.Category {
+	if x != nil {
+		return x.ProducerCategory
+	}
+	return v12.Category(0)
 }
 
 // Plan collects every policy-evaluated call identified during one turn.
@@ -450,9 +481,9 @@ type ApplyResult_ApplyItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The originating PlanItem.id this outcome is for. MUST be set.
 	PlanItemId string `protobuf:"bytes,1,opt,name=plan_item_id,json=planItemId,proto3" json:"plan_item_id,omitempty"`
-	// The originating PlanItem.tool_call_id this outcome is for. MUST
-	// be set.
-	ToolCallId string `protobuf:"bytes,2,opt,name=tool_call_id,json=toolCallId,proto3" json:"tool_call_id,omitempty"`
+	// The originating PlanItem.call_id this outcome is for. MUST be
+	// set.
+	CallId string `protobuf:"bytes,2,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
 	// How this item's apply attempt concluded. MUST be set (never
 	// APPLY_OUTCOME_UNSPECIFIED).
 	Outcome ApplyResult_ApplyOutcome `protobuf:"varint,3,opt,name=outcome,proto3,enum=pluggableharness.plan.v1.ApplyResult_ApplyOutcome" json:"outcome,omitempty"`
@@ -506,9 +537,9 @@ func (x *ApplyResult_ApplyItem) GetPlanItemId() string {
 	return ""
 }
 
-func (x *ApplyResult_ApplyItem) GetToolCallId() string {
+func (x *ApplyResult_ApplyItem) GetCallId() string {
 	if x != nil {
-		return x.ToolCallId
+		return x.CallId
 	}
 	return ""
 }
@@ -568,13 +599,12 @@ var File_pluggableharness_plan_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_plan_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"$pluggableharness/plan/v1/types.proto\x12\x18pluggableharness.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/render/v1/types.proto\x1a%pluggableharness/tool/v1/errors.proto\x1a$pluggableharness/tool/v1/types.proto\"\xed\x03\n" +
+	"$pluggableharness/plan/v1/types.proto\x12\x18pluggableharness.plan.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\x1a%pluggableharness/tool/v1/errors.proto\x1a$pluggableharness/tool/v1/types.proto\"\xc1\x04\n" +
 	"\bPlanItem\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
-	"\ftool_call_id\x18\x02 \x01(\tR\n" +
-	"toolCallId\x12\x1a\n" +
-	"\bprovider\x18\x03 \x01(\tR\bprovider\x12\x1b\n" +
-	"\ttool_name\x18\x04 \x01(\tR\btoolName\x12-\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\acall_id\x18\x02 \x01(\tR\x06callId\x12\x1a\n" +
+	"\bprovider\x18\x03 \x01(\tR\bprovider\x12%\n" +
+	"\x0eoperation_name\x18\x04 \x01(\tR\roperationName\x12-\n" +
 	"\x05input\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x05input\x12B\n" +
 	"\bdecision\x18\x06 \x01(\x0e2&.pluggableharness.plan.v1.PlanDecisionR\bdecision\x12\x1d\n" +
 	"\n" +
@@ -583,20 +613,20 @@ const file_pluggableharness_plan_v1_types_proto_rawDesc = "" +
 	"\x04risk\x18\t \x01(\x0e2#.pluggableharness.tool.v1.RiskClassR\x04risk\x12 \n" +
 	"\vdescription\x18\n" +
 	" \x01(\tR\vdescription\x12E\n" +
-	"\apreview\x18\v \x01(\v2&.pluggableharness.render.v1.RenderTreeH\x00R\apreview\x88\x01\x01B\n" +
+	"\apreview\x18\v \x01(\v2&.pluggableharness.render.v1.RenderTreeH\x00R\apreview\x88\x01\x01\x12Q\n" +
+	"\x11producer_category\x18\f \x01(\x0e2$.pluggableharness.common.v1.CategoryR\x10producerCategoryB\n" +
 	"\n" +
 	"\b_preview\"Y\n" +
 	"\x04Plan\x12\x17\n" +
 	"\aturn_id\x18\x01 \x01(\tR\x06turnId\x128\n" +
-	"\x05items\x18\x02 \x03(\v2\".pluggableharness.plan.v1.PlanItemR\x05items\"\xc0\x04\n" +
+	"\x05items\x18\x02 \x03(\v2\".pluggableharness.plan.v1.PlanItemR\x05items\"\xb7\x04\n" +
 	"\vApplyResult\x12\x17\n" +
 	"\aturn_id\x18\x01 \x01(\tR\x06turnId\x12E\n" +
-	"\x05items\x18\x02 \x03(\v2/.pluggableharness.plan.v1.ApplyResult.ApplyItemR\x05items\x1a\xb6\x02\n" +
+	"\x05items\x18\x02 \x03(\v2/.pluggableharness.plan.v1.ApplyResult.ApplyItemR\x05items\x1a\xad\x02\n" +
 	"\tApplyItem\x12 \n" +
 	"\fplan_item_id\x18\x01 \x01(\tR\n" +
-	"planItemId\x12 \n" +
-	"\ftool_call_id\x18\x02 \x01(\tR\n" +
-	"toolCallId\x12L\n" +
+	"planItemId\x12\x17\n" +
+	"\acall_id\x18\x02 \x01(\tR\x06callId\x12L\n" +
 	"\aoutcome\x18\x03 \x01(\x0e22.pluggableharness.plan.v1.ApplyResult.ApplyOutcomeR\aoutcome\x12G\n" +
 	"\vtool_result\x18\x04 \x01(\v2$.pluggableharness.tool.v1.ToolResultH\x00R\n" +
 	"toolResult\x12D\n" +
@@ -641,8 +671,9 @@ var file_pluggableharness_plan_v1_types_proto_goTypes = []any{
 	(v1.ToolKind)(0),              // 7: pluggableharness.tool.v1.ToolKind
 	(v1.RiskClass)(0),             // 8: pluggableharness.tool.v1.RiskClass
 	(*v11.RenderTree)(nil),        // 9: pluggableharness.render.v1.RenderTree
-	(*v1.ToolResult)(nil),         // 10: pluggableharness.tool.v1.ToolResult
-	(*v1.ToolError)(nil),          // 11: pluggableharness.tool.v1.ToolError
+	(v12.Category)(0),             // 10: pluggableharness.common.v1.Category
+	(*v1.ToolResult)(nil),         // 11: pluggableharness.tool.v1.ToolResult
+	(*v1.ToolError)(nil),          // 12: pluggableharness.tool.v1.ToolError
 }
 var file_pluggableharness_plan_v1_types_proto_depIdxs = []int32{
 	6,  // 0: pluggableharness.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
@@ -650,16 +681,17 @@ var file_pluggableharness_plan_v1_types_proto_depIdxs = []int32{
 	7,  // 2: pluggableharness.plan.v1.PlanItem.kind:type_name -> pluggableharness.tool.v1.ToolKind
 	8,  // 3: pluggableharness.plan.v1.PlanItem.risk:type_name -> pluggableharness.tool.v1.RiskClass
 	9,  // 4: pluggableharness.plan.v1.PlanItem.preview:type_name -> pluggableharness.render.v1.RenderTree
-	2,  // 5: pluggableharness.plan.v1.Plan.items:type_name -> pluggableharness.plan.v1.PlanItem
-	5,  // 6: pluggableharness.plan.v1.ApplyResult.items:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyItem
-	1,  // 7: pluggableharness.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyOutcome
-	10, // 8: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.tool.v1.ToolResult
-	11, // 9: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.tool.v1.ToolError
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	10, // 5: pluggableharness.plan.v1.PlanItem.producer_category:type_name -> pluggableharness.common.v1.Category
+	2,  // 6: pluggableharness.plan.v1.Plan.items:type_name -> pluggableharness.plan.v1.PlanItem
+	5,  // 7: pluggableharness.plan.v1.ApplyResult.items:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyItem
+	1,  // 8: pluggableharness.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyOutcome
+	11, // 9: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.tool.v1.ToolResult
+	12, // 10: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.tool.v1.ToolError
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_plan_v1_types_proto_init() }

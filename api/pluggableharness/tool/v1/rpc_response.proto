@@ -5,7 +5,6 @@ package pluggableharness.tool.v1;
 import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/config/v1/types.proto";
 import "pluggableharness/render/v1/types.proto";
-import "pluggableharness/slashcommand/v1/types.proto";
 import "pluggableharness/tool/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/tool/proto/v1;toolv1";
@@ -17,11 +16,15 @@ message GetSchemaResponse {
   // One entry per operation this plugin exposes.
   repeated ToolSchema tools = 1;
 
-  // Slash commands this provider contributes, per tool.md §2.1. MAY be
-  // empty. Each entry's tool_name MUST reference one of this same
-  // provider's own operations declared in `tools` above — a provider
-  // cannot declare a slash command that invokes another provider's tool.
-  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 2;
+  // Prompt-expansion slash commands this provider contributes, per
+  // tool.md §2.1. MAY be empty. A direct-invoke command — one that
+  // actually executes something — is declared by a slashcommand.v1
+  // provider instead (specifications/slashcommand/), never here; a
+  // tool provider wanting a direct-invoke shortcut into one of its own
+  // operations implements SlashCommandService alongside ToolService in
+  // the same process (go-plugin muxes multiple services per connection,
+  // per hook.v1's precedent).
+  repeated pluggableharness.common.v1.PromptExpansionSpec slash_commands = 2;
 
   // This provider's agent.hcl config schema, per configuration.md §4 —
   // what fields Configure's request may be decoded from.

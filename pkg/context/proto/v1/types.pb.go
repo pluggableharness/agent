@@ -7,10 +7,9 @@
 package contextv1
 
 import (
-	v13 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v11 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v12 "github.com/pluggableharness/agent/pkg/config/proto/v1"
 	v1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
-	v11 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -43,9 +42,11 @@ type ContextCapabilities struct {
 	// conversation_history on ContextRequest and return rewritten_history.
 	// MUST be set; defaults to false. context.md §5, §5.1.
 	Compactor bool `protobuf:"varint,3,opt,name=compactor,proto3" json:"compactor,omitempty"`
-	// Slash commands this provider contributes. MAY be empty.
-	// context.md §2, configuration.md §5.
-	SlashCommands []*v11.SlashCommandSpec `protobuf:"bytes,4,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	// Prompt-expansion slash commands this provider contributes. MAY be
+	// empty. context.md §2, configuration.md §5. A direct-invoke command
+	// is declared by a slashcommand.v1 provider instead
+	// (specifications/slashcommand/), never here.
+	SlashCommands []*v11.PromptExpansionSpec `protobuf:"bytes,4,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// This provider's agent.hcl config schema, advertised so the kernel knows
 	// what fields Configure accepts. configuration.md §4.
 	ConfigSchema *v12.ConfigSchema `protobuf:"bytes,5,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
@@ -57,7 +58,7 @@ type ContextCapabilities struct {
 	// hook.v1 — hook.v1 imports this package's model/tool/plan dependencies,
 	// so a category capability message importing hook.v1 directly would
 	// cycle back through it; common.v1 is the shared leaf package instead.
-	SupportedHookPoints []v13.HookPoint `protobuf:"varint,6,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v11.HookPoint `protobuf:"varint,6,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -113,7 +114,7 @@ func (x *ContextCapabilities) GetCompactor() bool {
 	return false
 }
 
-func (x *ContextCapabilities) GetSlashCommands() []*v11.SlashCommandSpec {
+func (x *ContextCapabilities) GetSlashCommands() []*v11.PromptExpansionSpec {
 	if x != nil {
 		return x.SlashCommands
 	}
@@ -127,7 +128,7 @@ func (x *ContextCapabilities) GetConfigSchema() *v12.ConfigSchema {
 	return nil
 }
 
-func (x *ContextCapabilities) GetSupportedHookPoints() []v13.HookPoint {
+func (x *ContextCapabilities) GetSupportedHookPoints() []v11.HookPoint {
 	if x != nil {
 		return x.SupportedHookPoints
 	}
@@ -138,12 +139,12 @@ var File_pluggableharness_context_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_context_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/context/v1/types.proto\x12\x1bpluggableharness.context.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a,pluggableharness/slashcommand/v1/types.proto\"\xb0\x03\n" +
+	"'pluggableharness/context/v1/types.proto\x12\x1bpluggableharness.context.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\"\xad\x03\n" +
 	"\x13ContextCapabilities\x120\n" +
 	"\x14default_token_budget\x18\x01 \x01(\x03R\x12defaultTokenBudget\x12D\n" +
 	"\tstability\x18\x02 \x01(\x0e2&.pluggableharness.content.v1.StabilityR\tstability\x12\x1c\n" +
-	"\tcompactor\x18\x03 \x01(\bR\tcompactor\x12Y\n" +
-	"\x0eslash_commands\x18\x04 \x03(\v22.pluggableharness.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12M\n" +
+	"\tcompactor\x18\x03 \x01(\bR\tcompactor\x12V\n" +
+	"\x0eslash_commands\x18\x04 \x03(\v2/.pluggableharness.common.v1.PromptExpansionSpecR\rslashCommands\x12M\n" +
 	"\rconfig_schema\x18\x05 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
 	"\x15supported_hook_points\x18\x06 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPointsBBZ@github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1b\x06proto3"
 
@@ -161,15 +162,15 @@ func file_pluggableharness_context_v1_types_proto_rawDescGZIP() []byte {
 
 var file_pluggableharness_context_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_pluggableharness_context_v1_types_proto_goTypes = []any{
-	(*ContextCapabilities)(nil),  // 0: pluggableharness.context.v1.ContextCapabilities
-	(v1.Stability)(0),            // 1: pluggableharness.content.v1.Stability
-	(*v11.SlashCommandSpec)(nil), // 2: pluggableharness.slashcommand.v1.SlashCommandSpec
-	(*v12.ConfigSchema)(nil),     // 3: pluggableharness.config.v1.ConfigSchema
-	(v13.HookPoint)(0),           // 4: pluggableharness.common.v1.HookPoint
+	(*ContextCapabilities)(nil),     // 0: pluggableharness.context.v1.ContextCapabilities
+	(v1.Stability)(0),               // 1: pluggableharness.content.v1.Stability
+	(*v11.PromptExpansionSpec)(nil), // 2: pluggableharness.common.v1.PromptExpansionSpec
+	(*v12.ConfigSchema)(nil),        // 3: pluggableharness.config.v1.ConfigSchema
+	(v11.HookPoint)(0),              // 4: pluggableharness.common.v1.HookPoint
 }
 var file_pluggableharness_context_v1_types_proto_depIdxs = []int32{
 	1, // 0: pluggableharness.context.v1.ContextCapabilities.stability:type_name -> pluggableharness.content.v1.Stability
-	2, // 1: pluggableharness.context.v1.ContextCapabilities.slash_commands:type_name -> pluggableharness.slashcommand.v1.SlashCommandSpec
+	2, // 1: pluggableharness.context.v1.ContextCapabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
 	3, // 2: pluggableharness.context.v1.ContextCapabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
 	4, // 3: pluggableharness.context.v1.ContextCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
 	4, // [4:4] is the sub-list for method output_type

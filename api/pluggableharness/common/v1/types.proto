@@ -28,7 +28,7 @@ option go_package = "github.com/pluggableharness/agent/pkg/common/proto/v1;commo
 // persist time (specifications/state-backend.md §3), and never appears on
 // the wire from a plugin — plugins never generate `sequence` values.
 
-// Category identifies which of the six plugin categories a producer
+// Category identifies which of the seven plugin categories a producer
 // implements. Used wherever a message needs to refer to "a producer of any
 // kind" generically — e.g. the kernel's producer registry and the
 // state-backend's producers table (specifications/state-backend.md §4).
@@ -48,6 +48,8 @@ enum Category {
   CATEGORY_FRONTEND = 5;
   // A widget provider — specifications/frontend.md §4.
   CATEGORY_WIDGET = 6;
+  // A slashcommand provider — specifications/slashcommand/.
+  CATEGORY_SLASHCOMMAND = 7;
 }
 
 // HookPoint identifies one of the eight dispatchable points in the agent
@@ -115,7 +117,7 @@ message ProducerRef {
   // used in agent.hcl's provider {} and required_providers {} blocks.
   string source = 3;
 
-  // Which of the six plugin categories this producer implements.
+  // Which of the seven plugin categories this producer implements.
   Category category = 4;
 
   // The go-plugin handshake protocol version this producer build was
@@ -133,7 +135,7 @@ message ProducerRef {
 // for replay. Use ProducerRef when the exact build matters; use
 // ProviderRef when only the logical identity does.
 message ProviderRef {
-  // Which of the six plugin categories this reference names.
+  // Which of the seven plugin categories this reference names.
   Category category = 1;
 
   // The plugin's declared name, e.g. "anthropic". Unique within a category,
@@ -159,4 +161,34 @@ message CallContext {
 
   // The session's working directory at call time.
   string working_directory = 3;
+}
+
+// PromptExpansionSpec declares a static template-expansion slash
+// command: never executes anything, the kernel expands `template` with
+// the user's arguments and submits the result as an ordinary
+// user_message, costing a model turn. Declarable directly in any
+// category's own capability response (model.md §2 Capabilities, tool.md
+// §2 GetSchemaResponse, context.md §2 ContextCapabilities, memory.md §3
+// MemoryCapabilities, frontend.md §2 FrontendCapabilities). Lives here
+// rather than in slashcommand.v1 specifically because it has zero
+// dependency on that package's own vocabulary (kind/risk/concurrency,
+// borrowed from tool.v1) — homing it in the import-nothing leaf avoids
+// giving every embedding category's package an edge into slashcommand.v1
+// merely to declare a field that never invokes anything. A
+// directly-invocable slash command is a different, tool-shaped thing —
+// see pluggableharness.slashcommand.v1.SlashCommandSpec.
+message PromptExpansionSpec {
+  // The command's name, without the leading "/". MUST be unique across
+  // every prompt-expansion command declared by every provider in the
+  // session — a name collision at config-load time is a hard error
+  // (configuration.md §5), independent of the direct-invoke namespace
+  // pluggableharness.slashcommand.v1.SlashCommandSpec.name occupies.
+  string name = 1;
+
+  // Shown in the frontend's hotkey_hints region and wherever else the
+  // frontend surfaces available commands.
+  string description = 2;
+
+  // The prompt template to expand, using "{arg}"-style placeholders.
+  string template = 3;
 }

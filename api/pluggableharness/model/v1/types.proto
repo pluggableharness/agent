@@ -6,7 +6,6 @@ import "google/protobuf/timestamp.proto";
 import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/config/v1/types.proto";
 import "pluggableharness/schema/v1/types.proto";
-import "pluggableharness/slashcommand/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1";
 
@@ -20,10 +19,12 @@ message Capabilities {
   // entry.
   repeated ModelSpec models = 1;
 
-  // Slash commands this provider contributes, declared once for the
-  // provider as a whole (not per model), per model.md §2 and
-  // configuration.md §5 / frontend.md §5. MAY be empty.
-  repeated pluggableharness.slashcommand.v1.SlashCommandSpec slash_commands = 2;
+  // Prompt-expansion slash commands this provider contributes, declared
+  // once for the provider as a whole (not per model), per model.md §2
+  // and configuration.md §5 / frontend.md §5. MAY be empty. A
+  // direct-invoke command is declared by a slashcommand.v1 provider
+  // instead (specifications/slashcommand/), never here.
+  repeated pluggableharness.common.v1.PromptExpansionSpec slash_commands = 2;
 
   // The provider's agent.hcl config schema, returned alongside
   // capabilities so the kernel knows what fields Configure expects, per
