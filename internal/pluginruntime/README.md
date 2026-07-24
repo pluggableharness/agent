@@ -18,7 +18,7 @@ subprocess implementing one category:
 5. Dialing and completing the handshake.
 6. The authoritative post-handshake protocol-version gate.
 7. Dispensing the category's raw generated service client
-   (`providerv1.ProviderServiceClient`, `toolv1.ToolServiceClient`, ...).
+   (`modelv1.ModelServiceClient`, `toolv1.ToolServiceClient`, ...).
 8. Returning a `*Plugin` wrapping the dispensed client and the plugin's
    producer identity.
 

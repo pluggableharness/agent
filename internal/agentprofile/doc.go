@@ -10,7 +10,7 @@
 //     spawned from a parent — that make max_depth an inherited, only-ever-
 //     shrinking budget rather than a static per-profile ceiling.
 //   - Capability-aware model fallback (configuration.md §8.2, cross-referencing
-//     provider.md §9's required-capability matrix): walking a profile's
+//     model.md §9's required-capability matrix): walking a profile's
 //     model{} block's primary-then-fallback chain and picking the first
 //     candidate whose ModelSpec actually satisfies a turn's requirements.
 //   - Tool-scoping resolution (configuration.md §8.3): expanding a profile's

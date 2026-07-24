@@ -30,12 +30,19 @@ On the wire, `RiskClass` is declared as an enum with an explicit `RISK_CLASS_UNS
 
 ```protobuf
 ToolCall {
-  id           string   // MUST — kernel-assigned, echoed in every emitted event for correlation
-  tool_name    string   // MUST — matches a ToolSchema.name from this provider's GetSchema
-  arguments    JSON     // MUST — already-parsed JSON conforming to input_schema; per
-                         // provider/data-types.md#tool-schema, the kernel's internal ToolCall
-                         // representation always stores parsed arguments regardless of which
-                         // model-provider adapter produced them
+  id             string   // MUST — kernel-assigned, echoed in every emitted event for correlation
+  tool_name      string   // MUST — matches a ToolSchema.name from this provider's GetSchema
+  arguments      JSON     // MUST — already-parsed JSON conforming to input_schema; per
+                          // model/data-types.md#tool-schema, the kernel's internal ToolCall
+                          // representation always stores parsed arguments regardless of which
+                          // model-provider adapter produced them
+  call_context   CallContext  // MUST be set by the kernel — pluggableharness.agent.common.v1.CallContext.
+                          // Carries session_id/turn_id, echoed by the plugin on its own
+                          // KernelCallbackService.Emit/Log calls for attribution, and
+                          // working_directory — the cwd a process-backed operation (exec/bash,
+                          // read_file, ...) MUST resolve a relative-path argument against; without
+                          // it those tools have no defined cwd and are unusable. See
+                          // protocol.md#invoke.
 }
 
 ToolEvent = oneof {

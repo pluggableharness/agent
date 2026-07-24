@@ -15,7 +15,7 @@ import (
 	contextv1 "github.com/pluggableharness/agent/pkg/context/proto/v1"
 	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	memoryv1 "github.com/pluggableharness/agent/pkg/memory/proto/v1"
-	providerv1 "github.com/pluggableharness/agent/pkg/provider/proto/v1"
+	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 	widgetv1 "github.com/pluggableharness/agent/pkg/widget/proto/v1"
 )
@@ -44,7 +44,7 @@ func TestPluginMap(t *testing.T) {
 	cb := &fakeCallbackServer{}
 
 	for _, category := range []commonv1.Category{
-		commonv1.Category_CATEGORY_PROVIDER,
+		commonv1.Category_CATEGORY_MODEL,
 		commonv1.Category_CATEGORY_TOOL,
 		commonv1.Category_CATEGORY_CONTEXT,
 		commonv1.Category_CATEGORY_MEMORY,
@@ -87,7 +87,7 @@ func TestNewCategoryClient(t *testing.T) {
 		category commonv1.Category
 		want     any
 	}{
-		{commonv1.Category_CATEGORY_PROVIDER, providerv1.ProviderServiceClient(nil)},
+		{commonv1.Category_CATEGORY_MODEL, modelv1.ModelServiceClient(nil)},
 		{commonv1.Category_CATEGORY_TOOL, toolv1.ToolServiceClient(nil)},
 		{commonv1.Category_CATEGORY_CONTEXT, contextv1.ContextServiceClient(nil)},
 		{commonv1.Category_CATEGORY_MEMORY, memoryv1.MemoryServiceClient(nil)},
@@ -103,9 +103,9 @@ func TestNewCategoryClient(t *testing.T) {
 				t.Fatalf("newCategoryClient: %v", err)
 			}
 			switch tt.category {
-			case commonv1.Category_CATEGORY_PROVIDER:
-				if _, ok := got.(providerv1.ProviderServiceClient); !ok {
-					t.Fatalf("got %T, want providerv1.ProviderServiceClient", got)
+			case commonv1.Category_CATEGORY_MODEL:
+				if _, ok := got.(modelv1.ModelServiceClient); !ok {
+					t.Fatalf("got %T, want modelv1.ModelServiceClient", got)
 				}
 			case commonv1.Category_CATEGORY_TOOL:
 				if _, ok := got.(toolv1.ToolServiceClient); !ok {

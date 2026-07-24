@@ -9,15 +9,23 @@
 // context-assemble and contribute content to the prompt before each model
 // call (e.g. a CLAUDE.md reader, an AGENTS.md reader, a git-status/file-tree
 // summarizer). See .claude/rules/proto.md.
+//
+// ContextSection and Stability — the section chain this protocol assembles
+// and the turn-to-turn-change hint each section carries — are defined in
+// pluggableharness.agent.content.v1, not here: that chain is consumed by
+// both this protocol and the model provider's completion request
+// (forthcoming), so it's homed alongside content.v1's other shared content
+// shapes rather than duplicated or owned by only one consumer.
 
 package contextv1
 
 import (
-	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v13 "github.com/pluggableharness/agent/pkg/content/proto/v1"
-	v12 "github.com/pluggableharness/agent/pkg/model/proto/v1"
-	v14 "github.com/pluggableharness/agent/pkg/render/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
+	v13 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v12 "github.com/pluggableharness/agent/pkg/config/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
+	v14 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	v15 "github.com/pluggableharness/agent/pkg/render/proto/v1"
+	v11 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -33,70 +41,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Stability hints whether a ContextSection's content changes turn to turn,
-// used both as ContextCapabilities' provider-wide declaration and per
-// ContextSection. context.md §7: this is a direct translation of the
-// research's strongest cross-cutting finding — harnesses converge on a
-// tools -> system -> static-project-context -> conversation-tail prefix
-// ordering because it is a constraint, not a preference, for prompt-cache
-// reuse.
-type Stability int32
-
-const (
-	// Zero value. Never valid for a real capability or section declaration;
-	// its presence on the wire means a caller forgot to set the field.
-	Stability_STABILITY_UNSPECIFIED Stability = 0
-	// Content that doesn't change turn to turn for the life of the session,
-	// e.g. a repo's CLAUDE.md.
-	Stability_STABILITY_STATIC Stability = 1
-	// Content that's recomputed per turn, e.g. git status or a file tree.
-	Stability_STABILITY_DYNAMIC Stability = 2
-)
-
-// Enum value maps for Stability.
-var (
-	Stability_name = map[int32]string{
-		0: "STABILITY_UNSPECIFIED",
-		1: "STABILITY_STATIC",
-		2: "STABILITY_DYNAMIC",
-	}
-	Stability_value = map[string]int32{
-		"STABILITY_UNSPECIFIED": 0,
-		"STABILITY_STATIC":      1,
-		"STABILITY_DYNAMIC":     2,
-	}
-)
-
-func (x Stability) Enum() *Stability {
-	p := new(Stability)
-	*p = x
-	return p
-}
-
-func (x Stability) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Stability) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_context_v1_context_proto_enumTypes[0].Descriptor()
-}
-
-func (Stability) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_context_v1_context_proto_enumTypes[0]
-}
-
-func (x Stability) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Stability.Descriptor instead.
-func (Stability) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{0}
-}
-
 // ContextErrorCategory classifies a context provider's failures.
 // context.md §10 — smaller than the model-provider taxonomy
-// (provider.md §8), but a plugin MUST still classify failures rather than
+// (model.md §8), but a plugin MUST still classify failures rather than
 // collapsing them into one generic error.
 type ContextErrorCategory int32
 
@@ -155,11 +102,11 @@ func (x ContextErrorCategory) String() string {
 }
 
 func (ContextErrorCategory) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_context_v1_context_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_agent_context_v1_context_proto_enumTypes[0].Descriptor()
 }
 
 func (ContextErrorCategory) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_context_v1_context_proto_enumTypes[1]
+	return &file_pluggableharness_agent_context_v1_context_proto_enumTypes[0]
 }
 
 func (x ContextErrorCategory) Number() protoreflect.EnumNumber {
@@ -168,7 +115,7 @@ func (x ContextErrorCategory) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContextErrorCategory.Descriptor instead.
 func (ContextErrorCategory) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{0}
 }
 
 // GetCapabilitiesRequest carries no fields — GetCapabilities takes no
@@ -316,7 +263,7 @@ type ContextCapabilities struct {
 	DefaultTokenBudget int64 `protobuf:"varint,1,opt,name=default_token_budget,json=defaultTokenBudget,proto3" json:"default_token_budget,omitempty"`
 	// Whether this provider's contributed content changes turn to turn. MUST
 	// be set. context.md §2, §7.
-	Stability Stability `protobuf:"varint,2,opt,name=stability,proto3,enum=pluggableharness.agent.context.v1.Stability" json:"stability,omitempty"`
+	Stability v1.Stability `protobuf:"varint,2,opt,name=stability,proto3,enum=pluggableharness.agent.content.v1.Stability" json:"stability,omitempty"`
 	// Whether this provider acts as a compactor: MAY rewrite, merge, or drop
 	// other providers' sections in the chain it receives, and MAY receive
 	// conversation_history on ContextRequest and return rewritten_history.
@@ -324,12 +271,21 @@ type ContextCapabilities struct {
 	Compactor bool `protobuf:"varint,3,opt,name=compactor,proto3" json:"compactor,omitempty"`
 	// Slash commands this provider contributes. MAY be empty.
 	// context.md §2, configuration.md §5.
-	SlashCommands []*v1.SlashCommandSpec `protobuf:"bytes,4,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	SlashCommands []*v11.SlashCommandSpec `protobuf:"bytes,4,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// This provider's agent.hcl config schema, advertised so the kernel knows
 	// what fields Configure accepts. configuration.md §4.
-	ConfigSchema  *v11.ConfigSchema `protobuf:"bytes,5,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ConfigSchema *v12.ConfigSchema `protobuf:"bytes,5,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
+	// Which hook points (agent-loop/hook-dispatch.md) this provider declares
+	// HookSubscriberService.DispatchHook subscriptions for, advertised
+	// up front alongside its other static properties. MAY be empty — a
+	// context provider with no hook{} blocks in agent.hcl never has
+	// DispatchHook called on it. The enum itself lives in common.v1, not
+	// hook.v1 — hook.v1 imports this package's model/tool/plan dependencies,
+	// so a category capability message importing hook.v1 directly would
+	// cycle back through it; common.v1 is the shared leaf package instead.
+	SupportedHookPoints []v13.HookPoint `protobuf:"varint,6,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ContextCapabilities) Reset() {
@@ -369,11 +325,11 @@ func (x *ContextCapabilities) GetDefaultTokenBudget() int64 {
 	return 0
 }
 
-func (x *ContextCapabilities) GetStability() Stability {
+func (x *ContextCapabilities) GetStability() v1.Stability {
 	if x != nil {
 		return x.Stability
 	}
-	return Stability_STABILITY_UNSPECIFIED
+	return v1.Stability(0)
 }
 
 func (x *ContextCapabilities) GetCompactor() bool {
@@ -383,16 +339,23 @@ func (x *ContextCapabilities) GetCompactor() bool {
 	return false
 }
 
-func (x *ContextCapabilities) GetSlashCommands() []*v1.SlashCommandSpec {
+func (x *ContextCapabilities) GetSlashCommands() []*v11.SlashCommandSpec {
 	if x != nil {
 		return x.SlashCommands
 	}
 	return nil
 }
 
-func (x *ContextCapabilities) GetConfigSchema() *v11.ConfigSchema {
+func (x *ContextCapabilities) GetConfigSchema() *v12.ConfigSchema {
 	if x != nil {
 		return x.ConfigSchema
+	}
+	return nil
+}
+
+func (x *ContextCapabilities) GetSupportedHookPoints() []v13.HookPoint {
+	if x != nil {
+		return x.SupportedHookPoints
 	}
 	return nil
 }
@@ -446,8 +409,11 @@ type ContextRequest struct {
 	// The parent session's identifier, when this session is a sub-agent
 	// session. Empty for a top-level session.
 	ParentSessionId string `protobuf:"bytes,2,opt,name=parent_session_id,json=parentSessionId,proto3" json:"parent_session_id,omitempty"`
-	// Which turn of the session this firing is for.
-	TurnNumber int64 `protobuf:"varint,3,opt,name=turn_number,json=turnNumber,proto3" json:"turn_number,omitempty"`
+	// Which turn of the session this firing is for. A ULID, standardized
+	// across the whole protocol (matches plan.v1's turn_id field). Same field
+	// number as the retired int64 turn-number predecessor field; the rename
+	// is a sanctioned pre-release wire change, not a v2 bump.
+	TurnId string `protobuf:"bytes,3,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
 	// The kernel's computed token allocation for this provider on this call.
 	// MUST be set. A returned section MUST NOT exceed this. context.md §4,
 	// §6.
@@ -455,7 +421,7 @@ type ContextRequest struct {
 	// The model this contribution is being assembled for, so the provider can
 	// tailor content (and compute tokens against the right budget) for the
 	// model that will actually consume it. MUST be set. context.md §4.
-	ModelTarget *v12.ModelTarget `protobuf:"bytes,5,opt,name=model_target,json=modelTarget,proto3" json:"model_target,omitempty"`
+	ModelTarget *v14.ModelTarget `protobuf:"bytes,5,opt,name=model_target,json=modelTarget,proto3" json:"model_target,omitempty"`
 	// Paths touched so far this session, enabling JIT-scoped contributions
 	// (e.g. a subdirectory-scoped convention-file reader). MAY be empty, e.g.
 	// at turn 0 / session start. context.md §4, §8.
@@ -465,15 +431,24 @@ type ContextRequest struct {
 	// The accumulated output of earlier providers in this hook's
 	// declaration-order chain. MUST be set (MAY be empty on the first
 	// provider in the chain). context.md §4, §5.
-	PriorSections []*ContextSection `protobuf:"bytes,8,rep,name=prior_sections,json=priorSections,proto3" json:"prior_sections,omitempty"`
+	PriorSections []*v1.ContextSection `protobuf:"bytes,8,rep,name=prior_sections,json=priorSections,proto3" json:"prior_sections,omitempty"`
 	// The session's conversation history. Populated ONLY for a provider whose
 	// ContextCapabilities.compactor == true; a non-compactor provider MUST
 	// NOT receive this — for those providers this field arrives empty, which
 	// is indistinguishable from (and semantically equivalent to) "not
 	// provided". context.md §5.1.
-	ConversationHistory []*v13.Message `protobuf:"bytes,9,rep,name=conversation_history,json=conversationHistory,proto3" json:"conversation_history,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	ConversationHistory []*v1.Message `protobuf:"bytes,9,rep,name=conversation_history,json=conversationHistory,proto3" json:"conversation_history,omitempty"`
+	// The current conversation-history token total, kernel-computed. One of
+	// the two signals a compactor provider needs to decide WHEN to compact
+	// without re-counting history itself — see data-types.md's compactor
+	// workflow discussion in the orbit of §5.1.
+	HistoryTokens int64 `protobuf:"varint,10,opt,name=history_tokens,json=historyTokens,proto3" json:"history_tokens,omitempty"`
+	// The total assembled context size of the previous turn (all providers'
+	// sections combined), kernel-computed. The second compact-timing signal,
+	// alongside history_tokens above.
+	AssembledTokensLastTurn int64 `protobuf:"varint,11,opt,name=assembled_tokens_last_turn,json=assembledTokensLastTurn,proto3" json:"assembled_tokens_last_turn,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ContextRequest) Reset() {
@@ -520,11 +495,11 @@ func (x *ContextRequest) GetParentSessionId() string {
 	return ""
 }
 
-func (x *ContextRequest) GetTurnNumber() int64 {
+func (x *ContextRequest) GetTurnId() string {
 	if x != nil {
-		return x.TurnNumber
+		return x.TurnId
 	}
-	return 0
+	return ""
 }
 
 func (x *ContextRequest) GetTokenBudget() int64 {
@@ -534,7 +509,7 @@ func (x *ContextRequest) GetTokenBudget() int64 {
 	return 0
 }
 
-func (x *ContextRequest) GetModelTarget() *v12.ModelTarget {
+func (x *ContextRequest) GetModelTarget() *v14.ModelTarget {
 	if x != nil {
 		return x.ModelTarget
 	}
@@ -555,121 +530,32 @@ func (x *ContextRequest) GetWorkingDirectory() string {
 	return ""
 }
 
-func (x *ContextRequest) GetPriorSections() []*ContextSection {
+func (x *ContextRequest) GetPriorSections() []*v1.ContextSection {
 	if x != nil {
 		return x.PriorSections
 	}
 	return nil
 }
 
-func (x *ContextRequest) GetConversationHistory() []*v13.Message {
+func (x *ContextRequest) GetConversationHistory() []*v1.Message {
 	if x != nil {
 		return x.ConversationHistory
 	}
 	return nil
 }
 
-// ContextSection is one provider's contribution to the assembled prompt
-// context. context.md §4, §7.
-type ContextSection struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The producing plugin's declared name — a plain string, not a
-	// common.v1.ProducerRef, used as the identity key for a provider
-	// re-finding and replacing its own prior section.
-	Provider string `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
-	// Human-readable label the kernel uses to wrap this section in a clearly
-	// delimited boundary when concatenating the chain into the final prompt.
-	// MUST be set. context.md §4, §7.
-	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	// The section's content, in emission order. MUST be set. Text-only in
-	// v1 — the kernel MUST reject a non-text block here rather than silently
-	// dropping it. context.md §4, §7, §11.
-	Content []*v13.ContentBlock `protobuf:"bytes,3,rep,name=content,proto3" json:"content,omitempty"`
-	// This section's token count, computed via the kernel's CountTokens
-	// callback (kernel-callbacks.md §2), never a provider-local heuristic.
-	// MUST be set. context.md §4.
-	Tokens int64 `protobuf:"varint,4,opt,name=tokens,proto3" json:"tokens,omitempty"`
-	// Whether this section's content changes turn to turn. context.md §7.
-	Stability Stability `protobuf:"varint,5,opt,name=stability,proto3,enum=pluggableharness.agent.context.v1.Stability" json:"stability,omitempty"`
-	// Whether this section was truncated to fit its budget. Per context.md
-	// §6, setting this true is not itself sufficient to satisfy the budget
-	// constraint — a section that still exceeds token_budget MUST be
-	// rejected by the kernel regardless of this flag.
-	Truncated     bool `protobuf:"varint,6,opt,name=truncated,proto3" json:"truncated,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ContextSection) Reset() {
-	*x = ContextSection{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ContextSection) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ContextSection) ProtoMessage() {}
-
-func (x *ContextSection) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[6]
+func (x *ContextRequest) GetHistoryTokens() int64 {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ContextSection.ProtoReflect.Descriptor instead.
-func (*ContextSection) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ContextSection) GetProvider() string {
-	if x != nil {
-		return x.Provider
-	}
-	return ""
-}
-
-func (x *ContextSection) GetLabel() string {
-	if x != nil {
-		return x.Label
-	}
-	return ""
-}
-
-func (x *ContextSection) GetContent() []*v13.ContentBlock {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
-func (x *ContextSection) GetTokens() int64 {
-	if x != nil {
-		return x.Tokens
+		return x.HistoryTokens
 	}
 	return 0
 }
 
-func (x *ContextSection) GetStability() Stability {
+func (x *ContextRequest) GetAssembledTokensLastTurn() int64 {
 	if x != nil {
-		return x.Stability
+		return x.AssembledTokensLastTurn
 	}
-	return Stability_STABILITY_UNSPECIFIED
-}
-
-func (x *ContextSection) GetTruncated() bool {
-	if x != nil {
-		return x.Truncated
-	}
-	return false
+	return 0
 }
 
 // ContextContribution is Contribute's response: the full, possibly-modified
@@ -679,21 +565,21 @@ type ContextContribution struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The full accumulated chain, in declaration order, including this
 	// provider's own new or updated section(s).
-	Sections []*ContextSection `protobuf:"bytes,1,rep,name=sections,proto3" json:"sections,omitempty"`
+	Sections []*v1.ContextSection `protobuf:"bytes,1,rep,name=sections,proto3" json:"sections,omitempty"`
 	// The session's conversation history, rewritten to replace what was sent
 	// in ContextRequest.conversation_history. MAY be included by a compactor
 	// provider (ContextCapabilities.compactor == true) alongside its section
 	// contribution. When present, the kernel MUST replace the turn's
 	// conversation history with this before the next model call. context.md
 	// §5.1.
-	RewrittenHistory []*v13.Message `protobuf:"bytes,2,rep,name=rewritten_history,json=rewrittenHistory,proto3" json:"rewritten_history,omitempty"`
+	RewrittenHistory []*v1.Message `protobuf:"bytes,2,rep,name=rewritten_history,json=rewrittenHistory,proto3" json:"rewritten_history,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ContextContribution) Reset() {
 	*x = ContextContribution{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[7]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -705,7 +591,7 @@ func (x *ContextContribution) String() string {
 func (*ContextContribution) ProtoMessage() {}
 
 func (x *ContextContribution) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[7]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -718,17 +604,17 @@ func (x *ContextContribution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextContribution.ProtoReflect.Descriptor instead.
 func (*ContextContribution) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *ContextContribution) GetSections() []*ContextSection {
+func (x *ContextContribution) GetSections() []*v1.ContextSection {
 	if x != nil {
 		return x.Sections
 	}
 	return nil
 }
 
-func (x *ContextContribution) GetRewrittenHistory() []*v13.Message {
+func (x *ContextContribution) GetRewrittenHistory() []*v1.Message {
 	if x != nil {
 		return x.RewrittenHistory
 	}
@@ -753,7 +639,7 @@ type ContextError struct {
 
 func (x *ContextError) Reset() {
 	*x = ContextError{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -765,7 +651,7 @@ func (x *ContextError) String() string {
 func (*ContextError) ProtoMessage() {}
 
 func (x *ContextError) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -778,7 +664,7 @@ func (x *ContextError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextError.ProtoReflect.Descriptor instead.
 func (*ContextError) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ContextError) GetCategory() ContextErrorCategory {
@@ -809,14 +695,21 @@ type RenderRequest struct {
 	// Emit->Render->Paint carve-out. Never interpreted by the kernel or any
 	// other plugin; only the producing provider's own Render implementation
 	// understands its shape.
-	Payload       []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+	// The schema version this payload was emitted against, so a Render
+	// implementation can detect drift between the version it was built
+	// against and the version live in a running session. See
+	// ../frontend/render-tree.md#schema-versioning for the canonical
+	// definition of this field's semantics (owned by the frontend/widget
+	// workstream; this field just carries the same value).
+	SchemaVersion string `protobuf:"bytes,2,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RenderRequest) Reset() {
 	*x = RenderRequest{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[9]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +721,7 @@ func (x *RenderRequest) String() string {
 func (*RenderRequest) ProtoMessage() {}
 
 func (x *RenderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[9]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +734,7 @@ func (x *RenderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderRequest.ProtoReflect.Descriptor instead.
 func (*RenderRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RenderRequest) GetPayload() []byte {
@@ -851,19 +744,26 @@ func (x *RenderRequest) GetPayload() []byte {
 	return nil
 }
 
+func (x *RenderRequest) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
 // RenderResponse wraps the rendered output of the optional Render RPC.
 type RenderResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The rendered tree, per the general Emit->Render->Paint pipeline
 	// (frontend.md §1). context.md §9.
-	Tree          *v14.RenderTree `protobuf:"bytes,1,opt,name=tree,proto3" json:"tree,omitempty"`
+	Tree          *v15.RenderTree `protobuf:"bytes,1,opt,name=tree,proto3" json:"tree,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RenderResponse) Reset() {
 	*x = RenderResponse{}
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[10]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -875,7 +775,7 @@ func (x *RenderResponse) String() string {
 func (*RenderResponse) ProtoMessage() {}
 
 func (x *RenderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[10]
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -888,12 +788,98 @@ func (x *RenderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderResponse.ProtoReflect.Descriptor instead.
 func (*RenderResponse) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RenderResponse) GetTree() *v15.RenderTree {
+	if x != nil {
+		return x.Tree
+	}
+	return nil
+}
+
+// DescribeRequest carries no fields — Describe takes no request-scoped
+// parameters.
+type DescribeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeRequest) Reset() {
+	*x = DescribeRequest{}
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeRequest) ProtoMessage() {}
+
+func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
+func (*DescribeRequest) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *RenderResponse) GetTree() *v14.RenderTree {
+// DescribeResponse reports this plugin build's own identity. See the
+// Describe RPC comment on ContextService above.
+type DescribeResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// This plugin build's identity: name, version, source, category,
+	// protocol_version.
+	Producer      *v13.ProducerRef `protobuf:"bytes,1,opt,name=producer,proto3" json:"producer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeResponse) Reset() {
+	*x = DescribeResponse{}
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeResponse) ProtoMessage() {}
+
+func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_context_v1_context_proto_msgTypes[11]
 	if x != nil {
-		return x.Tree
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeResponse.ProtoReflect.Descriptor instead.
+func (*DescribeResponse) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *DescribeResponse) GetProducer() *v13.ProducerRef {
+	if x != nil {
+		return x.Producer
 	}
 	return nil
 }
@@ -902,66 +888,63 @@ var File_pluggableharness_agent_context_v1_context_proto protoreflect.FileDescri
 
 const file_pluggableharness_agent_context_v1_context_proto_rawDesc = "" +
 	"\n" +
-	"/pluggableharness/agent/context/v1/context.proto\x12!pluggableharness.agent.context.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x18\n" +
+	"/pluggableharness/agent/context/v1/context.proto\x12!pluggableharness.agent.context.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/common/v1/common.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"u\n" +
 	"\x17GetCapabilitiesResponse\x12Z\n" +
 	"\fcapabilities\x18\x01 \x01(\v26.pluggableharness.agent.context.v1.ContextCapabilitiesR\fcapabilities\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
-	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\xe7\x02\n" +
+	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\xc8\x03\n" +
 	"\x13ContextCapabilities\x120\n" +
 	"\x14default_token_budget\x18\x01 \x01(\x03R\x12defaultTokenBudget\x12J\n" +
-	"\tstability\x18\x02 \x01(\x0e2,.pluggableharness.agent.context.v1.StabilityR\tstability\x12\x1c\n" +
+	"\tstability\x18\x02 \x01(\x0e2,.pluggableharness.agent.content.v1.StabilityR\tstability\x12\x1c\n" +
 	"\tcompactor\x18\x03 \x01(\bR\tcompactor\x12_\n" +
 	"\x0eslash_commands\x18\x04 \x03(\v28.pluggableharness.agent.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12S\n" +
-	"\rconfig_schema\x18\x05 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\"\x13\n" +
-	"\x11ConfigureResponse\"\xfb\x03\n" +
+	"\rconfig_schema\x18\x05 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\x12_\n" +
+	"\x15supported_hook_points\x18\x06 \x03(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x13supportedHookPoints\"\x13\n" +
+	"\x11ConfigureResponse\"\xd7\x04\n" +
 	"\x0eContextRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12*\n" +
-	"\x11parent_session_id\x18\x02 \x01(\tR\x0fparentSessionId\x12\x1f\n" +
-	"\vturn_number\x18\x03 \x01(\x03R\n" +
-	"turnNumber\x12!\n" +
+	"\x11parent_session_id\x18\x02 \x01(\tR\x0fparentSessionId\x12\x17\n" +
+	"\aturn_id\x18\x03 \x01(\tR\x06turnId\x12!\n" +
 	"\ftoken_budget\x18\x04 \x01(\x03R\vtokenBudget\x12O\n" +
 	"\fmodel_target\x18\x05 \x01(\v2,.pluggableharness.agent.model.v1.ModelTargetR\vmodelTarget\x12#\n" +
 	"\rfiles_touched\x18\x06 \x03(\tR\ffilesTouched\x12+\n" +
 	"\x11working_directory\x18\a \x01(\tR\x10workingDirectory\x12X\n" +
-	"\x0eprior_sections\x18\b \x03(\v21.pluggableharness.agent.context.v1.ContextSectionR\rpriorSections\x12]\n" +
-	"\x14conversation_history\x18\t \x03(\v2*.pluggableharness.agent.content.v1.MessageR\x13conversationHistory\"\x8f\x02\n" +
-	"\x0eContextSection\x12\x1a\n" +
-	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x14\n" +
-	"\x05label\x18\x02 \x01(\tR\x05label\x12I\n" +
-	"\acontent\x18\x03 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\x12\x16\n" +
-	"\x06tokens\x18\x04 \x01(\x03R\x06tokens\x12J\n" +
-	"\tstability\x18\x05 \x01(\x0e2,.pluggableharness.agent.context.v1.StabilityR\tstability\x12\x1c\n" +
-	"\ttruncated\x18\x06 \x01(\bR\ttruncated\"\xbd\x01\n" +
+	"\x0eprior_sections\x18\b \x03(\v21.pluggableharness.agent.content.v1.ContextSectionR\rpriorSections\x12]\n" +
+	"\x14conversation_history\x18\t \x03(\v2*.pluggableharness.agent.content.v1.MessageR\x13conversationHistory\x12%\n" +
+	"\x0ehistory_tokens\x18\n" +
+	" \x01(\x03R\rhistoryTokens\x12;\n" +
+	"\x1aassembled_tokens_last_turn\x18\v \x01(\x03R\x17assembledTokensLastTurn\"\xbd\x01\n" +
 	"\x13ContextContribution\x12M\n" +
-	"\bsections\x18\x01 \x03(\v21.pluggableharness.agent.context.v1.ContextSectionR\bsections\x12W\n" +
+	"\bsections\x18\x01 \x03(\v21.pluggableharness.agent.content.v1.ContextSectionR\bsections\x12W\n" +
 	"\x11rewritten_history\x18\x02 \x03(\v2*.pluggableharness.agent.content.v1.MessageR\x10rewrittenHistory\"\x9b\x01\n" +
 	"\fContextError\x12S\n" +
 	"\bcategory\x18\x01 \x01(\x0e27.pluggableharness.agent.context.v1.ContextErrorCategoryR\bcategory\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1c\n" +
-	"\tretryable\x18\x03 \x01(\bR\tretryable\")\n" +
+	"\tretryable\x18\x03 \x01(\bR\tretryable\"P\n" +
 	"\rRenderRequest\x12\x18\n" +
-	"\apayload\x18\x01 \x01(\fR\apayload\"R\n" +
+	"\apayload\x18\x01 \x01(\fR\apayload\x12%\n" +
+	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersion\"R\n" +
 	"\x0eRenderResponse\x12@\n" +
-	"\x04tree\x18\x01 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\x04tree*S\n" +
-	"\tStability\x12\x19\n" +
-	"\x15STABILITY_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10STABILITY_STATIC\x10\x01\x12\x15\n" +
-	"\x11STABILITY_DYNAMIC\x10\x02*\x95\x02\n" +
+	"\x04tree\x18\x01 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\x04tree\"\x11\n" +
+	"\x0fDescribeRequest\"]\n" +
+	"\x10DescribeResponse\x12I\n" +
+	"\bproducer\x18\x01 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\bproducer*\x95\x02\n" +
 	"\x14ContextErrorCategory\x12&\n" +
 	"\"CONTEXT_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12-\n" +
 	")CONTEXT_ERROR_CATEGORY_SOURCE_UNAVAILABLE\x10\x01\x12*\n" +
 	"&CONTEXT_ERROR_CATEGORY_BUDGET_EXCEEDED\x10\x02\x12*\n" +
 	"&CONTEXT_ERROR_CATEGORY_SCOPE_VIOLATION\x10\x03\x12*\n" +
 	"&CONTEXT_ERROR_CATEGORY_INVALID_REQUEST\x10\x04\x12\"\n" +
-	"\x1eCONTEXT_ERROR_CATEGORY_UNKNOWN\x10\x052\xfb\x03\n" +
+	"\x1eCONTEXT_ERROR_CATEGORY_UNKNOWN\x10\x052\xf0\x04\n" +
 	"\x0eContextService\x12\x88\x01\n" +
 	"\x0fGetCapabilities\x129.pluggableharness.agent.context.v1.GetCapabilitiesRequest\x1a:.pluggableharness.agent.context.v1.GetCapabilitiesResponse\x12v\n" +
 	"\tConfigure\x123.pluggableharness.agent.context.v1.ConfigureRequest\x1a4.pluggableharness.agent.context.v1.ConfigureResponse\x12w\n" +
 	"\n" +
 	"Contribute\x121.pluggableharness.agent.context.v1.ContextRequest\x1a6.pluggableharness.agent.context.v1.ContextContribution\x12m\n" +
-	"\x06Render\x120.pluggableharness.agent.context.v1.RenderRequest\x1a1.pluggableharness.agent.context.v1.RenderResponseBBZ@github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1b\x06proto3"
+	"\x06Render\x120.pluggableharness.agent.context.v1.RenderRequest\x1a1.pluggableharness.agent.context.v1.RenderResponse\x12s\n" +
+	"\bDescribe\x122.pluggableharness.agent.context.v1.DescribeRequest\x1a3.pluggableharness.agent.context.v1.DescribeResponseBBZ@github.com/pluggableharness/agent/pkg/context/proto/v1;contextv1b\x06proto3"
 
 var (
 	file_pluggableharness_agent_context_v1_context_proto_rawDescOnce sync.Once
@@ -975,55 +958,60 @@ func file_pluggableharness_agent_context_v1_context_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_agent_context_v1_context_proto_rawDescData
 }
 
-var file_pluggableharness_agent_context_v1_context_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_agent_context_v1_context_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_pluggableharness_agent_context_v1_context_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_agent_context_v1_context_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_pluggableharness_agent_context_v1_context_proto_goTypes = []any{
-	(Stability)(0),                  // 0: pluggableharness.agent.context.v1.Stability
-	(ContextErrorCategory)(0),       // 1: pluggableharness.agent.context.v1.ContextErrorCategory
-	(*GetCapabilitiesRequest)(nil),  // 2: pluggableharness.agent.context.v1.GetCapabilitiesRequest
-	(*GetCapabilitiesResponse)(nil), // 3: pluggableharness.agent.context.v1.GetCapabilitiesResponse
-	(*ConfigureRequest)(nil),        // 4: pluggableharness.agent.context.v1.ConfigureRequest
-	(*ContextCapabilities)(nil),     // 5: pluggableharness.agent.context.v1.ContextCapabilities
-	(*ConfigureResponse)(nil),       // 6: pluggableharness.agent.context.v1.ConfigureResponse
-	(*ContextRequest)(nil),          // 7: pluggableharness.agent.context.v1.ContextRequest
-	(*ContextSection)(nil),          // 8: pluggableharness.agent.context.v1.ContextSection
-	(*ContextContribution)(nil),     // 9: pluggableharness.agent.context.v1.ContextContribution
-	(*ContextError)(nil),            // 10: pluggableharness.agent.context.v1.ContextError
-	(*RenderRequest)(nil),           // 11: pluggableharness.agent.context.v1.RenderRequest
-	(*RenderResponse)(nil),          // 12: pluggableharness.agent.context.v1.RenderResponse
+	(ContextErrorCategory)(0),       // 0: pluggableharness.agent.context.v1.ContextErrorCategory
+	(*GetCapabilitiesRequest)(nil),  // 1: pluggableharness.agent.context.v1.GetCapabilitiesRequest
+	(*GetCapabilitiesResponse)(nil), // 2: pluggableharness.agent.context.v1.GetCapabilitiesResponse
+	(*ConfigureRequest)(nil),        // 3: pluggableharness.agent.context.v1.ConfigureRequest
+	(*ContextCapabilities)(nil),     // 4: pluggableharness.agent.context.v1.ContextCapabilities
+	(*ConfigureResponse)(nil),       // 5: pluggableharness.agent.context.v1.ConfigureResponse
+	(*ContextRequest)(nil),          // 6: pluggableharness.agent.context.v1.ContextRequest
+	(*ContextContribution)(nil),     // 7: pluggableharness.agent.context.v1.ContextContribution
+	(*ContextError)(nil),            // 8: pluggableharness.agent.context.v1.ContextError
+	(*RenderRequest)(nil),           // 9: pluggableharness.agent.context.v1.RenderRequest
+	(*RenderResponse)(nil),          // 10: pluggableharness.agent.context.v1.RenderResponse
+	(*DescribeRequest)(nil),         // 11: pluggableharness.agent.context.v1.DescribeRequest
+	(*DescribeResponse)(nil),        // 12: pluggableharness.agent.context.v1.DescribeResponse
 	(*structpb.Struct)(nil),         // 13: google.protobuf.Struct
-	(*v1.SlashCommandSpec)(nil),     // 14: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	(*v11.ConfigSchema)(nil),        // 15: pluggableharness.agent.config.v1.ConfigSchema
-	(*v12.ModelTarget)(nil),         // 16: pluggableharness.agent.model.v1.ModelTarget
-	(*v13.Message)(nil),             // 17: pluggableharness.agent.content.v1.Message
-	(*v13.ContentBlock)(nil),        // 18: pluggableharness.agent.content.v1.ContentBlock
-	(*v14.RenderTree)(nil),          // 19: pluggableharness.agent.render.v1.RenderTree
+	(v1.Stability)(0),               // 14: pluggableharness.agent.content.v1.Stability
+	(*v11.SlashCommandSpec)(nil),    // 15: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
+	(*v12.ConfigSchema)(nil),        // 16: pluggableharness.agent.config.v1.ConfigSchema
+	(v13.HookPoint)(0),              // 17: pluggableharness.agent.common.v1.HookPoint
+	(*v14.ModelTarget)(nil),         // 18: pluggableharness.agent.model.v1.ModelTarget
+	(*v1.ContextSection)(nil),       // 19: pluggableharness.agent.content.v1.ContextSection
+	(*v1.Message)(nil),              // 20: pluggableharness.agent.content.v1.Message
+	(*v15.RenderTree)(nil),          // 21: pluggableharness.agent.render.v1.RenderTree
+	(*v13.ProducerRef)(nil),         // 22: pluggableharness.agent.common.v1.ProducerRef
 }
 var file_pluggableharness_agent_context_v1_context_proto_depIdxs = []int32{
-	5,  // 0: pluggableharness.agent.context.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.context.v1.ContextCapabilities
+	4,  // 0: pluggableharness.agent.context.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.context.v1.ContextCapabilities
 	13, // 1: pluggableharness.agent.context.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
-	0,  // 2: pluggableharness.agent.context.v1.ContextCapabilities.stability:type_name -> pluggableharness.agent.context.v1.Stability
-	14, // 3: pluggableharness.agent.context.v1.ContextCapabilities.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	15, // 4: pluggableharness.agent.context.v1.ContextCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
-	16, // 5: pluggableharness.agent.context.v1.ContextRequest.model_target:type_name -> pluggableharness.agent.model.v1.ModelTarget
-	8,  // 6: pluggableharness.agent.context.v1.ContextRequest.prior_sections:type_name -> pluggableharness.agent.context.v1.ContextSection
-	17, // 7: pluggableharness.agent.context.v1.ContextRequest.conversation_history:type_name -> pluggableharness.agent.content.v1.Message
-	18, // 8: pluggableharness.agent.context.v1.ContextSection.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	0,  // 9: pluggableharness.agent.context.v1.ContextSection.stability:type_name -> pluggableharness.agent.context.v1.Stability
-	8,  // 10: pluggableharness.agent.context.v1.ContextContribution.sections:type_name -> pluggableharness.agent.context.v1.ContextSection
-	17, // 11: pluggableharness.agent.context.v1.ContextContribution.rewritten_history:type_name -> pluggableharness.agent.content.v1.Message
-	1,  // 12: pluggableharness.agent.context.v1.ContextError.category:type_name -> pluggableharness.agent.context.v1.ContextErrorCategory
-	19, // 13: pluggableharness.agent.context.v1.RenderResponse.tree:type_name -> pluggableharness.agent.render.v1.RenderTree
-	2,  // 14: pluggableharness.agent.context.v1.ContextService.GetCapabilities:input_type -> pluggableharness.agent.context.v1.GetCapabilitiesRequest
-	4,  // 15: pluggableharness.agent.context.v1.ContextService.Configure:input_type -> pluggableharness.agent.context.v1.ConfigureRequest
-	7,  // 16: pluggableharness.agent.context.v1.ContextService.Contribute:input_type -> pluggableharness.agent.context.v1.ContextRequest
-	11, // 17: pluggableharness.agent.context.v1.ContextService.Render:input_type -> pluggableharness.agent.context.v1.RenderRequest
-	3,  // 18: pluggableharness.agent.context.v1.ContextService.GetCapabilities:output_type -> pluggableharness.agent.context.v1.GetCapabilitiesResponse
-	6,  // 19: pluggableharness.agent.context.v1.ContextService.Configure:output_type -> pluggableharness.agent.context.v1.ConfigureResponse
-	9,  // 20: pluggableharness.agent.context.v1.ContextService.Contribute:output_type -> pluggableharness.agent.context.v1.ContextContribution
-	12, // 21: pluggableharness.agent.context.v1.ContextService.Render:output_type -> pluggableharness.agent.context.v1.RenderResponse
-	18, // [18:22] is the sub-list for method output_type
-	14, // [14:18] is the sub-list for method input_type
+	14, // 2: pluggableharness.agent.context.v1.ContextCapabilities.stability:type_name -> pluggableharness.agent.content.v1.Stability
+	15, // 3: pluggableharness.agent.context.v1.ContextCapabilities.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
+	16, // 4: pluggableharness.agent.context.v1.ContextCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
+	17, // 5: pluggableharness.agent.context.v1.ContextCapabilities.supported_hook_points:type_name -> pluggableharness.agent.common.v1.HookPoint
+	18, // 6: pluggableharness.agent.context.v1.ContextRequest.model_target:type_name -> pluggableharness.agent.model.v1.ModelTarget
+	19, // 7: pluggableharness.agent.context.v1.ContextRequest.prior_sections:type_name -> pluggableharness.agent.content.v1.ContextSection
+	20, // 8: pluggableharness.agent.context.v1.ContextRequest.conversation_history:type_name -> pluggableharness.agent.content.v1.Message
+	19, // 9: pluggableharness.agent.context.v1.ContextContribution.sections:type_name -> pluggableharness.agent.content.v1.ContextSection
+	20, // 10: pluggableharness.agent.context.v1.ContextContribution.rewritten_history:type_name -> pluggableharness.agent.content.v1.Message
+	0,  // 11: pluggableharness.agent.context.v1.ContextError.category:type_name -> pluggableharness.agent.context.v1.ContextErrorCategory
+	21, // 12: pluggableharness.agent.context.v1.RenderResponse.tree:type_name -> pluggableharness.agent.render.v1.RenderTree
+	22, // 13: pluggableharness.agent.context.v1.DescribeResponse.producer:type_name -> pluggableharness.agent.common.v1.ProducerRef
+	1,  // 14: pluggableharness.agent.context.v1.ContextService.GetCapabilities:input_type -> pluggableharness.agent.context.v1.GetCapabilitiesRequest
+	3,  // 15: pluggableharness.agent.context.v1.ContextService.Configure:input_type -> pluggableharness.agent.context.v1.ConfigureRequest
+	6,  // 16: pluggableharness.agent.context.v1.ContextService.Contribute:input_type -> pluggableharness.agent.context.v1.ContextRequest
+	9,  // 17: pluggableharness.agent.context.v1.ContextService.Render:input_type -> pluggableharness.agent.context.v1.RenderRequest
+	11, // 18: pluggableharness.agent.context.v1.ContextService.Describe:input_type -> pluggableharness.agent.context.v1.DescribeRequest
+	2,  // 19: pluggableharness.agent.context.v1.ContextService.GetCapabilities:output_type -> pluggableharness.agent.context.v1.GetCapabilitiesResponse
+	5,  // 20: pluggableharness.agent.context.v1.ContextService.Configure:output_type -> pluggableharness.agent.context.v1.ConfigureResponse
+	7,  // 21: pluggableharness.agent.context.v1.ContextService.Contribute:output_type -> pluggableharness.agent.context.v1.ContextContribution
+	10, // 22: pluggableharness.agent.context.v1.ContextService.Render:output_type -> pluggableharness.agent.context.v1.RenderResponse
+	12, // 23: pluggableharness.agent.context.v1.ContextService.Describe:output_type -> pluggableharness.agent.context.v1.DescribeResponse
+	19, // [19:24] is the sub-list for method output_type
+	14, // [14:19] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name
 	14, // [14:14] is the sub-list for extension extendee
 	0,  // [0:14] is the sub-list for field type_name
@@ -1039,8 +1027,8 @@ func file_pluggableharness_agent_context_v1_context_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_context_v1_context_proto_rawDesc), len(file_pluggableharness_agent_context_v1_context_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   11,
+			NumEnums:      1,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

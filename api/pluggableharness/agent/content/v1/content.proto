@@ -1,13 +1,22 @@
 syntax = "proto3";
 
 // Package pluggableharness.agent.content.v1 defines the canonical content-block message
-// schema described in specifications/provider.md §5 — the state backend's
+// schema described in specifications/model.md §5 — the state backend's
 // source of truth for conversation history (state-backend.md §5's `message`
 // event kind). Every model-provider adapter translates its own vendor
 // format to and from exactly this schema; nothing else in the system
 // invents a competing message representation. Also consumed by
 // context.md's conversation_history/rewritten_history (§5.1), memory.md's
 // record content, and kernel-callbacks.md's CountTokensRequest.
+//
+// This package is also the shared home for ContextSection and Stability
+// (below) — the prompt-assembly section chain that context.md's
+// ContextService.Contribute produces and consumes, and that the model
+// provider's completion request will carry (forthcoming). Both types live
+// here, not in context.v1, because a section is fundamentally a content
+// shape (a labeled, stability-tagged list of ContentBlocks) that a second
+// consumer besides the context protocol needs to reference without
+// depending on the whole context.v1 package.
 package pluggableharness.agent.content.v1;
 
 import "google/protobuf/struct.proto";
@@ -30,7 +39,7 @@ enum Role {
 }
 
 // Message is one turn in the canonical conversation history: a role plus
-// an ordered list of content blocks. provider.md §5 is the source of these
+// an ordered list of content blocks. model.md §5 is the source of these
 // semantics.
 message Message {
   // Which party produced this message. MUST be set.
@@ -39,11 +48,42 @@ message Message {
   // The message's content, in emission order. A single message MAY carry
   // multiple blocks (e.g. an assistant turn with both text and a tool_use).
   repeated ContentBlock content = 2;
+
+  // Kernel-assigned ULID, stable across replay. This is the correlation
+  // anchor for deltas and forking (e.g. a frontend edit-and-resubmit that
+  // forks history at this message) — assigned once when the message is
+  // persisted and never reassigned, even when the same conversation is
+  // replayed against a newer plugin version. MUST be set by the kernel
+  // before persisting; a plugin never generates this value itself, per
+  // .claude/rules/determinism.md's ordering-authority rule for kernel-
+  // assigned identifiers.
+  string id = 3;
+
+  // The id of the model that produced this message, when role ==
+  // ROLE_ASSISTANT. A plain string (the target model's ModelSpec.id), not
+  // a model.v1.ModelRef or model.v1.ModelTarget — content.v1 MUST NOT
+  // import model.v1, since model.v1 already imports content.v1 (for
+  // Message/ContentBlock/ContextSection) and a reverse import would be a
+  // cyclic dependency buf rejects at build time. Omitted for a
+  // ROLE_USER message, or when the producing model is otherwise unknown.
+  optional string produced_by_model_id = 4;
+
+  // The declared name of the model provider plugin that produced this
+  // message (common.v1.ProducerRef.name / ProviderRef.name's scope), when
+  // role == ROLE_ASSISTANT. Same plain-string rationale as
+  // produced_by_model_id above. Because the kernel's routing/fallback
+  // chain (model/protocol.md#generation-parameter-validation-and-
+  // capability-aware-routing) may serve adjacent turns in the same
+  // session from different providers or different models, two
+  // consecutive ROLE_ASSISTANT messages in one conversation MAY carry
+  // different produced_by_model_id/produced_by_provider values — this is
+  // expected, not an anomaly, and MUST be preserved verbatim on replay.
+  optional string produced_by_provider = 5;
 }
 
 // ContentBlock is one block within a Message. Exactly one variant is set.
 // Which variants a given model MAY produce/accept is gated by that model's
-// ModelSpec capability flags (provider.md §2, §5): `text` MUST work both
+// ModelSpec capability flags (model.md §2, §5): `text` MUST work both
 // directions unconditionally; `image` requires supports_vision; `tool_use`/
 // `tool_result` require supports_tool_use; `thinking`/`redacted_thinking`
 // require ThinkingSpec.supported.
@@ -55,11 +95,12 @@ message ContentBlock {
     ImageBlock image = 4;
     ThinkingBlock thinking = 5;
     RedactedThinkingBlock redacted_thinking = 6;
+    DocumentBlock document = 7;
   }
 }
 
 // TextBlock is plain conversational text. MUST be supported by every
-// model, in both directions (provider.md §5).
+// model, in both directions (model.md §5).
 message TextBlock {
   // The block's text content.
   string text = 1;
@@ -67,7 +108,7 @@ message TextBlock {
 
 // ToolUseBlock represents the model requesting a tool invocation. `id`
 // correlates this block to the resulting ToolResultBlock, mirroring
-// provider.md §4's StreamEvent tool_call_start/tool_call_done id
+// model.md §4's StreamEvent tool_call_start/tool_call_done id
 // correlation once the stream has been assembled into a persisted message.
 message ToolUseBlock {
   // Correlation id for the matching ToolResultBlock.
@@ -104,9 +145,9 @@ message ToolResultBlock {
 }
 
 // ImageBlock is inline image content. Requires the target model's
-// ModelSpec.supports_vision (provider.md §5); the kernel MUST reject an
+// ModelSpec.supports_vision (model.md §5); the kernel MUST reject an
 // ImageBlock sent to a model where that flag is false, with
-// invalid_request (provider.md §8).
+// invalid_request (model.md §8).
 message ImageBlock {
   // Raw image bytes.
   bytes data = 1;
@@ -116,16 +157,16 @@ message ImageBlock {
 }
 
 // ThinkingBlock is the model's extended-reasoning output, when
-// ThinkingSpec.supported (provider.md §2). Requires the model's
+// ThinkingSpec.supported (model.md §2). Requires the model's
 // ThinkingSpec.supported to be true.
 message ThinkingBlock {
-  // The accumulated reasoning text (provider.md §4's thinking_delta
+  // The accumulated reasoning text (model.md §4's thinking_delta
   // StreamEvent variants, assembled into one block once the turn
   // completes).
   string text = 1;
 
   // An opaque vendor integrity token, when the vendor's thinking blocks
-  // carry one (provider.md §4's thinking_signature StreamEvent variant).
+  // carry one (model.md §4's thinking_signature StreamEvent variant).
   // The kernel MUST store and round-trip this verbatim without
   // interpreting it — it is meaningful only to the vendor that issued it.
   bytes signature = 2;
@@ -138,4 +179,75 @@ message ThinkingBlock {
 message RedactedThinkingBlock {
   // Opaque, vendor-encrypted bytes. The kernel never inspects this.
   bytes data = 1;
+}
+
+// DocumentBlock is inline non-image document content (e.g. a PDF) — the
+// document-attachment analog of ImageBlock. Requires the target model's
+// ModelSpec.supports_documents (model/data-types.md#modelspec); the
+// kernel MUST reject a DocumentBlock sent to a model where that flag is
+// false, with invalid_request, mirroring ImageBlock's supports_vision
+// rule (model/data-types.md#canonical-message--content-block-schema).
+message DocumentBlock {
+  // Raw document bytes.
+  bytes data = 1;
+
+  // The document's MIME type, e.g. "application/pdf".
+  string media_type = 2;
+
+  // The document's original filename, when known — several vendors
+  // surface this to the model as a citation/reference label. MAY be
+  // omitted.
+  optional string filename = 3;
+}
+
+// Stability hints whether a ContextSection's content changes turn to turn,
+// used both as a context provider's ContextCapabilities-level declaration
+// (pluggableharness.agent.context.v1.ContextCapabilities.stability) and
+// per ContextSection below. context.md §7: this is a direct translation of
+// the research's strongest cross-cutting finding — harnesses converge on a
+// tools -> system -> static-project-context -> conversation-tail prefix
+// ordering because it is a constraint, not a preference, for prompt-cache
+// reuse.
+enum Stability {
+  // Zero value. Never valid for a real capability or section declaration;
+  // its presence on the wire means a caller forgot to set the field.
+  STABILITY_UNSPECIFIED = 0;
+  // Content that doesn't change turn to turn for the life of the session,
+  // e.g. a repo's CLAUDE.md.
+  STABILITY_STATIC = 1;
+  // Content that's recomputed per turn, e.g. git status or a file tree.
+  STABILITY_DYNAMIC = 2;
+}
+
+// ContextSection is one provider's contribution to the assembled prompt
+// context. context.md §4, §7.
+message ContextSection {
+  // The producing plugin's declared name — a plain string, not a
+  // common.v1.ProducerRef, used as the identity key for a provider
+  // re-finding and replacing its own prior section.
+  string provider = 1;
+
+  // Human-readable label the kernel uses to wrap this section in a clearly
+  // delimited boundary when concatenating the chain into the final prompt.
+  // MUST be set. context.md §4, §7.
+  string label = 2;
+
+  // The section's content, in emission order. MUST be set. Text-only in
+  // v1 — the kernel MUST reject a non-text block here rather than silently
+  // dropping it. context.md §4, §7, §11.
+  repeated ContentBlock content = 3;
+
+  // This section's token count, computed via the kernel's CountTokens
+  // callback (kernel-callbacks.md §2), never a provider-local heuristic.
+  // MUST be set. context.md §4.
+  int64 tokens = 4;
+
+  // Whether this section's content changes turn to turn. context.md §7.
+  Stability stability = 5;
+
+  // Whether this section was truncated to fit its budget. Per context.md
+  // §6, setting this true is not itself sufficient to satisfy the budget
+  // constraint — a section that still exceeds token_budget MUST be
+  // rejected by the kernel regardless of this flag.
+  bool truncated = 6;
 }

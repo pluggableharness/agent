@@ -11,11 +11,14 @@
 package frontendv1
 
 import (
-	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v13 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
-	v12 "github.com/pluggableharness/agent/pkg/render/proto/v1"
-	v14 "github.com/pluggableharness/agent/pkg/session/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v12 "github.com/pluggableharness/agent/pkg/config/proto/v1"
+	v17 "github.com/pluggableharness/agent/pkg/content/proto/v1"
+	v16 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	v14 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
+	v13 "github.com/pluggableharness/agent/pkg/render/proto/v1"
+	v15 "github.com/pluggableharness/agent/pkg/session/proto/v1"
+	v11 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -87,6 +90,78 @@ func (ClientDecision) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{0}
 }
 
+// PlanDecisionScope is how durably a ClientEvent.PlanDecision applies,
+// beyond just the one PlanItem it names. Orthogonal to ClientDecision:
+// decision says allow/deny, scope says how long that verdict is
+// remembered. agent-loop/plan-apply-gate.md's "PlanDecisionScope
+// semantics" documents evaluation order and the ALWAYS persistence
+// obligation.
+type PlanDecisionScope int32
+
+const (
+	// Zero value. Never valid for a real decision; its presence on the wire
+	// means a caller forgot to set the field.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_UNSPECIFIED PlanDecisionScope = 0
+	// Applies to this PlanItem only. The default a frontend SHOULD send
+	// when the user hasn't explicitly asked for a broader scope.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE PlanDecisionScope = 1
+	// Applies to the rest of this session, for calls matching the same
+	// provider/tool_name (and, where policy's match schema supports it,
+	// narrower criteria) — an in-memory, session-lifetime rule, not
+	// written to agent.hcl or any persisted policy store.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION PlanDecisionScope = 2
+	// The kernel persists this as policy, applying beyond this session to
+	// future sessions under the same profile. Requires kernel-side policy
+	// persistence (agent-loop/plan-apply-gate.md#plandecisionscope-semantics)
+	// — a frontend MUST NOT assume ALWAYS is honored merely because it was
+	// sent; a kernel that cannot persist policy MUST reject it as a
+	// distinct error rather than silently downgrading to SESSION or ONCE.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS PlanDecisionScope = 3
+)
+
+// Enum value maps for PlanDecisionScope.
+var (
+	PlanDecisionScope_name = map[int32]string{
+		0: "PLAN_DECISION_SCOPE_UNSPECIFIED",
+		1: "PLAN_DECISION_SCOPE_ONCE",
+		2: "PLAN_DECISION_SCOPE_SESSION",
+		3: "PLAN_DECISION_SCOPE_ALWAYS",
+	}
+	PlanDecisionScope_value = map[string]int32{
+		"PLAN_DECISION_SCOPE_UNSPECIFIED": 0,
+		"PLAN_DECISION_SCOPE_ONCE":        1,
+		"PLAN_DECISION_SCOPE_SESSION":     2,
+		"PLAN_DECISION_SCOPE_ALWAYS":      3,
+	}
+)
+
+func (x PlanDecisionScope) Enum() *PlanDecisionScope {
+	p := new(PlanDecisionScope)
+	*p = x
+	return p
+}
+
+func (x PlanDecisionScope) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PlanDecisionScope) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes[1].Descriptor()
+}
+
+func (PlanDecisionScope) Type() protoreflect.EnumType {
+	return &file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes[1]
+}
+
+func (x PlanDecisionScope) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PlanDecisionScope.Descriptor instead.
+func (PlanDecisionScope) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{1}
+}
+
 // FrontendErrorCategory classifies a FrontendError, per the error taxonomy
 // in frontend.md §7.
 type FrontendErrorCategory int32
@@ -106,6 +181,28 @@ const (
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED FrontendErrorCategory = 3
 	// An error that does not fit any other category.
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNKNOWN FrontendErrorCategory = 4
+	// AttachSession, ResumeSession, DetachSession, or ListSessions'
+	// parent_session_id filter named a session_id the kernel has no record
+	// of.
+	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND FrontendErrorCategory = 5
+	// CreateSession failed — an invalid profile, or an unusable
+	// working_directory.
+	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED FrontendErrorCategory = 6
+	// A session-mutating control event targeted a session currently
+	// SESSION_STATUS_RUNNING in a way that conflicts with that (reserved
+	// for future session-mutating control events; no current variant in
+	// this protocol revision triggers it, since DetachSession is always
+	// safe on a running session).
+	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_BUSY FrontendErrorCategory = 7
+	// ResumeSession named a session file with a newer PRAGMA user_version
+	// than this kernel understands (state-backend.md §"Schema migration").
+	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SCHEMA_TOO_NEW FrontendErrorCategory = 8
+	// A user_message (or any other new-turn-inducing event) targeted a
+	// session attached replay-only per frontend.md §"Resume and re-open
+	// semantics" — a bound-exhausted (error_max_*) or FAILED session
+	// resumed via ResumeSession. Distinct from SESSION_BUSY: the session
+	// isn't running, it's terminal and specifically barred from new turns.
+	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY FrontendErrorCategory = 9
 )
 
 // Enum value maps for FrontendErrorCategory.
@@ -116,13 +213,23 @@ var (
 		2: "FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT",
 		3: "FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED",
 		4: "FRONTEND_ERROR_CATEGORY_UNKNOWN",
+		5: "FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND",
+		6: "FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED",
+		7: "FRONTEND_ERROR_CATEGORY_SESSION_BUSY",
+		8: "FRONTEND_ERROR_CATEGORY_SCHEMA_TOO_NEW",
+		9: "FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY",
 	}
 	FrontendErrorCategory_value = map[string]int32{
-		"FRONTEND_ERROR_CATEGORY_UNSPECIFIED":          0,
-		"FRONTEND_ERROR_CATEGORY_RENDER_FAILED":        1,
-		"FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT": 2,
-		"FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED":   3,
-		"FRONTEND_ERROR_CATEGORY_UNKNOWN":              4,
+		"FRONTEND_ERROR_CATEGORY_UNSPECIFIED":           0,
+		"FRONTEND_ERROR_CATEGORY_RENDER_FAILED":         1,
+		"FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT":  2,
+		"FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED":    3,
+		"FRONTEND_ERROR_CATEGORY_UNKNOWN":               4,
+		"FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND":     5,
+		"FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED": 6,
+		"FRONTEND_ERROR_CATEGORY_SESSION_BUSY":          7,
+		"FRONTEND_ERROR_CATEGORY_SCHEMA_TOO_NEW":        8,
+		"FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY":   9,
 	}
 )
 
@@ -137,11 +244,11 @@ func (x FrontendErrorCategory) String() string {
 }
 
 func (FrontendErrorCategory) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes[2].Descriptor()
 }
 
 func (FrontendErrorCategory) Type() protoreflect.EnumType {
-	return &file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes[1]
+	return &file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes[2]
 }
 
 func (x FrontendErrorCategory) Number() protoreflect.EnumNumber {
@@ -150,7 +257,92 @@ func (x FrontendErrorCategory) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FrontendErrorCategory.Descriptor instead.
 func (FrontendErrorCategory) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{2}
+}
+
+// DescribeRequest carries no fields — Describe takes no parameters.
+type DescribeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeRequest) Reset() {
+	*x = DescribeRequest{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeRequest) ProtoMessage() {}
+
+func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
+func (*DescribeRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{0}
+}
+
+// DescribeResponse reports this plugin build's own identity, obtained
+// directly from the running process rather than a lock-file row —
+// configuration/lock-file.md's "dev_overrides and identity without a lock
+// entry".
+type DescribeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Producer      *v1.ProducerRef        `protobuf:"bytes,1,opt,name=producer,proto3" json:"producer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeResponse) Reset() {
+	*x = DescribeResponse{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeResponse) ProtoMessage() {}
+
+func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeResponse.ProtoReflect.Descriptor instead.
+func (*DescribeResponse) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DescribeResponse) GetProducer() *v1.ProducerRef {
+	if x != nil {
+		return x.Producer
+	}
+	return nil
 }
 
 // GetCapabilitiesRequest carries no fields; capability discovery is not
@@ -163,7 +355,7 @@ type GetCapabilitiesRequest struct {
 
 func (x *GetCapabilitiesRequest) Reset() {
 	*x = GetCapabilitiesRequest{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[0]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -175,7 +367,7 @@ func (x *GetCapabilitiesRequest) String() string {
 func (*GetCapabilitiesRequest) ProtoMessage() {}
 
 func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[0]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -188,7 +380,7 @@ func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{2}
 }
 
 // GetCapabilitiesResponse wraps FrontendCapabilities for the RPC signature,
@@ -202,7 +394,7 @@ type GetCapabilitiesResponse struct {
 
 func (x *GetCapabilitiesResponse) Reset() {
 	*x = GetCapabilitiesResponse{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[1]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -214,7 +406,7 @@ func (x *GetCapabilitiesResponse) String() string {
 func (*GetCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[1]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -227,7 +419,7 @@ func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetCapabilitiesResponse) GetCapabilities() *FrontendCapabilities {
@@ -242,16 +434,27 @@ func (x *GetCapabilitiesResponse) GetCapabilities() *FrontendCapabilities {
 type FrontendCapabilities struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Slash commands this frontend contributes. MAY be empty.
-	SlashCommands []*v1.SlashCommandSpec `protobuf:"bytes,1,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	SlashCommands []*v11.SlashCommandSpec `protobuf:"bytes,1,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// This provider's `agent.hcl` configuration schema (configuration.md §4).
-	ConfigSchema  *v11.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ConfigSchema *v12.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
+	// Regions this frontend proactively declares it can render into. A
+	// complement to, not a replacement for, the reactive
+	// FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED error a placement the
+	// frontend can't honor still produces — this lets a producer route
+	// content preferentially without waiting to find out the hard way.
+	SupportedRegions []v13.Region `protobuf:"varint,3,rep,packed,name=supported_regions,json=supportedRegions,proto3,enum=pluggableharness.agent.render.v1.Region" json:"supported_regions,omitempty"`
+	// Hook points this frontend can subscribe to (agent-loop/hook-dispatch.md),
+	// so a mis-declared agent.hcl hook{} block naming an unsupported point
+	// can be rejected at config-load time rather than failing at first
+	// dispatch.
+	SupportedHookPoints []v1.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *FrontendCapabilities) Reset() {
 	*x = FrontendCapabilities{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[2]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +466,7 @@ func (x *FrontendCapabilities) String() string {
 func (*FrontendCapabilities) ProtoMessage() {}
 
 func (x *FrontendCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[2]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,19 +479,33 @@ func (x *FrontendCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendCapabilities.ProtoReflect.Descriptor instead.
 func (*FrontendCapabilities) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *FrontendCapabilities) GetSlashCommands() []*v1.SlashCommandSpec {
+func (x *FrontendCapabilities) GetSlashCommands() []*v11.SlashCommandSpec {
 	if x != nil {
 		return x.SlashCommands
 	}
 	return nil
 }
 
-func (x *FrontendCapabilities) GetConfigSchema() *v11.ConfigSchema {
+func (x *FrontendCapabilities) GetConfigSchema() *v12.ConfigSchema {
 	if x != nil {
 		return x.ConfigSchema
+	}
+	return nil
+}
+
+func (x *FrontendCapabilities) GetSupportedRegions() []v13.Region {
+	if x != nil {
+		return x.SupportedRegions
+	}
+	return nil
+}
+
+func (x *FrontendCapabilities) GetSupportedHookPoints() []v1.HookPoint {
+	if x != nil {
+		return x.SupportedHookPoints
 	}
 	return nil
 }
@@ -306,7 +523,7 @@ type ConfigureRequest struct {
 
 func (x *ConfigureRequest) Reset() {
 	*x = ConfigureRequest{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[3]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +535,7 @@ func (x *ConfigureRequest) String() string {
 func (*ConfigureRequest) ProtoMessage() {}
 
 func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[3]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -331,7 +548,7 @@ func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureRequest.ProtoReflect.Descriptor instead.
 func (*ConfigureRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ConfigureRequest) GetConfig() *structpb.Struct {
@@ -352,7 +569,7 @@ type ConfigureResponse struct {
 
 func (x *ConfigureResponse) Reset() {
 	*x = ConfigureResponse{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[4]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -364,7 +581,7 @@ func (x *ConfigureResponse) String() string {
 func (*ConfigureResponse) ProtoMessage() {}
 
 func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[4]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -377,13 +594,27 @@ func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureResponse.ProtoReflect.Descriptor instead.
 func (*ConfigureResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6}
 }
 
 // ServerEvent is one message the kernel sends to an attached frontend over
-// Attach, described in frontend.md §3.2. Exactly one variant is set.
+// the single multiplexed Attach stream, described in frontend.md §3.2.
+// Exactly one variant is set.
 type ServerEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this event is scoped to. Set for every session-scoped
+	// variant (stream_delta .. session_status_update); empty for the one
+	// connection-level variant, session_list.
+	SessionId string `protobuf:"bytes,100,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Correlates a response to the ClientEvent control message that
+	// triggered it, echoing that message's own request_id
+	// (hello/create_session/attach_session/resume_session/detach_session/
+	// list_sessions all carry one). Set on session_created, session_attached,
+	// backfill_complete, session_detached, session_list, and on error when
+	// it answers one of those control requests. Unset for ordinary live
+	// session events that were not triggered by a specific client request
+	// (stream_delta, render, plan_ready, ...).
+	RequestId *string `protobuf:"bytes,101,opt,name=request_id,json=requestId,proto3,oneof" json:"request_id,omitempty"`
 	// Types that are valid to be assigned to Event:
 	//
 	//	*ServerEvent_StreamDelta_
@@ -393,6 +624,14 @@ type ServerEvent struct {
 	//	*ServerEvent_InteractiveRequest_
 	//	*ServerEvent_SessionTreeUpdate_
 	//	*ServerEvent_Error_
+	//	*ServerEvent_SessionCreated_
+	//	*ServerEvent_SessionAttached_
+	//	*ServerEvent_BackfillComplete_
+	//	*ServerEvent_SessionDetached_
+	//	*ServerEvent_SessionList_
+	//	*ServerEvent_SlashCommandRegistry_
+	//	*ServerEvent_UsageUpdate_
+	//	*ServerEvent_SessionStatusUpdate_
 	Event         isServerEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -400,7 +639,7 @@ type ServerEvent struct {
 
 func (x *ServerEvent) Reset() {
 	*x = ServerEvent{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[5]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -412,7 +651,7 @@ func (x *ServerEvent) String() string {
 func (*ServerEvent) ProtoMessage() {}
 
 func (x *ServerEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[5]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -425,7 +664,21 @@ func (x *ServerEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent.ProtoReflect.Descriptor instead.
 func (*ServerEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ServerEvent) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ServerEvent) GetRequestId() string {
+	if x != nil && x.RequestId != nil {
+		return *x.RequestId
+	}
+	return ""
 }
 
 func (x *ServerEvent) GetEvent() isServerEvent_Event {
@@ -498,6 +751,78 @@ func (x *ServerEvent) GetError() *ServerEvent_Error {
 	return nil
 }
 
+func (x *ServerEvent) GetSessionCreated() *ServerEvent_SessionCreated {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_SessionCreated_); ok {
+			return x.SessionCreated
+		}
+	}
+	return nil
+}
+
+func (x *ServerEvent) GetSessionAttached() *ServerEvent_SessionAttached {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_SessionAttached_); ok {
+			return x.SessionAttached
+		}
+	}
+	return nil
+}
+
+func (x *ServerEvent) GetBackfillComplete() *ServerEvent_BackfillComplete {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_BackfillComplete_); ok {
+			return x.BackfillComplete
+		}
+	}
+	return nil
+}
+
+func (x *ServerEvent) GetSessionDetached() *ServerEvent_SessionDetached {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_SessionDetached_); ok {
+			return x.SessionDetached
+		}
+	}
+	return nil
+}
+
+func (x *ServerEvent) GetSessionList() *ServerEvent_SessionList {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_SessionList_); ok {
+			return x.SessionList
+		}
+	}
+	return nil
+}
+
+func (x *ServerEvent) GetSlashCommandRegistry() *ServerEvent_SlashCommandRegistry {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_SlashCommandRegistry_); ok {
+			return x.SlashCommandRegistry
+		}
+	}
+	return nil
+}
+
+func (x *ServerEvent) GetUsageUpdate() *ServerEvent_UsageUpdate {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_UsageUpdate_); ok {
+			return x.UsageUpdate
+		}
+	}
+	return nil
+}
+
+func (x *ServerEvent) GetSessionStatusUpdate() *ServerEvent_SessionStatusUpdate {
+	if x != nil {
+		if x, ok := x.Event.(*ServerEvent_SessionStatusUpdate_); ok {
+			return x.SessionStatusUpdate
+		}
+	}
+	return nil
+}
+
 type isServerEvent_Event interface {
 	isServerEvent_Event()
 }
@@ -530,6 +855,60 @@ type ServerEvent_Error_ struct {
 	Error *ServerEvent_Error `protobuf:"bytes,7,opt,name=error,proto3,oneof"`
 }
 
+type ServerEvent_SessionCreated_ struct {
+	// Acknowledges a ClientEvent.CreateSession, carrying the new
+	// session's info. The kernel auto-attaches the creating stream to
+	// this session (frontend.md §"Session lifecycle").
+	SessionCreated *ServerEvent_SessionCreated `protobuf:"bytes,8,opt,name=session_created,json=sessionCreated,proto3,oneof"`
+}
+
+type ServerEvent_SessionAttached_ struct {
+	// Acknowledges a ClientEvent.AttachSession or ResumeSession, carrying
+	// the session's current info. Opens the backfill batch: the
+	// replayed `render` events that follow, bracketed by the eventual
+	// backfill_complete (frontend.md §"Backfill").
+	SessionAttached *ServerEvent_SessionAttached `protobuf:"bytes,9,opt,name=session_attached,json=sessionAttached,proto3,oneof"`
+}
+
+type ServerEvent_BackfillComplete_ struct {
+	// The done-marker closing a backfill batch opened by session_attached
+	// above. Live events with sequence > last_sequence follow this.
+	// Unicast to the attaching stream only, never broadcast.
+	BackfillComplete *ServerEvent_BackfillComplete `protobuf:"bytes,10,opt,name=backfill_complete,json=backfillComplete,proto3,oneof"`
+}
+
+type ServerEvent_SessionDetached_ struct {
+	// Acknowledges a ClientEvent.DetachSession.
+	SessionDetached *ServerEvent_SessionDetached `protobuf:"bytes,11,opt,name=session_detached,json=sessionDetached,proto3,oneof"`
+}
+
+type ServerEvent_SessionList_ struct {
+	// Answers a ClientEvent.ListSessions. Connection-scoped — session_id
+	// above is empty for this variant.
+	SessionList *ServerEvent_SessionList `protobuf:"bytes,12,opt,name=session_list,json=sessionList,proto3,oneof"`
+}
+
+type ServerEvent_SlashCommandRegistry_ struct {
+	// The profile-scoped aggregate slash-command registry across every
+	// provider loaded for this session, sent on session_attached and
+	// again whenever the registry changes.
+	SlashCommandRegistry *ServerEvent_SlashCommandRegistry `protobuf:"bytes,14,opt,name=slash_command_registry,json=slashCommandRegistry,proto3,oneof"`
+}
+
+type ServerEvent_UsageUpdate_ struct {
+	// Per-turn token/cost accounting and context-budget pressure.
+	UsageUpdate *ServerEvent_UsageUpdate `protobuf:"bytes,15,opt,name=usage_update,json=usageUpdate,proto3,oneof"`
+}
+
+type ServerEvent_SessionStatusUpdate_ struct {
+	// This session's OWN lifecycle status. Deliberately distinct from
+	// session_tree_update above, which reports a CHILD session's status
+	// — this variant is the attached session's own transition (e.g.
+	// RUNNING -> COMPLETED, or a bound-exhausted re-open per
+	// frontend.md §"Resume and re-open semantics").
+	SessionStatusUpdate *ServerEvent_SessionStatusUpdate `protobuf:"bytes,16,opt,name=session_status_update,json=sessionStatusUpdate,proto3,oneof"`
+}
+
 func (*ServerEvent_StreamDelta_) isServerEvent_Event() {}
 
 func (*ServerEvent_Render_) isServerEvent_Event() {}
@@ -544,10 +923,38 @@ func (*ServerEvent_SessionTreeUpdate_) isServerEvent_Event() {}
 
 func (*ServerEvent_Error_) isServerEvent_Event() {}
 
-// ClientEvent is one message a frontend sends to the kernel over Attach,
-// described in frontend.md §3.2. Exactly one variant is set.
+func (*ServerEvent_SessionCreated_) isServerEvent_Event() {}
+
+func (*ServerEvent_SessionAttached_) isServerEvent_Event() {}
+
+func (*ServerEvent_BackfillComplete_) isServerEvent_Event() {}
+
+func (*ServerEvent_SessionDetached_) isServerEvent_Event() {}
+
+func (*ServerEvent_SessionList_) isServerEvent_Event() {}
+
+func (*ServerEvent_SlashCommandRegistry_) isServerEvent_Event() {}
+
+func (*ServerEvent_UsageUpdate_) isServerEvent_Event() {}
+
+func (*ServerEvent_SessionStatusUpdate_) isServerEvent_Event() {}
+
+// ClientEvent is one message a frontend sends to the kernel over the
+// single multiplexed Attach stream, described in frontend.md §3.2.
+// Exactly one variant is set.
 type ClientEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this event is scoped to. REQUIRED for every
+	// session-scoped variant (user_message, slash_command, plan_decision,
+	// interactive_response, action_trigger, interrupt) — the kernel MUST
+	// reject one of these arriving with an empty session_id as
+	// FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT. Empty for the
+	// connection-level control variants (hello, create_session,
+	// attach_session, resume_session, detach_session, list_sessions), which
+	// either don't yet have a bound session or operate across sessions —
+	// attach_session/resume_session instead name the target session inside
+	// their own nested message.
+	SessionId string `protobuf:"bytes,100,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// Types that are valid to be assigned to Event:
 	//
 	//	*ClientEvent_UserMessage_
@@ -556,6 +963,12 @@ type ClientEvent struct {
 	//	*ClientEvent_InteractiveResponse_
 	//	*ClientEvent_ActionTrigger_
 	//	*ClientEvent_Interrupt_
+	//	*ClientEvent_Hello_
+	//	*ClientEvent_CreateSession_
+	//	*ClientEvent_AttachSession_
+	//	*ClientEvent_ResumeSession_
+	//	*ClientEvent_DetachSession_
+	//	*ClientEvent_ListSessions_
 	Event         isClientEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -563,7 +976,7 @@ type ClientEvent struct {
 
 func (x *ClientEvent) Reset() {
 	*x = ClientEvent{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[6]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -575,7 +988,7 @@ func (x *ClientEvent) String() string {
 func (*ClientEvent) ProtoMessage() {}
 
 func (x *ClientEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[6]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -588,7 +1001,14 @@ func (x *ClientEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientEvent.ProtoReflect.Descriptor instead.
 func (*ClientEvent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ClientEvent) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
 }
 
 func (x *ClientEvent) GetEvent() isClientEvent_Event {
@@ -652,6 +1072,60 @@ func (x *ClientEvent) GetInterrupt() *ClientEvent_Interrupt {
 	return nil
 }
 
+func (x *ClientEvent) GetHello() *ClientEvent_Hello {
+	if x != nil {
+		if x, ok := x.Event.(*ClientEvent_Hello_); ok {
+			return x.Hello
+		}
+	}
+	return nil
+}
+
+func (x *ClientEvent) GetCreateSession() *ClientEvent_CreateSession {
+	if x != nil {
+		if x, ok := x.Event.(*ClientEvent_CreateSession_); ok {
+			return x.CreateSession
+		}
+	}
+	return nil
+}
+
+func (x *ClientEvent) GetAttachSession() *ClientEvent_AttachSession {
+	if x != nil {
+		if x, ok := x.Event.(*ClientEvent_AttachSession_); ok {
+			return x.AttachSession
+		}
+	}
+	return nil
+}
+
+func (x *ClientEvent) GetResumeSession() *ClientEvent_ResumeSession {
+	if x != nil {
+		if x, ok := x.Event.(*ClientEvent_ResumeSession_); ok {
+			return x.ResumeSession
+		}
+	}
+	return nil
+}
+
+func (x *ClientEvent) GetDetachSession() *ClientEvent_DetachSession {
+	if x != nil {
+		if x, ok := x.Event.(*ClientEvent_DetachSession_); ok {
+			return x.DetachSession
+		}
+	}
+	return nil
+}
+
+func (x *ClientEvent) GetListSessions() *ClientEvent_ListSessions {
+	if x != nil {
+		if x, ok := x.Event.(*ClientEvent_ListSessions_); ok {
+			return x.ListSessions
+		}
+	}
+	return nil
+}
+
 type isClientEvent_Event interface {
 	isClientEvent_Event()
 }
@@ -680,6 +1154,44 @@ type ClientEvent_Interrupt_ struct {
 	Interrupt *ClientEvent_Interrupt `protobuf:"bytes,6,opt,name=interrupt,proto3,oneof"`
 }
 
+type ClientEvent_Hello_ struct {
+	// MAY be sent as the first message on a newly opened Attach stream;
+	// asserts the protocol version only. Not required to bind any
+	// session — that happens via the variants below.
+	Hello *ClientEvent_Hello `protobuf:"bytes,7,opt,name=hello,proto3,oneof"`
+}
+
+type ClientEvent_CreateSession_ struct {
+	// Creates a new session and auto-attaches this stream to it.
+	CreateSession *ClientEvent_CreateSession `protobuf:"bytes,8,opt,name=create_session,json=createSession,proto3,oneof"`
+}
+
+type ClientEvent_AttachSession_ struct {
+	// Subscribes an existing (possibly live) session onto this stream,
+	// triggering a backfill replay (frontend.md §"Backfill").
+	AttachSession *ClientEvent_AttachSession `protobuf:"bytes,9,opt,name=attach_session,json=attachSession,proto3,oneof"`
+}
+
+type ClientEvent_ResumeSession_ struct {
+	// Attaches a historical session for continuation or replay, per
+	// frontend.md §"Resume and re-open semantics" — a COMPLETED or
+	// CANCELLED session MAY be re-opened to RUNNING for new turns; a
+	// bound-exhausted (error_max_*) or FAILED session attaches
+	// replay-only and rejects any subsequent user_message for it.
+	ResumeSession *ClientEvent_ResumeSession `protobuf:"bytes,10,opt,name=resume_session,json=resumeSession,proto3,oneof"`
+}
+
+type ClientEvent_DetachSession_ struct {
+	// Unsubscribes a session from this stream without affecting the
+	// session itself.
+	DetachSession *ClientEvent_DetachSession `protobuf:"bytes,11,opt,name=detach_session,json=detachSession,proto3,oneof"`
+}
+
+type ClientEvent_ListSessions_ struct {
+	// Requests the connection-scoped session summary list.
+	ListSessions *ClientEvent_ListSessions `protobuf:"bytes,12,opt,name=list_sessions,json=listSessions,proto3,oneof"`
+}
+
 func (*ClientEvent_UserMessage_) isClientEvent_Event() {}
 
 func (*ClientEvent_SlashCommand_) isClientEvent_Event() {}
@@ -691,6 +1203,18 @@ func (*ClientEvent_InteractiveResponse_) isClientEvent_Event() {}
 func (*ClientEvent_ActionTrigger_) isClientEvent_Event() {}
 
 func (*ClientEvent_Interrupt_) isClientEvent_Event() {}
+
+func (*ClientEvent_Hello_) isClientEvent_Event() {}
+
+func (*ClientEvent_CreateSession_) isClientEvent_Event() {}
+
+func (*ClientEvent_AttachSession_) isClientEvent_Event() {}
+
+func (*ClientEvent_ResumeSession_) isClientEvent_Event() {}
+
+func (*ClientEvent_DetachSession_) isClientEvent_Event() {}
+
+func (*ClientEvent_ListSessions_) isClientEvent_Event() {}
 
 // FrontendError is the structured error type for this category, per
 // frontend.md §7. Carried in ServerEvent.Error and in the structured detail
@@ -707,7 +1231,7 @@ type FrontendError struct {
 
 func (x *FrontendError) Reset() {
 	*x = FrontendError{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[7]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -719,7 +1243,7 @@ func (x *FrontendError) String() string {
 func (*FrontendError) ProtoMessage() {}
 
 func (x *FrontendError) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[7]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -732,7 +1256,7 @@ func (x *FrontendError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendError.ProtoReflect.Descriptor instead.
 func (*FrontendError) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FrontendError) GetCategory() FrontendErrorCategory {
@@ -765,7 +1289,7 @@ type ServerEvent_StreamDelta struct {
 
 func (x *ServerEvent_StreamDelta) Reset() {
 	*x = ServerEvent_StreamDelta{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -777,7 +1301,7 @@ func (x *ServerEvent_StreamDelta) String() string {
 func (*ServerEvent_StreamDelta) ProtoMessage() {}
 
 func (x *ServerEvent_StreamDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +1314,7 @@ func (x *ServerEvent_StreamDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent_StreamDelta.ProtoReflect.Descriptor instead.
 func (*ServerEvent_StreamDelta) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5, 0}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 0}
 }
 
 func (x *ServerEvent_StreamDelta) GetTargetId() string {
@@ -811,14 +1335,14 @@ func (x *ServerEvent_StreamDelta) GetText() string {
 type ServerEvent_Render struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The content, its target region, and its replace/append behavior.
-	Content       *v12.PlacedContent `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	Content       *v13.PlacedContent `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerEvent_Render) Reset() {
 	*x = ServerEvent_Render{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[9]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -830,7 +1354,7 @@ func (x *ServerEvent_Render) String() string {
 func (*ServerEvent_Render) ProtoMessage() {}
 
 func (x *ServerEvent_Render) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[9]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,10 +1367,10 @@ func (x *ServerEvent_Render) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent_Render.ProtoReflect.Descriptor instead.
 func (*ServerEvent_Render) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5, 1}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 1}
 }
 
-func (x *ServerEvent_Render) GetContent() *v12.PlacedContent {
+func (x *ServerEvent_Render) GetContent() *v13.PlacedContent {
 	if x != nil {
 		return x.Content
 	}
@@ -859,14 +1383,14 @@ func (x *ServerEvent_Render) GetContent() *v12.PlacedContent {
 type ServerEvent_PermissionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The plan item awaiting a decision.
-	PlanItem      *v13.PlanItem `protobuf:"bytes,1,opt,name=plan_item,json=planItem,proto3" json:"plan_item,omitempty"`
+	PlanItem      *v14.PlanItem `protobuf:"bytes,1,opt,name=plan_item,json=planItem,proto3" json:"plan_item,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerEvent_PermissionRequest) Reset() {
 	*x = ServerEvent_PermissionRequest{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[10]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +1402,7 @@ func (x *ServerEvent_PermissionRequest) String() string {
 func (*ServerEvent_PermissionRequest) ProtoMessage() {}
 
 func (x *ServerEvent_PermissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[10]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,10 +1415,10 @@ func (x *ServerEvent_PermissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent_PermissionRequest.ProtoReflect.Descriptor instead.
 func (*ServerEvent_PermissionRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5, 2}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 2}
 }
 
-func (x *ServerEvent_PermissionRequest) GetPlanItem() *v13.PlanItem {
+func (x *ServerEvent_PermissionRequest) GetPlanItem() *v14.PlanItem {
 	if x != nil {
 		return x.PlanItem
 	}
@@ -906,14 +1430,14 @@ func (x *ServerEvent_PermissionRequest) GetPlanItem() *v13.PlanItem {
 type ServerEvent_PlanReady struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The plan to display.
-	Plan          *v13.Plan `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	Plan          *v14.Plan `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerEvent_PlanReady) Reset() {
 	*x = ServerEvent_PlanReady{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[11]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -925,7 +1449,7 @@ func (x *ServerEvent_PlanReady) String() string {
 func (*ServerEvent_PlanReady) ProtoMessage() {}
 
 func (x *ServerEvent_PlanReady) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[11]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -938,10 +1462,10 @@ func (x *ServerEvent_PlanReady) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent_PlanReady.ProtoReflect.Descriptor instead.
 func (*ServerEvent_PlanReady) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5, 3}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 3}
 }
 
-func (x *ServerEvent_PlanReady) GetPlan() *v13.Plan {
+func (x *ServerEvent_PlanReady) GetPlan() *v14.Plan {
 	if x != nil {
 		return x.Plan
 	}
@@ -960,14 +1484,14 @@ type ServerEvent_InteractiveRequest struct {
 	// The tool being invoked (tool.md §2.1 ToolSchema.name).
 	ToolName string `protobuf:"bytes,2,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
 	// The prompt to render.
-	Prompt        *v12.RenderTree `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Prompt        *v13.RenderTree `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerEvent_InteractiveRequest) Reset() {
 	*x = ServerEvent_InteractiveRequest{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[12]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -979,7 +1503,7 @@ func (x *ServerEvent_InteractiveRequest) String() string {
 func (*ServerEvent_InteractiveRequest) ProtoMessage() {}
 
 func (x *ServerEvent_InteractiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[12]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -992,7 +1516,7 @@ func (x *ServerEvent_InteractiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent_InteractiveRequest.ProtoReflect.Descriptor instead.
 func (*ServerEvent_InteractiveRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5, 4}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 4}
 }
 
 func (x *ServerEvent_InteractiveRequest) GetCallId() string {
@@ -1009,7 +1533,7 @@ func (x *ServerEvent_InteractiveRequest) GetToolName() string {
 	return ""
 }
 
-func (x *ServerEvent_InteractiveRequest) GetPrompt() *v12.RenderTree {
+func (x *ServerEvent_InteractiveRequest) GetPrompt() *v13.RenderTree {
 	if x != nil {
 		return x.Prompt
 	}
@@ -1018,7 +1542,9 @@ func (x *ServerEvent_InteractiveRequest) GetPrompt() *v12.RenderTree {
 
 // SessionTreeUpdate reports a change in a nested sub-session's lifecycle
 // (e.g. a RunSession-spawned child), so a frontend can keep a
-// SubSessionNode's displayed status current.
+// SubSessionNode's displayed status current. Reports a CHILD session's
+// status — for the attached session's OWN status, see
+// SessionStatusUpdate below, a deliberately distinct variant.
 type ServerEvent_SessionTreeUpdate struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The parent session's id.
@@ -1026,14 +1552,14 @@ type ServerEvent_SessionTreeUpdate struct {
 	// The child session's id.
 	ChildSessionId string `protobuf:"bytes,2,opt,name=child_session_id,json=childSessionId,proto3" json:"child_session_id,omitempty"`
 	// The child session's current status.
-	Status        v14.SessionStatus `protobuf:"varint,3,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
+	Status        v15.SessionStatus `protobuf:"varint,3,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerEvent_SessionTreeUpdate) Reset() {
 	*x = ServerEvent_SessionTreeUpdate{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[13]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1045,7 +1571,7 @@ func (x *ServerEvent_SessionTreeUpdate) String() string {
 func (*ServerEvent_SessionTreeUpdate) ProtoMessage() {}
 
 func (x *ServerEvent_SessionTreeUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[13]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1058,7 +1584,7 @@ func (x *ServerEvent_SessionTreeUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent_SessionTreeUpdate.ProtoReflect.Descriptor instead.
 func (*ServerEvent_SessionTreeUpdate) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5, 5}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 5}
 }
 
 func (x *ServerEvent_SessionTreeUpdate) GetParentSessionId() string {
@@ -1075,11 +1601,11 @@ func (x *ServerEvent_SessionTreeUpdate) GetChildSessionId() string {
 	return ""
 }
 
-func (x *ServerEvent_SessionTreeUpdate) GetStatus() v14.SessionStatus {
+func (x *ServerEvent_SessionTreeUpdate) GetStatus() v15.SessionStatus {
 	if x != nil {
 		return x.Status
 	}
-	return v14.SessionStatus(0)
+	return v15.SessionStatus(0)
 }
 
 // Error carries a structured, non-fatal frontend error for display.
@@ -1093,7 +1619,7 @@ type ServerEvent_Error struct {
 
 func (x *ServerEvent_Error) Reset() {
 	*x = ServerEvent_Error{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[14]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1105,7 +1631,7 @@ func (x *ServerEvent_Error) String() string {
 func (*ServerEvent_Error) ProtoMessage() {}
 
 func (x *ServerEvent_Error) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[14]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1118,7 +1644,7 @@ func (x *ServerEvent_Error) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerEvent_Error.ProtoReflect.Descriptor instead.
 func (*ServerEvent_Error) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{5, 6}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 6}
 }
 
 func (x *ServerEvent_Error) GetError() *FrontendError {
@@ -1128,18 +1654,418 @@ func (x *ServerEvent_Error) GetError() *FrontendError {
 	return nil
 }
 
+// SessionCreated acknowledges a successful ClientEvent.CreateSession.
+type ServerEvent_SessionCreated struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The newly created session's info.
+	Info          *v15.SessionInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerEvent_SessionCreated) Reset() {
+	*x = ServerEvent_SessionCreated{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_SessionCreated) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_SessionCreated) ProtoMessage() {}
+
+func (x *ServerEvent_SessionCreated) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_SessionCreated.ProtoReflect.Descriptor instead.
+func (*ServerEvent_SessionCreated) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 7}
+}
+
+func (x *ServerEvent_SessionCreated) GetInfo() *v15.SessionInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+// SessionAttached acknowledges a successful ClientEvent.AttachSession or
+// ResumeSession, and opens that session's backfill batch.
+type ServerEvent_SessionAttached struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The attached session's current info.
+	Info          *v15.SessionInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerEvent_SessionAttached) Reset() {
+	*x = ServerEvent_SessionAttached{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_SessionAttached) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_SessionAttached) ProtoMessage() {}
+
+func (x *ServerEvent_SessionAttached) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_SessionAttached.ProtoReflect.Descriptor instead.
+func (*ServerEvent_SessionAttached) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 8}
+}
+
+func (x *ServerEvent_SessionAttached) GetInfo() *v15.SessionInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+// BackfillComplete is the done-marker closing a backfill batch, per
+// frontend.md §"Backfill". Unicast to the attaching stream only.
+type ServerEvent_BackfillComplete struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The persisted sequence number of the last event replayed in this
+	// batch. Live events with sequence > last_sequence follow.
+	LastSequence  int64 `protobuf:"varint,1,opt,name=last_sequence,json=lastSequence,proto3" json:"last_sequence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerEvent_BackfillComplete) Reset() {
+	*x = ServerEvent_BackfillComplete{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_BackfillComplete) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_BackfillComplete) ProtoMessage() {}
+
+func (x *ServerEvent_BackfillComplete) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_BackfillComplete.ProtoReflect.Descriptor instead.
+func (*ServerEvent_BackfillComplete) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 9}
+}
+
+func (x *ServerEvent_BackfillComplete) GetLastSequence() int64 {
+	if x != nil {
+		return x.LastSequence
+	}
+	return 0
+}
+
+// SessionDetached acknowledges a successful ClientEvent.DetachSession.
+type ServerEvent_SessionDetached struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerEvent_SessionDetached) Reset() {
+	*x = ServerEvent_SessionDetached{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_SessionDetached) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_SessionDetached) ProtoMessage() {}
+
+func (x *ServerEvent_SessionDetached) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_SessionDetached.ProtoReflect.Descriptor instead.
+func (*ServerEvent_SessionDetached) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 10}
+}
+
+// SessionList answers a ClientEvent.ListSessions.
+type ServerEvent_SessionList struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The matching sessions, most-recently-started first.
+	Sessions      []*v15.SessionInfo `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerEvent_SessionList) Reset() {
+	*x = ServerEvent_SessionList{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_SessionList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_SessionList) ProtoMessage() {}
+
+func (x *ServerEvent_SessionList) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_SessionList.ProtoReflect.Descriptor instead.
+func (*ServerEvent_SessionList) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 11}
+}
+
+func (x *ServerEvent_SessionList) GetSessions() []*v15.SessionInfo {
+	if x != nil {
+		return x.Sessions
+	}
+	return nil
+}
+
+// SlashCommandRegistry is the profile-scoped aggregate of every loaded
+// provider's declared slash commands for this session, per
+// frontend.md §"Slash commands".
+type ServerEvent_SlashCommandRegistry struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every registered command, name-collision-checked at config-load
+	// time (frontend.md §"Slash commands").
+	Commands      []*v11.SlashCommandSpec `protobuf:"bytes,1,rep,name=commands,proto3" json:"commands,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerEvent_SlashCommandRegistry) Reset() {
+	*x = ServerEvent_SlashCommandRegistry{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_SlashCommandRegistry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_SlashCommandRegistry) ProtoMessage() {}
+
+func (x *ServerEvent_SlashCommandRegistry) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_SlashCommandRegistry.ProtoReflect.Descriptor instead.
+func (*ServerEvent_SlashCommandRegistry) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 12}
+}
+
+func (x *ServerEvent_SlashCommandRegistry) GetCommands() []*v11.SlashCommandSpec {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
+// UsageUpdate carries one turn's token/cost accounting and the
+// session's running totals, for a context-budget indicator or similar.
+type ServerEvent_UsageUpdate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// This turn's token accounting.
+	Turn *v16.Usage `protobuf:"bytes,1,opt,name=turn,proto3" json:"turn,omitempty"`
+	// The session's running total spend in USD, mirroring
+	// session.v1.SessionInfo.cost_usd.
+	CumulativeCostUsd float64 `protobuf:"fixed64,2,opt,name=cumulative_cost_usd,json=cumulativeCostUsd,proto3" json:"cumulative_cost_usd,omitempty"`
+	// The session's running total token count against `effective_ceiling`
+	// below — the pair a context-budget indicator divides to get
+	// pressure (e.g. "51,204 / 200,000").
+	UsedTokens int64 `protobuf:"varint,3,opt,name=used_tokens,json=usedTokens,proto3" json:"used_tokens,omitempty"`
+	// The usable context budget this session's turns are measured
+	// against (model.v1.ModelTarget.effective_ceiling).
+	EffectiveCeiling int64 `protobuf:"varint,4,opt,name=effective_ceiling,json=effectiveCeiling,proto3" json:"effective_ceiling,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ServerEvent_UsageUpdate) Reset() {
+	*x = ServerEvent_UsageUpdate{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_UsageUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_UsageUpdate) ProtoMessage() {}
+
+func (x *ServerEvent_UsageUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_UsageUpdate.ProtoReflect.Descriptor instead.
+func (*ServerEvent_UsageUpdate) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 13}
+}
+
+func (x *ServerEvent_UsageUpdate) GetTurn() *v16.Usage {
+	if x != nil {
+		return x.Turn
+	}
+	return nil
+}
+
+func (x *ServerEvent_UsageUpdate) GetCumulativeCostUsd() float64 {
+	if x != nil {
+		return x.CumulativeCostUsd
+	}
+	return 0
+}
+
+func (x *ServerEvent_UsageUpdate) GetUsedTokens() int64 {
+	if x != nil {
+		return x.UsedTokens
+	}
+	return 0
+}
+
+func (x *ServerEvent_UsageUpdate) GetEffectiveCeiling() int64 {
+	if x != nil {
+		return x.EffectiveCeiling
+	}
+	return 0
+}
+
+// SessionStatusUpdate reports the attached session's OWN lifecycle
+// status transition. Distinct from SessionTreeUpdate above, which
+// reports a CHILD session's status.
+type ServerEvent_SessionStatusUpdate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's new status.
+	Status        v15.SessionStatus `protobuf:"varint,1,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerEvent_SessionStatusUpdate) Reset() {
+	*x = ServerEvent_SessionStatusUpdate{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerEvent_SessionStatusUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerEvent_SessionStatusUpdate) ProtoMessage() {}
+
+func (x *ServerEvent_SessionStatusUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerEvent_SessionStatusUpdate.ProtoReflect.Descriptor instead.
+func (*ServerEvent_SessionStatusUpdate) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{7, 14}
+}
+
+func (x *ServerEvent_SessionStatusUpdate) GetStatus() v15.SessionStatus {
+	if x != nil {
+		return x.Status
+	}
+	return v15.SessionStatus(0)
+}
+
 // UserMessage is ordinary chat input from the user.
 type ClientEvent_UserMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The message text.
-	Text          string `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	// The message content, in emission order. MUST contain at least one
+	// block.
+	Content       []*v17.ContentBlock `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientEvent_UserMessage) Reset() {
 	*x = ClientEvent_UserMessage{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[15]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1151,7 +2077,7 @@ func (x *ClientEvent_UserMessage) String() string {
 func (*ClientEvent_UserMessage) ProtoMessage() {}
 
 func (x *ClientEvent_UserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[15]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1164,14 +2090,14 @@ func (x *ClientEvent_UserMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientEvent_UserMessage.ProtoReflect.Descriptor instead.
 func (*ClientEvent_UserMessage) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6, 0}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 0}
 }
 
-func (x *ClientEvent_UserMessage) GetText() string {
+func (x *ClientEvent_UserMessage) GetContent() []*v17.ContentBlock {
 	if x != nil {
-		return x.Text
+		return x.Content
 	}
-	return ""
+	return nil
 }
 
 // SlashCommand is a dispatched slash command invocation (frontend.md §5).
@@ -1187,7 +2113,7 @@ type ClientEvent_SlashCommand struct {
 
 func (x *ClientEvent_SlashCommand) Reset() {
 	*x = ClientEvent_SlashCommand{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[16]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1199,7 +2125,7 @@ func (x *ClientEvent_SlashCommand) String() string {
 func (*ClientEvent_SlashCommand) ProtoMessage() {}
 
 func (x *ClientEvent_SlashCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[16]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1212,7 +2138,7 @@ func (x *ClientEvent_SlashCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientEvent_SlashCommand.ProtoReflect.Descriptor instead.
 func (*ClientEvent_SlashCommand) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6, 1}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 1}
 }
 
 func (x *ClientEvent_SlashCommand) GetName() string {
@@ -1242,13 +2168,16 @@ type ClientEvent_PlanDecision struct {
 	// input_schema (tool.md §6); an invalid correction is rejected as a
 	// distinct error, not silently coerced.
 	CorrectedInput *structpb.Struct `protobuf:"bytes,3,opt,name=corrected_input,json=correctedInput,proto3,oneof" json:"corrected_input,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// How durably this decision applies beyond this one item — see
+	// PlanDecisionScope.
+	Scope         PlanDecisionScope `protobuf:"varint,4,opt,name=scope,proto3,enum=pluggableharness.agent.frontend.v1.PlanDecisionScope" json:"scope,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientEvent_PlanDecision) Reset() {
 	*x = ClientEvent_PlanDecision{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[17]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1260,7 +2189,7 @@ func (x *ClientEvent_PlanDecision) String() string {
 func (*ClientEvent_PlanDecision) ProtoMessage() {}
 
 func (x *ClientEvent_PlanDecision) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[17]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1273,7 +2202,7 @@ func (x *ClientEvent_PlanDecision) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientEvent_PlanDecision.ProtoReflect.Descriptor instead.
 func (*ClientEvent_PlanDecision) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6, 2}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 2}
 }
 
 func (x *ClientEvent_PlanDecision) GetPlanItemId() string {
@@ -1297,6 +2226,13 @@ func (x *ClientEvent_PlanDecision) GetCorrectedInput() *structpb.Struct {
 	return nil
 }
 
+func (x *ClientEvent_PlanDecision) GetScope() PlanDecisionScope {
+	if x != nil {
+		return x.Scope
+	}
+	return PlanDecisionScope_PLAN_DECISION_SCOPE_UNSPECIFIED
+}
+
 // InteractiveResponse resolves a pending ServerEvent.InteractiveRequest.
 type ClientEvent_InteractiveResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1311,7 +2247,7 @@ type ClientEvent_InteractiveResponse struct {
 
 func (x *ClientEvent_InteractiveResponse) Reset() {
 	*x = ClientEvent_InteractiveResponse{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[18]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1323,7 +2259,7 @@ func (x *ClientEvent_InteractiveResponse) String() string {
 func (*ClientEvent_InteractiveResponse) ProtoMessage() {}
 
 func (x *ClientEvent_InteractiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[18]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +2272,7 @@ func (x *ClientEvent_InteractiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientEvent_InteractiveResponse.ProtoReflect.Descriptor instead.
 func (*ClientEvent_InteractiveResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6, 3}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 3}
 }
 
 func (x *ClientEvent_InteractiveResponse) GetCallId() string {
@@ -1367,14 +2303,18 @@ type ClientEvent_ActionTrigger struct {
 	ToolName string `protobuf:"bytes,2,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
 	// The arguments to invoke it with, echoed unchanged from the
 	// originating ActionNode.args.
-	Args          *structpb.Struct `protobuf:"bytes,3,opt,name=args,proto3" json:"args,omitempty"`
+	Args *structpb.Struct `protobuf:"bytes,3,opt,name=args,proto3" json:"args,omitempty"`
+	// The declared name of the tool provider plugin `tool_name` belongs
+	// to, echoed unchanged from the originating ActionNode.provider
+	// (render.proto) — tool_name is only unique per provider.
+	Provider      string `protobuf:"bytes,4,opt,name=provider,proto3" json:"provider,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientEvent_ActionTrigger) Reset() {
 	*x = ClientEvent_ActionTrigger{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[19]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1386,7 +2326,7 @@ func (x *ClientEvent_ActionTrigger) String() string {
 func (*ClientEvent_ActionTrigger) ProtoMessage() {}
 
 func (x *ClientEvent_ActionTrigger) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[19]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1399,7 +2339,7 @@ func (x *ClientEvent_ActionTrigger) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientEvent_ActionTrigger.ProtoReflect.Descriptor instead.
 func (*ClientEvent_ActionTrigger) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6, 4}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 4}
 }
 
 func (x *ClientEvent_ActionTrigger) GetNodeId() string {
@@ -1423,6 +2363,13 @@ func (x *ClientEvent_ActionTrigger) GetArgs() *structpb.Struct {
 	return nil
 }
 
+func (x *ClientEvent_ActionTrigger) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
 // Interrupt carries no fields; it signals that the user wants to
 // interrupt the current turn.
 type ClientEvent_Interrupt struct {
@@ -1433,7 +2380,7 @@ type ClientEvent_Interrupt struct {
 
 func (x *ClientEvent_Interrupt) Reset() {
 	*x = ClientEvent_Interrupt{}
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[20]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1445,7 +2392,7 @@ func (x *ClientEvent_Interrupt) String() string {
 func (*ClientEvent_Interrupt) ProtoMessage() {}
 
 func (x *ClientEvent_Interrupt) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[20]
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1458,24 +2405,415 @@ func (x *ClientEvent_Interrupt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientEvent_Interrupt.ProtoReflect.Descriptor instead.
 func (*ClientEvent_Interrupt) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{6, 5}
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 5}
+}
+
+// Hello MAY be sent as the first ClientEvent on a newly opened Attach
+// stream, to assert the protocol version. Binding a session happens via
+// the session-control variants, not via Hello.
+type ClientEvent_Hello struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The protocol version this frontend was built against.
+	ProtocolVersion uint32 `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ClientEvent_Hello) Reset() {
+	*x = ClientEvent_Hello{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientEvent_Hello) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientEvent_Hello) ProtoMessage() {}
+
+func (x *ClientEvent_Hello) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientEvent_Hello.ProtoReflect.Descriptor instead.
+func (*ClientEvent_Hello) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 6}
+}
+
+func (x *ClientEvent_Hello) GetProtocolVersion() uint32 {
+	if x != nil {
+		return x.ProtocolVersion
+	}
+	return 0
+}
+
+// CreateSession creates a new session and auto-attaches this stream to
+// it, per frontend.md §"Session lifecycle". Answered by
+// ServerEvent.SessionCreated.
+type ClientEvent_CreateSession struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Client-generated, echoed back on ServerEvent.request_id.
+	RequestId string `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// The agent.hcl profile to create the session under. Absent means
+	// the kernel's configured default profile.
+	Profile *string `protobuf:"bytes,2,opt,name=profile,proto3,oneof" json:"profile,omitempty"`
+	// An initial user message to seed the session with, submitted as the
+	// first turn once the session is created. Absent creates an empty
+	// session awaiting the first ordinary user_message.
+	InitialPrompt *string `protobuf:"bytes,3,opt,name=initial_prompt,json=initialPrompt,proto3,oneof" json:"initial_prompt,omitempty"`
+	// The session's working directory. Absent means the kernel's own
+	// working directory at creation time.
+	WorkingDirectory *string `protobuf:"bytes,4,opt,name=working_directory,json=workingDirectory,proto3,oneof" json:"working_directory,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ClientEvent_CreateSession) Reset() {
+	*x = ClientEvent_CreateSession{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientEvent_CreateSession) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientEvent_CreateSession) ProtoMessage() {}
+
+func (x *ClientEvent_CreateSession) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientEvent_CreateSession.ProtoReflect.Descriptor instead.
+func (*ClientEvent_CreateSession) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 7}
+}
+
+func (x *ClientEvent_CreateSession) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ClientEvent_CreateSession) GetProfile() string {
+	if x != nil && x.Profile != nil {
+		return *x.Profile
+	}
+	return ""
+}
+
+func (x *ClientEvent_CreateSession) GetInitialPrompt() string {
+	if x != nil && x.InitialPrompt != nil {
+		return *x.InitialPrompt
+	}
+	return ""
+}
+
+func (x *ClientEvent_CreateSession) GetWorkingDirectory() string {
+	if x != nil && x.WorkingDirectory != nil {
+		return *x.WorkingDirectory
+	}
+	return ""
+}
+
+// AttachSession subscribes an existing session (live or terminal) onto
+// this stream, triggering a backfill replay. Answered by
+// ServerEvent.SessionAttached, bracketing a replay batch closed by
+// ServerEvent.BackfillComplete.
+type ClientEvent_AttachSession struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Client-generated, echoed back on ServerEvent.request_id.
+	RequestId string `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// The session to attach.
+	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientEvent_AttachSession) Reset() {
+	*x = ClientEvent_AttachSession{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientEvent_AttachSession) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientEvent_AttachSession) ProtoMessage() {}
+
+func (x *ClientEvent_AttachSession) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientEvent_AttachSession.ProtoReflect.Descriptor instead.
+func (*ClientEvent_AttachSession) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 8}
+}
+
+func (x *ClientEvent_AttachSession) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ClientEvent_AttachSession) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// ResumeSession attaches a historical (possibly terminal) session, per
+// frontend.md §"Resume and re-open semantics". A COMPLETED or
+// CANCELLED session MAY be re-opened to SESSION_STATUS_RUNNING for new
+// turns; a bound-exhausted (error_max_*) or FAILED session attaches
+// replay-only — the kernel MUST reject a subsequent user_message
+// against it with FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY. Answered
+// identically to AttachSession: SessionAttached bracketing a backfill
+// batch.
+type ClientEvent_ResumeSession struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Client-generated, echoed back on ServerEvent.request_id.
+	RequestId string `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// The session to resume.
+	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientEvent_ResumeSession) Reset() {
+	*x = ClientEvent_ResumeSession{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientEvent_ResumeSession) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientEvent_ResumeSession) ProtoMessage() {}
+
+func (x *ClientEvent_ResumeSession) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientEvent_ResumeSession.ProtoReflect.Descriptor instead.
+func (*ClientEvent_ResumeSession) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 9}
+}
+
+func (x *ClientEvent_ResumeSession) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ClientEvent_ResumeSession) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// DetachSession unsubscribes a session from this stream without
+// affecting the session itself — other streams attached to the same
+// session, and the session's own execution, are unaffected. Answered
+// by ServerEvent.SessionDetached.
+type ClientEvent_DetachSession struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Client-generated, echoed back on ServerEvent.request_id.
+	RequestId string `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// The session to detach.
+	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientEvent_DetachSession) Reset() {
+	*x = ClientEvent_DetachSession{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientEvent_DetachSession) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientEvent_DetachSession) ProtoMessage() {}
+
+func (x *ClientEvent_DetachSession) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientEvent_DetachSession.ProtoReflect.Descriptor instead.
+func (*ClientEvent_DetachSession) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 10}
+}
+
+func (x *ClientEvent_DetachSession) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ClientEvent_DetachSession) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// ListSessions requests the connection-scoped session summary list.
+// Answered by ServerEvent.SessionList.
+type ClientEvent_ListSessions struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Client-generated, echoed back on ServerEvent.request_id.
+	RequestId string `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// Restricts the result to sessions in this status. Absent means no
+	// status filter.
+	Status *v15.SessionStatus `protobuf:"varint,2,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus,oneof" json:"status,omitempty"`
+	// Restricts the result to children of this session. Absent means no
+	// parent filter.
+	ParentSessionId *string `protobuf:"bytes,3,opt,name=parent_session_id,json=parentSessionId,proto3,oneof" json:"parent_session_id,omitempty"`
+	// True: only root sessions (no parent_session_id). False: all
+	// sessions matching the other filters, at any depth.
+	RootsOnly     bool `protobuf:"varint,4,opt,name=roots_only,json=rootsOnly,proto3" json:"roots_only,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientEvent_ListSessions) Reset() {
+	*x = ClientEvent_ListSessions{}
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientEvent_ListSessions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientEvent_ListSessions) ProtoMessage() {}
+
+func (x *ClientEvent_ListSessions) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientEvent_ListSessions.ProtoReflect.Descriptor instead.
+func (*ClientEvent_ListSessions) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP(), []int{8, 11}
+}
+
+func (x *ClientEvent_ListSessions) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ClientEvent_ListSessions) GetStatus() v15.SessionStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return v15.SessionStatus(0)
+}
+
+func (x *ClientEvent_ListSessions) GetParentSessionId() string {
+	if x != nil && x.ParentSessionId != nil {
+		return *x.ParentSessionId
+	}
+	return ""
+}
+
+func (x *ClientEvent_ListSessions) GetRootsOnly() bool {
+	if x != nil {
+		return x.RootsOnly
+	}
+	return false
 }
 
 var File_pluggableharness_agent_frontend_v1_frontend_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_agent_frontend_v1_frontend_proto_rawDesc = "" +
 	"\n" +
-	"1pluggableharness/agent/frontend/v1/frontend.proto\x12\"pluggableharness.agent.frontend.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a)pluggableharness/agent/plan/v1/plan.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a/pluggableharness/agent/session/v1/session.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x18\n" +
+	"1pluggableharness/agent/frontend/v1/frontend.proto\x12\"pluggableharness.agent.frontend.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/common/v1/common.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a)pluggableharness/agent/plan/v1/plan.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a/pluggableharness/agent/session/v1/session.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x11\n" +
+	"\x0fDescribeRequest\"]\n" +
+	"\x10DescribeResponse\x12I\n" +
+	"\bproducer\x18\x01 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\bproducer\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"w\n" +
 	"\x17GetCapabilitiesResponse\x12\\\n" +
-	"\fcapabilities\x18\x01 \x01(\v28.pluggableharness.agent.frontend.v1.FrontendCapabilitiesR\fcapabilities\"\xcc\x01\n" +
+	"\fcapabilities\x18\x01 \x01(\v28.pluggableharness.agent.frontend.v1.FrontendCapabilitiesR\fcapabilities\"\x84\x03\n" +
 	"\x14FrontendCapabilities\x12_\n" +
 	"\x0eslash_commands\x18\x01 \x03(\v28.pluggableharness.agent.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12S\n" +
-	"\rconfig_schema\x18\x02 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\"C\n" +
+	"\rconfig_schema\x18\x02 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\x12U\n" +
+	"\x11supported_regions\x18\x03 \x03(\x0e2(.pluggableharness.agent.render.v1.RegionR\x10supportedRegions\x12_\n" +
+	"\x15supported_hook_points\x18\x04 \x03(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x13supportedHookPoints\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\x13\n" +
-	"\x11ConfigureResponse\"\xa8\v\n" +
-	"\vServerEvent\x12`\n" +
+	"\x11ConfigureResponse\"\xf3\x18\n" +
+	"\vServerEvent\x12\x1d\n" +
+	"\n" +
+	"session_id\x18d \x01(\tR\tsessionId\x12\"\n" +
+	"\n" +
+	"request_id\x18e \x01(\tH\x01R\trequestId\x88\x01\x01\x12`\n" +
 	"\fstream_delta\x18\x01 \x01(\v2;.pluggableharness.agent.frontend.v1.ServerEvent.StreamDeltaH\x00R\vstreamDelta\x12P\n" +
 	"\x06render\x18\x02 \x01(\v26.pluggableharness.agent.frontend.v1.ServerEvent.RenderH\x00R\x06render\x12r\n" +
 	"\x12permission_request\x18\x03 \x01(\v2A.pluggableharness.agent.frontend.v1.ServerEvent.PermissionRequestH\x00R\x11permissionRequest\x12Z\n" +
@@ -1483,7 +2821,16 @@ const file_pluggableharness_agent_frontend_v1_frontend_proto_rawDesc = "" +
 	"plan_ready\x18\x04 \x01(\v29.pluggableharness.agent.frontend.v1.ServerEvent.PlanReadyH\x00R\tplanReady\x12u\n" +
 	"\x13interactive_request\x18\x05 \x01(\v2B.pluggableharness.agent.frontend.v1.ServerEvent.InteractiveRequestH\x00R\x12interactiveRequest\x12s\n" +
 	"\x13session_tree_update\x18\x06 \x01(\v2A.pluggableharness.agent.frontend.v1.ServerEvent.SessionTreeUpdateH\x00R\x11sessionTreeUpdate\x12M\n" +
-	"\x05error\x18\a \x01(\v25.pluggableharness.agent.frontend.v1.ServerEvent.ErrorH\x00R\x05error\x1a>\n" +
+	"\x05error\x18\a \x01(\v25.pluggableharness.agent.frontend.v1.ServerEvent.ErrorH\x00R\x05error\x12i\n" +
+	"\x0fsession_created\x18\b \x01(\v2>.pluggableharness.agent.frontend.v1.ServerEvent.SessionCreatedH\x00R\x0esessionCreated\x12l\n" +
+	"\x10session_attached\x18\t \x01(\v2?.pluggableharness.agent.frontend.v1.ServerEvent.SessionAttachedH\x00R\x0fsessionAttached\x12o\n" +
+	"\x11backfill_complete\x18\n" +
+	" \x01(\v2@.pluggableharness.agent.frontend.v1.ServerEvent.BackfillCompleteH\x00R\x10backfillComplete\x12l\n" +
+	"\x10session_detached\x18\v \x01(\v2?.pluggableharness.agent.frontend.v1.ServerEvent.SessionDetachedH\x00R\x0fsessionDetached\x12`\n" +
+	"\fsession_list\x18\f \x01(\v2;.pluggableharness.agent.frontend.v1.ServerEvent.SessionListH\x00R\vsessionList\x12|\n" +
+	"\x16slash_command_registry\x18\x0e \x01(\v2D.pluggableharness.agent.frontend.v1.ServerEvent.SlashCommandRegistryH\x00R\x14slashCommandRegistry\x12`\n" +
+	"\fusage_update\x18\x0f \x01(\v2;.pluggableharness.agent.frontend.v1.ServerEvent.UsageUpdateH\x00R\vusageUpdate\x12y\n" +
+	"\x15session_status_update\x18\x10 \x01(\v2C.pluggableharness.agent.frontend.v1.ServerEvent.SessionStatusUpdateH\x00R\x13sessionStatusUpdate\x1a>\n" +
 	"\vStreamDelta\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x1aS\n" +
@@ -1502,34 +2849,101 @@ const file_pluggableharness_agent_frontend_v1_frontend_proto_rawDesc = "" +
 	"\x10child_session_id\x18\x02 \x01(\tR\x0echildSessionId\x12H\n" +
 	"\x06status\x18\x03 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06status\x1aP\n" +
 	"\x05Error\x12G\n" +
-	"\x05error\x18\x01 \x01(\v21.pluggableharness.agent.frontend.v1.FrontendErrorR\x05errorB\a\n" +
-	"\x05event\"\x9e\t\n" +
-	"\vClientEvent\x12`\n" +
+	"\x05error\x18\x01 \x01(\v21.pluggableharness.agent.frontend.v1.FrontendErrorR\x05error\x1aT\n" +
+	"\x0eSessionCreated\x12B\n" +
+	"\x04info\x18\x01 \x01(\v2..pluggableharness.agent.session.v1.SessionInfoR\x04info\x1aU\n" +
+	"\x0fSessionAttached\x12B\n" +
+	"\x04info\x18\x01 \x01(\v2..pluggableharness.agent.session.v1.SessionInfoR\x04info\x1a7\n" +
+	"\x10BackfillComplete\x12#\n" +
+	"\rlast_sequence\x18\x01 \x01(\x03R\flastSequence\x1a\x11\n" +
+	"\x0fSessionDetached\x1aY\n" +
+	"\vSessionList\x12J\n" +
+	"\bsessions\x18\x01 \x03(\v2..pluggableharness.agent.session.v1.SessionInfoR\bsessions\x1al\n" +
+	"\x14SlashCommandRegistry\x12T\n" +
+	"\bcommands\x18\x01 \x03(\v28.pluggableharness.agent.slashcommand.v1.SlashCommandSpecR\bcommands\x1a\xc7\x01\n" +
+	"\vUsageUpdate\x12:\n" +
+	"\x04turn\x18\x01 \x01(\v2&.pluggableharness.agent.model.v1.UsageR\x04turn\x12.\n" +
+	"\x13cumulative_cost_usd\x18\x02 \x01(\x01R\x11cumulativeCostUsd\x12\x1f\n" +
+	"\vused_tokens\x18\x03 \x01(\x03R\n" +
+	"usedTokens\x12+\n" +
+	"\x11effective_ceiling\x18\x04 \x01(\x03R\x10effectiveCeiling\x1a_\n" +
+	"\x13SessionStatusUpdate\x12H\n" +
+	"\x06status\x18\x01 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06statusB\a\n" +
+	"\x05eventB\r\n" +
+	"\v_request_idJ\x04\b\r\x10\x0eR\x0fsession_deleted\"\xb2\x15\n" +
+	"\vClientEvent\x12\x1d\n" +
+	"\n" +
+	"session_id\x18d \x01(\tR\tsessionId\x12`\n" +
 	"\fuser_message\x18\x01 \x01(\v2;.pluggableharness.agent.frontend.v1.ClientEvent.UserMessageH\x00R\vuserMessage\x12c\n" +
 	"\rslash_command\x18\x02 \x01(\v2<.pluggableharness.agent.frontend.v1.ClientEvent.SlashCommandH\x00R\fslashCommand\x12c\n" +
 	"\rplan_decision\x18\x03 \x01(\v2<.pluggableharness.agent.frontend.v1.ClientEvent.PlanDecisionH\x00R\fplanDecision\x12x\n" +
 	"\x14interactive_response\x18\x04 \x01(\v2C.pluggableharness.agent.frontend.v1.ClientEvent.InteractiveResponseH\x00R\x13interactiveResponse\x12f\n" +
 	"\x0eaction_trigger\x18\x05 \x01(\v2=.pluggableharness.agent.frontend.v1.ClientEvent.ActionTriggerH\x00R\ractionTrigger\x12Y\n" +
-	"\tinterrupt\x18\x06 \x01(\v29.pluggableharness.agent.frontend.v1.ClientEvent.InterruptH\x00R\tinterrupt\x1a!\n" +
-	"\vUserMessage\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\x1a6\n" +
+	"\tinterrupt\x18\x06 \x01(\v29.pluggableharness.agent.frontend.v1.ClientEvent.InterruptH\x00R\tinterrupt\x12M\n" +
+	"\x05hello\x18\a \x01(\v25.pluggableharness.agent.frontend.v1.ClientEvent.HelloH\x00R\x05hello\x12f\n" +
+	"\x0ecreate_session\x18\b \x01(\v2=.pluggableharness.agent.frontend.v1.ClientEvent.CreateSessionH\x00R\rcreateSession\x12f\n" +
+	"\x0eattach_session\x18\t \x01(\v2=.pluggableharness.agent.frontend.v1.ClientEvent.AttachSessionH\x00R\rattachSession\x12f\n" +
+	"\x0eresume_session\x18\n" +
+	" \x01(\v2=.pluggableharness.agent.frontend.v1.ClientEvent.ResumeSessionH\x00R\rresumeSession\x12f\n" +
+	"\x0edetach_session\x18\v \x01(\v2=.pluggableharness.agent.frontend.v1.ClientEvent.DetachSessionH\x00R\rdetachSession\x12c\n" +
+	"\rlist_sessions\x18\f \x01(\v2<.pluggableharness.agent.frontend.v1.ClientEvent.ListSessionsH\x00R\flistSessions\x1ad\n" +
+	"\vUserMessage\x12I\n" +
+	"\acontent\x18\x02 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontentJ\x04\b\x01\x10\x02R\x04text\x1a6\n" +
 	"\fSlashCommand\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04args\x18\x02 \x01(\tR\x04args\x1a\xdb\x01\n" +
+	"\x04args\x18\x02 \x01(\tR\x04args\x1a\xa8\x02\n" +
 	"\fPlanDecision\x12 \n" +
 	"\fplan_item_id\x18\x01 \x01(\tR\n" +
 	"planItemId\x12N\n" +
 	"\bdecision\x18\x02 \x01(\x0e22.pluggableharness.agent.frontend.v1.ClientDecisionR\bdecision\x12E\n" +
-	"\x0fcorrected_input\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x0ecorrectedInput\x88\x01\x01B\x12\n" +
+	"\x0fcorrected_input\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x0ecorrectedInput\x88\x01\x01\x12K\n" +
+	"\x05scope\x18\x04 \x01(\x0e25.pluggableharness.agent.frontend.v1.PlanDecisionScopeR\x05scopeB\x12\n" +
 	"\x10_corrected_input\x1ac\n" +
 	"\x13InteractiveResponse\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x123\n" +
-	"\bresponse\x18\x02 \x01(\v2\x17.google.protobuf.StructR\bresponse\x1ar\n" +
+	"\bresponse\x18\x02 \x01(\v2\x17.google.protobuf.StructR\bresponse\x1a\x8e\x01\n" +
 	"\rActionTrigger\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12+\n" +
-	"\x04args\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04args\x1a\v\n" +
-	"\tInterruptB\a\n" +
+	"\x04args\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x1a\n" +
+	"\bprovider\x18\x04 \x01(\tR\bprovider\x1a\v\n" +
+	"\tInterrupt\x1a2\n" +
+	"\x05Hello\x12)\n" +
+	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x1a\xe0\x01\n" +
+	"\rCreateSession\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1d\n" +
+	"\aprofile\x18\x02 \x01(\tH\x00R\aprofile\x88\x01\x01\x12*\n" +
+	"\x0einitial_prompt\x18\x03 \x01(\tH\x01R\rinitialPrompt\x88\x01\x01\x120\n" +
+	"\x11working_directory\x18\x04 \x01(\tH\x02R\x10workingDirectory\x88\x01\x01B\n" +
+	"\n" +
+	"\b_profileB\x11\n" +
+	"\x0f_initial_promptB\x14\n" +
+	"\x12_working_directory\x1aM\n" +
+	"\rAttachSession\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x1aM\n" +
+	"\rResumeSession\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x1aM\n" +
+	"\rDetachSession\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x1a\xed\x01\n" +
+	"\fListSessions\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12M\n" +
+	"\x06status\x18\x02 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusH\x00R\x06status\x88\x01\x01\x12/\n" +
+	"\x11parent_session_id\x18\x03 \x01(\tH\x01R\x0fparentSessionId\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"roots_only\x18\x04 \x01(\bR\trootsOnlyB\t\n" +
+	"\a_statusB\x14\n" +
+	"\x12_parent_session_idB\a\n" +
 	"\x05event\"\x80\x01\n" +
 	"\rFrontendError\x12U\n" +
 	"\bcategory\x18\x01 \x01(\x0e29.pluggableharness.agent.frontend.v1.FrontendErrorCategoryR\bcategory\x12\x18\n" +
@@ -1537,17 +2951,28 @@ const file_pluggableharness_agent_frontend_v1_frontend_proto_rawDesc = "" +
 	"\x0eClientDecision\x12\x1f\n" +
 	"\x1bCLIENT_DECISION_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15CLIENT_DECISION_ALLOW\x10\x01\x12\x18\n" +
-	"\x14CLIENT_DECISION_DENY\x10\x02*\xf2\x01\n" +
+	"\x14CLIENT_DECISION_DENY\x10\x02*\x97\x01\n" +
+	"\x11PlanDecisionScope\x12#\n" +
+	"\x1fPLAN_DECISION_SCOPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18PLAN_DECISION_SCOPE_ONCE\x10\x01\x12\x1f\n" +
+	"\x1bPLAN_DECISION_SCOPE_SESSION\x10\x02\x12\x1e\n" +
+	"\x1aPLAN_DECISION_SCOPE_ALWAYS\x10\x03*\xdb\x03\n" +
 	"\x15FrontendErrorCategory\x12'\n" +
 	"#FRONTEND_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12)\n" +
 	"%FRONTEND_ERROR_CATEGORY_RENDER_FAILED\x10\x01\x120\n" +
 	",FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT\x10\x02\x12.\n" +
 	"*FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED\x10\x03\x12#\n" +
-	"\x1fFRONTEND_ERROR_CATEGORY_UNKNOWN\x10\x042\x88\x03\n" +
+	"\x1fFRONTEND_ERROR_CATEGORY_UNKNOWN\x10\x04\x12-\n" +
+	")FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND\x10\x05\x121\n" +
+	"-FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED\x10\x06\x12(\n" +
+	"$FRONTEND_ERROR_CATEGORY_SESSION_BUSY\x10\a\x12*\n" +
+	"&FRONTEND_ERROR_CATEGORY_SCHEMA_TOO_NEW\x10\b\x12/\n" +
+	"+FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY\x10\t2\xff\x03\n" +
 	"\x0fFrontendService\x12\x8a\x01\n" +
 	"\x0fGetCapabilities\x12:.pluggableharness.agent.frontend.v1.GetCapabilitiesRequest\x1a;.pluggableharness.agent.frontend.v1.GetCapabilitiesResponse\x12x\n" +
 	"\tConfigure\x124.pluggableharness.agent.frontend.v1.ConfigureRequest\x1a5.pluggableharness.agent.frontend.v1.ConfigureResponse\x12n\n" +
-	"\x06Attach\x12/.pluggableharness.agent.frontend.v1.ClientEvent\x1a/.pluggableharness.agent.frontend.v1.ServerEvent(\x010\x01BDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
+	"\x06Attach\x12/.pluggableharness.agent.frontend.v1.ClientEvent\x1a/.pluggableharness.agent.frontend.v1.ServerEvent(\x010\x01\x12u\n" +
+	"\bDescribe\x123.pluggableharness.agent.frontend.v1.DescribeRequest\x1a4.pluggableharness.agent.frontend.v1.DescribeResponseBDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
 
 var (
 	file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescOnce sync.Once
@@ -1561,81 +2986,132 @@ func file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescGZIP() []byte
 	return file_pluggableharness_agent_frontend_v1_frontend_proto_rawDescData
 }
 
-var file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_pluggableharness_agent_frontend_v1_frontend_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_pluggableharness_agent_frontend_v1_frontend_proto_goTypes = []any{
-	(ClientDecision)(0),                     // 0: pluggableharness.agent.frontend.v1.ClientDecision
-	(FrontendErrorCategory)(0),              // 1: pluggableharness.agent.frontend.v1.FrontendErrorCategory
-	(*GetCapabilitiesRequest)(nil),          // 2: pluggableharness.agent.frontend.v1.GetCapabilitiesRequest
-	(*GetCapabilitiesResponse)(nil),         // 3: pluggableharness.agent.frontend.v1.GetCapabilitiesResponse
-	(*FrontendCapabilities)(nil),            // 4: pluggableharness.agent.frontend.v1.FrontendCapabilities
-	(*ConfigureRequest)(nil),                // 5: pluggableharness.agent.frontend.v1.ConfigureRequest
-	(*ConfigureResponse)(nil),               // 6: pluggableharness.agent.frontend.v1.ConfigureResponse
-	(*ServerEvent)(nil),                     // 7: pluggableharness.agent.frontend.v1.ServerEvent
-	(*ClientEvent)(nil),                     // 8: pluggableharness.agent.frontend.v1.ClientEvent
-	(*FrontendError)(nil),                   // 9: pluggableharness.agent.frontend.v1.FrontendError
-	(*ServerEvent_StreamDelta)(nil),         // 10: pluggableharness.agent.frontend.v1.ServerEvent.StreamDelta
-	(*ServerEvent_Render)(nil),              // 11: pluggableharness.agent.frontend.v1.ServerEvent.Render
-	(*ServerEvent_PermissionRequest)(nil),   // 12: pluggableharness.agent.frontend.v1.ServerEvent.PermissionRequest
-	(*ServerEvent_PlanReady)(nil),           // 13: pluggableharness.agent.frontend.v1.ServerEvent.PlanReady
-	(*ServerEvent_InteractiveRequest)(nil),  // 14: pluggableharness.agent.frontend.v1.ServerEvent.InteractiveRequest
-	(*ServerEvent_SessionTreeUpdate)(nil),   // 15: pluggableharness.agent.frontend.v1.ServerEvent.SessionTreeUpdate
-	(*ServerEvent_Error)(nil),               // 16: pluggableharness.agent.frontend.v1.ServerEvent.Error
-	(*ClientEvent_UserMessage)(nil),         // 17: pluggableharness.agent.frontend.v1.ClientEvent.UserMessage
-	(*ClientEvent_SlashCommand)(nil),        // 18: pluggableharness.agent.frontend.v1.ClientEvent.SlashCommand
-	(*ClientEvent_PlanDecision)(nil),        // 19: pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision
-	(*ClientEvent_InteractiveResponse)(nil), // 20: pluggableharness.agent.frontend.v1.ClientEvent.InteractiveResponse
-	(*ClientEvent_ActionTrigger)(nil),       // 21: pluggableharness.agent.frontend.v1.ClientEvent.ActionTrigger
-	(*ClientEvent_Interrupt)(nil),           // 22: pluggableharness.agent.frontend.v1.ClientEvent.Interrupt
-	(*v1.SlashCommandSpec)(nil),             // 23: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	(*v11.ConfigSchema)(nil),                // 24: pluggableharness.agent.config.v1.ConfigSchema
-	(*structpb.Struct)(nil),                 // 25: google.protobuf.Struct
-	(*v12.PlacedContent)(nil),               // 26: pluggableharness.agent.render.v1.PlacedContent
-	(*v13.PlanItem)(nil),                    // 27: pluggableharness.agent.plan.v1.PlanItem
-	(*v13.Plan)(nil),                        // 28: pluggableharness.agent.plan.v1.Plan
-	(*v12.RenderTree)(nil),                  // 29: pluggableharness.agent.render.v1.RenderTree
-	(v14.SessionStatus)(0),                  // 30: pluggableharness.agent.session.v1.SessionStatus
+	(ClientDecision)(0),                      // 0: pluggableharness.agent.frontend.v1.ClientDecision
+	(PlanDecisionScope)(0),                   // 1: pluggableharness.agent.frontend.v1.PlanDecisionScope
+	(FrontendErrorCategory)(0),               // 2: pluggableharness.agent.frontend.v1.FrontendErrorCategory
+	(*DescribeRequest)(nil),                  // 3: pluggableharness.agent.frontend.v1.DescribeRequest
+	(*DescribeResponse)(nil),                 // 4: pluggableharness.agent.frontend.v1.DescribeResponse
+	(*GetCapabilitiesRequest)(nil),           // 5: pluggableharness.agent.frontend.v1.GetCapabilitiesRequest
+	(*GetCapabilitiesResponse)(nil),          // 6: pluggableharness.agent.frontend.v1.GetCapabilitiesResponse
+	(*FrontendCapabilities)(nil),             // 7: pluggableharness.agent.frontend.v1.FrontendCapabilities
+	(*ConfigureRequest)(nil),                 // 8: pluggableharness.agent.frontend.v1.ConfigureRequest
+	(*ConfigureResponse)(nil),                // 9: pluggableharness.agent.frontend.v1.ConfigureResponse
+	(*ServerEvent)(nil),                      // 10: pluggableharness.agent.frontend.v1.ServerEvent
+	(*ClientEvent)(nil),                      // 11: pluggableharness.agent.frontend.v1.ClientEvent
+	(*FrontendError)(nil),                    // 12: pluggableharness.agent.frontend.v1.FrontendError
+	(*ServerEvent_StreamDelta)(nil),          // 13: pluggableharness.agent.frontend.v1.ServerEvent.StreamDelta
+	(*ServerEvent_Render)(nil),               // 14: pluggableharness.agent.frontend.v1.ServerEvent.Render
+	(*ServerEvent_PermissionRequest)(nil),    // 15: pluggableharness.agent.frontend.v1.ServerEvent.PermissionRequest
+	(*ServerEvent_PlanReady)(nil),            // 16: pluggableharness.agent.frontend.v1.ServerEvent.PlanReady
+	(*ServerEvent_InteractiveRequest)(nil),   // 17: pluggableharness.agent.frontend.v1.ServerEvent.InteractiveRequest
+	(*ServerEvent_SessionTreeUpdate)(nil),    // 18: pluggableharness.agent.frontend.v1.ServerEvent.SessionTreeUpdate
+	(*ServerEvent_Error)(nil),                // 19: pluggableharness.agent.frontend.v1.ServerEvent.Error
+	(*ServerEvent_SessionCreated)(nil),       // 20: pluggableharness.agent.frontend.v1.ServerEvent.SessionCreated
+	(*ServerEvent_SessionAttached)(nil),      // 21: pluggableharness.agent.frontend.v1.ServerEvent.SessionAttached
+	(*ServerEvent_BackfillComplete)(nil),     // 22: pluggableharness.agent.frontend.v1.ServerEvent.BackfillComplete
+	(*ServerEvent_SessionDetached)(nil),      // 23: pluggableharness.agent.frontend.v1.ServerEvent.SessionDetached
+	(*ServerEvent_SessionList)(nil),          // 24: pluggableharness.agent.frontend.v1.ServerEvent.SessionList
+	(*ServerEvent_SlashCommandRegistry)(nil), // 25: pluggableharness.agent.frontend.v1.ServerEvent.SlashCommandRegistry
+	(*ServerEvent_UsageUpdate)(nil),          // 26: pluggableharness.agent.frontend.v1.ServerEvent.UsageUpdate
+	(*ServerEvent_SessionStatusUpdate)(nil),  // 27: pluggableharness.agent.frontend.v1.ServerEvent.SessionStatusUpdate
+	(*ClientEvent_UserMessage)(nil),          // 28: pluggableharness.agent.frontend.v1.ClientEvent.UserMessage
+	(*ClientEvent_SlashCommand)(nil),         // 29: pluggableharness.agent.frontend.v1.ClientEvent.SlashCommand
+	(*ClientEvent_PlanDecision)(nil),         // 30: pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision
+	(*ClientEvent_InteractiveResponse)(nil),  // 31: pluggableharness.agent.frontend.v1.ClientEvent.InteractiveResponse
+	(*ClientEvent_ActionTrigger)(nil),        // 32: pluggableharness.agent.frontend.v1.ClientEvent.ActionTrigger
+	(*ClientEvent_Interrupt)(nil),            // 33: pluggableharness.agent.frontend.v1.ClientEvent.Interrupt
+	(*ClientEvent_Hello)(nil),                // 34: pluggableharness.agent.frontend.v1.ClientEvent.Hello
+	(*ClientEvent_CreateSession)(nil),        // 35: pluggableharness.agent.frontend.v1.ClientEvent.CreateSession
+	(*ClientEvent_AttachSession)(nil),        // 36: pluggableharness.agent.frontend.v1.ClientEvent.AttachSession
+	(*ClientEvent_ResumeSession)(nil),        // 37: pluggableharness.agent.frontend.v1.ClientEvent.ResumeSession
+	(*ClientEvent_DetachSession)(nil),        // 38: pluggableharness.agent.frontend.v1.ClientEvent.DetachSession
+	(*ClientEvent_ListSessions)(nil),         // 39: pluggableharness.agent.frontend.v1.ClientEvent.ListSessions
+	(*v1.ProducerRef)(nil),                   // 40: pluggableharness.agent.common.v1.ProducerRef
+	(*v11.SlashCommandSpec)(nil),             // 41: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
+	(*v12.ConfigSchema)(nil),                 // 42: pluggableharness.agent.config.v1.ConfigSchema
+	(v13.Region)(0),                          // 43: pluggableharness.agent.render.v1.Region
+	(v1.HookPoint)(0),                        // 44: pluggableharness.agent.common.v1.HookPoint
+	(*structpb.Struct)(nil),                  // 45: google.protobuf.Struct
+	(*v13.PlacedContent)(nil),                // 46: pluggableharness.agent.render.v1.PlacedContent
+	(*v14.PlanItem)(nil),                     // 47: pluggableharness.agent.plan.v1.PlanItem
+	(*v14.Plan)(nil),                         // 48: pluggableharness.agent.plan.v1.Plan
+	(*v13.RenderTree)(nil),                   // 49: pluggableharness.agent.render.v1.RenderTree
+	(v15.SessionStatus)(0),                   // 50: pluggableharness.agent.session.v1.SessionStatus
+	(*v15.SessionInfo)(nil),                  // 51: pluggableharness.agent.session.v1.SessionInfo
+	(*v16.Usage)(nil),                        // 52: pluggableharness.agent.model.v1.Usage
+	(*v17.ContentBlock)(nil),                 // 53: pluggableharness.agent.content.v1.ContentBlock
 }
 var file_pluggableharness_agent_frontend_v1_frontend_proto_depIdxs = []int32{
-	4,  // 0: pluggableharness.agent.frontend.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.frontend.v1.FrontendCapabilities
-	23, // 1: pluggableharness.agent.frontend.v1.FrontendCapabilities.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	24, // 2: pluggableharness.agent.frontend.v1.FrontendCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
-	25, // 3: pluggableharness.agent.frontend.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
-	10, // 4: pluggableharness.agent.frontend.v1.ServerEvent.stream_delta:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.StreamDelta
-	11, // 5: pluggableharness.agent.frontend.v1.ServerEvent.render:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.Render
-	12, // 6: pluggableharness.agent.frontend.v1.ServerEvent.permission_request:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.PermissionRequest
-	13, // 7: pluggableharness.agent.frontend.v1.ServerEvent.plan_ready:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.PlanReady
-	14, // 8: pluggableharness.agent.frontend.v1.ServerEvent.interactive_request:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.InteractiveRequest
-	15, // 9: pluggableharness.agent.frontend.v1.ServerEvent.session_tree_update:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SessionTreeUpdate
-	16, // 10: pluggableharness.agent.frontend.v1.ServerEvent.error:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.Error
-	17, // 11: pluggableharness.agent.frontend.v1.ClientEvent.user_message:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.UserMessage
-	18, // 12: pluggableharness.agent.frontend.v1.ClientEvent.slash_command:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.SlashCommand
-	19, // 13: pluggableharness.agent.frontend.v1.ClientEvent.plan_decision:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision
-	20, // 14: pluggableharness.agent.frontend.v1.ClientEvent.interactive_response:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.InteractiveResponse
-	21, // 15: pluggableharness.agent.frontend.v1.ClientEvent.action_trigger:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.ActionTrigger
-	22, // 16: pluggableharness.agent.frontend.v1.ClientEvent.interrupt:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.Interrupt
-	1,  // 17: pluggableharness.agent.frontend.v1.FrontendError.category:type_name -> pluggableharness.agent.frontend.v1.FrontendErrorCategory
-	26, // 18: pluggableharness.agent.frontend.v1.ServerEvent.Render.content:type_name -> pluggableharness.agent.render.v1.PlacedContent
-	27, // 19: pluggableharness.agent.frontend.v1.ServerEvent.PermissionRequest.plan_item:type_name -> pluggableharness.agent.plan.v1.PlanItem
-	28, // 20: pluggableharness.agent.frontend.v1.ServerEvent.PlanReady.plan:type_name -> pluggableharness.agent.plan.v1.Plan
-	29, // 21: pluggableharness.agent.frontend.v1.ServerEvent.InteractiveRequest.prompt:type_name -> pluggableharness.agent.render.v1.RenderTree
-	30, // 22: pluggableharness.agent.frontend.v1.ServerEvent.SessionTreeUpdate.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
-	9,  // 23: pluggableharness.agent.frontend.v1.ServerEvent.Error.error:type_name -> pluggableharness.agent.frontend.v1.FrontendError
-	0,  // 24: pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision.decision:type_name -> pluggableharness.agent.frontend.v1.ClientDecision
-	25, // 25: pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision.corrected_input:type_name -> google.protobuf.Struct
-	25, // 26: pluggableharness.agent.frontend.v1.ClientEvent.InteractiveResponse.response:type_name -> google.protobuf.Struct
-	25, // 27: pluggableharness.agent.frontend.v1.ClientEvent.ActionTrigger.args:type_name -> google.protobuf.Struct
-	2,  // 28: pluggableharness.agent.frontend.v1.FrontendService.GetCapabilities:input_type -> pluggableharness.agent.frontend.v1.GetCapabilitiesRequest
-	5,  // 29: pluggableharness.agent.frontend.v1.FrontendService.Configure:input_type -> pluggableharness.agent.frontend.v1.ConfigureRequest
-	8,  // 30: pluggableharness.agent.frontend.v1.FrontendService.Attach:input_type -> pluggableharness.agent.frontend.v1.ClientEvent
-	3,  // 31: pluggableharness.agent.frontend.v1.FrontendService.GetCapabilities:output_type -> pluggableharness.agent.frontend.v1.GetCapabilitiesResponse
-	6,  // 32: pluggableharness.agent.frontend.v1.FrontendService.Configure:output_type -> pluggableharness.agent.frontend.v1.ConfigureResponse
-	7,  // 33: pluggableharness.agent.frontend.v1.FrontendService.Attach:output_type -> pluggableharness.agent.frontend.v1.ServerEvent
-	31, // [31:34] is the sub-list for method output_type
-	28, // [28:31] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	40, // 0: pluggableharness.agent.frontend.v1.DescribeResponse.producer:type_name -> pluggableharness.agent.common.v1.ProducerRef
+	7,  // 1: pluggableharness.agent.frontend.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.frontend.v1.FrontendCapabilities
+	41, // 2: pluggableharness.agent.frontend.v1.FrontendCapabilities.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
+	42, // 3: pluggableharness.agent.frontend.v1.FrontendCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
+	43, // 4: pluggableharness.agent.frontend.v1.FrontendCapabilities.supported_regions:type_name -> pluggableharness.agent.render.v1.Region
+	44, // 5: pluggableharness.agent.frontend.v1.FrontendCapabilities.supported_hook_points:type_name -> pluggableharness.agent.common.v1.HookPoint
+	45, // 6: pluggableharness.agent.frontend.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
+	13, // 7: pluggableharness.agent.frontend.v1.ServerEvent.stream_delta:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.StreamDelta
+	14, // 8: pluggableharness.agent.frontend.v1.ServerEvent.render:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.Render
+	15, // 9: pluggableharness.agent.frontend.v1.ServerEvent.permission_request:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.PermissionRequest
+	16, // 10: pluggableharness.agent.frontend.v1.ServerEvent.plan_ready:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.PlanReady
+	17, // 11: pluggableharness.agent.frontend.v1.ServerEvent.interactive_request:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.InteractiveRequest
+	18, // 12: pluggableharness.agent.frontend.v1.ServerEvent.session_tree_update:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SessionTreeUpdate
+	19, // 13: pluggableharness.agent.frontend.v1.ServerEvent.error:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.Error
+	20, // 14: pluggableharness.agent.frontend.v1.ServerEvent.session_created:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SessionCreated
+	21, // 15: pluggableharness.agent.frontend.v1.ServerEvent.session_attached:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SessionAttached
+	22, // 16: pluggableharness.agent.frontend.v1.ServerEvent.backfill_complete:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.BackfillComplete
+	23, // 17: pluggableharness.agent.frontend.v1.ServerEvent.session_detached:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SessionDetached
+	24, // 18: pluggableharness.agent.frontend.v1.ServerEvent.session_list:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SessionList
+	25, // 19: pluggableharness.agent.frontend.v1.ServerEvent.slash_command_registry:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SlashCommandRegistry
+	26, // 20: pluggableharness.agent.frontend.v1.ServerEvent.usage_update:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.UsageUpdate
+	27, // 21: pluggableharness.agent.frontend.v1.ServerEvent.session_status_update:type_name -> pluggableharness.agent.frontend.v1.ServerEvent.SessionStatusUpdate
+	28, // 22: pluggableharness.agent.frontend.v1.ClientEvent.user_message:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.UserMessage
+	29, // 23: pluggableharness.agent.frontend.v1.ClientEvent.slash_command:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.SlashCommand
+	30, // 24: pluggableharness.agent.frontend.v1.ClientEvent.plan_decision:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision
+	31, // 25: pluggableharness.agent.frontend.v1.ClientEvent.interactive_response:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.InteractiveResponse
+	32, // 26: pluggableharness.agent.frontend.v1.ClientEvent.action_trigger:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.ActionTrigger
+	33, // 27: pluggableharness.agent.frontend.v1.ClientEvent.interrupt:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.Interrupt
+	34, // 28: pluggableharness.agent.frontend.v1.ClientEvent.hello:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.Hello
+	35, // 29: pluggableharness.agent.frontend.v1.ClientEvent.create_session:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.CreateSession
+	36, // 30: pluggableharness.agent.frontend.v1.ClientEvent.attach_session:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.AttachSession
+	37, // 31: pluggableharness.agent.frontend.v1.ClientEvent.resume_session:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.ResumeSession
+	38, // 32: pluggableharness.agent.frontend.v1.ClientEvent.detach_session:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.DetachSession
+	39, // 33: pluggableharness.agent.frontend.v1.ClientEvent.list_sessions:type_name -> pluggableharness.agent.frontend.v1.ClientEvent.ListSessions
+	2,  // 34: pluggableharness.agent.frontend.v1.FrontendError.category:type_name -> pluggableharness.agent.frontend.v1.FrontendErrorCategory
+	46, // 35: pluggableharness.agent.frontend.v1.ServerEvent.Render.content:type_name -> pluggableharness.agent.render.v1.PlacedContent
+	47, // 36: pluggableharness.agent.frontend.v1.ServerEvent.PermissionRequest.plan_item:type_name -> pluggableharness.agent.plan.v1.PlanItem
+	48, // 37: pluggableharness.agent.frontend.v1.ServerEvent.PlanReady.plan:type_name -> pluggableharness.agent.plan.v1.Plan
+	49, // 38: pluggableharness.agent.frontend.v1.ServerEvent.InteractiveRequest.prompt:type_name -> pluggableharness.agent.render.v1.RenderTree
+	50, // 39: pluggableharness.agent.frontend.v1.ServerEvent.SessionTreeUpdate.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
+	12, // 40: pluggableharness.agent.frontend.v1.ServerEvent.Error.error:type_name -> pluggableharness.agent.frontend.v1.FrontendError
+	51, // 41: pluggableharness.agent.frontend.v1.ServerEvent.SessionCreated.info:type_name -> pluggableharness.agent.session.v1.SessionInfo
+	51, // 42: pluggableharness.agent.frontend.v1.ServerEvent.SessionAttached.info:type_name -> pluggableharness.agent.session.v1.SessionInfo
+	51, // 43: pluggableharness.agent.frontend.v1.ServerEvent.SessionList.sessions:type_name -> pluggableharness.agent.session.v1.SessionInfo
+	41, // 44: pluggableharness.agent.frontend.v1.ServerEvent.SlashCommandRegistry.commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
+	52, // 45: pluggableharness.agent.frontend.v1.ServerEvent.UsageUpdate.turn:type_name -> pluggableharness.agent.model.v1.Usage
+	50, // 46: pluggableharness.agent.frontend.v1.ServerEvent.SessionStatusUpdate.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
+	53, // 47: pluggableharness.agent.frontend.v1.ClientEvent.UserMessage.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	0,  // 48: pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision.decision:type_name -> pluggableharness.agent.frontend.v1.ClientDecision
+	45, // 49: pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision.corrected_input:type_name -> google.protobuf.Struct
+	1,  // 50: pluggableharness.agent.frontend.v1.ClientEvent.PlanDecision.scope:type_name -> pluggableharness.agent.frontend.v1.PlanDecisionScope
+	45, // 51: pluggableharness.agent.frontend.v1.ClientEvent.InteractiveResponse.response:type_name -> google.protobuf.Struct
+	45, // 52: pluggableharness.agent.frontend.v1.ClientEvent.ActionTrigger.args:type_name -> google.protobuf.Struct
+	50, // 53: pluggableharness.agent.frontend.v1.ClientEvent.ListSessions.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
+	5,  // 54: pluggableharness.agent.frontend.v1.FrontendService.GetCapabilities:input_type -> pluggableharness.agent.frontend.v1.GetCapabilitiesRequest
+	8,  // 55: pluggableharness.agent.frontend.v1.FrontendService.Configure:input_type -> pluggableharness.agent.frontend.v1.ConfigureRequest
+	11, // 56: pluggableharness.agent.frontend.v1.FrontendService.Attach:input_type -> pluggableharness.agent.frontend.v1.ClientEvent
+	3,  // 57: pluggableharness.agent.frontend.v1.FrontendService.Describe:input_type -> pluggableharness.agent.frontend.v1.DescribeRequest
+	6,  // 58: pluggableharness.agent.frontend.v1.FrontendService.GetCapabilities:output_type -> pluggableharness.agent.frontend.v1.GetCapabilitiesResponse
+	9,  // 59: pluggableharness.agent.frontend.v1.FrontendService.Configure:output_type -> pluggableharness.agent.frontend.v1.ConfigureResponse
+	10, // 60: pluggableharness.agent.frontend.v1.FrontendService.Attach:output_type -> pluggableharness.agent.frontend.v1.ServerEvent
+	4,  // 61: pluggableharness.agent.frontend.v1.FrontendService.Describe:output_type -> pluggableharness.agent.frontend.v1.DescribeResponse
+	58, // [58:62] is the sub-list for method output_type
+	54, // [54:58] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_frontend_v1_frontend_proto_init() }
@@ -1643,7 +3119,7 @@ func file_pluggableharness_agent_frontend_v1_frontend_proto_init() {
 	if File_pluggableharness_agent_frontend_v1_frontend_proto != nil {
 		return
 	}
-	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[5].OneofWrappers = []any{
+	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[7].OneofWrappers = []any{
 		(*ServerEvent_StreamDelta_)(nil),
 		(*ServerEvent_Render_)(nil),
 		(*ServerEvent_PermissionRequest_)(nil),
@@ -1651,23 +3127,39 @@ func file_pluggableharness_agent_frontend_v1_frontend_proto_init() {
 		(*ServerEvent_InteractiveRequest_)(nil),
 		(*ServerEvent_SessionTreeUpdate_)(nil),
 		(*ServerEvent_Error_)(nil),
+		(*ServerEvent_SessionCreated_)(nil),
+		(*ServerEvent_SessionAttached_)(nil),
+		(*ServerEvent_BackfillComplete_)(nil),
+		(*ServerEvent_SessionDetached_)(nil),
+		(*ServerEvent_SessionList_)(nil),
+		(*ServerEvent_SlashCommandRegistry_)(nil),
+		(*ServerEvent_UsageUpdate_)(nil),
+		(*ServerEvent_SessionStatusUpdate_)(nil),
 	}
-	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[6].OneofWrappers = []any{
+	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[8].OneofWrappers = []any{
 		(*ClientEvent_UserMessage_)(nil),
 		(*ClientEvent_SlashCommand_)(nil),
 		(*ClientEvent_PlanDecision_)(nil),
 		(*ClientEvent_InteractiveResponse_)(nil),
 		(*ClientEvent_ActionTrigger_)(nil),
 		(*ClientEvent_Interrupt_)(nil),
+		(*ClientEvent_Hello_)(nil),
+		(*ClientEvent_CreateSession_)(nil),
+		(*ClientEvent_AttachSession_)(nil),
+		(*ClientEvent_ResumeSession_)(nil),
+		(*ClientEvent_DetachSession_)(nil),
+		(*ClientEvent_ListSessions_)(nil),
 	}
-	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[17].OneofWrappers = []any{}
+	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[27].OneofWrappers = []any{}
+	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[32].OneofWrappers = []any{}
+	file_pluggableharness_agent_frontend_v1_frontend_proto_msgTypes[36].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_frontend_v1_frontend_proto_rawDesc), len(file_pluggableharness_agent_frontend_v1_frontend_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   21,
+			NumEnums:      3,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

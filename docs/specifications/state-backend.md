@@ -32,7 +32,7 @@ CREATE TABLE events (
   id                TEXT NOT NULL UNIQUE,   -- stable event identifier, independent of storage
   timestamp         TEXT NOT NULL,          -- wall-clock, display only, not ordering-authoritative
   kind              TEXT NOT NULL,          -- see "The kind enum" below for the authoritative enum
-  producer_category TEXT NOT NULL,          -- provider | tool | context | memory | frontend | widget
+  producer_category TEXT NOT NULL,          -- model | tool | context | memory | frontend | widget
   producer_name     TEXT NOT NULL,
   producer_version  TEXT NOT NULL,
   schema_version    TEXT NOT NULL,
@@ -66,6 +66,10 @@ CREATE TABLE session_meta (
 
 The one table that isn't append-only — a single row, updated in place as the session progresses. This is the table [Cross-session queries](#cross-session-queries)'s "scan session files directly" approach reads: cheap enough (one row) that opening every session file in the directory to check `parent_session_id`/ `status` is inexpensive even at moderate history size.
 
+`status` is not append-only-monotonic: a `completed` or `cancelled` row MAY transition back to `running` — a re-open, per [`frontend/frontend-protocol.md#resume-and-re-open-semantics`](frontend/frontend-protocol.md#resume-and-re-open-semantics)'s `ResumeSession` — and `ended_at` is cleared back to `NULL` on that transition, the same as for a session's original creation. This is an ordinary in-place `UPDATE` of the existing row, not a new row and not a schema change; `error_max_turns`/`error_max_budget_usd`/`error_max_wall_clock`/`failed` never make this transition — those statuses are terminal and replay-only, never re-opened to `running`. `session.v1.SessionInfo` (the frontend protocol's wire-level read model of this row, see below) carries the same status value either way, so a frontend distinguishes "still on its first run" from "re-opened after completing" only via the sequence of `SessionStatusUpdate` events it has observed, not from `SessionInfo` alone.
+
+`session.v1.SessionInfo` — the message `frontend/frontend-protocol.md`'s `SessionCreated`/`SessionAttached`/`SessionList` `ServerEvent` variants carry — mirrors this table's columns field-for-field (`session_id`, `parent_session_id`, `profile`, `status`, `depth`, `started_at`, `ended_at`), plus one derived field with no column of its own: `cost_usd`, a cheap `SUM(cost_usd)` over this session's `cost_ledger` rows (below), computed at read time rather than cached in `session_meta` — the same indexed-`SUM` query [`cost_ledger`](#cost_ledger)'s own description already establishes as cheap.
+
 ### cost_ledger
 
 Structured spend.
@@ -84,7 +88,7 @@ CREATE TABLE cost_ledger (
 );
 ```
 
-Appended once per completed model turn, populated from the same `cost_usd` computation the model provider protocol already requires the kernel to perform at usage-event time ([`provider/protocol.md#cost-computation`](provider/protocol.md#cost-computation)) — the kernel already has these numbers in hand at write time, so this table costs nothing extra to populate and turns running-total cost tracking (`SUM(cost_usd)`) into a single indexed query instead of a full scan and JSON-parse of every `message`-kind event.
+Appended once per completed model turn, populated from the same `cost_usd` computation the model provider protocol already requires the kernel to perform at usage-event time ([`model/protocol.md#cost-computation`](model/protocol.md#cost-computation)) — the kernel already has these numbers in hand at write time, so this table costs nothing extra to populate and turns running-total cost tracking (`SUM(cost_usd)`) into a single indexed query instead of a full scan and JSON-parse of every `message`-kind event.
 
 ### plan_items
 
@@ -128,7 +132,7 @@ This is the authoritative, complete enumeration of `events.kind` — the source 
 ```protobuf
 kind = enum {
   message               // a completed model turn's accumulated canonical
-                         // message (provider/data-types.md#canonical-message);
+                         // message (model/data-types.md#canonical-message);
                          // usage/cost figures are embedded in this payload
                          // and drive cost_ledger above
   tool_call
@@ -142,8 +146,34 @@ kind = enum {
   memory_write
   memory_update
   memory_delete
+  hook_error             // kernel-synthesized when a transform or veto hook
+                          // subscriber fails
+                          // (agent-loop/hook-dispatch.md#subscriber-error-handling);
+                          // payload shape is
+                          // pluggableharness.agent.hook.v1.HookError,
+                          // wrapped by the forthcoming event.v1 package's
+                          // HookErrorEvent
 }
 ```
+
+Each `kind` above decodes to exactly one concrete message in `pluggableharness.agent.event.v1` (`api/pluggableharness/agent/event/v1/event.proto`) — that package defines no enum of its own; this table, together with `kernel-callbacks.md#emit`'s restatement of the same enum, is the sole source of the kind → message mapping:
+
+| `kind` | `event.v1` message |
+|---|---|
+| `message` | `MessageEvent` |
+| `tool_call` | `ToolCallEvent` |
+| `tool_result` | `ToolResultEvent` |
+| `plan` | `PlanEvent` |
+| `apply` | `ApplyEvent` |
+| `context_contribution` | `ContextContributionEvent` |
+| `memory_write` / `memory_update` / `memory_delete` | `MemoryMutationEvent` (one message; the mutating verb is the `kind` itself, not a payload field) |
+| `hook_error` | `HookErrorEvent` |
+
+Each message above IS `events.schema_version = "1"` of its kind's payload: a row with `schema_version = "1"` (or `"v1"`) means "unmarshal `payload` as the `event.v1` message this table names for `kind`." A future breaking change to one payload's shape ships as `event.v2` + `schema_version = "2"`, never as an edit to the `event.v1` message — the same permanence guarantee this document already requires of every other released wire type.
+
+`event.v1`'s payload messages are normative for the owning spec without being kernel-validated: "normative" means the spec that owns a given `kind` dictates the exact bytes a conforming producer writes, not that the kernel parses or checks those bytes at `Emit` time — `events.payload opaque, never inspected by the kernel` above stays true unchanged. Conformance is enforced by the owning category spec and by the producer's own (possibly historical, "supersedes"-resolved) `Render` being able to make sense of what it emitted, never by kernel-side schema validation.
+
+`hook_error` is the one `kind` the kernel writes on a subscriber's behalf rather than in response to that subscriber's own `Emit` call — a hook subscriber that just failed can't be relied on to call `Emit` itself; the kernel detects the failure during dispatch and persists the event directly. `producer_category`/`producer_name`/`producer_version` still identify the failing subscriber (`HookError.subscriber`, a `ProducerRef`), not the kernel itself — see [`kernel-callbacks.md#emit`](kernel-callbacks.md#emit) for how every other `kind` is written by the producing plugin's own callback connection.
 
 Three things deliberately do **not** get their own `kind`:
 
@@ -155,7 +185,7 @@ Three things deliberately do **not** get their own `kind`:
 
 `session_meta.parent_session_id` exists for **post-hoc** queries — reconstructing a session tree after the fact (a CLI command, an audit), by scanning files (see [Cross-session queries](#cross-session-queries)). It is **not** how live mechanisms like cost-rollup or depth-budget threading ([`agent-loop/subagents.md#depth-limits`](agent-loop/subagents.md#depth-limits)) work — those operate on the kernel's own in-memory session state while `RunSession` calls are actively executing, via the callback data flow already defined in [`kernel-callbacks.md`](kernel-callbacks.md), and never need to open a sqlite file to find an ancestor. The two mechanisms answer different questions (what's happening right now vs. what happened previously) and deliberately don't share a code path.
 
-Replay is the other live/post-hoc distinction worth being explicit about: replaying an old session means feeding its persisted events back through the same Render/Paint path a live session uses, against the state backend instead of the live loop ([`architecture.md#emit--render--paint-pipeline`](architecture.md#emit--render--paint-pipeline)). Telemetry is the one thing that must *not* replay faithfully — trace/span IDs are genuinely non-deterministic and MUST NOT be persisted to `events`, `cost_ledger`, or `plan_items`: this schema deliberately has no `trace_id`/`span_id` column anywhere. Consequently, whatever eventually implements replay MUST select a no-op telemetry driver unconditionally, ignoring whatever driver was configured for the live session. A replayed session re-emitting production telemetry, or attempting to reproduce identical trace/span IDs, would both be wrong in ways this schema's silence on trace/span columns is designed to make structurally impossible.
+Replay is the other live/post-hoc distinction worth being explicit about: replaying an old session means feeding its persisted events back through the same Render/Paint path a live session uses, against the state backend instead of the live loop ([`architecture.md#emit--render--paint-pipeline`](architecture.md#emit--render--paint-pipeline)). [`frontend/frontend-protocol.md#backfill--the-replay-path-not-a-new-subsystem`](frontend/frontend-protocol.md#backfill--the-replay-path-not-a-new-subsystem) is exactly this mechanism wearing its frontend-facing name: a newly attaching (or resuming) frontend's backfill batch is this same event-replay-through-Render walk over `events`, in `sequence` order, using each event's own `producer_category`/`producer_name`/`producer_version`/`schema_version` columns to invoke the correct (possibly historical, "supersedes"-resolved) plugin build's `Render` — not a separate, frontend-specific replay implementation. Telemetry is the one thing that must *not* replay faithfully — trace/span IDs are genuinely non-deterministic and MUST NOT be persisted to `events`, `cost_ledger`, or `plan_items`: this schema deliberately has no `trace_id`/`span_id` column anywhere. Consequently, whatever eventually implements replay MUST select a no-op telemetry driver unconditionally, ignoring whatever driver was configured for the live session. A replayed session re-emitting production telemetry, or attempting to reproduce identical trace/span IDs, would both be wrong in ways this schema's silence on trace/span columns is designed to make structurally impossible.
 
 ## Cross-session queries
 

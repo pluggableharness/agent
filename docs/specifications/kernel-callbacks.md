@@ -2,7 +2,7 @@
 
 This formalizes the **plugin-to-kernel** direction of communication — the reverse of every other protocol in this series, which covers kernel-to-plugin RPCs (`GetCapabilities`, `Configure`, `StreamCompletion`, `Invoke`, `Attach`, and so on). Four primitives live here:
 
-- **`RunSession`** — runs a full agent session on a plugin's behalf. Used for sub-agent spawns today, and reserved for a future non-interactive pipeline mode. Full turn-by-turn semantics live in [`agent-loop/subagents.md`](agent-loop/subagents.md); this document defines only the wire-level calling mechanism.
+- **`RunSession`** — runs a full agent session on a plugin's behalf. Used for sub-agent spawns today, and reserved for a future non-interactive pipeline mode. Full turn-by-turn semantics live in [`agent-loop/subagents.md`](agent-loop/subagents.md); this document defines only the wire-level calling mechanism. `RunSessionResult` carries, alongside `final_message` and `status`, three aggregate usage fields — `total_cost_usd`, `total_input_tokens`, `total_output_tokens` — summed across every turn the child session ran, including any of its own descendant sub-agent sessions. These are deliberately flat fields, not a reference to a single completion's `Usage` shape: `RunSessionResult` reports a whole-session rollup (the same `cost_ledger` SUM [`state-backend.md`](state-backend.md) already computes), a different thing from one model call's per-call token counts. The rollup lets a calling plugin do budget-aware fan-out — checking a just-finished child's actual spend before deciding whether to spawn another — without separately re-summing the child's event history itself.
 - **`CountTokens`** — resolves an exact-if-possible token count for a string, the shared primitive every other category's `tokens` field routes through.
 - **`Emit`** — how a plugin persists anything into the session's state backend.
 - **`Log`** — carries a plugin's own log output into the kernel's centralized logging, so it doesn't vanish into an unread subprocess stderr.
@@ -51,13 +51,13 @@ CountTokensResult {
 ```go
 CountTokens(req):
   if req.model_ref is set and that model provider implements the optional
-     CountTokens RPC (provider/protocol.md#counttokens):
+     CountTokens RPC (model/protocol.md#counttokens):
     return (that provider's count, exact: true)
   else:
     return (fallback_heuristic(req.content), exact: false)
 ```
 
-A model provider's own `CountTokens` (when implemented) uses its real vendor tokenizer — some vendors expose a dedicated counting endpoint, others require a bundled tokenizer library; this document doesn't mandate which, only the RPC shape. [`provider/protocol.md#counttokens`](provider/protocol.md#counttokens) declares this a SHOULD for model providers: the fallback formula below is deliberately kept simple and single-purpose rather than made smarter, on the reasoning that accuracy should come from providers actually implementing real tokenizers, not from the kernel guessing better. Still not a MUST there, since not every vendor makes exact counting cheap or even possible without a network round-trip — but `exact: false` results should be the exception in practice, not the norm.
+A model provider's own `CountTokens` (when implemented) uses its real vendor tokenizer — some vendors expose a dedicated counting endpoint, others require a bundled tokenizer library; this document doesn't mandate which, only the RPC shape. [`model/protocol.md#counttokens`](model/protocol.md#counttokens) declares this a SHOULD for model providers: the fallback formula below is deliberately kept simple and single-purpose rather than made smarter, on the reasoning that accuracy should come from providers actually implementing real tokenizers, not from the kernel guessing better. Still not a MUST there, since not every vendor makes exact counting cheap or even possible without a network round-trip — but `exact: false` results should be the exception in practice, not the norm.
 
 ### Why a kernel primitive, not a provider-local heuristic
 
@@ -108,6 +108,10 @@ EmitResult {
 
 `EventKind` is `state-backend.md`'s authoritative enum, restated here only because it's the wire-level type `Emit` actually carries — this document does not own its definition, and `state-backend.md` remains authoritative. Like every enum in this system, `EventKind`'s zero value, `EVENT_KIND_UNSPECIFIED`, is never valid on the wire — a caller that forgets to set `kind` produces a detectable, named "unspecified" error rather than something that silently looks like a real event kind. Usage/cost, `Render` output, and `session_start`/`session_end` deliberately don't get their own `EventKind` at all — see [`state-backend.md#the-kind-enum`](state-backend.md#the-kind-enum) for why.
 
+`payload` is always the `pluggableharness.agent.event.v1` message that matches `kind`, marshaled to bytes — [`state-backend.md#the-kind-enum`](state-backend.md#the-kind-enum) carries the authoritative kind → message table. `schema_version` names the `event` package version that message belongs to: `"1"` for `event.v1`, and a future breaking payload change ships as `event.v2` with `schema_version = "2"`, never a silent edit to the `event.v1` shape. This does not change the opacity of `payload` itself — the kernel marshals/unmarshals nothing at `Emit` time for a plugin-supplied payload and never inspects the bytes; `schema_version` only tells a future reader (replay, a newer kernel) which package's generated type to decode with.
+
+`Emit` accepts `EVENT_KIND_HOOK_ERROR` like any other kind, with one difference: the kernel is the one calling it, on a failing hook subscriber's behalf, rather than a plugin calling `Emit` for itself — see [`state-backend.md#the-kind-enum`](state-backend.md#the-kind-enum) for why this kind is kernel-synthesized and [`agent-loop/hook-dispatch.md#subscriber-error-handling`](agent-loop/hook-dispatch.md#subscriber-error-handling) for when it fires.
+
 ## Log
 
 `Log` carries a plugin's own log output into the kernel's centralized logging, so it doesn't vanish into an unread subprocess stderr — plugin logs and the kernel's own logs end up in one place instead of two. Unlike `Emit`, a `Log` call is not tied to an active session: a plugin MAY call `Log` before any session exists (process startup, or from within `Configure`) or after one has ended (during shutdown), so `session_id` is optional here where it is mandatory for `Emit`.
@@ -154,7 +158,7 @@ The six-level vocabulary (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`) is
 | Bidirectional callback channel, unconditional per plugin | MUST | "The callback channel" |
 | `RunSession` callable via this channel | MUST | semantics in [`agent-loop/subagents.md`](agent-loop/subagents.md) |
 | `CountTokens` callable via this channel | MUST | "CountTokens" |
-| Model-provider's own `CountTokens` RPC | SHOULD, per model provider | [`provider/protocol.md#counttokens`](provider/protocol.md#counttokens) |
+| Model-provider's own `CountTokens` RPC | SHOULD, per model provider | [`model/protocol.md#counttokens`](model/protocol.md#counttokens) |
 | Exact-vs-fallback resolution algorithm | MUST | "CountTokens" |
 | Single documented fallback formula, no per-caller variation | MUST | "The fallback heuristic" |
 | Context/memory providers computing `tokens` via this primitive, not their own heuristic | MUST | "Why a kernel primitive, not a provider-local heuristic" |

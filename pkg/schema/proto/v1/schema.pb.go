@@ -5,9 +5,9 @@
 // source: pluggableharness/agent/schema/v1/schema.proto
 
 // Package pluggableharness.agent.schema.v1 defines the restricted JSON-Schema subset
-// described in specifications/provider.md §6, shared by tool input/output
+// described in specifications/model.md §6, shared by tool input/output
 // schemas (specifications/tool.md §2) and model tool-calling declarations
-// (specifications/provider.md §6). Deliberately NOT full JSON Schema: no
+// (specifications/model.md §6). Deliberately NOT full JSON Schema: no
 // oneOf/anyOf/allOf, no $ref, no pattern, no format, no non-trivial
 // additionalProperties. Every adapter across every category MUST support
 // exactly this subset — see .claude/rules/proto.md.
@@ -33,7 +33,7 @@ const (
 // dedicated ENUM value here: JSON Schema's `enum` keyword is a value
 // constraint, not a distinct type, and in this subset it applies to a
 // STRING-typed node via Schema.enum_values (the overwhelmingly common
-// case for tool argument enums) — see provider.md §6.
+// case for tool argument enums) — see model.md §6.
 type SchemaType int32
 
 const (
@@ -45,7 +45,7 @@ const (
 	// A JSON string.
 	SchemaType_SCHEMA_TYPE_STRING SchemaType = 2
 	// A JSON number (integer or floating point — the subset does not
-	// distinguish the two, per provider.md §6).
+	// distinguish the two, per model.md §6).
 	SchemaType_SCHEMA_TYPE_NUMBER SchemaType = 3
 	// A JSON boolean.
 	SchemaType_SCHEMA_TYPE_BOOLEAN SchemaType = 4
@@ -104,7 +104,7 @@ func (SchemaType) EnumDescriptor() ([]byte, []int) {
 // self-recursive: an OBJECT node's properties and an ARRAY node's items
 // are themselves Schema nodes. This message is used both as a tool's
 // input_schema/output_schema (tool.md §2) and embedded in a model
-// provider's tool-calling declarations (provider.md §6) — the same wire
+// provider's tool-calling declarations (model.md §6) — the same wire
 // type in both places, by design, so a kernel-side validator has exactly
 // one Schema implementation to maintain.
 type Schema struct {

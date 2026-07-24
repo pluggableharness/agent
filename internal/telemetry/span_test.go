@@ -137,7 +137,7 @@ func TestStartModelCall_withProducer(t *testing.T) {
 	t.Parallel()
 	p, backend := newTestProvider(t)
 
-	producer := &commonv1.ProducerRef{Category: commonv1.Category_CATEGORY_PROVIDER, Name: "anthropic", Version: "1.0.0"}
+	producer := &commonv1.ProducerRef{Category: commonv1.Category_CATEGORY_MODEL, Name: "anthropic", Version: "1.0.0"}
 	_, span := p.StartModelCall(context.Background(), "claude-sonnet", producer)
 	telemetry.EndSpan(span, nil)
 

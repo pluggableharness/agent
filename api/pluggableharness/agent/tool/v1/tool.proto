@@ -6,7 +6,9 @@ syntax = "proto3";
 // and similar operations.
 package pluggableharness.agent.tool.v1;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
+import "pluggableharness/agent/common/v1/common.proto";
 import "pluggableharness/agent/config/v1/config.proto";
 import "pluggableharness/agent/render/v1/render.proto";
 import "pluggableharness/agent/schema/v1/schema.proto";
@@ -32,7 +34,7 @@ service ToolService {
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
 
   // Invoke executes one tool call and streams back its events, per
-  // tool.md §4. Server-streaming, reusing provider.md §1's shape verbatim —
+  // tool.md §4. Server-streaming, reusing model.md §1's shape verbatim —
   // a non-incremental operation MUST still implement this shape, emitting
   // exactly one terminal `result` or `error`. Cancellation is the kernel
   // closing the gRPC stream; the plugin MUST treat this as normal control
@@ -43,6 +45,20 @@ service ToolService {
   // per tool.md §7. MAY be implemented; if absent, the kernel falls back to
   // its generic default (pretty-printed JSON payload).
   rpc Render(RenderRequest) returns (RenderResponse);
+
+  // Preview returns a dry-run, human-readable description of what Invoke
+  // would do for the given call, without performing it — per
+  // protocol.md#preview. MAY be implemented; a kernel MUST tolerate its
+  // absence and fall back to showing the call's raw arguments in the
+  // plan/apply gate's permission UI.
+  rpc Preview(PreviewRequest) returns (PreviewResponse);
+
+  // Describe reports this plugin build's own identity — per
+  // protocol.md#describe and configuration/lock-file.md's dev_overrides
+  // note, this is how the kernel learns a dev_overrides-resolved plugin's
+  // {name, version, source, category, protocol_version} when there is no
+  // lock-file entry to read it from.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 
 // GetSchemaRequest carries no fields — GetSchema takes no parameters.
@@ -62,6 +78,13 @@ message GetSchemaResponse {
   // This provider's agent.hcl config schema, per configuration.md §4 —
   // what fields Configure's request may be decoded from.
   pluggableharness.agent.config.v1.ConfigSchema config_schema = 3;
+
+  // Which of the eight dispatchable hook points (hook/v1.HookPoint) this
+  // provider subscribes a HookSubscriberService to, per this provider's own
+  // agent.hcl hook{} blocks. Lets the kernel validate a hook{} declaration
+  // at config-load time instead of discovering an unsupported subscription
+  // only when that hook point first fires.
+  repeated pluggableharness.agent.common.v1.HookPoint supported_hook_points = 4;
 }
 
 // ConfigureRequest wraps this provider's already-decoded agent.hcl config.
@@ -173,11 +196,11 @@ message ToolSchema {
   // MUST — shown to the model for tool selection and in plan diffs.
   string description = 4;
 
-  // MUST — the common JSON-Schema subset per provider.md §6, describing the
+  // MUST — the common JSON-Schema subset per model.md §6, describing the
   // shape of ToolCall.arguments for this operation.
   pluggableharness.agent.schema.v1.Schema input_schema = 5;
 
-  // MUST — the common JSON-Schema subset per provider.md §6, describing the
+  // MUST — the common JSON-Schema subset per model.md §6, describing the
   // shape of ToolResult.payload for this operation.
   pluggableharness.agent.schema.v1.Schema output_schema = 6;
 
@@ -188,6 +211,19 @@ message ToolSchema {
 
   // MUST, except MUST NOT be meaningfully set for TOOL_KIND_INTERACTIVE.
   ConcurrencySpec concurrency = 8;
+
+  // SHOULD — the deadline the kernel applies to Invoke for this operation
+  // absent an agent.hcl override. Absent means the kernel's global default
+  // applies instead (configuration/settings-and-global.md).
+  optional google.protobuf.Duration default_timeout = 9;
+
+  // True iff re-running this operation with identical arguments cannot
+  // produce a different end state than running it once. Gates whether the
+  // kernel MAY auto-retry a retryable ToolError for a TOOL_KIND_RESOURCE
+  // operation — see conformance.md#error-taxonomy's retry interaction.
+  // TOOL_KIND_DATA_SOURCE operations are implicitly safe to retry
+  // regardless of this field.
+  bool idempotent = 10;
 }
 
 // InvokeRequest wraps the call to execute. A thin per-RPC envelope around
@@ -219,6 +255,15 @@ message ToolCall {
   // MUST — already-parsed JSON conforming to that ToolSchema's
   // input_schema.
   google.protobuf.Struct arguments = 3;
+
+  // MUST be set by the kernel. Carries the session_id/turn_id this call
+  // executes for — what the plugin echoes back on its own
+  // KernelCallbackService.Emit/Log calls for attribution — and the
+  // session's working_directory, which any process-backed operation
+  // (the reference catalog's exec.bash, read_file, and similar) MUST
+  // resolve relative-path arguments against. See
+  // pluggableharness.agent.common.v1.CallContext.
+  pluggableharness.agent.common.v1.CallContext call_context = 4;
 }
 
 // ToolEvent is one message in the stream Invoke returns, per tool.md §4.
@@ -313,7 +358,7 @@ message ToolResult {
 }
 
 // ToolErrorCategory classifies why an Invoke call failed, per tool.md §8.
-// Deliberately distinct from provider.md §8's ProviderErrorCategory — there
+// Deliberately distinct from model.md §8's ModelErrorCategory — there
 // is no RATE_LIMITED or CONTEXT_LENGTH_EXCEEDED here, those are
 // model-vendor concepts. The two enums MUST NOT be merged even though the
 // surrounding error-envelope shape (category/message/retryable) is
@@ -383,6 +428,12 @@ message ToolError {
 message RenderRequest {
   // The opaque emitted payload to render.
   bytes payload = 1;
+
+  // The schema version the payload was emitted under, per
+  // ../frontend/render-tree.md#schema-versioning. Lets a Render
+  // implementation decode a payload emitted by an older build of this
+  // same plugin.
+  string schema_version = 2;
 }
 
 // RenderResponse wraps the rendered tree. A thin per-RPC envelope around
@@ -391,4 +442,40 @@ message RenderRequest {
 message RenderResponse {
   // The rendered tree.
   pluggableharness.agent.render.v1.RenderTree tree = 1;
+}
+
+// PreviewRequest wraps the call to describe, per protocol.md#preview.
+message PreviewRequest {
+  // The call Preview describes a dry run of. Same shape as an Invoke
+  // request; Preview MUST NOT execute it.
+  ToolCall call = 1;
+}
+
+// PreviewResponse carries a dry-run, human-readable description of what
+// Invoke(call) would do, per protocol.md#preview — e.g. an edit tool
+// returns the diff it would apply. Rendered into the plan/apply gate's
+// permission UI via PlanItem.preview (pluggableharness.agent.plan.v1,
+// a sibling protocol revision) — that field and this response share the
+// same pluggableharness.agent.render.v1.RenderTree type by design, so a
+// Preview call's output and a plan item's stored preview are
+// interchangeable.
+message PreviewResponse {
+  // The dry-run preview, rendered as a RenderTree. Producing this MUST NOT
+  // mutate anything and MUST be side-effect-free — the same guarantee
+  // TOOL_KIND_DATA_SOURCE operations make, but unconditionally, regardless
+  // of the call's actual ToolKind.
+  pluggableharness.agent.render.v1.RenderTree preview = 1;
+}
+
+// DescribeRequest carries no fields — Describe takes no parameters.
+message DescribeRequest {}
+
+// DescribeResponse reports this plugin build's own identity, per
+// configuration/lock-file.md's dev_overrides note: a dev_overrides-resolved
+// plugin has no lock-file entry for the kernel to read {name, version,
+// source, category, protocol_version} from, so the kernel obtains it
+// directly from the running process via this RPC instead.
+message DescribeResponse {
+  // This plugin build's identity.
+  pluggableharness.agent.common.v1.ProducerRef producer = 1;
 }

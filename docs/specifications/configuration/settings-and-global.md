@@ -14,7 +14,7 @@ settings {
 }
 ```
 
-`retry{}` holds the kernel's canonical backoff configuration — the values [`../agent-loop/turn-algorithm.md`](../agent-loop/turn-algorithm.md) uses when retrying a `rate_limited`/`overloaded` model-provider error (see [`../provider/conformance.md`](../provider/conformance.md#error-taxonomy)). It is operator-overridable but ships with sensible defaults so a bare `agent.hcl` works without tuning before first use: `base_delay_ms = 500`, `backoff_factor = 2`, `max_retries = 5`. Like `observability{}`, this sub-block is **all-or-nothing** once declared at all — every one of its three attributes is required; there is no partially-specified `retry{}`.
+`retry{}` holds the kernel's canonical backoff configuration — the values [`../agent-loop/turn-algorithm.md`](../agent-loop/turn-algorithm.md) uses when retrying a `rate_limited`/`overloaded` model-provider error (see [`../model/conformance.md`](../model/conformance.md#error-taxonomy)). It is operator-overridable but ships with sensible defaults so a bare `agent.hcl` works without tuning before first use: `base_delay_ms = 500`, `backoff_factor = 2`, `max_retries = 5`. Like `observability{}`, this sub-block is **all-or-nothing** once declared at all — every one of its three attributes is required; there is no partially-specified `retry{}`.
 
 ## The `telemetry` switch
 

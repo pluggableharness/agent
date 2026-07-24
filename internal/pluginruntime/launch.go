@@ -121,7 +121,7 @@ type Plugin struct {
 }
 
 // Dispensed returns the raw generated category-service client for this
-// plugin (e.g. providerv1.ProviderServiceClient for a provider plugin,
+// plugin (e.g. modelv1.ModelServiceClient for a model plugin,
 // per launch step 8). Callers type-assert to the category's generated
 // client interface — this package returns it as any because it has no
 // category-specific knowledge of its own.

@@ -19,7 +19,7 @@ api/                     .proto sources — buf's module root (see buf.yaml).
   pluggableharness/agent/<category>/v1/*.proto   one directory per category per protocol version
 pkg/                     first-class, third-party-consumable Go integration —
                          the only thing a plugin author needs to import.
-  <category>/             pkg/provider/, pkg/tool/, pkg/context/, pkg/memory/,
+  <category>/             pkg/model/, pkg/tool/, pkg/context/, pkg/memory/,
                          pkg/frontend/, pkg/widget/, plus pkg/kernel/ for the
                          kernel-callback service (docs/specifications/kernel-callbacks.md)
     *.go                   hand-written ergonomic SDK: the thin, idiomatic Go

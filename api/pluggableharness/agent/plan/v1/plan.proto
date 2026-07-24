@@ -10,6 +10,8 @@ syntax = "proto3";
 package pluggableharness.agent.plan.v1;
 
 import "google/protobuf/struct.proto";
+import "pluggableharness/agent/render/v1/render.proto";
+import "pluggableharness/agent/tool/v1/tool.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/plan/proto/v1;planv1";
 
@@ -56,7 +58,7 @@ message PlanItem {
   string tool_name = 4;
 
   // The call's parsed arguments — the kernel's canonical ToolCall
-  // representation (provider.md §6 / pluggableharness.agent.schema.v1's subset governs
+  // representation (model.md §6 / pluggableharness.agent.schema.v1's subset governs
   // its shape). A Struct per .claude/rules/proto.md's runtime-JSON
   // carve-out.
   google.protobuf.Struct input = 5;
@@ -67,6 +69,37 @@ message PlanItem {
   // The name of the policy rule or subscriber that produced `decision`,
   // for audit (state-backend.md §4.4 plan_items.decided_by).
   string decided_by = 7;
+
+  // --- Snapshot fields (agent-loop/plan-apply-gate.md#plan-construction-and-policy-evaluation) ---
+  //
+  // The four fields below are captured from the originating tool
+  // operation's ToolSchema at plan-construction time, not looked up live
+  // at display or audit time. A later agent.hcl change to the provider's
+  // schema (a re-classified kind/risk, an edited description) MUST NOT
+  // retroactively alter a historical plan's audit record — the snapshot
+  // is what a frontend renders and what state-backend.md's plan_items
+  // table persists, independent of whatever the schema looks like now.
+
+  // Snapshot of ToolSchema.kind (tool/data-types.md#toolschema) for the
+  // operation this item calls, at plan-construction time.
+  pluggableharness.agent.tool.v1.ToolKind kind = 8;
+
+  // Snapshot of ToolSchema.risk, at plan-construction time.
+  pluggableharness.agent.tool.v1.RiskClass risk = 9;
+
+  // Snapshot of ToolSchema.description, at plan-construction time.
+  string description = 10;
+
+  // The tool provider's dry-run preview of this call's effect, when the
+  // provider implements ToolService.Preview (tool/protocol.md#preview).
+  // The kernel calls Preview at plan-construction time for
+  // TOOL_KIND_RESOURCE items whose provider implements it; absent when
+  // the provider has no Preview implementation, in which case a frontend
+  // falls back to rendering the raw `input` above. Pinned to
+  // render.v1.RenderTree — the exact type ToolService.Preview's own
+  // response carries, so this stored snapshot and the RPC's live output
+  // share one wire shape (agent-loop/plan-apply-gate.md#preview-flow).
+  optional pluggableharness.agent.render.v1.RenderTree preview = 11;
 }
 
 // Plan collects every policy-evaluated call identified during one turn.
@@ -76,4 +109,70 @@ message Plan {
 
   // The plan's items, in the order they were identified during the turn.
   repeated PlanItem items = 2;
+}
+
+// ApplyResult carries a turn's complete set of per-item apply outcomes,
+// once every item in its Plan has reached a terminal ApplyOutcome, per
+// agent-loop.md §5.2. Homed in plan.v1 (rather than the forthcoming
+// event.v1 package that would otherwise seem the more obvious owner) so
+// both pluggableharness.agent.hook.v1's PostApplyPayload and event.v1's
+// future EVENT_KIND_APPLY payload can reference this exact message
+// without either importing the other — plan.v1 has no dependency on
+// either, keeping the graph acyclic.
+message ApplyResult {
+  // The turn this apply outcome belongs to. Matches the originating
+  // Plan.turn_id.
+  string turn_id = 1;
+
+  // One outcome per applied plan item, in apply order.
+  repeated ApplyItem items = 2;
+
+  // ApplyItem is one plan item's apply outcome.
+  message ApplyItem {
+    // The originating PlanItem.id this outcome is for. MUST be set.
+    string plan_item_id = 1;
+
+    // The originating PlanItem.tool_call_id this outcome is for. MUST
+    // be set.
+    string tool_call_id = 2;
+
+    // How this item's apply attempt concluded. MUST be set (never
+    // APPLY_OUTCOME_UNSPECIFIED).
+    ApplyOutcome outcome = 3;
+
+    // Absent for APPLY_OUTCOME_DENIED and APPLY_OUTCOME_SKIPPED —
+    // neither outcome executes the underlying tool call, so neither has
+    // a ToolResult/ToolError to carry.
+    oneof result {
+      // The call's successful result, when outcome ==
+      // APPLY_OUTCOME_APPLIED.
+      pluggableharness.agent.tool.v1.ToolResult tool_result = 4;
+      // The call's failed result, when outcome == APPLY_OUTCOME_FAILED.
+      pluggableharness.agent.tool.v1.ToolError tool_error = 5;
+    }
+  }
+
+  // ApplyOutcome classifies how one plan item's apply attempt concluded.
+  enum ApplyOutcome {
+    // Zero value. Never valid for a real outcome; its presence on the
+    // wire means a caller forgot to set the field.
+    APPLY_OUTCOME_UNSPECIFIED = 0;
+    // The item's call executed and succeeded.
+    APPLY_OUTCOME_APPLIED = 1;
+    // The item's call executed and failed on its own terms (a
+    // ToolError).
+    APPLY_OUTCOME_FAILED = 2;
+    // The item was not executed: the plan/apply gate synthesized a
+    // denial instead, per agent-loop.md §5.2's tool_result denial block
+    // (kernel policy PLAN_DECISION_DENY, or a HOOK_DECISION_DENY veto
+    // at plan-ready). The model observes this denial in its own
+    // history via the synthesized ToolResultBlock, not via this
+    // ApplyItem.
+    APPLY_OUTCOME_DENIED = 3;
+    // The item was never reached because an earlier item in the same
+    // apply pass aborted the whole apply. Not reached in the current
+    // apply algorithm — reserved for a future partial-apply-then-abort
+    // mode.
+    APPLY_OUTCOME_SKIPPED = 4;
+  }
 }

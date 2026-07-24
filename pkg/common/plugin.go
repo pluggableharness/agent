@@ -58,8 +58,8 @@ const CallbackBrokerID uint32 = 1
 // correctly wired kernel or plugin.
 func PluginKey(c commonv1.Category) string {
 	switch c {
-	case commonv1.Category_CATEGORY_PROVIDER:
-		return "provider"
+	case commonv1.Category_CATEGORY_MODEL:
+		return "model"
 	case commonv1.Category_CATEGORY_TOOL:
 		return "tool"
 	case commonv1.Category_CATEGORY_CONTEXT:

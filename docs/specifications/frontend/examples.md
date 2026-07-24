@@ -11,6 +11,7 @@ service FrontendService {
   rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
   rpc Attach(stream ClientEvent) returns (stream ServerEvent);
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 ```
 
@@ -21,6 +22,7 @@ service WidgetService {
   rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
   rpc Attach(AttachRequest) returns (stream WidgetUpdate);
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 ```
 
@@ -46,14 +48,28 @@ See [`render-tree.md`](render-tree.md) for the full `RenderNode` variant list an
 
 ## A worked frontend `Attach` sequence
 
-A TUI frontend attaches to a session already in progress, receives a `plan_ready` event for a proposed file edit, renders it, and the operator approves it with a corrected argument:
+A TUI frontend opens its one connection-scoped `Attach` stream, attaches an already-running session (backfilling its history first), receives a `plan_ready` event for a proposed file edit, renders it, and the operator approves it with a corrected argument scoped to this session only:
 
 ```text
-→ Attach() opens the bidirectional stream.
+→ Attach() opens the bidirectional, connection-scoped stream.
 
-← ServerEvent{stream_delta: {target_id: "msg_7", text: "I'll fix the "}}
-← ServerEvent{stream_delta: {target_id: "msg_7", text: "off-by-one in main.go."}}
-← ServerEvent{
+→ ClientEvent{ session_id: "", attach_session: { request_id: "r1", session_id: "sess_01H..." } }
+
+// Backfill: the kernel replays this session's persisted history, bracketed
+// by session_attached and backfill_complete — frontend-protocol.md#backfill--the-replay-path-not-a-new-subsystem.
+← ServerEvent{ session_id: "sess_01H...", request_id: "r1",
+    session_attached: { info: { session_id: "sess_01H...", profile: "default",
+                                 status: SESSION_STATUS_RUNNING, depth: 0, ... } } }
+← ServerEvent{ session_id: "sess_01H...", render: { content: { ... } } }   // replayed prior turns
+← ServerEvent{ session_id: "sess_01H...", request_id: "r1",
+    backfill_complete: { last_sequence: 118 } }
+← ServerEvent{ session_id: "sess_01H...",
+    slash_command_registry: { commands: [ ... ] } }
+
+// Live events for this session follow, sequence > 118:
+← ServerEvent{ session_id: "sess_01H...", stream_delta: {target_id: "msg_7", text: "I'll fix the "}}
+← ServerEvent{ session_id: "sess_01H...", stream_delta: {target_id: "msg_7", text: "off-by-one in main.go."}}
+← ServerEvent{ session_id: "sess_01H...",
     plan_ready: {
       plan: {
         turn_id: "turn_42",
@@ -62,17 +78,19 @@ A TUI frontend attaches to a session already in progress, receives a `plan_ready
           tool_name: "write_file",
           input: {"path": "main.go", "content": "...for i := 0; i <= n; i++..."},
           decision: PLAN_DECISION_PENDING,
+          kind: TOOL_KIND_RESOURCE, risk: RISK_CLASS_LOW,
+          description: "Write file contents, creating or overwriting the target path.",
         }],
       },
     },
   }
-← ServerEvent{
+← ServerEvent{ session_id: "sess_01H...",
     permission_request: {
       plan_item: { id: "item_1", tool_call_id: "tc_9", provider: "filesystem",
                    tool_name: "write_file", decision: PLAN_DECISION_ASK },
     },
   }
-← ServerEvent{
+← ServerEvent{ session_id: "sess_01H...",
     render: {
       content: {
         region: REGION_OVERLAY,
@@ -89,22 +107,26 @@ A TUI frontend attaches to a session already in progress, receives a `plan_ready
   }
 
 // The operator reviews the diff in the overlay and corrects the fix to
-// use "<=" bounded on n-1 instead, rather than accepting or rejecting outright:
-→ ClientEvent{
+// use "<=" bounded on n-1 instead, rather than accepting or rejecting outright,
+// and asks the kernel to remember this correction for the rest of the session:
+→ ClientEvent{ session_id: "sess_01H...",
     plan_decision: {
       plan_item_id: "item_1",
       decision: CLIENT_DECISION_ALLOW,
       corrected_input: {"path": "main.go", "content": "...for i := 0; i < n-1; i++..."},
+      scope: PLAN_DECISION_SCOPE_SESSION,
     },
   }
 
 // The kernel re-validates corrected_input against write_file's input_schema
 // (tool/data-types.md#toolschema), accepts it, applies the write, and the
 // turn continues — the model sees the corrected content's tool_result on
-// its next turn, per frontend-protocol.md#plan_decisioncorrected_input.
+// its next turn, per frontend-protocol.md#plan_decisioncorrected_input. The
+// SESSION scope means a matching future write_file call this session skips
+// the ask prompt entirely, per agent-loop/plan-apply-gate.md#plandecisionscope-semantics.
 ```
 
-If a second, slower frontend also attached to `turn_42` sends its own `plan_decision` for `item_1` after the one above resolved it, the kernel rejects that second response with a `FrontendError{category: FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT}` back to that frontend alone — per [`frontend-protocol.md#session-scope`](frontend-protocol.md#session-scope)'s first-response-wins rule. The first frontend's approval stands unaffected.
+If a second, slower frontend also subscribed to `sess_01H...` sends its own `plan_decision` for `item_1` after the one above resolved it, the kernel rejects that second response with a `FrontendError{category: FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT}` back to that frontend alone — per [`frontend-protocol.md#session-scope`](frontend-protocol.md#session-scope)'s first-response-wins rule. The first frontend's approval stands unaffected.
 
 ## A worked widget example
 

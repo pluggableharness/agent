@@ -8,7 +8,7 @@ This is a deliberate fusion of two lineages: Terraform's plugin/provider/ schema
 
 Six categories share a common shape: `GetSchema`/`GetCapabilities` (declare what you do), `Configure` (accept config decoded from HCL), then category-specific RPCs.
 
-- **Model provider** ([`provider/`](provider/README.md)) — an LLM vendor. `GetCapabilities` returns a quantitative envelope per model (context window, thinking/caching modes, pricing tiers), not just feature flags. `StreamCompletion` is **server-streaming with cancellation**, not bidirectional — this matches how a real LLM vendor API actually works: one request in, one chunked/SSE response out; cancellation is the kernel closing the stream, a standard server-streaming operation. See [`provider/README.md`](provider/README.md#transport--lifecycle).
+- **Model provider** ([`model/`](model/README.md)) — an LLM vendor. `GetCapabilities` returns a quantitative envelope per model (context window, thinking/caching modes, pricing tiers), not just feature flags. `StreamCompletion` is **server-streaming with cancellation**, not bidirectional — this matches how a real LLM vendor API actually works: one request in, one chunked/SSE response out; cancellation is the kernel closing the stream, a standard server-streaming operation. See [`model/README.md`](model/README.md#transport--lifecycle).
 - **Tool provider** ([`tool/`](tool/README.md)) — `GetSchema` returns resources/data-sources/interactive calls, each with a JSON-Schema input/ output and a `kind`. `Invoke` is server-streaming (so e.g. `exec` can stream live stdout instead of blocking).
 - **Memory provider** ([`memory/`](memory/README.md)) — reads at `context-assemble` (inject relevant recall), writes at `post-response`/ `session-end` (decide what's worth persisting). Backend-agnostic (markdown files, sqlite, vector store, remote service) behind one interface — the same abstraction-over-backend move Terraform makes for state.
 - **Context provider** ([`context/`](context/README.md)) — hooks `context-assemble`, contributes text/data before each turn. Multiple can load simultaneously (a CLAUDE.md reader, an AGENTS.md reader, etc.) — sidesteps the convention-file format war entirely; it's a plugin choice, not a core opinion.
@@ -89,7 +89,7 @@ Kept honest to the microkernel: not privileged kernel code. The kernel exposes a
 
 ## Policy — first-party, not a plugin category
 
-Ties directly to the plan/apply gate (kernel-owned). Lives in `agent.hcl` as a small rule-matching DSL, deliberately mirroring a shape already proven out in practice (Claude Code's own `settings.json` allow/deny + auto-mode classifier). Mechanically, policy is the kernel-privileged `veto`-mode subscriber at the `plan-ready` hook — always run, always respected. Whether third-party plugins may register `veto`-mode hooks at all remains an open question; see [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md#open-questions). See [`configuration/policy-dsl.md`](configuration/policy-dsl.md) for the full DSL and evaluation semantics, including conflict-detection.
+Ties directly to the plan/apply gate (kernel-owned). Lives in `agent.hcl` as a small rule-matching DSL, deliberately mirroring a shape already proven out in practice (Claude Code's own `settings.json` allow/deny + auto-mode classifier). Mechanically, policy is the kernel-privileged `veto`-mode subscriber at the `plan-ready` hook — always run, always respected, and not itself a plugin call (it does not go through `HookSubscriberService`). Third-party plugins MAY also register `veto`-mode hooks, `agent.hcl` declaration being the operator's trust grant to do so; see [`agent-loop/hook-dispatch.md#veto-mode-subscription-trust-model`](agent-loop/hook-dispatch.md#veto-mode-subscription-trust-model). See [`configuration/policy-dsl.md`](configuration/policy-dsl.md) for the full DSL and evaluation semantics, including conflict-detection.
 
 ## Hook dispatch semantics
 
@@ -99,13 +99,15 @@ Hook points (`session-start`, `context-assemble`, `pre-model-call`, `post-model-
 - `transform` — receives the previous stage's output, returns a modified version; the next subscriber sees the transformed payload (context providers at `context-assemble`).
 - `veto` — can short-circuit with an explicit decision (policy at `plan-ready`).
 
-Ordering within a hook is declaration order in `agent.hcl`, not runtime registration order — determinism matters especially for `context-assemble`, where order affects what the model attends to. See [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md).
+Ordering within a hook is declaration order in `agent.hcl`, not runtime registration order — determinism matters especially for `context-assemble`, where order affects what the model attends to.
+
+The wire surface for all eight dispatchable points other than `context-assemble` (which stays on `ContextService.Contribute`, per [`context/protocol.md#contribute-the-context-assemble-rpc`](context/protocol.md#contribute-the-context-assemble-rpc)) is `pluggableharness.agent.hook.v1.HookSubscriberService` — one shared service every plugin category MAY implement, dispatched to over the same `hashicorp/go-plugin` connection as that plugin's own category service. See [`agent-loop/hook-dispatch.md`](agent-loop/hook-dispatch.md) for the full dispatch mechanics and wire contract.
 
 ## Canonical message / tool-schema format
 
-Internal representation is content-block messages (`text`/`tool_use`/ `tool_result`/`image`/`thinking`/`redacted_thinking`) — the widest practical superset today. This is the state backend's source of truth, independent of whether any one vendor's wire format still exists at replay time. Each model-provider adapter owns its own lossy translation to/from vendor wire format. See [`provider/data-types.md`](provider/data-types.md).
+Internal representation is content-block messages (`text`/`tool_use`/ `tool_result`/`image`/`thinking`/`redacted_thinking`) — the widest practical superset today. This is the state backend's source of truth, independent of whether any one vendor's wire format still exists at replay time. Each model-provider adapter owns its own lossy translation to/from vendor wire format. See [`model/data-types.md`](model/data-types.md).
 
-Tool schemas: declared once per resource in a common JSON Schema subset all major vendors actually support (object/string/number/boolean/array/enum — skip exotic keywords like `oneOf`/`$ref` chains); each adapter translates to its vendor's tool-definition format. See [`provider/data-types.md#tool-schema`](provider/data-types.md#tool-schema).
+Tool schemas: declared once per resource in a common JSON Schema subset all major vendors actually support (object/string/number/boolean/array/enum — skip exotic keywords like `oneOf`/`$ref` chains); each adapter translates to its vendor's tool-definition format. See [`model/data-types.md#tool-schema`](model/data-types.md#tool-schema).
 
 ## Context budget
 
@@ -113,7 +115,7 @@ Ceiling is **not** a config value — it's asserted at runtime from the resolved
 
 Allocation policy (v1): fixed per-context-provider token caps declared in `agent.hcl`, validated against the dynamically-known ceiling at assembly time. Adaptive priority-based negotiation (providers asked to compress under pressure) is explicitly deferred — no adaptive machinery until there's evidence the fixed-cap approach is insufficient. See [`context/data-types.md`](context/data-types.md#budget-mechanics).
 
-Generation-time parameters are validated the same way: an effort/thinking setting is checked against the resolved model's declared capabilities before it ever reaches the wire, and model routing/fallback chains are capability-aware for the identical reason — a candidate is only eligible for a turn if it actually satisfies that turn's real requirements (context needed, tool-use, vision, thinking), not merely because it's listed first. See [`provider/protocol.md#generation-parameter-validation-and-capability-aware-routing`](provider/protocol.md#generation-parameter-validation-and-capability-aware-routing) and [`configuration/agent-profiles.md#model-routing`](configuration/agent-profiles.md#model-routing).
+Generation-time parameters are validated the same way: an effort/thinking setting is checked against the resolved model's declared capabilities before it ever reaches the wire, and model routing/fallback chains are capability-aware for the identical reason — a candidate is only eligible for a turn if it actually satisfies that turn's real requirements (context needed, tool-use, vision, thinking), not merely because it's listed first. See [`model/protocol.md#generation-parameter-validation-and-capability-aware-routing`](model/protocol.md#generation-parameter-validation-and-capability-aware-routing) and [`configuration/agent-profiles.md#model-routing`](configuration/agent-profiles.md#model-routing).
 
 ## CLI shape
 

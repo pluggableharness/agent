@@ -2,7 +2,7 @@
 
 ## Error taxonomy
 
-Smaller than the model-provider taxonomy ([`provider/conformance.md#error-taxonomy`](../provider/conformance.md#error-taxonomy)), but a plugin MUST still classify every failure into one of the following rather than collapsing them into one generic error:
+Smaller than the model-provider taxonomy ([`model/conformance.md#error-taxonomy`](../model/conformance.md#error-taxonomy)), but a plugin MUST still classify every failure into one of the following rather than collapsing them into one generic error:
 
 | Category | Meaning | Kernel's expected reaction |
 |---|---|---|
@@ -21,6 +21,9 @@ On the wire, using the canonical gRPC error-code mapping: `source_unavailable` â
 | Capability | Level | Notes |
 |---|---|---|
 | `GetCapabilities` / `Configure` / `Contribute` RPCs | MUST | the whole protocol surface |
+| `Describe` RPC | MUST | reports this build's own `common.v1.ProducerRef` identity; see [`configuration/lock-file.md`](../configuration/lock-file.md#dev_overrides-and-identity-without-a-lock-entry) for why this exists |
+| `ContextRequest.history_tokens` / `assembled_tokens_last_turn` | MUST (kernel-side) | kernel-computed on every firing, not just compactor-directed ones â€” [`data-types.md#compactor-timing-signals`](data-types.md#compactor-timing-signals) |
+| `supported_hook_points` declaration | MAY | empty unless this provider also declares `hook{}` blocks in `agent.hcl` |
 | `text` content blocks | MUST | baseline; v1 has no other content type |
 | Non-text content blocks (`image`, etc.) | MUST NOT (v1) | kernel MUST reject, not silently drop |
 | `stability` declaration | MUST | [`data-types.md#stability-hint--cache-prefix-ordering`](data-types.md#stability-hint--cache-prefix-ordering) |

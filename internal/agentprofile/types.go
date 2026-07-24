@@ -9,7 +9,7 @@ type ModelRef struct {
 	// model-family name) that this ref resolves against.
 	Provider string
 	// ID is the vendor's exact model identifier, matching ModelSpec.Id
-	// (pkg/provider/proto/v1) for the resolved provider.
+	// (pkg/model/proto/v1) for the resolved provider.
 	ID string
 }
 

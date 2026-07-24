@@ -12,6 +12,12 @@ PlanItem {
   input       // parsed JSON args (kernel's canonical ToolCall representation, tool/data-types.md)
   decision    enum { pending, allow, ask, deny }
   decided_by  string   // subscriber/policy-rule name that produced the decision
+
+  // Snapshot fields — see "Snapshot rationale" below.
+  kind          tool.v1.ToolKind
+  risk          tool.v1.RiskClass
+  description   string
+  preview       render.v1.RenderTree?   // optional; see "Preview flow" below
 }
 
 Plan {
@@ -21,6 +27,16 @@ Plan {
 ```
 
 Policy evaluation happens as the `plan-ready` hook's `veto` chain ([`architecture.md`](../architecture.md#policy--first-party-not-a-plugin-category) — "policy is the kernel-privileged veto-mode subscriber at the plan-ready hook, always run, always respected"). The kernel MUST evaluate policy rules per `PlanItem`, not once for the whole plan — a plan with three resource calls against three different tool providers can and MUST receive three independently evaluated decisions. Presentation MAY batch multiple `ask`-decision items from the same plan into a single combined approval UI interaction (matching the "shown as a diff for approval" framing, and Terraform's own plan-diff precedent), but the decision unit underneath MUST remain per-item so a human can approve some resource calls in a plan and reject others without rejecting the whole turn — this also enables a corrected-input redirect (the model supplies corrected arguments rather than a binary accept/reject) as a frontend feature without a kernel data-model change; see [`frontend/frontend-protocol.md`](../frontend/frontend-protocol.md)'s `plan_decision.corrected_input`.
+
+### Snapshot rationale
+
+`kind`, `risk`, `description`, and `preview` are captured from the originating tool operation's `ToolSchema` (and, for `preview`, from a live `Preview` call — see below) at **plan-construction time**, not looked up live whenever a plan is later displayed or audited. This matters because `ToolSchema` itself is not immutable across a provider's lifetime: an operator can edit `agent.hcl`, a provider can ship a new version reclassifying an operation's risk, or a description can be reworded — none of which may retroactively alter what a *historical* plan's audit record says happened. `state-backend.md`'s `plan_items` table persists a `plan-ready`-time snapshot precisely so "what risk was this call classified at when it ran" stays answerable after the classification itself has since changed. A frontend rendering a live, in-progress plan and a CLI displaying a plan from six months ago both read the same snapshot fields — neither re-resolves against the provider's current `GetSchema` response.
+
+### Preview flow
+
+`preview` is populated by the kernel calling the originating tool provider's `Preview` RPC ([`tool/protocol.md#preview`](../tool/protocol.md#preview)) at plan-construction time, for `TOOL_KIND_RESOURCE` items whose provider implements it — a dry-run description of the call's effect (e.g. a diff for a file write, a request summary for an HTTP call), returned as a `render.v1.RenderTree` and stored on the `PlanItem` verbatim, the same type `Preview`'s own RPC response carries. `data_source` and `interactive` items MUST NOT have `preview` populated — `Preview` is a resource-item concept, mirroring how only resource items reach the plan/apply gate's `allow`/`ask`/`deny` decision at all (see [Data source and interactive calls](#data-source-and-interactive-calls) below).
+
+A provider that does not implement `Preview` leaves `preview` absent on every `PlanItem` it produces — this is an ordinary, unexceptional absence, not an error condition; a frontend MUST fall back to rendering the raw `input` field (the call's parsed arguments) in that case, exactly as it would for a plan built before `Preview` existed. The kernel MUST NOT block plan construction on a slow or failing `Preview` call beyond its own ordinary per-RPC deadline (`.claude/rules/grpc.md`'s "Context and deadlines") — a `Preview` timeout or error degrades to an absent `preview` for that item, never to an aborted plan.
 
 ## Decision semantics
 
@@ -49,3 +65,13 @@ What differs between `data_source` and `interactive` is scheduling, not policy: 
 The precheck's evaluation result MUST distinguish an outright `ask`-turned-`deny` downgrade from a plain `deny` decision — a caller needs to be able to log that a winning `ask` decision was flipped to `deny` for a `data_source`/`interactive` call, rather than have that transition happen silently.
 
 The `interactive`-kind precheck reuses the `data_source` precheck's defaulting and downgrade rules verbatim rather than the policy DSL gaining a third match kind of its own: [`configuration/policy-dsl.md`](../configuration/policy-dsl.md)'s match schema stays two-valued (`resource`/`data_source`), and an `interactive` call routes through the same non-interactive precheck path a `data_source` call uses.
+
+## PlanDecisionScope semantics
+
+[`frontend/frontend-protocol.md`](../frontend/frontend-protocol.md)'s `ClientEvent.PlanDecision` carries a `scope` field (`PlanDecisionScope`: `ONCE`/`SESSION`/`ALWAYS`) alongside `decision` and `corrected_input`. `scope` governs how durably the resolved decision applies beyond the one `PlanItem` it names — it is evaluated by the plan/apply gate at the same point `decision` and `corrected_input` are, immediately on receipt of a `plan_decision` client event, not deferred to any later stage:
+
+- **`ONCE`** (the default a frontend SHOULD send absent explicit operator intent): applies to the named `PlanItem` only. No durable record beyond the ordinary `plan_items` audit row this decision produces regardless of scope.
+- **`SESSION`**: the kernel MUST remember this verdict for the rest of the current session, in memory — not written to `agent.hcl` or any persisted policy store — and apply it automatically to any future plan item in the same session matching the same `(provider, tool_name)` pair, without re-emitting a `permission_request`/blocking on a fresh `plan_decision`. A `SESSION`-scoped `deny` suppresses future `ask`/`allow` items the same way; a `SESSION`-scoped `allow` (with or without `corrected_input`) auto-applies the decision (re-validating `corrected_input` against the current call's own arguments each time, per [`frontend/frontend-protocol.md#plan_decisioncorrected_input`](../frontend/frontend-protocol.md#plan_decisioncorrected_input) — a `SESSION` scope remembers the *verdict*, not a frozen copy of the corrected arguments). This rule lapses at session end; it does not survive a `ResumeSession` re-open ([`frontend/frontend-protocol.md#resume-and-re-open-semantics`](../frontend/frontend-protocol.md#resume-and-re-open-semantics)) into a fresh session of rules.
+- **`ALWAYS`**: the kernel MUST persist this verdict as policy — surviving beyond the current session, applying to future sessions under the same profile — via the same policy-rule mechanism [`configuration/policy-dsl.md`](../configuration/policy-dsl.md) already governs for operator-authored rules. This requires kernel-side policy persistence: a kernel build that cannot durably write a new policy rule (e.g. no writable policy store configured) MUST reject an `ALWAYS`-scoped `plan_decision` with a distinct error rather than silently downgrading it to `SESSION` or `ONCE` — a frontend and its operator need to know an "always allow this" request didn't actually stick, not discover it the next time the same prompt reappears. An `ALWAYS`-scoped decision, once persisted, takes effect starting with the *next* plan-ready evaluation it would match — it does not retroactively alter the plan item that triggered it, which has already been decided via the ordinary `decision`/`corrected_input` fields.
+
+`SESSION` and `ALWAYS` are both strictly broader than what the underlying per-item decision unit ([Plan construction and policy evaluation](#plan-construction-and-policy-evaluation) above) requires — they are a frontend/operator convenience layered on top of, not a replacement for, per-item evaluation: policy still runs and still produces an independent decision for every item in every future plan, it's simply that a `SESSION`/`ALWAYS` rule can now be one of the things that decision is based on.

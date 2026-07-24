@@ -15,7 +15,7 @@ dictated by the specs and MUST match exactly.
 
 | Category | RPC | Shape | Source |
 |---|---|---|---|
-| Model | `StreamCompletion` | server-streaming + cancellation | `docs/specifications/provider/README.md#transport--lifecycle` (explicitly *not* bidi) |
+| Model | `StreamCompletion` | server-streaming + cancellation | `docs/specifications/model/README.md#transport--lifecycle` (explicitly *not* bidi) |
 | Tool | `Invoke` | server-streaming | `docs/specifications/tool/protocol.md` |
 | Frontend | `Attach` | **bidirectional** streaming | `docs/specifications/frontend/frontend-protocol.md` |
 | Widget | `Attach` | server-streaming only | `docs/specifications/frontend/widget-protocol.md` |
@@ -28,7 +28,7 @@ the spec calls for.
 
 - **A backend that has no real streaming to do still implements the
   streaming RPC shape** and emits exactly one terminal message. Do not add a
-  parallel non-streaming RPC as a shortcut — `docs/specifications/provider/`
+  parallel non-streaming RPC as a shortcut — `docs/specifications/model/`
   and `docs/specifications/tool/` both make the streaming signature MUST
   regardless of whether the underlying vendor API streams.
 - **Cancellation is normal control flow, not an error.** When the kernel
@@ -49,12 +49,12 @@ Canonical mapping (extend per spec, don't invent parallel categories):
 
 | Spec category | `grpc/codes` |
 |---|---|
-| `context_length_exceeded` (`docs/specifications/provider/conformance.md`) | `codes.ResourceExhausted` |
-| `rate_limited` (`docs/specifications/provider/conformance.md`) | `codes.ResourceExhausted` (distinguished by structured detail, not code alone) |
-| `overloaded` (`docs/specifications/provider/conformance.md`) | `codes.Unavailable` |
-| `auth_error` (`docs/specifications/provider/conformance.md`) | `codes.Unauthenticated` |
-| `invalid_request` (`docs/specifications/provider/conformance.md`) | `codes.InvalidArgument` |
-| `content_filtered` (`docs/specifications/provider/conformance.md`) | `codes.FailedPrecondition` |
+| `context_length_exceeded` (`docs/specifications/model/conformance.md`) | `codes.ResourceExhausted` |
+| `rate_limited` (`docs/specifications/model/conformance.md`) | `codes.ResourceExhausted` (distinguished by structured detail, not code alone) |
+| `overloaded` (`docs/specifications/model/conformance.md`) | `codes.Unavailable` |
+| `auth_error` (`docs/specifications/model/conformance.md`) | `codes.Unauthenticated` |
+| `invalid_request` (`docs/specifications/model/conformance.md`) | `codes.InvalidArgument` |
+| `content_filtered` (`docs/specifications/model/conformance.md`) | `codes.FailedPrecondition` |
 | `process_crashed` (`docs/specifications/tool/conformance.md`'s `ToolErrorCategory`) | `codes.Unavailable` |
 | cancellation | `codes.Canceled` — never treated as an application error |
 | unmapped/unexpected | `codes.Internal`, never `codes.Unknown` |
@@ -78,7 +78,7 @@ kernel decide.
 ## The strong-typing rule and its one carve-out
 
 `proto.md` bans `Any`/untyped `bytes`/loose maps as a general rule. The
-Emit→Render→Paint payload (`docs/specifications/provider/protocol.md#render`,
+Emit→Render→Paint payload (`docs/specifications/model/protocol.md#render`,
 `docs/specifications/frontend/render-tree.md`) is the one deliberate exception: it is
 opaque *by design* so a producer's payload format can evolve independently
 of the kernel. Do not "fix" this by giving it a concrete message type — that

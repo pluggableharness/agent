@@ -38,7 +38,7 @@ GOBIN=$PWD/bin go install tool                     # generators pinned via go.mo
 PATH=$PWD/bin:$PATH buf generate                   # regenerate pkg/*/proto/v1 — commit the result
 ```
 
-CI additionally runs `buf breaking` against the PR base branch — a wire-contract break fails the build by design; if it's intentional, say so explicitly in the PR.
+CI additionally runs `buf breaking` against the latest `v*` release tag (skipped when no tag exists yet) — a wire-contract break fails the build by design; if it's intentional, say so explicitly in the PR.
 
 Ground rules the gate can't fully check:
 
@@ -51,7 +51,7 @@ Ground rules the gate can't fully check:
 
 `docs/specifications/` has two hard editorial rules, defined in [`docs/specifications/conventions.md`](docs/specifications/conventions.md):
 
-- Cross-references are relative path + heading anchor (`[cost computation](provider/protocol.md#cost-computation)`), never section numbers. Before renaming a heading, grep the tree for its anchor — inbound links break silently.
+- Cross-references are relative path + heading anchor (`[cost computation](model/protocol.md#cost-computation)`), never section numbers. Before renaming a heading, grep the tree for its anchor — inbound links break silently.
 - Fix-forward: the docs describe the system as it is. Corrections are written as current, unqualified truth — no strikethrough, no "previously this said" narrative.
 
 All Markdown in this repo is GitHub Flavored Markdown with one unwrapped line per paragraph — no hard-wrapping at a fixed column.

@@ -24,6 +24,14 @@ RunSessionResult {
                        // crosses the session boundary back to the parent turn
   status               enum { completed, error_max_turns, error_max_budget_usd,
                                error_max_wall_clock, cancelled, failed }
+  total_cost_usd       float64   // MUST — the child session's aggregate cost,
+                                  // summed across every turn it ran, including
+                                  // descendant sub-agent sessions; an aggregate,
+                                  // not one completion's Usage, so an
+                                  // orchestrator plugin can do budget-aware
+                                  // fan-out on a child's outcome
+  total_input_tokens   int64     // MUST — same aggregate shape as total_cost_usd
+  total_output_tokens  int64     // MUST — same aggregate shape as total_cost_usd
 }
 ```
 
@@ -64,7 +72,7 @@ Scoping child tools to the task's privilege level at spawn time is a convergent 
 
 ## Cancellation propagation
 
-If a session is cancelled (the model-provider stream cancellation described in [`provider/README.md`](../provider/README.md#transport--lifecycle), or an explicit user interrupt), the kernel MUST cascade-cancel every in-flight child `RunSession` reachable from that session, recursively through any grandchildren. This is a live mechanism, not a state-backend lookup: the kernel propagates cancellation through its own in-memory tracking of currently-running child sessions (the same in-memory session state depth-budget threading and cost-rollup use, [`../state-backend.md#live-vs-post-hoc-tree-walking`](../state-backend.md#live-vs-post-hoc-tree-walking)) — the state backend plays no role in deciding *which* sessions to cancel. Cancellation MUST NOT leave orphaned child sessions running after their parent has been torn down. Each cancelled child session MUST reach `session-end` with `status = cancelled`, durably recorded to its own `session_meta` row, and its `final_message` (if any partial content exists) MUST still be recorded to the state backend for audit, even though it never reaches a waiting parent (the parent is itself being cancelled).
+If a session is cancelled (the model-provider stream cancellation described in [`model/README.md`](../model/README.md#transport--lifecycle), or an explicit user interrupt), the kernel MUST cascade-cancel every in-flight child `RunSession` reachable from that session, recursively through any grandchildren. This is a live mechanism, not a state-backend lookup: the kernel propagates cancellation through its own in-memory tracking of currently-running child sessions (the same in-memory session state depth-budget threading and cost-rollup use, [`../state-backend.md#live-vs-post-hoc-tree-walking`](../state-backend.md#live-vs-post-hoc-tree-walking)) — the state backend plays no role in deciding *which* sessions to cancel. Cancellation MUST NOT leave orphaned child sessions running after their parent has been torn down. Each cancelled child session MUST reach `session-end` with `status = cancelled`, durably recorded to its own `session_meta` row, and its `final_message` (if any partial content exists) MUST still be recorded to the state backend for audit, even though it never reaches a waiting parent (the parent is itself being cancelled).
 
 ## Inter-session communication
 

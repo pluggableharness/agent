@@ -10,7 +10,7 @@ Start with [`conventions.md`](conventions.md) — it defines the requirement key
 2. [`glossary.md`](glossary.md) — terminology.
 3. [`architecture.md`](architecture.md) — the system narrative.
 4. The six plugin-category protocols (any order — cross-linked as needed):
-   - [`provider/`](provider/README.md) — model (LLM vendor) provider.
+   - [`model/`](model/README.md) — model (LLM vendor) provider.
    - [`tool/`](tool/README.md) — tool provider (resource / data_source / interactive).
    - [`context/`](context/README.md) — context provider.
    - [`memory/`](memory/README.md) — memory provider.

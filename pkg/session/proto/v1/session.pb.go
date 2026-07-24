@@ -14,6 +14,7 @@ package sessionv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -107,11 +108,145 @@ func (SessionStatus) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_session_v1_session_proto_rawDescGZIP(), []int{0}
 }
 
+// SessionInfo is a session's shareable summary, mirroring
+// state-backend.md's session_meta row plus a cheap cost_ledger SUM. Used
+// by frontend.md's SessionCreated/SessionAttached/SessionList ServerEvent
+// variants — the frontend protocol's read-only view of session lifecycle
+// state, never mutated by a frontend directly.
+type SessionInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id. ULID, matches the session's sqlite filename stem
+	// (state-backend.md §"File layout").
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The parent session's id, when this is a sub-agent session
+	// (agent-loop/subagents.md). Absent for a root session — mirrors
+	// session_meta.parent_session_id.
+	ParentSessionId *string `protobuf:"bytes,2,opt,name=parent_session_id,json=parentSessionId,proto3,oneof" json:"parent_session_id,omitempty"`
+	// The agent.hcl profile this session was created under.
+	Profile string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
+	// The session's current lifecycle status.
+	Status SessionStatus `protobuf:"varint,4,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
+	// The session's depth in its ancestor chain — mirrors
+	// session_meta.depth (agent-loop/subagents.md#depth-limits).
+	Depth int32 `protobuf:"varint,5,opt,name=depth,proto3" json:"depth,omitempty"`
+	// When the session was created. Mirrors session_meta.started_at.
+	StartedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	// When the session reached a terminal status. Absent while RUNNING.
+	// Mirrors session_meta.ended_at.
+	EndedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=ended_at,json=endedAt,proto3,oneof" json:"ended_at,omitempty"`
+	// The session's running total spend — SUM(cost_usd) over
+	// state-backend.md's cost_ledger table for this session. Absent if no
+	// cost has been incurred yet, rather than a meaningless zero.
+	CostUsd       *float64 `protobuf:"fixed64,8,opt,name=cost_usd,json=costUsd,proto3,oneof" json:"cost_usd,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionInfo) Reset() {
+	*x = SessionInfo{}
+	mi := &file_pluggableharness_agent_session_v1_session_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionInfo) ProtoMessage() {}
+
+func (x *SessionInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_session_v1_session_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionInfo.ProtoReflect.Descriptor instead.
+func (*SessionInfo) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_session_v1_session_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SessionInfo) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionInfo) GetParentSessionId() string {
+	if x != nil && x.ParentSessionId != nil {
+		return *x.ParentSessionId
+	}
+	return ""
+}
+
+func (x *SessionInfo) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
+func (x *SessionInfo) GetStatus() SessionStatus {
+	if x != nil {
+		return x.Status
+	}
+	return SessionStatus_SESSION_STATUS_UNSPECIFIED
+}
+
+func (x *SessionInfo) GetDepth() int32 {
+	if x != nil {
+		return x.Depth
+	}
+	return 0
+}
+
+func (x *SessionInfo) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *SessionInfo) GetEndedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndedAt
+	}
+	return nil
+}
+
+func (x *SessionInfo) GetCostUsd() float64 {
+	if x != nil && x.CostUsd != nil {
+		return *x.CostUsd
+	}
+	return 0
+}
+
 var File_pluggableharness_agent_session_v1_session_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_agent_session_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"/pluggableharness/agent/session/v1/session.proto\x12!pluggableharness.agent.session.v1*\x98\x02\n" +
+	"/pluggableharness/agent/session/v1/session.proto\x12!pluggableharness.agent.session.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9e\x03\n" +
+	"\vSessionInfo\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12/\n" +
+	"\x11parent_session_id\x18\x02 \x01(\tH\x00R\x0fparentSessionId\x88\x01\x01\x12\x18\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\x12H\n" +
+	"\x06status\x18\x04 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06status\x12\x14\n" +
+	"\x05depth\x18\x05 \x01(\x05R\x05depth\x129\n" +
+	"\n" +
+	"started_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12:\n" +
+	"\bended_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x01R\aendedAt\x88\x01\x01\x12\x1e\n" +
+	"\bcost_usd\x18\b \x01(\x01H\x02R\acostUsd\x88\x01\x01B\x14\n" +
+	"\x12_parent_session_idB\v\n" +
+	"\t_ended_atB\v\n" +
+	"\t_cost_usd*\x98\x02\n" +
 	"\rSessionStatus\x12\x1e\n" +
 	"\x1aSESSION_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SESSION_STATUS_RUNNING\x10\x01\x12\x1c\n" +
@@ -135,15 +270,21 @@ func file_pluggableharness_agent_session_v1_session_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_agent_session_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_agent_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_pluggableharness_agent_session_v1_session_proto_goTypes = []any{
-	(SessionStatus)(0), // 0: pluggableharness.agent.session.v1.SessionStatus
+	(SessionStatus)(0),            // 0: pluggableharness.agent.session.v1.SessionStatus
+	(*SessionInfo)(nil),           // 1: pluggableharness.agent.session.v1.SessionInfo
+	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
 var file_pluggableharness_agent_session_v1_session_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: pluggableharness.agent.session.v1.SessionInfo.status:type_name -> pluggableharness.agent.session.v1.SessionStatus
+	2, // 1: pluggableharness.agent.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
+	2, // 2: pluggableharness.agent.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_session_v1_session_proto_init() }
@@ -151,19 +292,21 @@ func file_pluggableharness_agent_session_v1_session_proto_init() {
 	if File_pluggableharness_agent_session_v1_session_proto != nil {
 		return
 	}
+	file_pluggableharness_agent_session_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_session_v1_session_proto_rawDesc), len(file_pluggableharness_agent_session_v1_session_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   0,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_pluggableharness_agent_session_v1_session_proto_goTypes,
 		DependencyIndexes: file_pluggableharness_agent_session_v1_session_proto_depIdxs,
 		EnumInfos:         file_pluggableharness_agent_session_v1_session_proto_enumTypes,
+		MessageInfos:      file_pluggableharness_agent_session_v1_session_proto_msgTypes,
 	}.Build()
 	File_pluggableharness_agent_session_v1_session_proto = out.File
 	file_pluggableharness_agent_session_v1_session_proto_goTypes = nil

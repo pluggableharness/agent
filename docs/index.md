@@ -40,7 +40,7 @@ The kernel's turn algorithm, hook dispatch, plan/apply gate, sub-agents, and err
 </div>
 
 <div markdown>
-[Model provider](specifications/provider/README.md)
+[Model provider](specifications/model/README.md)
 
 The LLM vendor plugin protocol — capabilities, streaming completion, token counting, pricing.
 </div>

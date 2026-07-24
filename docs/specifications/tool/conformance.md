@@ -2,7 +2,7 @@
 
 ## Error taxonomy
 
-Distinct from [`provider/conformance.md#error-taxonomy`](../provider/conformance.md#error-taxonomy)'s `ProviderError` — a tool's failure modes are a different domain (no `rate_limited`/`context_length_exceeded`, which are model-vendor concepts) — but follows the same shape and the same non-negotiable principle: a plugin MUST classify every failure, MUST NOT collapse them into one generic error, for the same reason the model-provider protocol cites (undifferentiated errors are undebuggable after the fact).
+Distinct from [`model/conformance.md#error-taxonomy`](../model/conformance.md#error-taxonomy)'s `ModelError` — a tool's failure modes are a different domain (no `rate_limited`/`context_length_exceeded`, which are model-vendor concepts) — but follows the same shape and the same non-negotiable principle: a plugin MUST classify every failure, MUST NOT collapse them into one generic error, for the same reason the model-provider protocol cites (undifferentiated errors are undebuggable after the fact).
 
 ```protobuf
 ToolError {
@@ -51,23 +51,35 @@ Kernel's expected reaction per category:
 
 On the wire, `process_crashed` maps to `codes.Unavailable` — the same code used for a transient, retriable unavailability elsewhere in the system, since a crashed subprocess is exactly that from the kernel's point of view: the service became unavailable, not that the request itself was invalid.
 
+### The `idempotent` / retry interaction
+
+`ToolSchema.idempotent` (per [`protocol.md#getschema`](protocol.md#getschema)) is the gate on top of the category-reaction table above for exactly one row: a `retryable` `ToolError` returned for a `TOOL_KIND_RESOURCE` operation. The kernel MAY auto-retry such a failure — without surfacing it to the model as a failed call first — only when that operation's `ToolSchema.idempotent` is `true`; when it's `false` (or unset — proto3's zero value for `bool` is `false`, so an operation MUST explicitly declare `idempotent: true` to opt in, never rely on an implicit default), the kernel MUST treat the failure as terminal for this attempt and surface it, exactly as the category-reaction table already prescribes. `TOOL_KIND_DATA_SOURCE` operations are exempt from this gate entirely — they're implicitly safe to retry regardless of `idempotent`, since by definition they cannot mutate anything. `TOOL_KIND_INTERACTIVE` calls are never auto-retried (per [`protocol.md#kind-interactive`](protocol.md#kind-interactive), a human's answer isn't something a kernel can safely redo unprompted).
+
+This interacts with, but is distinct from, `concurrency_conflict`'s existing "retry serialized against the same key" reaction: that retry is about serialization ordering, not about whether re-running the operation is safe at all, so it applies independent of `idempotent`.
+
 ## Required vs. optional support — summary matrix
 
 | Capability | Level | Notes |
 |---|---|---|
 | `GetSchema` / `Configure` / `Invoke` RPCs | MUST | the whole protocol surface |
+| `Describe` RPC | MUST | [`protocol.md#describe`](protocol.md#describe); needed for `dev_overrides` plugin identity per [`configuration/lock-file.md`](../configuration/lock-file.md#dev_overrides-and-identity-without-a-lock-entry) |
 | Streaming RPC shape for `Invoke` | MUST | see [`README.md`](README.md#transport--lifecycle) / [`protocol.md#invoke`](protocol.md#invoke) — applies even to non-streaming operations |
-| `input_schema`/`output_schema` in the common JSON-Schema subset | MUST | [`provider/data-types.md#tool-schema`](../provider/data-types.md#tool-schema) |
+| `ToolCall.call_context` | MUST be set by the kernel, every `Invoke` call | [`protocol.md#invoke`](protocol.md#invoke); `working_directory` is what makes process-backed operations usable at all |
+| `input_schema`/`output_schema` in the common JSON-Schema subset | MUST | [`model/data-types.md#tool-schema`](../model/data-types.md#tool-schema) |
 | `kind` (resource / data_source / interactive) | MUST, per operation | drives the plan/apply gate; [`protocol.md#kind-interactive`](protocol.md#kind-interactive) |
 | `risk` classification | MUST, per operation | see [`data-types.md#riskclass`](data-types.md#riskclass); `read_only` for `data_source` and `interactive` alike |
 | `ConcurrencySpec.safe` | MUST, per operation except `interactive` | absent/unset MUST be treated as `false`; MUST NOT be declared for `interactive` |
 | `ConcurrencySpec.key_fields` | MAY, per operation | only meaningful under `safe: true` |
+| `default_timeout` | SHOULD, per operation | [`protocol.md#getschema`](protocol.md#getschema); absent means the kernel's global default applies |
+| `idempotent` | MUST, per operation | [`protocol.md#getschema`](protocol.md#getschema); gates kernel auto-retry, see above |
+| `supported_hook_points` | MAY | [`protocol.md#getschema`](protocol.md#getschema); empty means this provider subscribes no `hook{}` blocks |
 | `exit_status` event | MUST for process-backed (exec-family) operations; MUST NOT otherwise | |
 | `output_chunk` / `progress` / `partial_result` events | MAY | only for operations with `streaming: true` |
 | Structured `ToolError` taxonomy, including `process_crashed` | MUST | |
 | Strict `output_schema` enforcement | MUST | [`protocol.md#invoke`](protocol.md#invoke) |
 | Best-effort partial-mutation report on cancellation | MUST, for `resource` operations | see [`protocol.md#invoke`](protocol.md#invoke) |
-| `Render` | MAY | generic fallback exists |
+| `Render` | MAY | generic fallback exists; `RenderRequest.schema_version` per [`../frontend/render-tree.md#schema-versioning`](../frontend/render-tree.md#schema-versioning) |
+| `Preview` | MAY | [`protocol.md#preview`](protocol.md#preview); kernel MUST fall back to raw `arguments` when absent; MUST NOT mutate anything when implemented |
 
 ## Open questions
 

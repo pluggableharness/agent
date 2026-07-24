@@ -12,6 +12,7 @@ package pluggableharness.agent.memory.v1;
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "pluggableharness/agent/common/v1/common.proto";
 import "pluggableharness/agent/config/v1/config.proto";
 import "pluggableharness/agent/content/v1/content.proto";
 import "pluggableharness/agent/model/v1/model.proto";
@@ -29,7 +30,7 @@ service MemoryService {
 
   // Configure decodes this provider's agent.hcl config block, per the
   // same schema-to-cty bridge contract as the rest of this spec series
-  // (provider.md §3). Unary. memory.md §5.
+  // (model.md §3). Unary. memory.md §5.
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
 
   // Recall is the read side: it fires at context-assemble time, competing
@@ -65,6 +66,30 @@ service MemoryService {
   // review-inbox view distinct from ordinary recall), in place of the
   // kernel's generic fallback. MAY be implemented. Unary. memory.md §10.
   rpc Render(RenderRequest) returns (RenderResponse);
+
+  // ListRecords is the enumeration/audit path: paginated browsing of this
+  // provider's records, filterable by type/scope/status. Unlike Recall,
+  // PENDING records ARE listable here without any include_pending-style
+  // gate — this is the review-inbox path (e.g. a ratification review UI),
+  // not the budget-constrained per-turn recall path. MUST be implemented;
+  // cheap for any real backend. memory.md §7.
+  rpc ListRecords(ListRecordsRequest) returns (ListRecordsResponse);
+
+  // GetRecord fetches exactly one record by id. MUST fail with a
+  // structured MemoryError (category NOT_FOUND) if `id` doesn't match an
+  // existing record, rather than returning an empty result. MUST be
+  // implemented; cheap for any real backend. memory.md §7.
+  rpc GetRecord(GetRecordRequest) returns (GetRecordResponse);
+
+  // Describe reports this plugin build's own identity — {name, version,
+  // source, category, protocol_version} via ProducerRef — independent of
+  // any lock-file entry. This is the mechanism a dev_overrides-resolved
+  // binary (which has no provider {} lock entry to read identity from)
+  // uses to self-report at connection time; see
+  // docs/specifications/configuration/lock-file.md's dev_overrides note,
+  // which is the canonical explanation for this RPC across every plugin
+  // category that gains it in this protocol revision.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
 }
 
 // GetCapabilitiesRequest carries no fields; GetCapabilities takes no
@@ -155,6 +180,18 @@ message MemoryCapabilities {
 
   // This provider's agent.hcl config schema, per configuration.md §4.
   pluggableharness.agent.config.v1.ConfigSchema config_schema = 6;
+
+  // Which hook points (agent-loop/hook-dispatch.md) this provider declares
+  // HookSubscriberService.DispatchHook subscriptions for. Note: this
+  // category's implicit post_model_response (observe, every turn) and
+  // session_end (fires once) write triggers (memory.md §Write triggers)
+  // now ride the hook.v1 HookSubscriberService.DispatchHook surface — see
+  // protocol.md's Write triggers section for the payload shapes. The
+  // HookPoint enum itself lives in common.v1, not hook.v1 — hook.v1
+  // imports this package's model/tool/plan dependencies, so a category
+  // capability message importing hook.v1 directly would cycle back
+  // through it; common.v1 is the shared leaf package instead.
+  repeated pluggableharness.agent.common.v1.HookPoint supported_hook_points = 7;
 }
 
 // GetCapabilitiesResponse wraps this provider's capability advertisement.
@@ -186,8 +223,12 @@ message RecallRequest {
   // The requesting session's id.
   string session_id = 1;
 
-  // The current turn number within that session.
-  int64 turn_number = 2;
+  // The current turn within that session. A ULID, standardized across the
+  // whole protocol (matches plan.v1's turn_id field and context.v1's
+  // ContextRequest.turn_id, same treatment). Same field number as the
+  // retired int64 turn-number predecessor field; the rename is a
+  // sanctioned pre-release wire change, not a v2 bump.
+  string turn_id = 2;
 
   // The token budget this Recall call MUST self-truncate its returned
   // records to. Competes for the same budget pool as context providers,
@@ -266,6 +307,40 @@ message MemoryRecord {
 
   // When this record was last modified.
   google.protobuf.Timestamp updated_at = 10;
+
+  // Where this record came from and who wrote it. Kernel-populated at
+  // Record time, immutable thereafter — never provider-supplied or
+  // provider-mutable. memory.md's README already frames provenance as
+  // first-class; this is where the record shape finally carries it.
+  Provenance provenance = 11;
+
+  // This record's recall-time relevance, in [0, 1]. Set only on
+  // Recall/ListRecords responses — never persisted, never present on a
+  // Record/UpdateRecord request or response. Lets the kernel merge
+  // multiple memory providers' results under one shared budget
+  // (data-types.md#recallrequest--memoryrecord) using a comparable score
+  // rather than provider-opaque ordering alone. A provider setting this
+  // MUST normalize it to [0, 1]; scores from different providers are only
+  // meaningfully comparable if each normalizes to the same range.
+  optional double relevance_score = 12;
+}
+
+// Provenance records where a MemoryRecord came from and who wrote it.
+// Kernel-populated at Record time; immutable afterward, like the rest of a
+// record's write-time metadata.
+message Provenance {
+  // The session id that produced this record.
+  string source_session_id = 1;
+
+  // The turn id (ULID, see ContextRequest.turn_id) within source_session_id
+  // that produced this record, when known. Absent for a record written
+  // outside normal turn flow (e.g. a backfill/import).
+  optional string source_turn_id = 2;
+
+  // The producing plugin's declared name, or the reference tool path that
+  // wrote it (e.g. "memory.remember"). Kernel-populated from the calling
+  // context, not provider-supplied.
+  string recorded_by = 3;
 }
 
 // RecordRequest creates a new record. memory.md §7.
@@ -407,6 +482,10 @@ enum MemoryErrorCategory {
   MEMORY_ERROR_CATEGORY_SOURCE_UNAVAILABLE = 5;
   // Any error not covered by a more specific category above.
   MEMORY_ERROR_CATEGORY_UNKNOWN = 6;
+  // Record specified a MemoryScope this provider doesn't support (absent
+  // from GetCapabilities.supported_scopes) — the scope-taxonomy mirror of
+  // MEMORY_ERROR_CATEGORY_INVALID_TYPE above.
+  MEMORY_ERROR_CATEGORY_INVALID_SCOPE = 7;
 }
 
 // MemoryError is the structured detail carried on a gRPC error status
@@ -428,10 +507,81 @@ message RenderRequest {
   // Paint carve-out; this is the one field in this file that is
   // deliberately untyped bytes rather than a concrete message.
   bytes payload = 1;
+
+  // The schema version this payload was emitted against, so a Render
+  // implementation can detect drift between the version it was built
+  // against and the version live in a running session. See
+  // ../frontend/render-tree.md#schema-versioning for the canonical
+  // definition of this field's semantics (owned by the frontend/widget
+  // workstream; this field just carries the same value).
+  string schema_version = 2;
 }
 
 // RenderResponse wraps this provider's rendered output. memory.md §10.
 message RenderResponse {
   // The rendered tree, per frontend.md §1.
   pluggableharness.agent.render.v1.RenderTree tree = 1;
+}
+
+// ListRecordsRequest is the enumeration/audit query: paginated browsing of
+// this provider's records, filterable by type/scope/status. Unlike
+// RecallRequest, there is no include_pending gate — this is the
+// review-inbox path (e.g. a ratification review UI or generic record
+// browsing), where PENDING records ARE listable, not the budget-constrained
+// per-turn recall path. memory.md §7.
+message ListRecordsRequest {
+  // Restricts results to these MemoryTypes. MAY be empty, meaning all
+  // types this provider supports.
+  repeated MemoryType type_filter = 1;
+
+  // Restricts results to these MemoryScopes. MAY be empty, meaning all
+  // scopes this provider supports.
+  repeated MemoryScope scope_filter = 2;
+
+  // Restricts results to this RecordStatus. Unset means both CANONICAL and
+  // PENDING records are eligible — this is the one path where a PENDING
+  // record is listable without any include_pending-style gate.
+  optional RecordStatus status_filter = 3;
+
+  // Maximum number of records to return in one page.
+  int32 page_size = 4;
+
+  // Opaque continuation token from a prior ListRecordsResponse.
+  // next_page_token. Empty on the first page.
+  string page_token = 5;
+}
+
+// ListRecordsResponse carries one page of matching records.
+message ListRecordsResponse {
+  // This page's records.
+  repeated MemoryRecord records = 1;
+
+  // Opaque continuation token for the next page. Empty when this is the
+  // last page.
+  string next_page_token = 2;
+}
+
+// GetRecordRequest identifies exactly one record to fetch by id.
+message GetRecordRequest {
+  // The record's id. MUST match an existing record, or the call fails with
+  // a structured MemoryError (category NOT_FOUND).
+  string id = 1;
+}
+
+// GetRecordResponse wraps the fetched record.
+message GetRecordResponse {
+  // The fetched record.
+  MemoryRecord record = 1;
+}
+
+// DescribeRequest carries no fields — Describe takes no request-scoped
+// parameters.
+message DescribeRequest {}
+
+// DescribeResponse reports this plugin build's own identity. See the
+// Describe RPC comment on MemoryService above.
+message DescribeResponse {
+  // This plugin build's identity: name, version, source, category,
+  // protocol_version.
+  pluggableharness.agent.common.v1.ProducerRef producer = 1;
 }

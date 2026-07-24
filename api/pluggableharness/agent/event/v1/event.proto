@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+// Package pluggableharness.agent.event.v1 defines the decoded payload shape
+// for every pluggableharness.agent.kernel.v1.EventKind — the concrete
+// message that a kernel.v1.EmitRequest.payload / the state backend's
+// events.payload column (state-backend.md §The kind enum) actually
+// contains, once schema_version identifies it. This package defines no
+// enum of its own: kernel.v1.EventKind and state-backend.md §The kind enum
+// remain the sole, authoritative enumeration of which kinds exist. The
+// mapping between a kind and its payload message here is 1:1 and asserted
+// only by documentation — a kind → message table lives in
+// state-backend.md §The kind enum, mirroring how kernel-callbacks.md
+// already restates that enum in prose rather than redefining it.
+//
+// Each message below IS schema_version "1" of its kind's payload — an
+// EmitRequest/events row with schema_version "1" (or "v1") denotes "the
+// payload bytes, once unmarshaled, are exactly the event.v1 message named
+// for this kind." A future breaking change to any one payload's shape
+// ships as a new event.v2 package and schema_version "2", never as an edit
+// to the message defined here — proto.md's no-breaking-changes rule for a
+// released v1 applies to this package like every other. Because a
+// persisted event's schema_version and producer_category/producer_name/
+// producer_version columns together identify exactly which historical
+// plugin build to invoke for replay (the "supersedes" model,
+// architecture.md §Versioning & schema drift), an old session stays
+// decodable by a kernel built against a newer event package without ever
+// needing to migrate stored bytes in place.
+//
+// These messages are normative for the owning spec, but still opaque to
+// the kernel — the two are not in tension. For a kernel-produced kind
+// (EVENT_KIND_MESSAGE, EVENT_KIND_PLAN, EVENT_KIND_APPLY — the kernel is
+// the sole writer of these), the kernel itself populates the message
+// defined here and "normative" simply describes what it writes. For a
+// plugin-Emit'd kind (EVENT_KIND_TOOL_CALL, EVENT_KIND_TOOL_RESULT,
+// EVENT_KIND_CONTEXT_CONTRIBUTION, the three EVENT_KIND_MEMORY_* kinds),
+// the owning category spec requires the emitting plugin to shape its
+// payload bytes as the matching message here — but the kernel still
+// stores EmitRequest.payload as opaque bytes and never parses or
+// validates it at Emit time (state-backend.md: "events.payload opaque,
+// never inspected by the kernel" is a MUST that this package does not
+// relax). "Normative" means the spec that owns a kind dictates the bytes
+// a conforming plugin writes; it does not mean the kernel enforces that
+// shape on write. Conformance is enforced by the owning category spec and
+// by the producing plugin's own (possibly historical, supersedes-resolved)
+// Render implementation being able to make sense of what it emitted, not
+// by kernel-side schema validation.
+//
+// Import direction is one-way: event.v1 imports common/content/model/tool/
+// plan/hook to name each payload's fields with real message types (per
+// proto.md's ban on Any/untyped bytes/loose maps standing in for a
+// structured payload); nothing imports event.v1. That makes this package
+// a safe leaf for every payload-referencing category to sit behind without
+// risking an import cycle back into any of them.
+package pluggableharness.agent.event.v1;
+
+import "pluggableharness/agent/common/v1/common.proto";
+import "pluggableharness/agent/content/v1/content.proto";
+import "pluggableharness/agent/hook/v1/hook.proto";
+import "pluggableharness/agent/model/v1/model.proto";
+import "pluggableharness/agent/plan/v1/plan.proto";
+import "pluggableharness/agent/tool/v1/tool.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/event/proto/v1;eventv1";
+
+// MessageEvent is the payload for EVENT_KIND_MESSAGE — a completed model
+// turn's accumulated canonical message, kernel-produced (state-backend.md
+// §The kind enum: usage/cost figures live here, not as a separate kind,
+// and drive the cost_ledger table at write time).
+message MessageEvent {
+  // The assembled canonical message. MUST be set. Carries its own
+  // kernel-assigned id and, when role == ROLE_ASSISTANT, the
+  // produced_by_model_id/produced_by_provider plain-string attribution
+  // (content.v1.Message) — those fields identify *which model/provider
+  // name* produced it, distinct from `model` below.
+  pluggableharness.agent.content.v1.Message message = 1;
+
+  // The exact plugin build (name, version, source, protocol_version) that
+  // produced `message`, for supersedes/replay attribution
+  // (architecture.md §Versioning & schema drift). MUST be set. This is
+  // deliberately the full ProducerRef, not a repeat of Message's plain-
+  // string produced_by_model_id/produced_by_provider fields — those two
+  // exist on Message for lightweight display use without decoding an
+  // event payload; `model` here is what replay actually dispatches on.
+  pluggableharness.agent.common.v1.ProducerRef model = 2;
+
+  // Token usage for the completion that produced `message`. MUST be set.
+  pluggableharness.agent.model.v1.Usage usage = 3;
+
+  // The kernel-computed cost, in USD, of the completion that produced
+  // `message` (model/protocol.md#cost-computation — the provider never
+  // computes cost itself). MUST be set. Extracted into the cost_ledger
+  // table at write time (state-backend.md §cost_ledger).
+  double cost_usd = 4;
+}
+
+// ToolCallEvent is the payload for EVENT_KIND_TOOL_CALL.
+message ToolCallEvent {
+  // The call being made. MUST be set.
+  pluggableharness.agent.tool.v1.ToolCall call = 1;
+}
+
+// ToolResultEvent is the payload for EVENT_KIND_TOOL_RESULT.
+message ToolResultEvent {
+  // The originating ToolCall.id this result is for. MUST be set.
+  string tool_call_id = 1;
+
+  // Exactly one variant MUST be set.
+  oneof outcome {
+    // The call's successful result.
+    pluggableharness.agent.tool.v1.ToolResult result = 2;
+    // The call's failed result.
+    pluggableharness.agent.tool.v1.ToolError error = 3;
+  }
+}
+
+// PlanEvent is the payload for EVENT_KIND_PLAN — a turn's fully-built Plan,
+// captured pre plan-ready dispatch, kernel-produced. Drives the plan_items
+// table at write time (state-backend.md §plan_items).
+message PlanEvent {
+  // The built plan. MUST be set.
+  pluggableharness.agent.plan.v1.Plan plan = 1;
+}
+
+// ApplyEvent is the payload for EVENT_KIND_APPLY — a turn's complete set of
+// per-item apply outcomes, once every item in its Plan has reached a
+// terminal ApplyOutcome (agent-loop.md §5.2), kernel-produced.
+message ApplyEvent {
+  // The turn's per-item apply outcomes. MUST be set. Wraps
+  // plan.v1.ApplyResult — homed in plan.v1, not redefined here, so this
+  // event's payload and hook.v1.PostApplyPayload's subject are the exact
+  // same message rather than two independently-evolving shapes for the
+  // same data (plan.proto's own ApplyResult comment documents this
+  // sharing rationale).
+  pluggableharness.agent.plan.v1.ApplyResult result = 1;
+}
+
+// ContextContributionEvent is the payload for EVENT_KIND_CONTEXT_CONTRIBUTION
+// — a context provider's Contribute output (context/protocol.md#contribute-
+// the-context-assemble-rpc), or a memory provider's Recall output after
+// kernel translation (memory/protocol.md#kernel-side-translation-into-
+// context-assembly). Plugin-emitted: the owning category spec requires
+// this shape, but the kernel stores it opaquely (see package comment).
+message ContextContributionEvent {
+  // The contributed content blocks, in emission order. Text-only in v1,
+  // matching context and memory's existing content-type constraint.
+  repeated pluggableharness.agent.content.v1.ContentBlock content = 1;
+
+  // The token count of `content`, resolved via the kernel's CountTokens
+  // primitive (kernel-callbacks.md#counttokens), never a provider-local
+  // heuristic. MUST be set.
+  int64 tokens = 2;
+
+  // The model target this contribution was budgeted against
+  // (model.v1.ModelTarget's context_window/effective_ceiling), when the
+  // contributing provider had one available. Absent when no target was
+  // known at contribution time.
+  optional pluggableharness.agent.model.v1.ModelTarget target = 3;
+}
+
+// MemoryMutationEvent is the shared payload for EVENT_KIND_MEMORY_WRITE,
+// EVENT_KIND_MEMORY_UPDATE, and EVENT_KIND_MEMORY_DELETE — one message for
+// all three kinds because the mutating verb is already carried by the
+// envelope's kind; this message only needs to describe the record itself.
+// Plugin-emitted: the owning category spec (memory/README.md) requires
+// this shape, but the kernel stores it opaquely (see package comment).
+message MemoryMutationEvent {
+  // The mutated record's stable identifier. MUST be set.
+  string record_id = 1;
+
+  // The record's content blocks, in emission order. MUST be set for
+  // EVENT_KIND_MEMORY_WRITE and EVENT_KIND_MEMORY_UPDATE; absent for
+  // EVENT_KIND_MEMORY_DELETE, which has no content left to describe.
+  repeated pluggableharness.agent.content.v1.ContentBlock content = 2;
+
+  // Open-ended key/value metadata about the mutation (e.g. tags, source),
+  // a genuine unstructured-by-design case, not a structured-payload dodge
+  // — proto.md's sanctioned map<string, string> use.
+  map<string, string> attributes = 3;
+}
+
+// HookErrorEvent is the payload for EVENT_KIND_HOOK_ERROR — kernel-
+// synthesized on a failing hook transform/veto subscriber's behalf
+// (state-backend.md §The kind enum; agent-loop/hook-dispatch.md#subscriber-
+// error-handling), rather than emitted by the failing subscriber itself.
+// Importing hook.v1 here is correct and acyclic: nothing imports event.v1
+// (see package comment), so event.v1 depending on hook.v1 for this one
+// payload introduces no cycle.
+message HookErrorEvent {
+  // The structured detail of the failed hook dispatch. MUST be set.
+  pluggableharness.agent.hook.v1.HookError error = 1;
+}

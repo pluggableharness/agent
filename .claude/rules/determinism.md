@@ -61,7 +61,7 @@ formula in the codebase:
 
 ## Cost and budget rollup
 
-Cost (`docs/specifications/provider/protocol.md#cost-computation`) and depth
+Cost (`docs/specifications/model/protocol.md#cost-computation`) and depth
 budget (`docs/specifications/agent-loop/subagents.md#depth-limits`) both roll
 up a session tree the same way: computed and persisted at usage-event time,
 not recomputed lazily on read. Code that reports a session's total cost or

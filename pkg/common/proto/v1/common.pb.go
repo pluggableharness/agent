@@ -39,8 +39,8 @@ const (
 	// Zero value. Never valid for a real producer; its presence on the wire
 	// means a caller forgot to set the field.
 	Category_CATEGORY_UNSPECIFIED Category = 0
-	// A model (LLM vendor) provider — specifications/provider.md.
-	Category_CATEGORY_PROVIDER Category = 1
+	// A model (LLM vendor) provider — specifications/model.md.
+	Category_CATEGORY_MODEL Category = 1
 	// A tool provider — specifications/tool.md.
 	Category_CATEGORY_TOOL Category = 2
 	// A context provider — specifications/context.md.
@@ -57,7 +57,7 @@ const (
 var (
 	Category_name = map[int32]string{
 		0: "CATEGORY_UNSPECIFIED",
-		1: "CATEGORY_PROVIDER",
+		1: "CATEGORY_MODEL",
 		2: "CATEGORY_TOOL",
 		3: "CATEGORY_CONTEXT",
 		4: "CATEGORY_MEMORY",
@@ -66,7 +66,7 @@ var (
 	}
 	Category_value = map[string]int32{
 		"CATEGORY_UNSPECIFIED": 0,
-		"CATEGORY_PROVIDER":    1,
+		"CATEGORY_MODEL":       1,
 		"CATEGORY_TOOL":        2,
 		"CATEGORY_CONTEXT":     3,
 		"CATEGORY_MEMORY":      4,
@@ -100,6 +100,103 @@ func (x Category) Number() protoreflect.EnumNumber {
 // Deprecated: Use Category.Descriptor instead.
 func (Category) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP(), []int{0}
+}
+
+// HookPoint identifies one of the eight dispatchable points in the agent
+// loop (agent-loop/hook-dispatch.md; architecture.md §Hook dispatch
+// semantics enumerates the nine hook-point names, of which
+// context-assemble is deliberately excluded — it stays on
+// ContextService.Contribute rather than the hook.v1 dispatch surface).
+// Lives here rather than in hook.v1 because hook.v1 imports several
+// category packages (model, tool, plan, session) for its typed payloads:
+// a category package advertising `supported_hook_points` in its
+// capability message could not import hook.v1 back without a cycle, and
+// this file is the import-nothing leaf every package may depend on —
+// the same reasoning that homes Category here. Used by hook.v1's
+// HookError, the event.v1 hook-error payload, and every category's
+// capability advertisement.
+type HookPoint int32
+
+const (
+	// Zero value. Never valid on the wire; its presence means a caller
+	// forgot to set the field.
+	HookPoint_HOOK_POINT_UNSPECIFIED HookPoint = 0
+	// Session creation, before the first turn begins.
+	HookPoint_HOOK_POINT_SESSION_START HookPoint = 1
+	// Immediately before a model provider's StreamCompletion is called.
+	HookPoint_HOOK_POINT_PRE_MODEL_CALL HookPoint = 2
+	// Immediately after a model turn's canonical message has been
+	// assembled from the completion stream.
+	HookPoint_HOOK_POINT_POST_MODEL_RESPONSE HookPoint = 3
+	// Immediately before a plan item's tool call is applied.
+	HookPoint_HOOK_POINT_PRE_TOOL_CALL HookPoint = 4
+	// Once a turn's Plan has been fully built, before plan/apply gate
+	// dispatch. The kernel-privileged policy veto subscriber
+	// (architecture.md §Policy — first-party, not a plugin category) always
+	// runs at this point.
+	HookPoint_HOOK_POINT_PLAN_READY HookPoint = 5
+	// Immediately after a plan item's tool call has produced a terminal
+	// ToolResult or ToolError.
+	HookPoint_HOOK_POINT_POST_TOOL_CALL HookPoint = 6
+	// Immediately after a turn's whole Plan has finished applying (every
+	// item reached a terminal ApplyOutcome).
+	HookPoint_HOOK_POINT_POST_APPLY HookPoint = 7
+	// Session termination, once the session has reached a terminal
+	// SessionStatus.
+	HookPoint_HOOK_POINT_SESSION_END HookPoint = 8
+)
+
+// Enum value maps for HookPoint.
+var (
+	HookPoint_name = map[int32]string{
+		0: "HOOK_POINT_UNSPECIFIED",
+		1: "HOOK_POINT_SESSION_START",
+		2: "HOOK_POINT_PRE_MODEL_CALL",
+		3: "HOOK_POINT_POST_MODEL_RESPONSE",
+		4: "HOOK_POINT_PRE_TOOL_CALL",
+		5: "HOOK_POINT_PLAN_READY",
+		6: "HOOK_POINT_POST_TOOL_CALL",
+		7: "HOOK_POINT_POST_APPLY",
+		8: "HOOK_POINT_SESSION_END",
+	}
+	HookPoint_value = map[string]int32{
+		"HOOK_POINT_UNSPECIFIED":         0,
+		"HOOK_POINT_SESSION_START":       1,
+		"HOOK_POINT_PRE_MODEL_CALL":      2,
+		"HOOK_POINT_POST_MODEL_RESPONSE": 3,
+		"HOOK_POINT_PRE_TOOL_CALL":       4,
+		"HOOK_POINT_PLAN_READY":          5,
+		"HOOK_POINT_POST_TOOL_CALL":      6,
+		"HOOK_POINT_POST_APPLY":          7,
+		"HOOK_POINT_SESSION_END":         8,
+	}
+)
+
+func (x HookPoint) Enum() *HookPoint {
+	p := new(HookPoint)
+	*p = x
+	return p
+}
+
+func (x HookPoint) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (HookPoint) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_agent_common_v1_common_proto_enumTypes[1].Descriptor()
+}
+
+func (HookPoint) Type() protoreflect.EnumType {
+	return &file_pluggableharness_agent_common_v1_common_proto_enumTypes[1]
+}
+
+func (x HookPoint) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use HookPoint.Descriptor instead.
+func (HookPoint) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP(), []int{1}
 }
 
 // ProducerRef identifies the exact plugin build that produced something: a
@@ -261,6 +358,78 @@ func (x *ProviderRef) GetName() string {
 	return ""
 }
 
+// CallContext identifies the session, turn, and working directory a given
+// RPC call executes for. Attached to a model provider's
+// StreamCompletionRequest and a tool provider's ToolCall in this protocol
+// revision (forthcoming in those files) — it's what a plugin passes back
+// on its own KernelCallbackService.Emit call (kernel-callbacks.md §Emit)
+// for correlation, without having to separately thread session_id/turn_id
+// through every call site by hand.
+type CallContext struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this call executes for. ULID-formatted, per this file's
+	// ID conventions above (§"ID and timestamp conventions") — the same
+	// session_id a plugin passes to Emit.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The turn within that session this call executes for. ULID-formatted.
+	TurnId string `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	// The session's working directory at call time.
+	WorkingDirectory string `protobuf:"bytes,3,opt,name=working_directory,json=workingDirectory,proto3" json:"working_directory,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CallContext) Reset() {
+	*x = CallContext{}
+	mi := &file_pluggableharness_agent_common_v1_common_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallContext) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallContext) ProtoMessage() {}
+
+func (x *CallContext) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_common_v1_common_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallContext.ProtoReflect.Descriptor instead.
+func (*CallContext) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CallContext) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *CallContext) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
+}
+
+func (x *CallContext) GetWorkingDirectory() string {
+	if x != nil {
+		return x.WorkingDirectory
+	}
+	return ""
+}
+
 var File_pluggableharness_agent_common_v1_common_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_agent_common_v1_common_proto_rawDesc = "" +
@@ -274,15 +443,30 @@ const file_pluggableharness_agent_common_v1_common_proto_rawDesc = "" +
 	"\x10protocol_version\x18\x05 \x01(\rR\x0fprotocolVersion\"i\n" +
 	"\vProviderRef\x12F\n" +
 	"\bcategory\x18\x01 \x01(\x0e2*.pluggableharness.agent.common.v1.CategoryR\bcategory\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name*\xa5\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"r\n" +
+	"\vCallContext\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
+	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12+\n" +
+	"\x11working_directory\x18\x03 \x01(\tR\x10workingDirectory*\xa2\x01\n" +
 	"\bCategory\x12\x18\n" +
-	"\x14CATEGORY_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11CATEGORY_PROVIDER\x10\x01\x12\x11\n" +
+	"\x14CATEGORY_UNSPECIFIED\x10\x00\x12\x12\n" +
+	"\x0eCATEGORY_MODEL\x10\x01\x12\x11\n" +
 	"\rCATEGORY_TOOL\x10\x02\x12\x14\n" +
 	"\x10CATEGORY_CONTEXT\x10\x03\x12\x13\n" +
 	"\x0fCATEGORY_MEMORY\x10\x04\x12\x15\n" +
 	"\x11CATEGORY_FRONTEND\x10\x05\x12\x13\n" +
-	"\x0fCATEGORY_WIDGET\x10\x06B@Z>github.com/pluggableharness/agent/pkg/common/proto/v1;commonv1b\x06proto3"
+	"\x0fCATEGORY_WIDGET\x10\x06*\x97\x02\n" +
+	"\tHookPoint\x12\x1a\n" +
+	"\x16HOOK_POINT_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18HOOK_POINT_SESSION_START\x10\x01\x12\x1d\n" +
+	"\x19HOOK_POINT_PRE_MODEL_CALL\x10\x02\x12\"\n" +
+	"\x1eHOOK_POINT_POST_MODEL_RESPONSE\x10\x03\x12\x1c\n" +
+	"\x18HOOK_POINT_PRE_TOOL_CALL\x10\x04\x12\x19\n" +
+	"\x15HOOK_POINT_PLAN_READY\x10\x05\x12\x1d\n" +
+	"\x19HOOK_POINT_POST_TOOL_CALL\x10\x06\x12\x19\n" +
+	"\x15HOOK_POINT_POST_APPLY\x10\a\x12\x1a\n" +
+	"\x16HOOK_POINT_SESSION_END\x10\bB@Z>github.com/pluggableharness/agent/pkg/common/proto/v1;commonv1b\x06proto3"
 
 var (
 	file_pluggableharness_agent_common_v1_common_proto_rawDescOnce sync.Once
@@ -296,12 +480,14 @@ func file_pluggableharness_agent_common_v1_common_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_agent_common_v1_common_proto_rawDescData
 }
 
-var file_pluggableharness_agent_common_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_agent_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pluggableharness_agent_common_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_agent_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pluggableharness_agent_common_v1_common_proto_goTypes = []any{
 	(Category)(0),       // 0: pluggableharness.agent.common.v1.Category
-	(*ProducerRef)(nil), // 1: pluggableharness.agent.common.v1.ProducerRef
-	(*ProviderRef)(nil), // 2: pluggableharness.agent.common.v1.ProviderRef
+	(HookPoint)(0),      // 1: pluggableharness.agent.common.v1.HookPoint
+	(*ProducerRef)(nil), // 2: pluggableharness.agent.common.v1.ProducerRef
+	(*ProviderRef)(nil), // 3: pluggableharness.agent.common.v1.ProviderRef
+	(*CallContext)(nil), // 4: pluggableharness.agent.common.v1.CallContext
 }
 var file_pluggableharness_agent_common_v1_common_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.agent.common.v1.ProducerRef.category:type_name -> pluggableharness.agent.common.v1.Category
@@ -323,8 +509,8 @@ func file_pluggableharness_agent_common_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_common_v1_common_proto_rawDesc), len(file_pluggableharness_agent_common_v1_common_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   2,
+			NumEnums:      2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

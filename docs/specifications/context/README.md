@@ -8,13 +8,13 @@ This category covers content injected into the prompt *before* a model call, sou
 
 - On-demand code-intelligence retrieval (grep, LSP, embeddings) — that's tool-provider territory, see [`tool/README.md`](../tool/README.md).
 - Cross-session persisted knowledge an agent itself decides to write — that's memory-provider territory, see [`memory/README.md`](../memory/README.md).
-- Keeping a vendor prompt-cache prefix warm across a long tool-execution gap — that's a model-provider concern, owned by the adapter that already understands its own vendor's TTL mechanics, not this category or the kernel loop. See [`CachingSpec.keepalive_supported`](../provider/data-types.md#cachingspec).
+- Keeping a vendor prompt-cache prefix warm across a long tool-execution gap — that's a model-provider concern, owned by the adapter that already understands its own vendor's TTL mechanics, not this category or the kernel loop. See [`CachingSpec.keepalive_supported`](../model/data-types.md#cachingspec).
 
 ## Transport & lifecycle
 
 Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). The standard handshake applies uniformly across all six provider categories and isn't repeated per category.
 
-A context provider plugin exposes three RPCs: `GetCapabilities`, `Configure`, `Contribute`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)).
+A context provider plugin exposes four RPCs: `GetCapabilities`, `Configure`, `Contribute`, `Describe`. It MAY additionally implement `Render` (see [`protocol.md#render`](protocol.md#render)).
 
 **`Contribute` is unary request/response, not streamed.** Unlike a model provider's `StreamCompletion`, context assembly happens before the model call starts, and convention-file/orientation content is small enough that no researched harness needed token-level streaming for it. See [`protocol.md#contribute-the-context-assemble-rpc`](protocol.md#contribute-the-context-assemble-rpc).
 
@@ -26,7 +26,7 @@ Per [`architecture.md`](../architecture.md#hook-dispatch-semantics), context pro
 
 ## Category structure
 
-- [`protocol.md`](protocol.md) — the three/four RPCs: `GetCapabilities`, `Configure`, `Contribute`, `Render`.
+- [`protocol.md`](protocol.md) — the four/five RPCs: `GetCapabilities`, `Configure`, `Contribute`, `Describe`, `Render`.
 - [`data-types.md`](data-types.md) — `ContextRequest`, `ContextSection`, `ContextContribution`, the ordering/chaining and compaction contract, and content-structuring requirements.
 - [`examples.md`](examples.md) — the real proto wire definitions, a worked two-provider `context-assemble` sequence, and a budget worked example.
 - [`conformance.md`](conformance.md) — the error taxonomy and the MUST/SHOULD/MAY summary matrix, plus genuinely open questions.

@@ -48,7 +48,7 @@ const (
 	// Zero value. Never valid on the wire; its presence means a caller
 	// forgot to set the field.
 	EventKind_EVENT_KIND_UNSPECIFIED EventKind = 0
-	// A completed model turn's canonical message (provider.md §5). Usage
+	// A completed model turn's canonical message (model.md §5). Usage
 	// and cost figures live inside this payload, not as separate fields or
 	// a separate EventKind (state-backend.md §5).
 	EventKind_EVENT_KIND_MESSAGE EventKind = 1
@@ -69,21 +69,29 @@ const (
 	EventKind_EVENT_KIND_MEMORY_UPDATE EventKind = 8
 	// A memory provider's deletion of an existing record.
 	EventKind_EVENT_KIND_MEMORY_DELETE EventKind = 9
+	// Kernel-synthesized when a transform or veto hook subscriber fails
+	// (agent-loop/hook-dispatch.md#subscriber-error-handling) — never
+	// emitted by a plugin's own Emit call, only by the kernel itself
+	// dispatching a hook. Payload shape is
+	// pluggableharness.agent.hook.v1.HookError, wrapped by the forthcoming
+	// event.v1 package's HookErrorEvent (state-backend.md §5).
+	EventKind_EVENT_KIND_HOOK_ERROR EventKind = 10
 )
 
 // Enum value maps for EventKind.
 var (
 	EventKind_name = map[int32]string{
-		0: "EVENT_KIND_UNSPECIFIED",
-		1: "EVENT_KIND_MESSAGE",
-		2: "EVENT_KIND_TOOL_CALL",
-		3: "EVENT_KIND_TOOL_RESULT",
-		4: "EVENT_KIND_PLAN",
-		5: "EVENT_KIND_APPLY",
-		6: "EVENT_KIND_CONTEXT_CONTRIBUTION",
-		7: "EVENT_KIND_MEMORY_WRITE",
-		8: "EVENT_KIND_MEMORY_UPDATE",
-		9: "EVENT_KIND_MEMORY_DELETE",
+		0:  "EVENT_KIND_UNSPECIFIED",
+		1:  "EVENT_KIND_MESSAGE",
+		2:  "EVENT_KIND_TOOL_CALL",
+		3:  "EVENT_KIND_TOOL_RESULT",
+		4:  "EVENT_KIND_PLAN",
+		5:  "EVENT_KIND_APPLY",
+		6:  "EVENT_KIND_CONTEXT_CONTRIBUTION",
+		7:  "EVENT_KIND_MEMORY_WRITE",
+		8:  "EVENT_KIND_MEMORY_UPDATE",
+		9:  "EVENT_KIND_MEMORY_DELETE",
+		10: "EVENT_KIND_HOOK_ERROR",
 	}
 	EventKind_value = map[string]int32{
 		"EVENT_KIND_UNSPECIFIED":          0,
@@ -96,6 +104,7 @@ var (
 		"EVENT_KIND_MEMORY_WRITE":         7,
 		"EVENT_KIND_MEMORY_UPDATE":        8,
 		"EVENT_KIND_MEMORY_DELETE":        9,
+		"EVENT_KIND_HOOK_ERROR":           10,
 	}
 )
 
@@ -245,9 +254,28 @@ type RunSessionResult struct {
 	// The child session's terminal lifecycle status. Never
 	// SESSION_STATUS_RUNNING — a RunSession call only returns once the
 	// child session has reached a terminal state.
-	Status        v12.SessionStatus `protobuf:"varint,3,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Status v12.SessionStatus `protobuf:"varint,3,opt,name=status,proto3,enum=pluggableharness.agent.session.v1.SessionStatus" json:"status,omitempty"`
+	// The child session's aggregate cost, in USD, summed across every turn
+	// it ran, including any of its own descendant sub-agent sessions. MUST
+	// be set. Deliberately a flat field, not a
+	// pluggableharness.agent.model.v1.Usage-shaped reference — this is a
+	// whole-session rollup (state-backend.md's cost_ledger SUM, per
+	// .claude/rules/determinism.md's "Cost and budget rollup"), a different
+	// shape from one completion call's per-call Usage. Lets an orchestrator
+	// plugin do budget-aware fan-out (spend-check a child's outcome before
+	// deciding whether to spawn another) without needing to separately sum
+	// the child's own event history itself.
+	TotalCostUsd float64 `protobuf:"fixed64,4,opt,name=total_cost_usd,json=totalCostUsd,proto3" json:"total_cost_usd,omitempty"`
+	// The child session's aggregate input token count, summed across every
+	// turn it ran, including descendants. MUST be set. Same flat,
+	// aggregate-not-per-call rationale as total_cost_usd.
+	TotalInputTokens int64 `protobuf:"varint,5,opt,name=total_input_tokens,json=totalInputTokens,proto3" json:"total_input_tokens,omitempty"`
+	// The child session's aggregate output token count, summed across
+	// every turn it ran, including descendants. MUST be set. Same flat,
+	// aggregate-not-per-call rationale as total_cost_usd.
+	TotalOutputTokens int64 `protobuf:"varint,6,opt,name=total_output_tokens,json=totalOutputTokens,proto3" json:"total_output_tokens,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *RunSessionResult) Reset() {
@@ -301,6 +329,27 @@ func (x *RunSessionResult) GetStatus() v12.SessionStatus {
 	return v12.SessionStatus(0)
 }
 
+func (x *RunSessionResult) GetTotalCostUsd() float64 {
+	if x != nil {
+		return x.TotalCostUsd
+	}
+	return 0
+}
+
+func (x *RunSessionResult) GetTotalInputTokens() int64 {
+	if x != nil {
+		return x.TotalInputTokens
+	}
+	return 0
+}
+
+func (x *RunSessionResult) GetTotalOutputTokens() int64 {
+	if x != nil {
+		return x.TotalOutputTokens
+	}
+	return 0
+}
+
 // CountTokensRequest asks the kernel to count tokens for a block of
 // content, optionally against a specific model's tokenizer. See
 // kernel-callbacks.md §2.
@@ -310,7 +359,7 @@ type CountTokensRequest struct {
 	// content-type constraint context.md and memory.md already impose.
 	Content []*v11.ContentBlock `protobuf:"bytes,1,rep,name=content,proto3" json:"content,omitempty"`
 	// The model whose tokenizer should be preferred, if that model
-	// provider implements the optional CountTokens RPC (provider.md §2.1).
+	// provider implements the optional CountTokens RPC (model.md §2.1).
 	// MAY be omitted, in which case the kernel's fallback heuristic
 	// (kernel-callbacks.md §3) is used.
 	ModelRef      *v13.ModelRef `protobuf:"bytes,2,opt,name=model_ref,json=modelRef,proto3,oneof" json:"model_ref,omitempty"`
@@ -667,12 +716,15 @@ const file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc = "" +
 	"\x11parent_session_id\x18\x03 \x01(\tR\x0fparentSessionId\x12'\n" +
 	"\x0fremaining_depth\x18\x04 \x01(\x05R\x0eremainingDepth\x129\n" +
 	"\x19remaining_cost_budget_usd\x18\x05 \x01(\x01R\x16remainingCostBudgetUsd\x12X\n" +
-	"\x10scoped_providers\x18\x06 \x03(\v2-.pluggableharness.agent.common.v1.ProviderRefR\x0fscopedProviders\"\xcc\x01\n" +
+	"\x10scoped_providers\x18\x06 \x03(\v2-.pluggableharness.agent.common.v1.ProviderRefR\x0fscopedProviders\"\xd0\x02\n" +
 	"\x10RunSessionResult\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12O\n" +
 	"\rfinal_message\x18\x02 \x01(\v2*.pluggableharness.agent.content.v1.MessageR\ffinalMessage\x12H\n" +
-	"\x06status\x18\x03 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06status\"\xba\x01\n" +
+	"\x06status\x18\x03 \x01(\x0e20.pluggableharness.agent.session.v1.SessionStatusR\x06status\x12$\n" +
+	"\x0etotal_cost_usd\x18\x04 \x01(\x01R\ftotalCostUsd\x12,\n" +
+	"\x12total_input_tokens\x18\x05 \x01(\x03R\x10totalInputTokens\x12.\n" +
+	"\x13total_output_tokens\x18\x06 \x01(\x03R\x11totalOutputTokens\"\xba\x01\n" +
 	"\x12CountTokensRequest\x12I\n" +
 	"\acontent\x18\x01 \x03(\v2/.pluggableharness.agent.content.v1.ContentBlockR\acontent\x12K\n" +
 	"\tmodel_ref\x18\x02 \x01(\v2).pluggableharness.agent.model.v1.ModelRefH\x00R\bmodelRef\x88\x01\x01B\f\n" +
@@ -697,7 +749,7 @@ const file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01\x12=\n" +
 	"\x05entry\x18\x02 \x01(\v2'.pluggableharness.agent.log.v1.LogEntryR\x05entryB\r\n" +
 	"\v_session_id\"\v\n" +
-	"\tLogResult*\x9e\x02\n" +
+	"\tLogResult*\xb9\x02\n" +
 	"\tEventKind\x12\x1a\n" +
 	"\x16EVENT_KIND_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12EVENT_KIND_MESSAGE\x10\x01\x12\x18\n" +
@@ -708,7 +760,9 @@ const file_pluggableharness_agent_kernel_v1_kernel_proto_rawDesc = "" +
 	"\x1fEVENT_KIND_CONTEXT_CONTRIBUTION\x10\x06\x12\x1b\n" +
 	"\x17EVENT_KIND_MEMORY_WRITE\x10\a\x12\x1c\n" +
 	"\x18EVENT_KIND_MEMORY_UPDATE\x10\b\x12\x1c\n" +
-	"\x18EVENT_KIND_MEMORY_DELETE\x10\t2\xcf\x03\n" +
+	"\x18EVENT_KIND_MEMORY_DELETE\x10\t\x12\x19\n" +
+	"\x15EVENT_KIND_HOOK_ERROR\x10\n" +
+	"2\xcf\x03\n" +
 	"\x15KernelCallbackService\x12u\n" +
 	"\n" +
 	"RunSession\x123.pluggableharness.agent.kernel.v1.RunSessionRequest\x1a2.pluggableharness.agent.kernel.v1.RunSessionResult\x12x\n" +

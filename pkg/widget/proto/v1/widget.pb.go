@@ -13,8 +13,9 @@
 package widgetv1
 
 import (
-	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v12 "github.com/pluggableharness/agent/pkg/config/proto/v1"
+	v11 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -30,6 +31,152 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// WidgetErrorCategory classifies a WidgetError, mirroring
+// FrontendErrorCategory's shape (frontend.proto) for the widget category —
+// resolves frontend/conformance.md's prior open question of whether
+// widgets need a structured error type of their own.
+type WidgetErrorCategory int32
+
+const (
+	// Zero value. Never valid for a real error; its presence on the wire
+	// means a caller forgot to set the field.
+	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_UNSPECIFIED WidgetErrorCategory = 0
+	// A RenderTree or WidgetUpdate could not be displayed.
+	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_RENDER_FAILED WidgetErrorCategory = 1
+	// A WidgetUpdate named a Region this widget's frontend cannot honor.
+	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED WidgetErrorCategory = 2
+	// An error that does not fit any other category.
+	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_UNKNOWN WidgetErrorCategory = 3
+)
+
+// Enum value maps for WidgetErrorCategory.
+var (
+	WidgetErrorCategory_name = map[int32]string{
+		0: "WIDGET_ERROR_CATEGORY_UNSPECIFIED",
+		1: "WIDGET_ERROR_CATEGORY_RENDER_FAILED",
+		2: "WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED",
+		3: "WIDGET_ERROR_CATEGORY_UNKNOWN",
+	}
+	WidgetErrorCategory_value = map[string]int32{
+		"WIDGET_ERROR_CATEGORY_UNSPECIFIED":        0,
+		"WIDGET_ERROR_CATEGORY_RENDER_FAILED":      1,
+		"WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED": 2,
+		"WIDGET_ERROR_CATEGORY_UNKNOWN":            3,
+	}
+)
+
+func (x WidgetErrorCategory) Enum() *WidgetErrorCategory {
+	p := new(WidgetErrorCategory)
+	*p = x
+	return p
+}
+
+func (x WidgetErrorCategory) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WidgetErrorCategory) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_agent_widget_v1_widget_proto_enumTypes[0].Descriptor()
+}
+
+func (WidgetErrorCategory) Type() protoreflect.EnumType {
+	return &file_pluggableharness_agent_widget_v1_widget_proto_enumTypes[0]
+}
+
+func (x WidgetErrorCategory) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use WidgetErrorCategory.Descriptor instead.
+func (WidgetErrorCategory) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{0}
+}
+
+// DescribeRequest carries no fields — Describe takes no parameters.
+type DescribeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeRequest) Reset() {
+	*x = DescribeRequest{}
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeRequest) ProtoMessage() {}
+
+func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
+func (*DescribeRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{0}
+}
+
+// DescribeResponse reports this plugin build's own identity, obtained
+// directly from the running process rather than a lock-file row —
+// configuration/lock-file.md's "dev_overrides and identity without a lock
+// entry".
+type DescribeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Producer      *v1.ProducerRef        `protobuf:"bytes,1,opt,name=producer,proto3" json:"producer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeResponse) Reset() {
+	*x = DescribeResponse{}
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeResponse) ProtoMessage() {}
+
+func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeResponse.ProtoReflect.Descriptor instead.
+func (*DescribeResponse) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DescribeResponse) GetProducer() *v1.ProducerRef {
+	if x != nil {
+		return x.Producer
+	}
+	return nil
+}
+
 // GetCapabilitiesRequest carries no fields — GetCapabilities takes no
 // parameters.
 type GetCapabilitiesRequest struct {
@@ -40,7 +187,7 @@ type GetCapabilitiesRequest struct {
 
 func (x *GetCapabilitiesRequest) Reset() {
 	*x = GetCapabilitiesRequest{}
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[0]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -52,7 +199,7 @@ func (x *GetCapabilitiesRequest) String() string {
 func (*GetCapabilitiesRequest) ProtoMessage() {}
 
 func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[0]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -65,7 +212,7 @@ func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{2}
 }
 
 // GetCapabilitiesResponse wraps WidgetCapabilities for the RPC signature,
@@ -79,7 +226,7 @@ type GetCapabilitiesResponse struct {
 
 func (x *GetCapabilitiesResponse) Reset() {
 	*x = GetCapabilitiesResponse{}
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[1]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -91,7 +238,7 @@ func (x *GetCapabilitiesResponse) String() string {
 func (*GetCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[1]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -104,7 +251,7 @@ func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetCapabilitiesResponse) GetCapabilities() *WidgetCapabilities {
@@ -119,17 +266,22 @@ func (x *GetCapabilitiesResponse) GetCapabilities() *WidgetCapabilities {
 type WidgetCapabilities struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// MUST — the regions this widget intends to contribute to.
-	Regions []v1.Region `protobuf:"varint,1,rep,packed,name=regions,proto3,enum=pluggableharness.agent.render.v1.Region" json:"regions,omitempty"`
+	Regions []v11.Region `protobuf:"varint,1,rep,packed,name=regions,proto3,enum=pluggableharness.agent.render.v1.Region" json:"regions,omitempty"`
 	// This provider's agent.hcl config schema, per configuration.md §4 —
 	// what fields Configure's request may be decoded from.
-	ConfigSchema  *v11.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ConfigSchema *v12.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
+	// Hook points this widget can subscribe to in observe mode
+	// (agent-loop/hook-dispatch.md), so a mis-declared agent.hcl hook{}
+	// block naming an unsupported point can be rejected at config-load
+	// time rather than failing at first dispatch.
+	SupportedHookPoints []v1.HookPoint `protobuf:"varint,3,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *WidgetCapabilities) Reset() {
 	*x = WidgetCapabilities{}
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[2]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -141,7 +293,7 @@ func (x *WidgetCapabilities) String() string {
 func (*WidgetCapabilities) ProtoMessage() {}
 
 func (x *WidgetCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[2]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -154,19 +306,26 @@ func (x *WidgetCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WidgetCapabilities.ProtoReflect.Descriptor instead.
 func (*WidgetCapabilities) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *WidgetCapabilities) GetRegions() []v1.Region {
+func (x *WidgetCapabilities) GetRegions() []v11.Region {
 	if x != nil {
 		return x.Regions
 	}
 	return nil
 }
 
-func (x *WidgetCapabilities) GetConfigSchema() *v11.ConfigSchema {
+func (x *WidgetCapabilities) GetConfigSchema() *v12.ConfigSchema {
 	if x != nil {
 		return x.ConfigSchema
+	}
+	return nil
+}
+
+func (x *WidgetCapabilities) GetSupportedHookPoints() []v1.HookPoint {
+	if x != nil {
+		return x.SupportedHookPoints
 	}
 	return nil
 }
@@ -182,7 +341,7 @@ type ConfigureRequest struct {
 
 func (x *ConfigureRequest) Reset() {
 	*x = ConfigureRequest{}
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[3]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -194,7 +353,7 @@ func (x *ConfigureRequest) String() string {
 func (*ConfigureRequest) ProtoMessage() {}
 
 func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[3]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -207,7 +366,7 @@ func (x *ConfigureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureRequest.ProtoReflect.Descriptor instead.
 func (*ConfigureRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ConfigureRequest) GetConfig() *structpb.Struct {
@@ -227,7 +386,7 @@ type ConfigureResponse struct {
 
 func (x *ConfigureResponse) Reset() {
 	*x = ConfigureResponse{}
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[4]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -239,7 +398,7 @@ func (x *ConfigureResponse) String() string {
 func (*ConfigureResponse) ProtoMessage() {}
 
 func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[4]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -252,7 +411,7 @@ func (x *ConfigureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureResponse.ProtoReflect.Descriptor instead.
 func (*ConfigureResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{6}
 }
 
 // AttachRequest identifies which session's widget instance to attach to.
@@ -266,7 +425,7 @@ type AttachRequest struct {
 
 func (x *AttachRequest) Reset() {
 	*x = AttachRequest{}
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[5]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -278,7 +437,7 @@ func (x *AttachRequest) String() string {
 func (*AttachRequest) ProtoMessage() {}
 
 func (x *AttachRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[5]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -291,7 +450,7 @@ func (x *AttachRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttachRequest.ProtoReflect.Descriptor instead.
 func (*AttachRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *AttachRequest) GetSessionId() string {
@@ -306,9 +465,9 @@ func (x *AttachRequest) GetSessionId() string {
 type WidgetUpdate struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which region this update places content into.
-	Region v1.Region `protobuf:"varint,1,opt,name=region,proto3,enum=pluggableharness.agent.render.v1.Region" json:"region,omitempty"`
+	Region v11.Region `protobuf:"varint,1,opt,name=region,proto3,enum=pluggableharness.agent.render.v1.Region" json:"region,omitempty"`
 	// The content to place.
-	Content *v1.RenderTree `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	Content *v11.RenderTree `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	// True: replace this widget's prior content in `region`. False: append.
 	Replace       bool `protobuf:"varint,3,opt,name=replace,proto3" json:"replace,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -317,7 +476,7 @@ type WidgetUpdate struct {
 
 func (x *WidgetUpdate) Reset() {
 	*x = WidgetUpdate{}
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[6]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -329,7 +488,7 @@ func (x *WidgetUpdate) String() string {
 func (*WidgetUpdate) ProtoMessage() {}
 
 func (x *WidgetUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[6]
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -342,17 +501,17 @@ func (x *WidgetUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WidgetUpdate.ProtoReflect.Descriptor instead.
 func (*WidgetUpdate) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *WidgetUpdate) GetRegion() v1.Region {
+func (x *WidgetUpdate) GetRegion() v11.Region {
 	if x != nil {
 		return x.Region
 	}
-	return v1.Region(0)
+	return v11.Region(0)
 }
 
-func (x *WidgetUpdate) GetContent() *v1.RenderTree {
+func (x *WidgetUpdate) GetContent() *v11.RenderTree {
 	if x != nil {
 		return x.Content
 	}
@@ -366,17 +525,82 @@ func (x *WidgetUpdate) GetReplace() bool {
 	return false
 }
 
+// WidgetError is the structured error type for the widget category,
+// mirroring FrontendError (frontend.proto). Unlike the frontend category
+// (whose Attach errors surface in-band via ServerEvent.Error), widget
+// Attach has no return channel other than the stream itself — WidgetError
+// is carried in the structured detail of a gRPC status on Configure or
+// Attach, per .claude/rules/grpc.md's error-taxonomy discipline, not as an
+// in-band stream message.
+type WidgetError struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The error's category.
+	Category WidgetErrorCategory `protobuf:"varint,1,opt,name=category,proto3,enum=pluggableharness.agent.widget.v1.WidgetErrorCategory" json:"category,omitempty"`
+	// A human-readable message.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WidgetError) Reset() {
+	*x = WidgetError{}
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WidgetError) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WidgetError) ProtoMessage() {}
+
+func (x *WidgetError) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_widget_v1_widget_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WidgetError.ProtoReflect.Descriptor instead.
+func (*WidgetError) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *WidgetError) GetCategory() WidgetErrorCategory {
+	if x != nil {
+		return x.Category
+	}
+	return WidgetErrorCategory_WIDGET_ERROR_CATEGORY_UNSPECIFIED
+}
+
+func (x *WidgetError) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_pluggableharness_agent_widget_v1_widget_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_agent_widget_v1_widget_proto_rawDesc = "" +
 	"\n" +
-	"-pluggableharness/agent/widget/v1/widget.proto\x12 pluggableharness.agent.widget.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a-pluggableharness/agent/render/v1/render.proto\"\x18\n" +
+	"-pluggableharness/agent/widget/v1/widget.proto\x12 pluggableharness.agent.widget.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a-pluggableharness/agent/common/v1/common.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a-pluggableharness/agent/render/v1/render.proto\"\x11\n" +
+	"\x0fDescribeRequest\"]\n" +
+	"\x10DescribeResponse\x12I\n" +
+	"\bproducer\x18\x01 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\bproducer\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"s\n" +
 	"\x17GetCapabilitiesResponse\x12X\n" +
-	"\fcapabilities\x18\x01 \x01(\v24.pluggableharness.agent.widget.v1.WidgetCapabilitiesR\fcapabilities\"\xad\x01\n" +
+	"\fcapabilities\x18\x01 \x01(\v24.pluggableharness.agent.widget.v1.WidgetCapabilitiesR\fcapabilities\"\x8e\x02\n" +
 	"\x12WidgetCapabilities\x12B\n" +
 	"\aregions\x18\x01 \x03(\x0e2(.pluggableharness.agent.render.v1.RegionR\aregions\x12S\n" +
-	"\rconfig_schema\x18\x02 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\"C\n" +
+	"\rconfig_schema\x18\x02 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\x12_\n" +
+	"\x15supported_hook_points\x18\x03 \x03(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x13supportedHookPoints\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\x13\n" +
 	"\x11ConfigureResponse\".\n" +
@@ -386,11 +610,20 @@ const file_pluggableharness_agent_widget_v1_widget_proto_rawDesc = "" +
 	"\fWidgetUpdate\x12@\n" +
 	"\x06region\x18\x01 \x01(\x0e2(.pluggableharness.agent.render.v1.RegionR\x06region\x12F\n" +
 	"\acontent\x18\x02 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\acontent\x12\x18\n" +
-	"\areplace\x18\x03 \x01(\bR\areplace2\xfb\x02\n" +
+	"\areplace\x18\x03 \x01(\bR\areplace\"z\n" +
+	"\vWidgetError\x12Q\n" +
+	"\bcategory\x18\x01 \x01(\x0e25.pluggableharness.agent.widget.v1.WidgetErrorCategoryR\bcategory\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\xb6\x01\n" +
+	"\x13WidgetErrorCategory\x12%\n" +
+	"!WIDGET_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12'\n" +
+	"#WIDGET_ERROR_CATEGORY_RENDER_FAILED\x10\x01\x12,\n" +
+	"(WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED\x10\x02\x12!\n" +
+	"\x1dWIDGET_ERROR_CATEGORY_UNKNOWN\x10\x032\xee\x03\n" +
 	"\rWidgetService\x12\x86\x01\n" +
 	"\x0fGetCapabilities\x128.pluggableharness.agent.widget.v1.GetCapabilitiesRequest\x1a9.pluggableharness.agent.widget.v1.GetCapabilitiesResponse\x12t\n" +
 	"\tConfigure\x122.pluggableharness.agent.widget.v1.ConfigureRequest\x1a3.pluggableharness.agent.widget.v1.ConfigureResponse\x12k\n" +
-	"\x06Attach\x12/.pluggableharness.agent.widget.v1.AttachRequest\x1a..pluggableharness.agent.widget.v1.WidgetUpdate0\x01B@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
+	"\x06Attach\x12/.pluggableharness.agent.widget.v1.AttachRequest\x1a..pluggableharness.agent.widget.v1.WidgetUpdate0\x01\x12q\n" +
+	"\bDescribe\x121.pluggableharness.agent.widget.v1.DescribeRequest\x1a2.pluggableharness.agent.widget.v1.DescribeResponseB@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
 
 var (
 	file_pluggableharness_agent_widget_v1_widget_proto_rawDescOnce sync.Once
@@ -404,38 +637,50 @@ func file_pluggableharness_agent_widget_v1_widget_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_agent_widget_v1_widget_proto_rawDescData
 }
 
-var file_pluggableharness_agent_widget_v1_widget_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_pluggableharness_agent_widget_v1_widget_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_agent_widget_v1_widget_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_pluggableharness_agent_widget_v1_widget_proto_goTypes = []any{
-	(*GetCapabilitiesRequest)(nil),  // 0: pluggableharness.agent.widget.v1.GetCapabilitiesRequest
-	(*GetCapabilitiesResponse)(nil), // 1: pluggableharness.agent.widget.v1.GetCapabilitiesResponse
-	(*WidgetCapabilities)(nil),      // 2: pluggableharness.agent.widget.v1.WidgetCapabilities
-	(*ConfigureRequest)(nil),        // 3: pluggableharness.agent.widget.v1.ConfigureRequest
-	(*ConfigureResponse)(nil),       // 4: pluggableharness.agent.widget.v1.ConfigureResponse
-	(*AttachRequest)(nil),           // 5: pluggableharness.agent.widget.v1.AttachRequest
-	(*WidgetUpdate)(nil),            // 6: pluggableharness.agent.widget.v1.WidgetUpdate
-	(v1.Region)(0),                  // 7: pluggableharness.agent.render.v1.Region
-	(*v11.ConfigSchema)(nil),        // 8: pluggableharness.agent.config.v1.ConfigSchema
-	(*structpb.Struct)(nil),         // 9: google.protobuf.Struct
-	(*v1.RenderTree)(nil),           // 10: pluggableharness.agent.render.v1.RenderTree
+	(WidgetErrorCategory)(0),        // 0: pluggableharness.agent.widget.v1.WidgetErrorCategory
+	(*DescribeRequest)(nil),         // 1: pluggableharness.agent.widget.v1.DescribeRequest
+	(*DescribeResponse)(nil),        // 2: pluggableharness.agent.widget.v1.DescribeResponse
+	(*GetCapabilitiesRequest)(nil),  // 3: pluggableharness.agent.widget.v1.GetCapabilitiesRequest
+	(*GetCapabilitiesResponse)(nil), // 4: pluggableharness.agent.widget.v1.GetCapabilitiesResponse
+	(*WidgetCapabilities)(nil),      // 5: pluggableharness.agent.widget.v1.WidgetCapabilities
+	(*ConfigureRequest)(nil),        // 6: pluggableharness.agent.widget.v1.ConfigureRequest
+	(*ConfigureResponse)(nil),       // 7: pluggableharness.agent.widget.v1.ConfigureResponse
+	(*AttachRequest)(nil),           // 8: pluggableharness.agent.widget.v1.AttachRequest
+	(*WidgetUpdate)(nil),            // 9: pluggableharness.agent.widget.v1.WidgetUpdate
+	(*WidgetError)(nil),             // 10: pluggableharness.agent.widget.v1.WidgetError
+	(*v1.ProducerRef)(nil),          // 11: pluggableharness.agent.common.v1.ProducerRef
+	(v11.Region)(0),                 // 12: pluggableharness.agent.render.v1.Region
+	(*v12.ConfigSchema)(nil),        // 13: pluggableharness.agent.config.v1.ConfigSchema
+	(v1.HookPoint)(0),               // 14: pluggableharness.agent.common.v1.HookPoint
+	(*structpb.Struct)(nil),         // 15: google.protobuf.Struct
+	(*v11.RenderTree)(nil),          // 16: pluggableharness.agent.render.v1.RenderTree
 }
 var file_pluggableharness_agent_widget_v1_widget_proto_depIdxs = []int32{
-	2,  // 0: pluggableharness.agent.widget.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.widget.v1.WidgetCapabilities
-	7,  // 1: pluggableharness.agent.widget.v1.WidgetCapabilities.regions:type_name -> pluggableharness.agent.render.v1.Region
-	8,  // 2: pluggableharness.agent.widget.v1.WidgetCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
-	9,  // 3: pluggableharness.agent.widget.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
-	7,  // 4: pluggableharness.agent.widget.v1.WidgetUpdate.region:type_name -> pluggableharness.agent.render.v1.Region
-	10, // 5: pluggableharness.agent.widget.v1.WidgetUpdate.content:type_name -> pluggableharness.agent.render.v1.RenderTree
-	0,  // 6: pluggableharness.agent.widget.v1.WidgetService.GetCapabilities:input_type -> pluggableharness.agent.widget.v1.GetCapabilitiesRequest
-	3,  // 7: pluggableharness.agent.widget.v1.WidgetService.Configure:input_type -> pluggableharness.agent.widget.v1.ConfigureRequest
-	5,  // 8: pluggableharness.agent.widget.v1.WidgetService.Attach:input_type -> pluggableharness.agent.widget.v1.AttachRequest
-	1,  // 9: pluggableharness.agent.widget.v1.WidgetService.GetCapabilities:output_type -> pluggableharness.agent.widget.v1.GetCapabilitiesResponse
-	4,  // 10: pluggableharness.agent.widget.v1.WidgetService.Configure:output_type -> pluggableharness.agent.widget.v1.ConfigureResponse
-	6,  // 11: pluggableharness.agent.widget.v1.WidgetService.Attach:output_type -> pluggableharness.agent.widget.v1.WidgetUpdate
-	9,  // [9:12] is the sub-list for method output_type
-	6,  // [6:9] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	11, // 0: pluggableharness.agent.widget.v1.DescribeResponse.producer:type_name -> pluggableharness.agent.common.v1.ProducerRef
+	5,  // 1: pluggableharness.agent.widget.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.widget.v1.WidgetCapabilities
+	12, // 2: pluggableharness.agent.widget.v1.WidgetCapabilities.regions:type_name -> pluggableharness.agent.render.v1.Region
+	13, // 3: pluggableharness.agent.widget.v1.WidgetCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
+	14, // 4: pluggableharness.agent.widget.v1.WidgetCapabilities.supported_hook_points:type_name -> pluggableharness.agent.common.v1.HookPoint
+	15, // 5: pluggableharness.agent.widget.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
+	12, // 6: pluggableharness.agent.widget.v1.WidgetUpdate.region:type_name -> pluggableharness.agent.render.v1.Region
+	16, // 7: pluggableharness.agent.widget.v1.WidgetUpdate.content:type_name -> pluggableharness.agent.render.v1.RenderTree
+	0,  // 8: pluggableharness.agent.widget.v1.WidgetError.category:type_name -> pluggableharness.agent.widget.v1.WidgetErrorCategory
+	3,  // 9: pluggableharness.agent.widget.v1.WidgetService.GetCapabilities:input_type -> pluggableharness.agent.widget.v1.GetCapabilitiesRequest
+	6,  // 10: pluggableharness.agent.widget.v1.WidgetService.Configure:input_type -> pluggableharness.agent.widget.v1.ConfigureRequest
+	8,  // 11: pluggableharness.agent.widget.v1.WidgetService.Attach:input_type -> pluggableharness.agent.widget.v1.AttachRequest
+	1,  // 12: pluggableharness.agent.widget.v1.WidgetService.Describe:input_type -> pluggableharness.agent.widget.v1.DescribeRequest
+	4,  // 13: pluggableharness.agent.widget.v1.WidgetService.GetCapabilities:output_type -> pluggableharness.agent.widget.v1.GetCapabilitiesResponse
+	7,  // 14: pluggableharness.agent.widget.v1.WidgetService.Configure:output_type -> pluggableharness.agent.widget.v1.ConfigureResponse
+	9,  // 15: pluggableharness.agent.widget.v1.WidgetService.Attach:output_type -> pluggableharness.agent.widget.v1.WidgetUpdate
+	2,  // 16: pluggableharness.agent.widget.v1.WidgetService.Describe:output_type -> pluggableharness.agent.widget.v1.DescribeResponse
+	13, // [13:17] is the sub-list for method output_type
+	9,  // [9:13] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_widget_v1_widget_proto_init() }
@@ -448,13 +693,14 @@ func file_pluggableharness_agent_widget_v1_widget_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_widget_v1_widget_proto_rawDesc), len(file_pluggableharness_agent_widget_v1_widget_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   7,
+			NumEnums:      1,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pluggableharness_agent_widget_v1_widget_proto_goTypes,
 		DependencyIndexes: file_pluggableharness_agent_widget_v1_widget_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_agent_widget_v1_widget_proto_enumTypes,
 		MessageInfos:      file_pluggableharness_agent_widget_v1_widget_proto_msgTypes,
 	}.Build()
 	File_pluggableharness_agent_widget_v1_widget_proto = out.File

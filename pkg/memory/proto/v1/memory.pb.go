@@ -16,10 +16,11 @@
 package memoryv1
 
 import (
+	v12 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v13 "github.com/pluggableharness/agent/pkg/content/proto/v1"
-	v12 "github.com/pluggableharness/agent/pkg/model/proto/v1"
-	v14 "github.com/pluggableharness/agent/pkg/render/proto/v1"
+	v14 "github.com/pluggableharness/agent/pkg/content/proto/v1"
+	v13 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	v15 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 	v1 "github.com/pluggableharness/agent/pkg/slashcommand/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -254,6 +255,10 @@ const (
 	MemoryErrorCategory_MEMORY_ERROR_CATEGORY_SOURCE_UNAVAILABLE MemoryErrorCategory = 5
 	// Any error not covered by a more specific category above.
 	MemoryErrorCategory_MEMORY_ERROR_CATEGORY_UNKNOWN MemoryErrorCategory = 6
+	// Record specified a MemoryScope this provider doesn't support (absent
+	// from GetCapabilities.supported_scopes) — the scope-taxonomy mirror of
+	// MEMORY_ERROR_CATEGORY_INVALID_TYPE above.
+	MemoryErrorCategory_MEMORY_ERROR_CATEGORY_INVALID_SCOPE MemoryErrorCategory = 7
 )
 
 // Enum value maps for MemoryErrorCategory.
@@ -266,6 +271,7 @@ var (
 		4: "MEMORY_ERROR_CATEGORY_BUDGET_EXCEEDED",
 		5: "MEMORY_ERROR_CATEGORY_SOURCE_UNAVAILABLE",
 		6: "MEMORY_ERROR_CATEGORY_UNKNOWN",
+		7: "MEMORY_ERROR_CATEGORY_INVALID_SCOPE",
 	}
 	MemoryErrorCategory_value = map[string]int32{
 		"MEMORY_ERROR_CATEGORY_UNSPECIFIED":              0,
@@ -275,6 +281,7 @@ var (
 		"MEMORY_ERROR_CATEGORY_BUDGET_EXCEEDED":          4,
 		"MEMORY_ERROR_CATEGORY_SOURCE_UNAVAILABLE":       5,
 		"MEMORY_ERROR_CATEGORY_UNKNOWN":                  6,
+		"MEMORY_ERROR_CATEGORY_INVALID_SCOPE":            7,
 	}
 )
 
@@ -365,9 +372,20 @@ type MemoryCapabilities struct {
 	// remember/forget/search cases via the ordinary tool-provider path.
 	SlashCommands []*v1.SlashCommandSpec `protobuf:"bytes,5,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
 	// This provider's agent.hcl config schema, per configuration.md §4.
-	ConfigSchema  *v11.ConfigSchema `protobuf:"bytes,6,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ConfigSchema *v11.ConfigSchema `protobuf:"bytes,6,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
+	// Which hook points (agent-loop/hook-dispatch.md) this provider declares
+	// HookSubscriberService.DispatchHook subscriptions for. Note: this
+	// category's implicit post_model_response (observe, every turn) and
+	// session_end (fires once) write triggers (memory.md §Write triggers)
+	// now ride the hook.v1 HookSubscriberService.DispatchHook surface — see
+	// protocol.md's Write triggers section for the payload shapes. The
+	// HookPoint enum itself lives in common.v1, not hook.v1 — hook.v1
+	// imports this package's model/tool/plan dependencies, so a category
+	// capability message importing hook.v1 directly would cycle back
+	// through it; common.v1 is the shared leaf package instead.
+	SupportedHookPoints []v12.HookPoint `protobuf:"varint,7,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.agent.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *MemoryCapabilities) Reset() {
@@ -438,6 +456,13 @@ func (x *MemoryCapabilities) GetSlashCommands() []*v1.SlashCommandSpec {
 func (x *MemoryCapabilities) GetConfigSchema() *v11.ConfigSchema {
 	if x != nil {
 		return x.ConfigSchema
+	}
+	return nil
+}
+
+func (x *MemoryCapabilities) GetSupportedHookPoints() []v12.HookPoint {
+	if x != nil {
+		return x.SupportedHookPoints
 	}
 	return nil
 }
@@ -585,8 +610,12 @@ type RecallRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The requesting session's id.
 	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	// The current turn number within that session.
-	TurnNumber int64 `protobuf:"varint,2,opt,name=turn_number,json=turnNumber,proto3" json:"turn_number,omitempty"`
+	// The current turn within that session. A ULID, standardized across the
+	// whole protocol (matches plan.v1's turn_id field and context.v1's
+	// ContextRequest.turn_id, same treatment). Same field number as the
+	// retired int64 turn-number predecessor field; the rename is a
+	// sanctioned pre-release wire change, not a v2 bump.
+	TurnId string `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
 	// The token budget this Recall call MUST self-truncate its returned
 	// records to. Competes for the same budget pool as context providers,
 	// resolved the same way context.md §6 resolves a context provider's cap.
@@ -595,7 +624,7 @@ type RecallRequest struct {
 	// §4's ContextRequest field. Lets a provider pass a precise model
 	// reference into the CountTokens kernel callback (kernel-callbacks.md
 	// §2) — added per kernel-callbacks.md §6's correction. MUST be set.
-	ModelTarget *v12.ModelTarget `protobuf:"bytes,4,opt,name=model_target,json=modelTarget,proto3" json:"model_target,omitempty"`
+	ModelTarget *v13.ModelTarget `protobuf:"bytes,4,opt,name=model_target,json=modelTarget,proto3" json:"model_target,omitempty"`
 	// Paths of files touched so far this turn, mirroring context.md §4's
 	// field of the same name. MAY be empty.
 	FilesTouched []string `protobuf:"bytes,5,rep,name=files_touched,json=filesTouched,proto3" json:"files_touched,omitempty"`
@@ -652,11 +681,11 @@ func (x *RecallRequest) GetSessionId() string {
 	return ""
 }
 
-func (x *RecallRequest) GetTurnNumber() int64 {
+func (x *RecallRequest) GetTurnId() string {
 	if x != nil {
-		return x.TurnNumber
+		return x.TurnId
 	}
-	return 0
+	return ""
 }
 
 func (x *RecallRequest) GetTokenBudget() int64 {
@@ -666,7 +695,7 @@ func (x *RecallRequest) GetTokenBudget() int64 {
 	return 0
 }
 
-func (x *RecallRequest) GetModelTarget() *v12.ModelTarget {
+func (x *RecallRequest) GetModelTarget() *v13.ModelTarget {
 	if x != nil {
 		return x.ModelTarget
 	}
@@ -771,7 +800,7 @@ type MemoryRecord struct {
 	Title string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
 	// The record's content. Text-only in v1, same constraint as context.md
 	// §4.
-	Content []*v13.ContentBlock `protobuf:"bytes,5,rep,name=content,proto3" json:"content,omitempty"`
+	Content []*v14.ContentBlock `protobuf:"bytes,5,rep,name=content,proto3" json:"content,omitempty"`
 	// This record's size, computed via the kernel's CountTokens callback
 	// (kernel-callbacks.md §2), never a provider-local heuristic.
 	Tokens int64 `protobuf:"varint,6,opt,name=tokens,proto3" json:"tokens,omitempty"`
@@ -784,9 +813,23 @@ type MemoryRecord struct {
 	// When this record was first created.
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When this record was last modified.
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Where this record came from and who wrote it. Kernel-populated at
+	// Record time, immutable thereafter — never provider-supplied or
+	// provider-mutable. memory.md's README already frames provenance as
+	// first-class; this is where the record shape finally carries it.
+	Provenance *Provenance `protobuf:"bytes,11,opt,name=provenance,proto3" json:"provenance,omitempty"`
+	// This record's recall-time relevance, in [0, 1]. Set only on
+	// Recall/ListRecords responses — never persisted, never present on a
+	// Record/UpdateRecord request or response. Lets the kernel merge
+	// multiple memory providers' results under one shared budget
+	// (data-types.md#recallrequest--memoryrecord) using a comparable score
+	// rather than provider-opaque ordering alone. A provider setting this
+	// MUST normalize it to [0, 1]; scores from different providers are only
+	// meaningfully comparable if each normalizes to the same range.
+	RelevanceScore *float64 `protobuf:"fixed64,12,opt,name=relevance_score,json=relevanceScore,proto3,oneof" json:"relevance_score,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *MemoryRecord) Reset() {
@@ -847,7 +890,7 @@ func (x *MemoryRecord) GetTitle() string {
 	return ""
 }
 
-func (x *MemoryRecord) GetContent() []*v13.ContentBlock {
+func (x *MemoryRecord) GetContent() []*v14.ContentBlock {
 	if x != nil {
 		return x.Content
 	}
@@ -889,6 +932,90 @@ func (x *MemoryRecord) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *MemoryRecord) GetProvenance() *Provenance {
+	if x != nil {
+		return x.Provenance
+	}
+	return nil
+}
+
+func (x *MemoryRecord) GetRelevanceScore() float64 {
+	if x != nil && x.RelevanceScore != nil {
+		return *x.RelevanceScore
+	}
+	return 0
+}
+
+// Provenance records where a MemoryRecord came from and who wrote it.
+// Kernel-populated at Record time; immutable afterward, like the rest of a
+// record's write-time metadata.
+type Provenance struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session id that produced this record.
+	SourceSessionId string `protobuf:"bytes,1,opt,name=source_session_id,json=sourceSessionId,proto3" json:"source_session_id,omitempty"`
+	// The turn id (ULID, see ContextRequest.turn_id) within source_session_id
+	// that produced this record, when known. Absent for a record written
+	// outside normal turn flow (e.g. a backfill/import).
+	SourceTurnId *string `protobuf:"bytes,2,opt,name=source_turn_id,json=sourceTurnId,proto3,oneof" json:"source_turn_id,omitempty"`
+	// The producing plugin's declared name, or the reference tool path that
+	// wrote it (e.g. "memory.remember"). Kernel-populated from the calling
+	// context, not provider-supplied.
+	RecordedBy    string `protobuf:"bytes,3,opt,name=recorded_by,json=recordedBy,proto3" json:"recorded_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Provenance) Reset() {
+	*x = Provenance{}
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Provenance) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Provenance) ProtoMessage() {}
+
+func (x *Provenance) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Provenance.ProtoReflect.Descriptor instead.
+func (*Provenance) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Provenance) GetSourceSessionId() string {
+	if x != nil {
+		return x.SourceSessionId
+	}
+	return ""
+}
+
+func (x *Provenance) GetSourceTurnId() string {
+	if x != nil && x.SourceTurnId != nil {
+		return *x.SourceTurnId
+	}
+	return ""
+}
+
+func (x *Provenance) GetRecordedBy() string {
+	if x != nil {
+		return x.RecordedBy
+	}
+	return ""
+}
+
 // RecordRequest creates a new record. memory.md §7.
 type RecordRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -903,14 +1030,14 @@ type RecordRequest struct {
 	// Human-readable title.
 	Title string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
 	// The record's content.
-	Content       []*v13.ContentBlock `protobuf:"bytes,5,rep,name=content,proto3" json:"content,omitempty"`
+	Content       []*v14.ContentBlock `protobuf:"bytes,5,rep,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RecordRequest) Reset() {
 	*x = RecordRequest{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -922,7 +1049,7 @@ func (x *RecordRequest) String() string {
 func (*RecordRequest) ProtoMessage() {}
 
 func (x *RecordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[8]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -935,7 +1062,7 @@ func (x *RecordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordRequest.ProtoReflect.Descriptor instead.
 func (*RecordRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RecordRequest) GetType() MemoryType {
@@ -966,7 +1093,7 @@ func (x *RecordRequest) GetTitle() string {
 	return ""
 }
 
-func (x *RecordRequest) GetContent() []*v13.ContentBlock {
+func (x *RecordRequest) GetContent() []*v14.ContentBlock {
 	if x != nil {
 		return x.Content
 	}
@@ -989,7 +1116,7 @@ type RecordResult struct {
 
 func (x *RecordResult) Reset() {
 	*x = RecordResult{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[9]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1001,7 +1128,7 @@ func (x *RecordResult) String() string {
 func (*RecordResult) ProtoMessage() {}
 
 func (x *RecordResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[9]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1014,7 +1141,7 @@ func (x *RecordResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordResult.ProtoReflect.Descriptor instead.
 func (*RecordResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RecordResult) GetId() string {
@@ -1042,7 +1169,7 @@ type RecordResponse struct {
 
 func (x *RecordResponse) Reset() {
 	*x = RecordResponse{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[10]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1054,7 +1181,7 @@ func (x *RecordResponse) String() string {
 func (*RecordResponse) ProtoMessage() {}
 
 func (x *RecordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[10]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1067,7 +1194,7 @@ func (x *RecordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordResponse.ProtoReflect.Descriptor instead.
 func (*RecordResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{10}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RecordResponse) GetResult() *RecordResult {
@@ -1088,14 +1215,14 @@ type UpdateRecordRequest struct {
 	Title *string `protobuf:"bytes,2,opt,name=title,proto3,oneof" json:"title,omitempty"`
 	// The record's new content, replacing the existing content wholesale —
 	// not a patch. MUST be set.
-	Content       []*v13.ContentBlock `protobuf:"bytes,3,rep,name=content,proto3" json:"content,omitempty"`
+	Content       []*v14.ContentBlock `protobuf:"bytes,3,rep,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateRecordRequest) Reset() {
 	*x = UpdateRecordRequest{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[11]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1107,7 +1234,7 @@ func (x *UpdateRecordRequest) String() string {
 func (*UpdateRecordRequest) ProtoMessage() {}
 
 func (x *UpdateRecordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[11]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1120,7 +1247,7 @@ func (x *UpdateRecordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRecordRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRecordRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{11}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateRecordRequest) GetId() string {
@@ -1137,7 +1264,7 @@ func (x *UpdateRecordRequest) GetTitle() string {
 	return ""
 }
 
-func (x *UpdateRecordRequest) GetContent() []*v13.ContentBlock {
+func (x *UpdateRecordRequest) GetContent() []*v14.ContentBlock {
 	if x != nil {
 		return x.Content
 	}
@@ -1158,7 +1285,7 @@ type UpdateRecordResponse struct {
 
 func (x *UpdateRecordResponse) Reset() {
 	*x = UpdateRecordResponse{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[12]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1170,7 +1297,7 @@ func (x *UpdateRecordResponse) String() string {
 func (*UpdateRecordResponse) ProtoMessage() {}
 
 func (x *UpdateRecordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[12]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1183,7 +1310,7 @@ func (x *UpdateRecordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRecordResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRecordResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{12}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateRecordResponse) GetResult() *RecordResult {
@@ -1205,7 +1332,7 @@ type DeleteRecordRequest struct {
 
 func (x *DeleteRecordRequest) Reset() {
 	*x = DeleteRecordRequest{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[13]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1217,7 +1344,7 @@ func (x *DeleteRecordRequest) String() string {
 func (*DeleteRecordRequest) ProtoMessage() {}
 
 func (x *DeleteRecordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[13]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1230,7 +1357,7 @@ func (x *DeleteRecordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRecordRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRecordRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{13}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteRecordRequest) GetId() string {
@@ -1254,7 +1381,7 @@ type DeleteResult struct {
 
 func (x *DeleteResult) Reset() {
 	*x = DeleteResult{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[14]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1266,7 +1393,7 @@ func (x *DeleteResult) String() string {
 func (*DeleteResult) ProtoMessage() {}
 
 func (x *DeleteResult) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[14]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1279,7 +1406,7 @@ func (x *DeleteResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResult.ProtoReflect.Descriptor instead.
 func (*DeleteResult) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{14}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeleteResult) GetDeleted() bool {
@@ -1300,7 +1427,7 @@ type DeleteRecordResponse struct {
 
 func (x *DeleteRecordResponse) Reset() {
 	*x = DeleteRecordResponse{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[15]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1312,7 +1439,7 @@ func (x *DeleteRecordResponse) String() string {
 func (*DeleteRecordResponse) ProtoMessage() {}
 
 func (x *DeleteRecordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[15]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1325,7 +1452,7 @@ func (x *DeleteRecordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRecordResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRecordResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{15}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DeleteRecordResponse) GetResult() *DeleteResult {
@@ -1347,7 +1474,7 @@ type ApproveRecordRequest struct {
 
 func (x *ApproveRecordRequest) Reset() {
 	*x = ApproveRecordRequest{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[16]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1359,7 +1486,7 @@ func (x *ApproveRecordRequest) String() string {
 func (*ApproveRecordRequest) ProtoMessage() {}
 
 func (x *ApproveRecordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[16]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1372,7 +1499,7 @@ func (x *ApproveRecordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveRecordRequest.ProtoReflect.Descriptor instead.
 func (*ApproveRecordRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{16}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ApproveRecordRequest) GetId() string {
@@ -1396,7 +1523,7 @@ type ApproveRecordResponse struct {
 
 func (x *ApproveRecordResponse) Reset() {
 	*x = ApproveRecordResponse{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[17]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1408,7 +1535,7 @@ func (x *ApproveRecordResponse) String() string {
 func (*ApproveRecordResponse) ProtoMessage() {}
 
 func (x *ApproveRecordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[17]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1421,7 +1548,7 @@ func (x *ApproveRecordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveRecordResponse.ProtoReflect.Descriptor instead.
 func (*ApproveRecordResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{17}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ApproveRecordResponse) GetResult() *RecordResult {
@@ -1443,7 +1570,7 @@ type RejectRecordRequest struct {
 
 func (x *RejectRecordRequest) Reset() {
 	*x = RejectRecordRequest{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[18]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1455,7 +1582,7 @@ func (x *RejectRecordRequest) String() string {
 func (*RejectRecordRequest) ProtoMessage() {}
 
 func (x *RejectRecordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[18]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1468,7 +1595,7 @@ func (x *RejectRecordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectRecordRequest.ProtoReflect.Descriptor instead.
 func (*RejectRecordRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{18}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *RejectRecordRequest) GetId() string {
@@ -1492,7 +1619,7 @@ type RejectRecordResponse struct {
 
 func (x *RejectRecordResponse) Reset() {
 	*x = RejectRecordResponse{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[19]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1504,7 +1631,7 @@ func (x *RejectRecordResponse) String() string {
 func (*RejectRecordResponse) ProtoMessage() {}
 
 func (x *RejectRecordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[19]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1517,7 +1644,7 @@ func (x *RejectRecordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectRecordResponse.ProtoReflect.Descriptor instead.
 func (*RejectRecordResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{19}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RejectRecordResponse) GetResult() *DeleteResult {
@@ -1543,7 +1670,7 @@ type MemoryError struct {
 
 func (x *MemoryError) Reset() {
 	*x = MemoryError{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[20]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1555,7 +1682,7 @@ func (x *MemoryError) String() string {
 func (*MemoryError) ProtoMessage() {}
 
 func (x *MemoryError) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[20]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1568,7 +1695,7 @@ func (x *MemoryError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryError.ProtoReflect.Descriptor instead.
 func (*MemoryError) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{20}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *MemoryError) GetCategory() MemoryErrorCategory {
@@ -1598,14 +1725,21 @@ type RenderRequest struct {
 	// The opaque emitted payload to render — see grpc.md's Emit->Render->
 	// Paint carve-out; this is the one field in this file that is
 	// deliberately untyped bytes rather than a concrete message.
-	Payload       []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+	// The schema version this payload was emitted against, so a Render
+	// implementation can detect drift between the version it was built
+	// against and the version live in a running session. See
+	// ../frontend/render-tree.md#schema-versioning for the canonical
+	// definition of this field's semantics (owned by the frontend/widget
+	// workstream; this field just carries the same value).
+	SchemaVersion string `protobuf:"bytes,2,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RenderRequest) Reset() {
 	*x = RenderRequest{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[21]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1617,7 +1751,7 @@ func (x *RenderRequest) String() string {
 func (*RenderRequest) ProtoMessage() {}
 
 func (x *RenderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[21]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1630,7 +1764,7 @@ func (x *RenderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderRequest.ProtoReflect.Descriptor instead.
 func (*RenderRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{21}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RenderRequest) GetPayload() []byte {
@@ -1640,18 +1774,25 @@ func (x *RenderRequest) GetPayload() []byte {
 	return nil
 }
 
+func (x *RenderRequest) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
 // RenderResponse wraps this provider's rendered output. memory.md §10.
 type RenderResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The rendered tree, per frontend.md §1.
-	Tree          *v14.RenderTree `protobuf:"bytes,1,opt,name=tree,proto3" json:"tree,omitempty"`
+	Tree          *v15.RenderTree `protobuf:"bytes,1,opt,name=tree,proto3" json:"tree,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RenderResponse) Reset() {
 	*x = RenderResponse{}
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[22]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1663,7 +1804,7 @@ func (x *RenderResponse) String() string {
 func (*RenderResponse) ProtoMessage() {}
 
 func (x *RenderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[22]
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1676,12 +1817,339 @@ func (x *RenderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderResponse.ProtoReflect.Descriptor instead.
 func (*RenderResponse) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{22}
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{23}
 }
 
-func (x *RenderResponse) GetTree() *v14.RenderTree {
+func (x *RenderResponse) GetTree() *v15.RenderTree {
 	if x != nil {
 		return x.Tree
+	}
+	return nil
+}
+
+// ListRecordsRequest is the enumeration/audit query: paginated browsing of
+// this provider's records, filterable by type/scope/status. Unlike
+// RecallRequest, there is no include_pending gate — this is the
+// review-inbox path (e.g. a ratification review UI or generic record
+// browsing), where PENDING records ARE listable, not the budget-constrained
+// per-turn recall path. memory.md §7.
+type ListRecordsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Restricts results to these MemoryTypes. MAY be empty, meaning all
+	// types this provider supports.
+	TypeFilter []MemoryType `protobuf:"varint,1,rep,packed,name=type_filter,json=typeFilter,proto3,enum=pluggableharness.agent.memory.v1.MemoryType" json:"type_filter,omitempty"`
+	// Restricts results to these MemoryScopes. MAY be empty, meaning all
+	// scopes this provider supports.
+	ScopeFilter []MemoryScope `protobuf:"varint,2,rep,packed,name=scope_filter,json=scopeFilter,proto3,enum=pluggableharness.agent.memory.v1.MemoryScope" json:"scope_filter,omitempty"`
+	// Restricts results to this RecordStatus. Unset means both CANONICAL and
+	// PENDING records are eligible — this is the one path where a PENDING
+	// record is listable without any include_pending-style gate.
+	StatusFilter *RecordStatus `protobuf:"varint,3,opt,name=status_filter,json=statusFilter,proto3,enum=pluggableharness.agent.memory.v1.RecordStatus,oneof" json:"status_filter,omitempty"`
+	// Maximum number of records to return in one page.
+	PageSize int32 `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque continuation token from a prior ListRecordsResponse.
+	// next_page_token. Empty on the first page.
+	PageToken     string `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRecordsRequest) Reset() {
+	*x = ListRecordsRequest{}
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRecordsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRecordsRequest) ProtoMessage() {}
+
+func (x *ListRecordsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRecordsRequest.ProtoReflect.Descriptor instead.
+func (*ListRecordsRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ListRecordsRequest) GetTypeFilter() []MemoryType {
+	if x != nil {
+		return x.TypeFilter
+	}
+	return nil
+}
+
+func (x *ListRecordsRequest) GetScopeFilter() []MemoryScope {
+	if x != nil {
+		return x.ScopeFilter
+	}
+	return nil
+}
+
+func (x *ListRecordsRequest) GetStatusFilter() RecordStatus {
+	if x != nil && x.StatusFilter != nil {
+		return *x.StatusFilter
+	}
+	return RecordStatus_RECORD_STATUS_UNSPECIFIED
+}
+
+func (x *ListRecordsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListRecordsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// ListRecordsResponse carries one page of matching records.
+type ListRecordsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// This page's records.
+	Records []*MemoryRecord `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
+	// Opaque continuation token for the next page. Empty when this is the
+	// last page.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRecordsResponse) Reset() {
+	*x = ListRecordsResponse{}
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRecordsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRecordsResponse) ProtoMessage() {}
+
+func (x *ListRecordsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRecordsResponse.ProtoReflect.Descriptor instead.
+func (*ListRecordsResponse) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ListRecordsResponse) GetRecords() []*MemoryRecord {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+func (x *ListRecordsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+// GetRecordRequest identifies exactly one record to fetch by id.
+type GetRecordRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The record's id. MUST match an existing record, or the call fails with
+	// a structured MemoryError (category NOT_FOUND).
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRecordRequest) Reset() {
+	*x = GetRecordRequest{}
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRecordRequest) ProtoMessage() {}
+
+func (x *GetRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRecordRequest.ProtoReflect.Descriptor instead.
+func (*GetRecordRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *GetRecordRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// GetRecordResponse wraps the fetched record.
+type GetRecordResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The fetched record.
+	Record        *MemoryRecord `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRecordResponse) Reset() {
+	*x = GetRecordResponse{}
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRecordResponse) ProtoMessage() {}
+
+func (x *GetRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRecordResponse.ProtoReflect.Descriptor instead.
+func (*GetRecordResponse) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *GetRecordResponse) GetRecord() *MemoryRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+// DescribeRequest carries no fields — Describe takes no request-scoped
+// parameters.
+type DescribeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeRequest) Reset() {
+	*x = DescribeRequest{}
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeRequest) ProtoMessage() {}
+
+func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
+func (*DescribeRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{28}
+}
+
+// DescribeResponse reports this plugin build's own identity. See the
+// Describe RPC comment on MemoryService above.
+type DescribeResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// This plugin build's identity: name, version, source, category,
+	// protocol_version.
+	Producer      *v12.ProducerRef `protobuf:"bytes,1,opt,name=producer,proto3" json:"producer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeResponse) Reset() {
+	*x = DescribeResponse{}
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeResponse) ProtoMessage() {}
+
+func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeResponse.ProtoReflect.Descriptor instead.
+func (*DescribeResponse) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *DescribeResponse) GetProducer() *v12.ProducerRef {
+	if x != nil {
+		return x.Producer
 	}
 	return nil
 }
@@ -1690,25 +2158,25 @@ var File_pluggableharness_agent_memory_v1_memory_proto protoreflect.FileDescript
 
 const file_pluggableharness_agent_memory_v1_memory_proto_rawDesc = "" +
 	"\n" +
-	"-pluggableharness/agent/memory/v1/memory.proto\x12 pluggableharness.agent.memory.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x18\n" +
-	"\x16GetCapabilitiesRequest\"\xe4\x03\n" +
+	"-pluggableharness/agent/memory/v1/memory.proto\x12 pluggableharness.agent.memory.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a-pluggableharness/agent/common/v1/common.proto\x1a-pluggableharness/agent/config/v1/config.proto\x1a/pluggableharness/agent/content/v1/content.proto\x1a+pluggableharness/agent/model/v1/model.proto\x1a-pluggableharness/agent/render/v1/render.proto\x1a9pluggableharness/agent/slashcommand/v1/slashcommand.proto\"\x18\n" +
+	"\x16GetCapabilitiesRequest\"\xc5\x04\n" +
 	"\x12MemoryCapabilities\x120\n" +
 	"\x14default_token_budget\x18\x01 \x01(\x03R\x12defaultTokenBudget\x12U\n" +
 	"\x0fsupported_types\x18\x02 \x03(\x0e2,.pluggableharness.agent.memory.v1.MemoryTypeR\x0esupportedTypes\x12X\n" +
 	"\x10supported_scopes\x18\x03 \x03(\x0e2-.pluggableharness.agent.memory.v1.MemoryScopeR\x0fsupportedScopes\x125\n" +
 	"\x16ratification_supported\x18\x04 \x01(\bR\x15ratificationSupported\x12_\n" +
 	"\x0eslash_commands\x18\x05 \x03(\v28.pluggableharness.agent.slashcommand.v1.SlashCommandSpecR\rslashCommands\x12S\n" +
-	"\rconfig_schema\x18\x06 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\"s\n" +
+	"\rconfig_schema\x18\x06 \x01(\v2..pluggableharness.agent.config.v1.ConfigSchemaR\fconfigSchema\x12_\n" +
+	"\x15supported_hook_points\x18\a \x03(\x0e2+.pluggableharness.agent.common.v1.HookPointR\x13supportedHookPoints\"s\n" +
 	"\x17GetCapabilitiesResponse\x12X\n" +
 	"\fcapabilities\x18\x01 \x01(\v24.pluggableharness.agent.memory.v1.MemoryCapabilitiesR\fcapabilities\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\x13\n" +
-	"\x11ConfigureResponse\"\xdf\x03\n" +
+	"\x11ConfigureResponse\"\xd7\x03\n" +
 	"\rRecallRequest\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
-	"\vturn_number\x18\x02 \x01(\x03R\n" +
-	"turnNumber\x12!\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
+	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12!\n" +
 	"\ftoken_budget\x18\x03 \x01(\x03R\vtokenBudget\x12O\n" +
 	"\fmodel_target\x18\x04 \x01(\v2,.pluggableharness.agent.model.v1.ModelTargetR\vmodelTarget\x12#\n" +
 	"\rfiles_touched\x18\x05 \x03(\tR\ffilesTouched\x12+\n" +
@@ -1718,7 +2186,7 @@ const file_pluggableharness_agent_memory_v1_memory_proto_rawDesc = "" +
 	"\fscope_filter\x18\b \x03(\x0e2-.pluggableharness.agent.memory.v1.MemoryScopeR\vscopeFilter\x12'\n" +
 	"\x0finclude_pending\x18\t \x01(\bR\x0eincludePending\"Z\n" +
 	"\x0eRecallResponse\x12H\n" +
-	"\arecords\x18\x01 \x03(\v2..pluggableharness.agent.memory.v1.MemoryRecordR\arecords\"\xf2\x03\n" +
+	"\arecords\x18\x01 \x03(\v2..pluggableharness.agent.memory.v1.MemoryRecordR\arecords\"\x82\x05\n" +
 	"\fMemoryRecord\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12@\n" +
 	"\x04type\x18\x02 \x01(\x0e2,.pluggableharness.agent.memory.v1.MemoryTypeR\x04type\x12C\n" +
@@ -1732,7 +2200,19 @@ const file_pluggableharness_agent_memory_v1_memory_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x93\x02\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12L\n" +
+	"\n" +
+	"provenance\x18\v \x01(\v2,.pluggableharness.agent.memory.v1.ProvenanceR\n" +
+	"provenance\x12,\n" +
+	"\x0frelevance_score\x18\f \x01(\x01H\x00R\x0erelevanceScore\x88\x01\x01B\x12\n" +
+	"\x10_relevance_score\"\x97\x01\n" +
+	"\n" +
+	"Provenance\x12*\n" +
+	"\x11source_session_id\x18\x01 \x01(\tR\x0fsourceSessionId\x12)\n" +
+	"\x0esource_turn_id\x18\x02 \x01(\tH\x00R\fsourceTurnId\x88\x01\x01\x12\x1f\n" +
+	"\vrecorded_by\x18\x03 \x01(\tR\n" +
+	"recordedByB\x11\n" +
+	"\x0f_source_turn_id\"\x93\x02\n" +
 	"\rRecordRequest\x12@\n" +
 	"\x04type\x18\x01 \x01(\x0e2,.pluggableharness.agent.memory.v1.MemoryTypeR\x04type\x12C\n" +
 	"\x05scope\x18\x02 \x01(\x0e2-.pluggableharness.agent.memory.v1.MemoryScopeR\x05scope\x12\x13\n" +
@@ -1769,11 +2249,31 @@ const file_pluggableharness_agent_memory_v1_memory_proto_rawDesc = "" +
 	"\vMemoryError\x12Q\n" +
 	"\bcategory\x18\x01 \x01(\x0e25.pluggableharness.agent.memory.v1.MemoryErrorCategoryR\bcategory\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1c\n" +
-	"\tretryable\x18\x03 \x01(\bR\tretryable\")\n" +
+	"\tretryable\x18\x03 \x01(\bR\tretryable\"P\n" +
 	"\rRenderRequest\x12\x18\n" +
-	"\apayload\x18\x01 \x01(\fR\apayload\"R\n" +
+	"\apayload\x18\x01 \x01(\fR\apayload\x12%\n" +
+	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersion\"R\n" +
 	"\x0eRenderResponse\x12@\n" +
-	"\x04tree\x18\x01 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\x04tree*\x8d\x01\n" +
+	"\x04tree\x18\x01 \x01(\v2,.pluggableharness.agent.render.v1.RenderTreeR\x04tree\"\xdd\x02\n" +
+	"\x12ListRecordsRequest\x12M\n" +
+	"\vtype_filter\x18\x01 \x03(\x0e2,.pluggableharness.agent.memory.v1.MemoryTypeR\n" +
+	"typeFilter\x12P\n" +
+	"\fscope_filter\x18\x02 \x03(\x0e2-.pluggableharness.agent.memory.v1.MemoryScopeR\vscopeFilter\x12X\n" +
+	"\rstatus_filter\x18\x03 \x01(\x0e2..pluggableharness.agent.memory.v1.RecordStatusH\x00R\fstatusFilter\x88\x01\x01\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x05 \x01(\tR\tpageTokenB\x10\n" +
+	"\x0e_status_filter\"\x87\x01\n" +
+	"\x13ListRecordsResponse\x12H\n" +
+	"\arecords\x18\x01 \x03(\v2..pluggableharness.agent.memory.v1.MemoryRecordR\arecords\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\"\n" +
+	"\x10GetRecordRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"[\n" +
+	"\x11GetRecordResponse\x12F\n" +
+	"\x06record\x18\x01 \x01(\v2..pluggableharness.agent.memory.v1.MemoryRecordR\x06record\"\x11\n" +
+	"\x0fDescribeRequest\"]\n" +
+	"\x10DescribeResponse\x12I\n" +
+	"\bproducer\x18\x01 \x01(\v2-.pluggableharness.agent.common.v1.ProducerRefR\bproducer*\x8d\x01\n" +
 	"\n" +
 	"MemoryType\x12\x1b\n" +
 	"\x17MEMORY_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -1789,7 +2289,7 @@ const file_pluggableharness_agent_memory_v1_memory_proto_rawDesc = "" +
 	"\fRecordStatus\x12\x1d\n" +
 	"\x19RECORD_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17RECORD_STATUS_CANONICAL\x10\x01\x12\x19\n" +
-	"\x15RECORD_STATUS_PENDING\x10\x02*\xb9\x02\n" +
+	"\x15RECORD_STATUS_PENDING\x10\x02*\xe2\x02\n" +
 	"\x13MemoryErrorCategory\x12%\n" +
 	"!MEMORY_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fMEMORY_ERROR_CATEGORY_NOT_FOUND\x10\x01\x12&\n" +
@@ -1797,7 +2297,8 @@ const file_pluggableharness_agent_memory_v1_memory_proto_rawDesc = "" +
 	".MEMORY_ERROR_CATEGORY_RATIFICATION_UNSUPPORTED\x10\x03\x12)\n" +
 	"%MEMORY_ERROR_CATEGORY_BUDGET_EXCEEDED\x10\x04\x12,\n" +
 	"(MEMORY_ERROR_CATEGORY_SOURCE_UNAVAILABLE\x10\x05\x12!\n" +
-	"\x1dMEMORY_ERROR_CATEGORY_UNKNOWN\x10\x062\xd5\b\n" +
+	"\x1dMEMORY_ERROR_CATEGORY_UNKNOWN\x10\x06\x12'\n" +
+	"#MEMORY_ERROR_CATEGORY_INVALID_SCOPE\x10\a2\xba\v\n" +
 	"\rMemoryService\x12\x86\x01\n" +
 	"\x0fGetCapabilities\x128.pluggableharness.agent.memory.v1.GetCapabilitiesRequest\x1a9.pluggableharness.agent.memory.v1.GetCapabilitiesResponse\x12t\n" +
 	"\tConfigure\x122.pluggableharness.agent.memory.v1.ConfigureRequest\x1a3.pluggableharness.agent.memory.v1.ConfigureResponse\x12k\n" +
@@ -1807,7 +2308,10 @@ const file_pluggableharness_agent_memory_v1_memory_proto_rawDesc = "" +
 	"\fDeleteRecord\x125.pluggableharness.agent.memory.v1.DeleteRecordRequest\x1a6.pluggableharness.agent.memory.v1.DeleteRecordResponse\x12\x80\x01\n" +
 	"\rApproveRecord\x126.pluggableharness.agent.memory.v1.ApproveRecordRequest\x1a7.pluggableharness.agent.memory.v1.ApproveRecordResponse\x12}\n" +
 	"\fRejectRecord\x125.pluggableharness.agent.memory.v1.RejectRecordRequest\x1a6.pluggableharness.agent.memory.v1.RejectRecordResponse\x12k\n" +
-	"\x06Render\x12/.pluggableharness.agent.memory.v1.RenderRequest\x1a0.pluggableharness.agent.memory.v1.RenderResponseB@Z>github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1b\x06proto3"
+	"\x06Render\x12/.pluggableharness.agent.memory.v1.RenderRequest\x1a0.pluggableharness.agent.memory.v1.RenderResponse\x12z\n" +
+	"\vListRecords\x124.pluggableharness.agent.memory.v1.ListRecordsRequest\x1a5.pluggableharness.agent.memory.v1.ListRecordsResponse\x12t\n" +
+	"\tGetRecord\x122.pluggableharness.agent.memory.v1.GetRecordRequest\x1a3.pluggableharness.agent.memory.v1.GetRecordResponse\x12q\n" +
+	"\bDescribe\x121.pluggableharness.agent.memory.v1.DescribeRequest\x1a2.pluggableharness.agent.memory.v1.DescribeResponseB@Z>github.com/pluggableharness/agent/pkg/memory/proto/v1;memoryv1b\x06proto3"
 
 var (
 	file_pluggableharness_agent_memory_v1_memory_proto_rawDescOnce sync.Once
@@ -1822,7 +2326,7 @@ func file_pluggableharness_agent_memory_v1_memory_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_agent_memory_v1_memory_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pluggableharness_agent_memory_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_pluggableharness_agent_memory_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_pluggableharness_agent_memory_v1_memory_proto_goTypes = []any{
 	(MemoryType)(0),                 // 0: pluggableharness.agent.memory.v1.MemoryType
 	(MemoryScope)(0),                // 1: pluggableharness.agent.memory.v1.MemoryScope
@@ -1836,81 +2340,104 @@ var file_pluggableharness_agent_memory_v1_memory_proto_goTypes = []any{
 	(*RecallRequest)(nil),           // 9: pluggableharness.agent.memory.v1.RecallRequest
 	(*RecallResponse)(nil),          // 10: pluggableharness.agent.memory.v1.RecallResponse
 	(*MemoryRecord)(nil),            // 11: pluggableharness.agent.memory.v1.MemoryRecord
-	(*RecordRequest)(nil),           // 12: pluggableharness.agent.memory.v1.RecordRequest
-	(*RecordResult)(nil),            // 13: pluggableharness.agent.memory.v1.RecordResult
-	(*RecordResponse)(nil),          // 14: pluggableharness.agent.memory.v1.RecordResponse
-	(*UpdateRecordRequest)(nil),     // 15: pluggableharness.agent.memory.v1.UpdateRecordRequest
-	(*UpdateRecordResponse)(nil),    // 16: pluggableharness.agent.memory.v1.UpdateRecordResponse
-	(*DeleteRecordRequest)(nil),     // 17: pluggableharness.agent.memory.v1.DeleteRecordRequest
-	(*DeleteResult)(nil),            // 18: pluggableharness.agent.memory.v1.DeleteResult
-	(*DeleteRecordResponse)(nil),    // 19: pluggableharness.agent.memory.v1.DeleteRecordResponse
-	(*ApproveRecordRequest)(nil),    // 20: pluggableharness.agent.memory.v1.ApproveRecordRequest
-	(*ApproveRecordResponse)(nil),   // 21: pluggableharness.agent.memory.v1.ApproveRecordResponse
-	(*RejectRecordRequest)(nil),     // 22: pluggableharness.agent.memory.v1.RejectRecordRequest
-	(*RejectRecordResponse)(nil),    // 23: pluggableharness.agent.memory.v1.RejectRecordResponse
-	(*MemoryError)(nil),             // 24: pluggableharness.agent.memory.v1.MemoryError
-	(*RenderRequest)(nil),           // 25: pluggableharness.agent.memory.v1.RenderRequest
-	(*RenderResponse)(nil),          // 26: pluggableharness.agent.memory.v1.RenderResponse
-	(*v1.SlashCommandSpec)(nil),     // 27: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	(*v11.ConfigSchema)(nil),        // 28: pluggableharness.agent.config.v1.ConfigSchema
-	(*structpb.Struct)(nil),         // 29: google.protobuf.Struct
-	(*v12.ModelTarget)(nil),         // 30: pluggableharness.agent.model.v1.ModelTarget
-	(*v13.ContentBlock)(nil),        // 31: pluggableharness.agent.content.v1.ContentBlock
-	(*timestamppb.Timestamp)(nil),   // 32: google.protobuf.Timestamp
-	(*v14.RenderTree)(nil),          // 33: pluggableharness.agent.render.v1.RenderTree
+	(*Provenance)(nil),              // 12: pluggableharness.agent.memory.v1.Provenance
+	(*RecordRequest)(nil),           // 13: pluggableharness.agent.memory.v1.RecordRequest
+	(*RecordResult)(nil),            // 14: pluggableharness.agent.memory.v1.RecordResult
+	(*RecordResponse)(nil),          // 15: pluggableharness.agent.memory.v1.RecordResponse
+	(*UpdateRecordRequest)(nil),     // 16: pluggableharness.agent.memory.v1.UpdateRecordRequest
+	(*UpdateRecordResponse)(nil),    // 17: pluggableharness.agent.memory.v1.UpdateRecordResponse
+	(*DeleteRecordRequest)(nil),     // 18: pluggableharness.agent.memory.v1.DeleteRecordRequest
+	(*DeleteResult)(nil),            // 19: pluggableharness.agent.memory.v1.DeleteResult
+	(*DeleteRecordResponse)(nil),    // 20: pluggableharness.agent.memory.v1.DeleteRecordResponse
+	(*ApproveRecordRequest)(nil),    // 21: pluggableharness.agent.memory.v1.ApproveRecordRequest
+	(*ApproveRecordResponse)(nil),   // 22: pluggableharness.agent.memory.v1.ApproveRecordResponse
+	(*RejectRecordRequest)(nil),     // 23: pluggableharness.agent.memory.v1.RejectRecordRequest
+	(*RejectRecordResponse)(nil),    // 24: pluggableharness.agent.memory.v1.RejectRecordResponse
+	(*MemoryError)(nil),             // 25: pluggableharness.agent.memory.v1.MemoryError
+	(*RenderRequest)(nil),           // 26: pluggableharness.agent.memory.v1.RenderRequest
+	(*RenderResponse)(nil),          // 27: pluggableharness.agent.memory.v1.RenderResponse
+	(*ListRecordsRequest)(nil),      // 28: pluggableharness.agent.memory.v1.ListRecordsRequest
+	(*ListRecordsResponse)(nil),     // 29: pluggableharness.agent.memory.v1.ListRecordsResponse
+	(*GetRecordRequest)(nil),        // 30: pluggableharness.agent.memory.v1.GetRecordRequest
+	(*GetRecordResponse)(nil),       // 31: pluggableharness.agent.memory.v1.GetRecordResponse
+	(*DescribeRequest)(nil),         // 32: pluggableharness.agent.memory.v1.DescribeRequest
+	(*DescribeResponse)(nil),        // 33: pluggableharness.agent.memory.v1.DescribeResponse
+	(*v1.SlashCommandSpec)(nil),     // 34: pluggableharness.agent.slashcommand.v1.SlashCommandSpec
+	(*v11.ConfigSchema)(nil),        // 35: pluggableharness.agent.config.v1.ConfigSchema
+	(v12.HookPoint)(0),              // 36: pluggableharness.agent.common.v1.HookPoint
+	(*structpb.Struct)(nil),         // 37: google.protobuf.Struct
+	(*v13.ModelTarget)(nil),         // 38: pluggableharness.agent.model.v1.ModelTarget
+	(*v14.ContentBlock)(nil),        // 39: pluggableharness.agent.content.v1.ContentBlock
+	(*timestamppb.Timestamp)(nil),   // 40: google.protobuf.Timestamp
+	(*v15.RenderTree)(nil),          // 41: pluggableharness.agent.render.v1.RenderTree
+	(*v12.ProducerRef)(nil),         // 42: pluggableharness.agent.common.v1.ProducerRef
 }
 var file_pluggableharness_agent_memory_v1_memory_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.agent.memory.v1.MemoryCapabilities.supported_types:type_name -> pluggableharness.agent.memory.v1.MemoryType
 	1,  // 1: pluggableharness.agent.memory.v1.MemoryCapabilities.supported_scopes:type_name -> pluggableharness.agent.memory.v1.MemoryScope
-	27, // 2: pluggableharness.agent.memory.v1.MemoryCapabilities.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
-	28, // 3: pluggableharness.agent.memory.v1.MemoryCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
-	5,  // 4: pluggableharness.agent.memory.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.memory.v1.MemoryCapabilities
-	29, // 5: pluggableharness.agent.memory.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
-	30, // 6: pluggableharness.agent.memory.v1.RecallRequest.model_target:type_name -> pluggableharness.agent.model.v1.ModelTarget
-	0,  // 7: pluggableharness.agent.memory.v1.RecallRequest.type_filter:type_name -> pluggableharness.agent.memory.v1.MemoryType
-	1,  // 8: pluggableharness.agent.memory.v1.RecallRequest.scope_filter:type_name -> pluggableharness.agent.memory.v1.MemoryScope
-	11, // 9: pluggableharness.agent.memory.v1.RecallResponse.records:type_name -> pluggableharness.agent.memory.v1.MemoryRecord
-	0,  // 10: pluggableharness.agent.memory.v1.MemoryRecord.type:type_name -> pluggableharness.agent.memory.v1.MemoryType
-	1,  // 11: pluggableharness.agent.memory.v1.MemoryRecord.scope:type_name -> pluggableharness.agent.memory.v1.MemoryScope
-	31, // 12: pluggableharness.agent.memory.v1.MemoryRecord.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	2,  // 13: pluggableharness.agent.memory.v1.MemoryRecord.status:type_name -> pluggableharness.agent.memory.v1.RecordStatus
-	32, // 14: pluggableharness.agent.memory.v1.MemoryRecord.created_at:type_name -> google.protobuf.Timestamp
-	32, // 15: pluggableharness.agent.memory.v1.MemoryRecord.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 16: pluggableharness.agent.memory.v1.RecordRequest.type:type_name -> pluggableharness.agent.memory.v1.MemoryType
-	1,  // 17: pluggableharness.agent.memory.v1.RecordRequest.scope:type_name -> pluggableharness.agent.memory.v1.MemoryScope
-	31, // 18: pluggableharness.agent.memory.v1.RecordRequest.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	2,  // 19: pluggableharness.agent.memory.v1.RecordResult.status:type_name -> pluggableharness.agent.memory.v1.RecordStatus
-	13, // 20: pluggableharness.agent.memory.v1.RecordResponse.result:type_name -> pluggableharness.agent.memory.v1.RecordResult
-	31, // 21: pluggableharness.agent.memory.v1.UpdateRecordRequest.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
-	13, // 22: pluggableharness.agent.memory.v1.UpdateRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.RecordResult
-	18, // 23: pluggableharness.agent.memory.v1.DeleteRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.DeleteResult
-	13, // 24: pluggableharness.agent.memory.v1.ApproveRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.RecordResult
-	18, // 25: pluggableharness.agent.memory.v1.RejectRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.DeleteResult
-	3,  // 26: pluggableharness.agent.memory.v1.MemoryError.category:type_name -> pluggableharness.agent.memory.v1.MemoryErrorCategory
-	33, // 27: pluggableharness.agent.memory.v1.RenderResponse.tree:type_name -> pluggableharness.agent.render.v1.RenderTree
-	4,  // 28: pluggableharness.agent.memory.v1.MemoryService.GetCapabilities:input_type -> pluggableharness.agent.memory.v1.GetCapabilitiesRequest
-	7,  // 29: pluggableharness.agent.memory.v1.MemoryService.Configure:input_type -> pluggableharness.agent.memory.v1.ConfigureRequest
-	9,  // 30: pluggableharness.agent.memory.v1.MemoryService.Recall:input_type -> pluggableharness.agent.memory.v1.RecallRequest
-	12, // 31: pluggableharness.agent.memory.v1.MemoryService.Record:input_type -> pluggableharness.agent.memory.v1.RecordRequest
-	15, // 32: pluggableharness.agent.memory.v1.MemoryService.UpdateRecord:input_type -> pluggableharness.agent.memory.v1.UpdateRecordRequest
-	17, // 33: pluggableharness.agent.memory.v1.MemoryService.DeleteRecord:input_type -> pluggableharness.agent.memory.v1.DeleteRecordRequest
-	20, // 34: pluggableharness.agent.memory.v1.MemoryService.ApproveRecord:input_type -> pluggableharness.agent.memory.v1.ApproveRecordRequest
-	22, // 35: pluggableharness.agent.memory.v1.MemoryService.RejectRecord:input_type -> pluggableharness.agent.memory.v1.RejectRecordRequest
-	25, // 36: pluggableharness.agent.memory.v1.MemoryService.Render:input_type -> pluggableharness.agent.memory.v1.RenderRequest
-	6,  // 37: pluggableharness.agent.memory.v1.MemoryService.GetCapabilities:output_type -> pluggableharness.agent.memory.v1.GetCapabilitiesResponse
-	8,  // 38: pluggableharness.agent.memory.v1.MemoryService.Configure:output_type -> pluggableharness.agent.memory.v1.ConfigureResponse
-	10, // 39: pluggableharness.agent.memory.v1.MemoryService.Recall:output_type -> pluggableharness.agent.memory.v1.RecallResponse
-	14, // 40: pluggableharness.agent.memory.v1.MemoryService.Record:output_type -> pluggableharness.agent.memory.v1.RecordResponse
-	16, // 41: pluggableharness.agent.memory.v1.MemoryService.UpdateRecord:output_type -> pluggableharness.agent.memory.v1.UpdateRecordResponse
-	19, // 42: pluggableharness.agent.memory.v1.MemoryService.DeleteRecord:output_type -> pluggableharness.agent.memory.v1.DeleteRecordResponse
-	21, // 43: pluggableharness.agent.memory.v1.MemoryService.ApproveRecord:output_type -> pluggableharness.agent.memory.v1.ApproveRecordResponse
-	23, // 44: pluggableharness.agent.memory.v1.MemoryService.RejectRecord:output_type -> pluggableharness.agent.memory.v1.RejectRecordResponse
-	26, // 45: pluggableharness.agent.memory.v1.MemoryService.Render:output_type -> pluggableharness.agent.memory.v1.RenderResponse
-	37, // [37:46] is the sub-list for method output_type
-	28, // [28:37] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	34, // 2: pluggableharness.agent.memory.v1.MemoryCapabilities.slash_commands:type_name -> pluggableharness.agent.slashcommand.v1.SlashCommandSpec
+	35, // 3: pluggableharness.agent.memory.v1.MemoryCapabilities.config_schema:type_name -> pluggableharness.agent.config.v1.ConfigSchema
+	36, // 4: pluggableharness.agent.memory.v1.MemoryCapabilities.supported_hook_points:type_name -> pluggableharness.agent.common.v1.HookPoint
+	5,  // 5: pluggableharness.agent.memory.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.agent.memory.v1.MemoryCapabilities
+	37, // 6: pluggableharness.agent.memory.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
+	38, // 7: pluggableharness.agent.memory.v1.RecallRequest.model_target:type_name -> pluggableharness.agent.model.v1.ModelTarget
+	0,  // 8: pluggableharness.agent.memory.v1.RecallRequest.type_filter:type_name -> pluggableharness.agent.memory.v1.MemoryType
+	1,  // 9: pluggableharness.agent.memory.v1.RecallRequest.scope_filter:type_name -> pluggableharness.agent.memory.v1.MemoryScope
+	11, // 10: pluggableharness.agent.memory.v1.RecallResponse.records:type_name -> pluggableharness.agent.memory.v1.MemoryRecord
+	0,  // 11: pluggableharness.agent.memory.v1.MemoryRecord.type:type_name -> pluggableharness.agent.memory.v1.MemoryType
+	1,  // 12: pluggableharness.agent.memory.v1.MemoryRecord.scope:type_name -> pluggableharness.agent.memory.v1.MemoryScope
+	39, // 13: pluggableharness.agent.memory.v1.MemoryRecord.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	2,  // 14: pluggableharness.agent.memory.v1.MemoryRecord.status:type_name -> pluggableharness.agent.memory.v1.RecordStatus
+	40, // 15: pluggableharness.agent.memory.v1.MemoryRecord.created_at:type_name -> google.protobuf.Timestamp
+	40, // 16: pluggableharness.agent.memory.v1.MemoryRecord.updated_at:type_name -> google.protobuf.Timestamp
+	12, // 17: pluggableharness.agent.memory.v1.MemoryRecord.provenance:type_name -> pluggableharness.agent.memory.v1.Provenance
+	0,  // 18: pluggableharness.agent.memory.v1.RecordRequest.type:type_name -> pluggableharness.agent.memory.v1.MemoryType
+	1,  // 19: pluggableharness.agent.memory.v1.RecordRequest.scope:type_name -> pluggableharness.agent.memory.v1.MemoryScope
+	39, // 20: pluggableharness.agent.memory.v1.RecordRequest.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	2,  // 21: pluggableharness.agent.memory.v1.RecordResult.status:type_name -> pluggableharness.agent.memory.v1.RecordStatus
+	14, // 22: pluggableharness.agent.memory.v1.RecordResponse.result:type_name -> pluggableharness.agent.memory.v1.RecordResult
+	39, // 23: pluggableharness.agent.memory.v1.UpdateRecordRequest.content:type_name -> pluggableharness.agent.content.v1.ContentBlock
+	14, // 24: pluggableharness.agent.memory.v1.UpdateRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.RecordResult
+	19, // 25: pluggableharness.agent.memory.v1.DeleteRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.DeleteResult
+	14, // 26: pluggableharness.agent.memory.v1.ApproveRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.RecordResult
+	19, // 27: pluggableharness.agent.memory.v1.RejectRecordResponse.result:type_name -> pluggableharness.agent.memory.v1.DeleteResult
+	3,  // 28: pluggableharness.agent.memory.v1.MemoryError.category:type_name -> pluggableharness.agent.memory.v1.MemoryErrorCategory
+	41, // 29: pluggableharness.agent.memory.v1.RenderResponse.tree:type_name -> pluggableharness.agent.render.v1.RenderTree
+	0,  // 30: pluggableharness.agent.memory.v1.ListRecordsRequest.type_filter:type_name -> pluggableharness.agent.memory.v1.MemoryType
+	1,  // 31: pluggableharness.agent.memory.v1.ListRecordsRequest.scope_filter:type_name -> pluggableharness.agent.memory.v1.MemoryScope
+	2,  // 32: pluggableharness.agent.memory.v1.ListRecordsRequest.status_filter:type_name -> pluggableharness.agent.memory.v1.RecordStatus
+	11, // 33: pluggableharness.agent.memory.v1.ListRecordsResponse.records:type_name -> pluggableharness.agent.memory.v1.MemoryRecord
+	11, // 34: pluggableharness.agent.memory.v1.GetRecordResponse.record:type_name -> pluggableharness.agent.memory.v1.MemoryRecord
+	42, // 35: pluggableharness.agent.memory.v1.DescribeResponse.producer:type_name -> pluggableharness.agent.common.v1.ProducerRef
+	4,  // 36: pluggableharness.agent.memory.v1.MemoryService.GetCapabilities:input_type -> pluggableharness.agent.memory.v1.GetCapabilitiesRequest
+	7,  // 37: pluggableharness.agent.memory.v1.MemoryService.Configure:input_type -> pluggableharness.agent.memory.v1.ConfigureRequest
+	9,  // 38: pluggableharness.agent.memory.v1.MemoryService.Recall:input_type -> pluggableharness.agent.memory.v1.RecallRequest
+	13, // 39: pluggableharness.agent.memory.v1.MemoryService.Record:input_type -> pluggableharness.agent.memory.v1.RecordRequest
+	16, // 40: pluggableharness.agent.memory.v1.MemoryService.UpdateRecord:input_type -> pluggableharness.agent.memory.v1.UpdateRecordRequest
+	18, // 41: pluggableharness.agent.memory.v1.MemoryService.DeleteRecord:input_type -> pluggableharness.agent.memory.v1.DeleteRecordRequest
+	21, // 42: pluggableharness.agent.memory.v1.MemoryService.ApproveRecord:input_type -> pluggableharness.agent.memory.v1.ApproveRecordRequest
+	23, // 43: pluggableharness.agent.memory.v1.MemoryService.RejectRecord:input_type -> pluggableharness.agent.memory.v1.RejectRecordRequest
+	26, // 44: pluggableharness.agent.memory.v1.MemoryService.Render:input_type -> pluggableharness.agent.memory.v1.RenderRequest
+	28, // 45: pluggableharness.agent.memory.v1.MemoryService.ListRecords:input_type -> pluggableharness.agent.memory.v1.ListRecordsRequest
+	30, // 46: pluggableharness.agent.memory.v1.MemoryService.GetRecord:input_type -> pluggableharness.agent.memory.v1.GetRecordRequest
+	32, // 47: pluggableharness.agent.memory.v1.MemoryService.Describe:input_type -> pluggableharness.agent.memory.v1.DescribeRequest
+	6,  // 48: pluggableharness.agent.memory.v1.MemoryService.GetCapabilities:output_type -> pluggableharness.agent.memory.v1.GetCapabilitiesResponse
+	8,  // 49: pluggableharness.agent.memory.v1.MemoryService.Configure:output_type -> pluggableharness.agent.memory.v1.ConfigureResponse
+	10, // 50: pluggableharness.agent.memory.v1.MemoryService.Recall:output_type -> pluggableharness.agent.memory.v1.RecallResponse
+	15, // 51: pluggableharness.agent.memory.v1.MemoryService.Record:output_type -> pluggableharness.agent.memory.v1.RecordResponse
+	17, // 52: pluggableharness.agent.memory.v1.MemoryService.UpdateRecord:output_type -> pluggableharness.agent.memory.v1.UpdateRecordResponse
+	20, // 53: pluggableharness.agent.memory.v1.MemoryService.DeleteRecord:output_type -> pluggableharness.agent.memory.v1.DeleteRecordResponse
+	22, // 54: pluggableharness.agent.memory.v1.MemoryService.ApproveRecord:output_type -> pluggableharness.agent.memory.v1.ApproveRecordResponse
+	24, // 55: pluggableharness.agent.memory.v1.MemoryService.RejectRecord:output_type -> pluggableharness.agent.memory.v1.RejectRecordResponse
+	27, // 56: pluggableharness.agent.memory.v1.MemoryService.Render:output_type -> pluggableharness.agent.memory.v1.RenderResponse
+	29, // 57: pluggableharness.agent.memory.v1.MemoryService.ListRecords:output_type -> pluggableharness.agent.memory.v1.ListRecordsResponse
+	31, // 58: pluggableharness.agent.memory.v1.MemoryService.GetRecord:output_type -> pluggableharness.agent.memory.v1.GetRecordResponse
+	33, // 59: pluggableharness.agent.memory.v1.MemoryService.Describe:output_type -> pluggableharness.agent.memory.v1.DescribeResponse
+	48, // [48:60] is the sub-list for method output_type
+	36, // [36:48] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_agent_memory_v1_memory_proto_init() }
@@ -1918,15 +2445,18 @@ func file_pluggableharness_agent_memory_v1_memory_proto_init() {
 	if File_pluggableharness_agent_memory_v1_memory_proto != nil {
 		return
 	}
+	file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[7].OneofWrappers = []any{}
 	file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[8].OneofWrappers = []any{}
-	file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[11].OneofWrappers = []any{}
+	file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[9].OneofWrappers = []any{}
+	file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[12].OneofWrappers = []any{}
+	file_pluggableharness_agent_memory_v1_memory_proto_msgTypes[24].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_agent_memory_v1_memory_proto_rawDesc), len(file_pluggableharness_agent_memory_v1_memory_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   23,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

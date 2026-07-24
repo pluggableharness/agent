@@ -41,7 +41,7 @@ var ErrUnknownTool = errors.New("agentprofile: tool not advertised by provider")
 // the entry. This is config-validation territory where the information
 // needed to catch a typo (the provider's real schema) is right there, and
 // this project's stated general posture is "ambiguity is an error" (see
-// provider.md §10's discussion of overlapping pricing tiers) — a
+// model.md §10's discussion of overlapping pricing tiers) — a
 // misspelled tool name silently resolving to "granted nothing" would be a
 // much harder bug to notice than a load-time error naming the bad entry. A
 // reviewer preferring silent drop, or a separate "unresolved" return value
