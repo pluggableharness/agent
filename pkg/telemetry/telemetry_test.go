@@ -28,6 +28,35 @@ func unsetEnvForTest(t *testing.T, key string) {
 	})
 }
 
+// TestBootstrap_returnsPublicProviderInterface confirms Bootstrap's return
+// type is the package-local Provider interface (not the unexported-to-
+// third-parties *internal/telemetry.Provider it wraps), and that all three
+// interface methods are callable through it — the defect this test guards
+// against is exactly the "returns an internal/ type a third-party plugin
+// author cannot even name" bug described in Provider's doc comment.
+func TestBootstrap_returnsPublicProviderInterface(t *testing.T) {
+	// Not parallel: mutates process environment.
+	unsetEnvForTest(t, "OTEL_EXPORTER_OTLP_ENDPOINT")
+
+	var provider telemetry.Provider
+	provider, shutdown, err := telemetry.Bootstrap(context.Background(), "test-plugin")
+	if err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := shutdown(context.Background()); err != nil {
+			t.Errorf("shutdown: %v", err)
+		}
+	})
+
+	if tracer := provider.Tracer(); tracer == nil {
+		t.Error("Tracer() returned nil")
+	}
+	if err := provider.ForceFlush(context.Background()); err != nil {
+		t.Errorf("ForceFlush: %v", err)
+	}
+}
+
 func TestBootstrap_noEndpointUsesNoop(t *testing.T) {
 	// Not parallel: mutates process environment.
 	unsetEnvForTest(t, "OTEL_EXPORTER_OTLP_ENDPOINT")
