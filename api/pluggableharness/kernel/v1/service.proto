@@ -2,14 +2,16 @@ syntax = "proto3";
 
 // Package pluggableharness.kernel.v1 defines the kernel-callback service described
 // in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
-// Log) — the plugin-to-kernel calling direction every plugin category gets
-// at handshake, the reverse of every other category's protocol in this
-// series. Unlike a category plugin protocol, this service carries no
-// GetCapabilities/Configure RPCs: it isn't something the kernel dials into
-// a plugin, it's the connection every plugin subprocess is handed back to
-// call into the kernel.
+// Log, ExportSpans, RecordMetrics, GetTelemetryConfig, GetConfig, Publish,
+// Subscribe, ReadEvents, GetSession) — the plugin-to-kernel calling
+// direction every plugin category gets at handshake, the reverse of every
+// other category's protocol in this series. Unlike a category plugin
+// protocol, this service carries no GetCapabilities/Configure RPCs: it
+// isn't something the kernel dials into a plugin, it's the connection
+// every plugin subprocess is handed back to call into the kernel.
 package pluggableharness.kernel.v1;
 
+import "pluggableharness/kernel/v1/events.proto";
 import "pluggableharness/kernel/v1/rpc_request.proto";
 import "pluggableharness/kernel/v1/rpc_response.proto";
 
@@ -73,4 +75,78 @@ service KernelCallbackService {
   // Response type is "LogResult", the exact name kernel-callbacks.md §5
   // uses. Not a uniqueness violation: used by exactly this one RPC.
   rpc Log(LogRequest) returns (LogResult);
+
+  // ExportSpans relays a batch of a plugin's own completed trace spans to
+  // the kernel, which forwards them to the operator's configured
+  // collector essentially unchanged. This reverses an earlier
+  // direct-per-process-OTLP-export design — see
+  // specifications/observability.md#the-relay-model for why.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "ExportSpansResult", used by exactly this one RPC.
+  rpc ExportSpans(ExportSpansRequest) returns (ExportSpansResult);
+
+  // RecordMetrics relays a batch of metric observations. Unlike
+  // ExportSpans, this is not a transparent relay: the kernel records each
+  // observation against its own instrument and bounds the attribute key
+  // set before it reaches any exporter. See
+  // specifications/observability.md#the-tracing-metrics-asymmetry.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "RecordMetricsResult", used by exactly this one RPC.
+  rpc RecordMetrics(RecordMetricsRequest) returns (RecordMetricsResult);
+
+  // GetTelemetryConfig answers whether tracing/metrics/logs are enabled
+  // and at what level/ratio, so a plugin doesn't have to guess from its
+  // own environment. A plugin SHOULD call this once at startup and cache
+  // the result — see specifications/observability.md#gettelemetryconfig-caching.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "GetTelemetryConfigResult", used by exactly this one
+  // RPC.
+  rpc GetTelemetryConfig(GetTelemetryConfigRequest) returns (GetTelemetryConfigResult);
+
+  // GetConfig returns the calling plugin's own already-decoded agent.hcl
+  // configuration — the same shape Configure received. See
+  // kernel-callbacks.md's GetConfig for the secret-echo MUST NOT rule this
+  // implies.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "GetConfigResult", used by exactly this one RPC.
+  rpc GetConfig(GetConfigRequest) returns (GetConfigResult);
+
+  // Publish emits one event onto the ephemeral, best-effort, cross-plugin
+  // event bus, distinct from Emit's durable per-session log and from
+  // hook dispatch's synchronous, agent.hcl-declared subscriber chain. See
+  // specifications/event-bus.md.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "PublishResult", used by exactly this one RPC.
+  rpc Publish(PublishRequest) returns (PublishResult);
+
+  // Subscribe opens a server-streaming subscription to the event bus,
+  // filtered by topic. See specifications/event-bus.md#filter-grammar and
+  // #backpressure for why the kernel may unilaterally close this stream.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Stream element type is "BusEvent", naming the streamed domain concept
+  // rather than the RPC, the same convention model.md §4's StreamEvent
+  // and widget.md's WidgetUpdate already use.
+  rpc Subscribe(SubscribeRequest) returns (stream BusEvent);
+
+  // ReadEvents reads back the calling plugin's own session's persisted
+  // event log, ordered by sequence — never by wall-clock time
+  // (.claude/rules/determinism.md).
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Stream element type is "StoredEvent", the same "name the domain
+  // concept" convention as Subscribe's BusEvent above.
+  rpc ReadEvents(ReadEventsRequest) returns (stream StoredEvent);
+
+  // GetSession returns the calling plugin's own session's metadata plus
+  // its live, in-memory budget rollups.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // Response type is "GetSessionResult", used by exactly this one RPC.
+  rpc GetSession(GetSessionRequest) returns (GetSessionResult);
 }

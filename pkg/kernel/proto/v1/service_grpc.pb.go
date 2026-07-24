@@ -6,12 +6,13 @@
 
 // Package pluggableharness.kernel.v1 defines the kernel-callback service described
 // in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
-// Log) — the plugin-to-kernel calling direction every plugin category gets
-// at handshake, the reverse of every other category's protocol in this
-// series. Unlike a category plugin protocol, this service carries no
-// GetCapabilities/Configure RPCs: it isn't something the kernel dials into
-// a plugin, it's the connection every plugin subprocess is handed back to
-// call into the kernel.
+// Log, ExportSpans, RecordMetrics, GetTelemetryConfig, GetConfig, Publish,
+// Subscribe, ReadEvents, GetSession) — the plugin-to-kernel calling
+// direction every plugin category gets at handshake, the reverse of every
+// other category's protocol in this series. Unlike a category plugin
+// protocol, this service carries no GetCapabilities/Configure RPCs: it
+// isn't something the kernel dials into a plugin, it's the connection
+// every plugin subprocess is handed back to call into the kernel.
 
 package kernelv1
 
@@ -28,10 +29,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KernelCallbackService_RunSession_FullMethodName  = "/pluggableharness.kernel.v1.KernelCallbackService/RunSession"
-	KernelCallbackService_CountTokens_FullMethodName = "/pluggableharness.kernel.v1.KernelCallbackService/CountTokens"
-	KernelCallbackService_Emit_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/Emit"
-	KernelCallbackService_Log_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/Log"
+	KernelCallbackService_RunSession_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/RunSession"
+	KernelCallbackService_CountTokens_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/CountTokens"
+	KernelCallbackService_Emit_FullMethodName               = "/pluggableharness.kernel.v1.KernelCallbackService/Emit"
+	KernelCallbackService_Log_FullMethodName                = "/pluggableharness.kernel.v1.KernelCallbackService/Log"
+	KernelCallbackService_ExportSpans_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/ExportSpans"
+	KernelCallbackService_RecordMetrics_FullMethodName      = "/pluggableharness.kernel.v1.KernelCallbackService/RecordMetrics"
+	KernelCallbackService_GetTelemetryConfig_FullMethodName = "/pluggableharness.kernel.v1.KernelCallbackService/GetTelemetryConfig"
+	KernelCallbackService_GetConfig_FullMethodName          = "/pluggableharness.kernel.v1.KernelCallbackService/GetConfig"
+	KernelCallbackService_Publish_FullMethodName            = "/pluggableharness.kernel.v1.KernelCallbackService/Publish"
+	KernelCallbackService_Subscribe_FullMethodName          = "/pluggableharness.kernel.v1.KernelCallbackService/Subscribe"
+	KernelCallbackService_ReadEvents_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/ReadEvents"
+	KernelCallbackService_GetSession_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/GetSession"
 )
 
 // KernelCallbackServiceClient is the client API for KernelCallbackService service.
@@ -93,6 +102,72 @@ type KernelCallbackServiceClient interface {
 	// Response type is "LogResult", the exact name kernel-callbacks.md §5
 	// uses. Not a uniqueness violation: used by exactly this one RPC.
 	Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResult, error)
+	// ExportSpans relays a batch of a plugin's own completed trace spans to
+	// the kernel, which forwards them to the operator's configured
+	// collector essentially unchanged. This reverses an earlier
+	// direct-per-process-OTLP-export design — see
+	// specifications/observability.md#the-relay-model for why.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "ExportSpansResult", used by exactly this one RPC.
+	ExportSpans(ctx context.Context, in *ExportSpansRequest, opts ...grpc.CallOption) (*ExportSpansResult, error)
+	// RecordMetrics relays a batch of metric observations. Unlike
+	// ExportSpans, this is not a transparent relay: the kernel records each
+	// observation against its own instrument and bounds the attribute key
+	// set before it reaches any exporter. See
+	// specifications/observability.md#the-tracing-metrics-asymmetry.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "RecordMetricsResult", used by exactly this one RPC.
+	RecordMetrics(ctx context.Context, in *RecordMetricsRequest, opts ...grpc.CallOption) (*RecordMetricsResult, error)
+	// GetTelemetryConfig answers whether tracing/metrics/logs are enabled
+	// and at what level/ratio, so a plugin doesn't have to guess from its
+	// own environment. A plugin SHOULD call this once at startup and cache
+	// the result — see specifications/observability.md#gettelemetryconfig-caching.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "GetTelemetryConfigResult", used by exactly this one
+	// RPC.
+	GetTelemetryConfig(ctx context.Context, in *GetTelemetryConfigRequest, opts ...grpc.CallOption) (*GetTelemetryConfigResult, error)
+	// GetConfig returns the calling plugin's own already-decoded agent.hcl
+	// configuration — the same shape Configure received. See
+	// kernel-callbacks.md's GetConfig for the secret-echo MUST NOT rule this
+	// implies.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "GetConfigResult", used by exactly this one RPC.
+	GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (*GetConfigResult, error)
+	// Publish emits one event onto the ephemeral, best-effort, cross-plugin
+	// event bus, distinct from Emit's durable per-session log and from
+	// hook dispatch's synchronous, agent.hcl-declared subscriber chain. See
+	// specifications/event-bus.md.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "PublishResult", used by exactly this one RPC.
+	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResult, error)
+	// Subscribe opens a server-streaming subscription to the event bus,
+	// filtered by topic. See specifications/event-bus.md#filter-grammar and
+	// #backpressure for why the kernel may unilaterally close this stream.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Stream element type is "BusEvent", naming the streamed domain concept
+	// rather than the RPC, the same convention model.md §4's StreamEvent
+	// and widget.md's WidgetUpdate already use.
+	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BusEvent], error)
+	// ReadEvents reads back the calling plugin's own session's persisted
+	// event log, ordered by sequence — never by wall-clock time
+	// (.claude/rules/determinism.md).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Stream element type is "StoredEvent", the same "name the domain
+	// concept" convention as Subscribe's BusEvent above.
+	ReadEvents(ctx context.Context, in *ReadEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StoredEvent], error)
+	// GetSession returns the calling plugin's own session's metadata plus
+	// its live, in-memory budget rollups.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "GetSessionResult", used by exactly this one RPC.
+	GetSession(ctx context.Context, in *GetSessionRequest, opts ...grpc.CallOption) (*GetSessionResult, error)
 }
 
 type kernelCallbackServiceClient struct {
@@ -137,6 +212,104 @@ func (c *kernelCallbackServiceClient) Log(ctx context.Context, in *LogRequest, o
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LogResult)
 	err := c.cc.Invoke(ctx, KernelCallbackService_Log_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) ExportSpans(ctx context.Context, in *ExportSpansRequest, opts ...grpc.CallOption) (*ExportSpansResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExportSpansResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_ExportSpans_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) RecordMetrics(ctx context.Context, in *RecordMetricsRequest, opts ...grpc.CallOption) (*RecordMetricsResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecordMetricsResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_RecordMetrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) GetTelemetryConfig(ctx context.Context, in *GetTelemetryConfigRequest, opts ...grpc.CallOption) (*GetTelemetryConfigResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTelemetryConfigResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_GetTelemetryConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (*GetConfigResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetConfigResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_GetConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublishResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_Publish_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BusEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &KernelCallbackService_ServiceDesc.Streams[0], KernelCallbackService_Subscribe_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SubscribeRequest, BusEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KernelCallbackService_SubscribeClient = grpc.ServerStreamingClient[BusEvent]
+
+func (c *kernelCallbackServiceClient) ReadEvents(ctx context.Context, in *ReadEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StoredEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &KernelCallbackService_ServiceDesc.Streams[1], KernelCallbackService_ReadEvents_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ReadEventsRequest, StoredEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KernelCallbackService_ReadEventsClient = grpc.ServerStreamingClient[StoredEvent]
+
+func (c *kernelCallbackServiceClient) GetSession(ctx context.Context, in *GetSessionRequest, opts ...grpc.CallOption) (*GetSessionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSessionResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_GetSession_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +375,72 @@ type KernelCallbackServiceServer interface {
 	// Response type is "LogResult", the exact name kernel-callbacks.md §5
 	// uses. Not a uniqueness violation: used by exactly this one RPC.
 	Log(context.Context, *LogRequest) (*LogResult, error)
+	// ExportSpans relays a batch of a plugin's own completed trace spans to
+	// the kernel, which forwards them to the operator's configured
+	// collector essentially unchanged. This reverses an earlier
+	// direct-per-process-OTLP-export design — see
+	// specifications/observability.md#the-relay-model for why.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "ExportSpansResult", used by exactly this one RPC.
+	ExportSpans(context.Context, *ExportSpansRequest) (*ExportSpansResult, error)
+	// RecordMetrics relays a batch of metric observations. Unlike
+	// ExportSpans, this is not a transparent relay: the kernel records each
+	// observation against its own instrument and bounds the attribute key
+	// set before it reaches any exporter. See
+	// specifications/observability.md#the-tracing-metrics-asymmetry.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "RecordMetricsResult", used by exactly this one RPC.
+	RecordMetrics(context.Context, *RecordMetricsRequest) (*RecordMetricsResult, error)
+	// GetTelemetryConfig answers whether tracing/metrics/logs are enabled
+	// and at what level/ratio, so a plugin doesn't have to guess from its
+	// own environment. A plugin SHOULD call this once at startup and cache
+	// the result — see specifications/observability.md#gettelemetryconfig-caching.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "GetTelemetryConfigResult", used by exactly this one
+	// RPC.
+	GetTelemetryConfig(context.Context, *GetTelemetryConfigRequest) (*GetTelemetryConfigResult, error)
+	// GetConfig returns the calling plugin's own already-decoded agent.hcl
+	// configuration — the same shape Configure received. See
+	// kernel-callbacks.md's GetConfig for the secret-echo MUST NOT rule this
+	// implies.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "GetConfigResult", used by exactly this one RPC.
+	GetConfig(context.Context, *GetConfigRequest) (*GetConfigResult, error)
+	// Publish emits one event onto the ephemeral, best-effort, cross-plugin
+	// event bus, distinct from Emit's durable per-session log and from
+	// hook dispatch's synchronous, agent.hcl-declared subscriber chain. See
+	// specifications/event-bus.md.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "PublishResult", used by exactly this one RPC.
+	Publish(context.Context, *PublishRequest) (*PublishResult, error)
+	// Subscribe opens a server-streaming subscription to the event bus,
+	// filtered by topic. See specifications/event-bus.md#filter-grammar and
+	// #backpressure for why the kernel may unilaterally close this stream.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Stream element type is "BusEvent", naming the streamed domain concept
+	// rather than the RPC, the same convention model.md §4's StreamEvent
+	// and widget.md's WidgetUpdate already use.
+	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[BusEvent]) error
+	// ReadEvents reads back the calling plugin's own session's persisted
+	// event log, ordered by sequence — never by wall-clock time
+	// (.claude/rules/determinism.md).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Stream element type is "StoredEvent", the same "name the domain
+	// concept" convention as Subscribe's BusEvent above.
+	ReadEvents(*ReadEventsRequest, grpc.ServerStreamingServer[StoredEvent]) error
+	// GetSession returns the calling plugin's own session's metadata plus
+	// its live, in-memory budget rollups.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// Response type is "GetSessionResult", used by exactly this one RPC.
+	GetSession(context.Context, *GetSessionRequest) (*GetSessionResult, error)
 	mustEmbedUnimplementedKernelCallbackServiceServer()
 }
 
@@ -223,6 +462,30 @@ func (UnimplementedKernelCallbackServiceServer) Emit(context.Context, *EmitReque
 }
 func (UnimplementedKernelCallbackServiceServer) Log(context.Context, *LogRequest) (*LogResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method Log not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) ExportSpans(context.Context, *ExportSpansRequest) (*ExportSpansResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExportSpans not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) RecordMetrics(context.Context, *RecordMetricsRequest) (*RecordMetricsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecordMetrics not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) GetTelemetryConfig(context.Context, *GetTelemetryConfigRequest) (*GetTelemetryConfigResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTelemetryConfig not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) GetConfig(context.Context, *GetConfigRequest) (*GetConfigResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetConfig not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) Publish(context.Context, *PublishRequest) (*PublishResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method Publish not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[BusEvent]) error {
+	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) ReadEvents(*ReadEventsRequest, grpc.ServerStreamingServer[StoredEvent]) error {
+	return status.Error(codes.Unimplemented, "method ReadEvents not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) GetSession(context.Context, *GetSessionRequest) (*GetSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSession not implemented")
 }
 func (UnimplementedKernelCallbackServiceServer) mustEmbedUnimplementedKernelCallbackServiceServer() {}
 func (UnimplementedKernelCallbackServiceServer) testEmbeddedByValue()                               {}
@@ -317,6 +580,136 @@ func _KernelCallbackService_Log_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KernelCallbackService_ExportSpans_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportSpansRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).ExportSpans(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_ExportSpans_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).ExportSpans(ctx, req.(*ExportSpansRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_RecordMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordMetricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).RecordMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_RecordMetrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).RecordMetrics(ctx, req.(*RecordMetricsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_GetTelemetryConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTelemetryConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).GetTelemetryConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_GetTelemetryConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).GetTelemetryConfig(ctx, req.(*GetTelemetryConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_GetConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).GetConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_GetConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).GetConfig(ctx, req.(*GetConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_Publish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).Publish(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_Publish_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).Publish(ctx, req.(*PublishRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KernelCallbackServiceServer).Subscribe(m, &grpc.GenericServerStream[SubscribeRequest, BusEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KernelCallbackService_SubscribeServer = grpc.ServerStreamingServer[BusEvent]
+
+func _KernelCallbackService_ReadEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReadEventsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KernelCallbackServiceServer).ReadEvents(m, &grpc.GenericServerStream[ReadEventsRequest, StoredEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KernelCallbackService_ReadEventsServer = grpc.ServerStreamingServer[StoredEvent]
+
+func _KernelCallbackService_GetSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).GetSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_GetSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).GetSession(ctx, req.(*GetSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KernelCallbackService_ServiceDesc is the grpc.ServiceDesc for KernelCallbackService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -340,7 +733,42 @@ var KernelCallbackService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Log",
 			Handler:    _KernelCallbackService_Log_Handler,
 		},
+		{
+			MethodName: "ExportSpans",
+			Handler:    _KernelCallbackService_ExportSpans_Handler,
+		},
+		{
+			MethodName: "RecordMetrics",
+			Handler:    _KernelCallbackService_RecordMetrics_Handler,
+		},
+		{
+			MethodName: "GetTelemetryConfig",
+			Handler:    _KernelCallbackService_GetTelemetryConfig_Handler,
+		},
+		{
+			MethodName: "GetConfig",
+			Handler:    _KernelCallbackService_GetConfig_Handler,
+		},
+		{
+			MethodName: "Publish",
+			Handler:    _KernelCallbackService_Publish_Handler,
+		},
+		{
+			MethodName: "GetSession",
+			Handler:    _KernelCallbackService_GetSession_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Subscribe",
+			Handler:       _KernelCallbackService_Subscribe_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ReadEvents",
+			Handler:       _KernelCallbackService_ReadEvents_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "pluggableharness/kernel/v1/service.proto",
 }

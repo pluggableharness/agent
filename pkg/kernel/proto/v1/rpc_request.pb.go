@@ -10,7 +10,9 @@ import (
 	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	v13 "github.com/pluggableharness/agent/pkg/log/proto/v1"
+	v15 "github.com/pluggableharness/agent/pkg/metric/proto/v1"
 	v12 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	v14 "github.com/pluggableharness/agent/pkg/trace/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -206,9 +208,10 @@ type EmitRequest struct {
 	SchemaVersion string `protobuf:"bytes,3,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	// The event payload. MUST be set. Opaque to the kernel by design
 	// (state-backend.md §4.1: "kernel never inspects this"); its structure
-	// is defined by whichever spec owns this EventKind. This is the one
-	// deliberate opaque-bytes carve-out in this file — every other field
-	// here is strongly typed.
+	// is defined by whichever spec owns this EventKind. One of two
+	// deliberate opaque-bytes carve-outs in this file — see PublishRequest
+	// below for the other — every other field in either message is
+	// strongly typed.
 	Payload       []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -272,8 +275,10 @@ func (x *EmitRequest) GetPayload() []byte {
 	return nil
 }
 
-// LogRequest carries one structured log entry from a plugin to the
-// kernel. See kernel-callbacks.md §5.
+// LogRequest carries a batch of structured log entries from a plugin to
+// the kernel. See kernel-callbacks.md §5. Batched rather than one entry
+// per call: a plugin logging at TRACE would otherwise pay one unary
+// round-trip per line.
 type LogRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session this log entry is attributable to. MAY be omitted —
@@ -281,8 +286,11 @@ type LogRequest struct {
 	// can legitimately happen outside any session context (plugin startup,
 	// Configure-time, shutdown).
 	SessionId *string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3,oneof" json:"session_id,omitempty"`
-	// The log entry itself. MUST be set.
-	Entry         *v13.LogEntry `protobuf:"bytes,2,opt,name=entry,proto3" json:"entry,omitempty"`
+	// The batch of log entries, in the order the plugin produced them.
+	// MUST be non-empty. A malformed entry within an otherwise-valid batch
+	// is skipped and warned about individually, not treated as failing the
+	// whole call — see kernel-callbacks.md §5.
+	Entries       []*v13.LogEntry `protobuf:"bytes,3,rep,name=entries,proto3" json:"entries,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -324,18 +332,478 @@ func (x *LogRequest) GetSessionId() string {
 	return ""
 }
 
-func (x *LogRequest) GetEntry() *v13.LogEntry {
+func (x *LogRequest) GetEntries() []*v13.LogEntry {
 	if x != nil {
-		return x.Entry
+		return x.Entries
 	}
 	return nil
+}
+
+// ExportSpansRequest relays a batch of a plugin's own completed trace
+// spans to the kernel for forwarding to the operator's configured
+// collector. See kernel-callbacks.md's ExportSpans and
+// observability.md#the-relay-model.
+type ExportSpansRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this batch is attributable to, when any. MAY be
+	// omitted — same session-optional rule as LogRequest.session_id, since
+	// a plugin may produce spans outside any session context.
+	SessionId *string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3,oneof" json:"session_id,omitempty"`
+	// The batch of completed spans. MUST be non-empty. The kernel MUST NOT
+	// alter any span's identity or timing fields before relaying it.
+	Spans         []*v14.Span `protobuf:"bytes,2,rep,name=spans,proto3" json:"spans,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExportSpansRequest) Reset() {
+	*x = ExportSpansRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExportSpansRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExportSpansRequest) ProtoMessage() {}
+
+func (x *ExportSpansRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExportSpansRequest.ProtoReflect.Descriptor instead.
+func (*ExportSpansRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ExportSpansRequest) GetSessionId() string {
+	if x != nil && x.SessionId != nil {
+		return *x.SessionId
+	}
+	return ""
+}
+
+func (x *ExportSpansRequest) GetSpans() []*v14.Span {
+	if x != nil {
+		return x.Spans
+	}
+	return nil
+}
+
+// RecordMetricsRequest relays a batch of metric observations. See
+// kernel-callbacks.md's RecordMetrics and
+// observability.md#the-tracing-metrics-asymmetry for why this is not a
+// transparent relay the way ExportSpansRequest is.
+type RecordMetricsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this batch is attributable to, when any. MAY be
+	// omitted — same rule as LogRequest.session_id.
+	SessionId *string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3,oneof" json:"session_id,omitempty"`
+	// The batch of metric observations. MUST be non-empty.
+	Metrics       []*v15.MetricRecord `protobuf:"bytes,2,rep,name=metrics,proto3" json:"metrics,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecordMetricsRequest) Reset() {
+	*x = RecordMetricsRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordMetricsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordMetricsRequest) ProtoMessage() {}
+
+func (x *RecordMetricsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordMetricsRequest.ProtoReflect.Descriptor instead.
+func (*RecordMetricsRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RecordMetricsRequest) GetSessionId() string {
+	if x != nil && x.SessionId != nil {
+		return *x.SessionId
+	}
+	return ""
+}
+
+func (x *RecordMetricsRequest) GetMetrics() []*v15.MetricRecord {
+	if x != nil {
+		return x.Metrics
+	}
+	return nil
+}
+
+// GetTelemetryConfigRequest asks the kernel whether tracing/metrics/logs
+// are enabled and at what level/ratio. See kernel-callbacks.md's
+// GetTelemetryConfig. Empty: the caller's identity comes from the
+// callback connection, never a request field.
+type GetTelemetryConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTelemetryConfigRequest) Reset() {
+	*x = GetTelemetryConfigRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTelemetryConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTelemetryConfigRequest) ProtoMessage() {}
+
+func (x *GetTelemetryConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTelemetryConfigRequest.ProtoReflect.Descriptor instead.
+func (*GetTelemetryConfigRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{6}
+}
+
+// GetConfigRequest asks the kernel for the calling plugin's own resolved
+// agent.hcl configuration. See kernel-callbacks.md's GetConfig. Empty:
+// the caller's identity comes from the callback connection, never a
+// request field.
+type GetConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetConfigRequest) Reset() {
+	*x = GetConfigRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConfigRequest) ProtoMessage() {}
+
+func (x *GetConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetConfigRequest.ProtoReflect.Descriptor instead.
+func (*GetConfigRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{7}
+}
+
+// PublishRequest emits one event onto the event bus. See
+// kernel-callbacks.md's Publish and event-bus.md.
+type PublishRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A single dot-free, wildcard-free segment naming this occurrence
+	// within the plugin's own namespace, e.g. "file_changed". MUST be set.
+	// The kernel MUST reject a value containing "." or "*".
+	EventType string `protobuf:"bytes,1,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	// The event payload. MAY be empty. Opaque to the kernel by design —
+	// the second of two deliberate opaque-bytes carve-outs in this
+	// package (see EmitRequest.payload above); a third-party plugin's own
+	// event shape can't be named by this proto ahead of time.
+	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	// Identifies payload's shape for a subscriber: a fully-qualified proto
+	// message name (preferred) or a media type. MUST be set.
+	PayloadType string `protobuf:"bytes,3,opt,name=payload_type,json=payloadType,proto3" json:"payload_type,omitempty"`
+	// Versions payload_type the same way EmitRequest.schema_version
+	// versions Emit's payload. MUST be set.
+	SchemaVersion string `protobuf:"bytes,4,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishRequest) Reset() {
+	*x = PublishRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishRequest) ProtoMessage() {}
+
+func (x *PublishRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishRequest.ProtoReflect.Descriptor instead.
+func (*PublishRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PublishRequest) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *PublishRequest) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *PublishRequest) GetPayloadType() string {
+	if x != nil {
+		return x.PayloadType
+	}
+	return ""
+}
+
+func (x *PublishRequest) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
+// SubscribeRequest opens a server-streaming subscription to the event
+// bus. See kernel-callbacks.md's Subscribe and event-bus.md#filter-grammar.
+type SubscribeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The topics to receive events for. MUST be non-empty. Each entry is
+	// either an exact topic or a topic prefix ending in "*"
+	// (event-bus.md#filter-grammar). No other wildcard form is valid in
+	// v1.
+	TopicFilters  []string `protobuf:"bytes,1,rep,name=topic_filters,json=topicFilters,proto3" json:"topic_filters,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubscribeRequest) Reset() {
+	*x = SubscribeRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubscribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubscribeRequest) ProtoMessage() {}
+
+func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
+func (*SubscribeRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SubscribeRequest) GetTopicFilters() []string {
+	if x != nil {
+		return x.TopicFilters
+	}
+	return nil
+}
+
+// ReadEventsRequest asks the kernel to read back the calling plugin's own
+// session's persisted event log, ordered by sequence. See
+// kernel-callbacks.md's ReadEvents.
+type ReadEventsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The calling session's id. MUST be set. Same one-session-only rule as
+	// EmitRequest.session_id — the kernel MUST reject a call naming any
+	// other session.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Restricts the stream to these kinds. MAY be empty, meaning every
+	// kind.
+	Kinds []EventKind `protobuf:"varint,2,rep,packed,name=kinds,proto3,enum=pluggableharness.kernel.v1.EventKind" json:"kinds,omitempty"`
+	// Resume point: only events with sequence >= this value are streamed.
+	// MAY be omitted, meaning from the start of the session's log.
+	FromSequence *int64 `protobuf:"varint,3,opt,name=from_sequence,json=fromSequence,proto3,oneof" json:"from_sequence,omitempty"`
+	// Caps the number of events streamed. MAY be omitted, meaning no
+	// limit.
+	Limit         *int32 `protobuf:"varint,4,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadEventsRequest) Reset() {
+	*x = ReadEventsRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadEventsRequest) ProtoMessage() {}
+
+func (x *ReadEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadEventsRequest.ProtoReflect.Descriptor instead.
+func (*ReadEventsRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ReadEventsRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ReadEventsRequest) GetKinds() []EventKind {
+	if x != nil {
+		return x.Kinds
+	}
+	return nil
+}
+
+func (x *ReadEventsRequest) GetFromSequence() int64 {
+	if x != nil && x.FromSequence != nil {
+		return *x.FromSequence
+	}
+	return 0
+}
+
+func (x *ReadEventsRequest) GetLimit() int32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+// GetSessionRequest asks the kernel for the calling plugin's own
+// session's metadata and live budget rollups. See kernel-callbacks.md's
+// GetSession.
+type GetSessionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The calling session's id. MUST be set. Same one-session-only rule as
+	// EmitRequest.session_id.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSessionRequest) Reset() {
+	*x = GetSessionRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSessionRequest) ProtoMessage() {}
+
+func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSessionRequest.ProtoReflect.Descriptor instead.
+func (*GetSessionRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
 }
 
 var File_pluggableharness_kernel_v1_rpc_request_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc = "" +
 	"\n" +
-	",pluggableharness/kernel/v1/rpc_request.proto\x12\x1apluggableharness.kernel.v1\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a&pluggableharness/kernel/v1/types.proto\x1a#pluggableharness/log/v1/types.proto\x1a%pluggableharness/model/v1/types.proto\"\xa9\x02\n" +
+	",pluggableharness/kernel/v1/rpc_request.proto\x12\x1apluggableharness.kernel.v1\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a&pluggableharness/kernel/v1/types.proto\x1a#pluggableharness/log/v1/types.proto\x1a&pluggableharness/metric/v1/types.proto\x1a%pluggableharness/model/v1/types.proto\x1a%pluggableharness/trace/v1/types.proto\"\xa9\x02\n" +
 	"\x11RunSessionRequest\x12\x18\n" +
 	"\aprofile\x18\x01 \x01(\tR\aprofile\x12\x16\n" +
 	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12*\n" +
@@ -353,13 +821,44 @@ const file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x129\n" +
 	"\x04kind\x18\x02 \x01(\x0e2%.pluggableharness.kernel.v1.EventKindR\x04kind\x12%\n" +
 	"\x0eschema_version\x18\x03 \x01(\tR\rschemaVersion\x12\x18\n" +
-	"\apayload\x18\x04 \x01(\fR\apayload\"x\n" +
+	"\apayload\x18\x04 \x01(\fR\apayload\"\x89\x01\n" +
 	"\n" +
 	"LogRequest\x12\"\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01\x127\n" +
-	"\x05entry\x18\x02 \x01(\v2!.pluggableharness.log.v1.LogEntryR\x05entryB\r\n" +
-	"\v_session_idB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
+	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01\x12;\n" +
+	"\aentries\x18\x03 \x03(\v2!.pluggableharness.log.v1.LogEntryR\aentriesB\r\n" +
+	"\v_session_idJ\x04\b\x02\x10\x03R\x05entry\"~\n" +
+	"\x12ExportSpansRequest\x12\"\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01\x125\n" +
+	"\x05spans\x18\x02 \x03(\v2\x1f.pluggableharness.trace.v1.SpanR\x05spansB\r\n" +
+	"\v_session_id\"\x8d\x01\n" +
+	"\x14RecordMetricsRequest\x12\"\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01\x12B\n" +
+	"\ametrics\x18\x02 \x03(\v2(.pluggableharness.metric.v1.MetricRecordR\ametricsB\r\n" +
+	"\v_session_id\"\x1b\n" +
+	"\x19GetTelemetryConfigRequest\"\x12\n" +
+	"\x10GetConfigRequest\"\x93\x01\n" +
+	"\x0ePublishRequest\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x01 \x01(\tR\teventType\x12\x18\n" +
+	"\apayload\x18\x02 \x01(\fR\apayload\x12!\n" +
+	"\fpayload_type\x18\x03 \x01(\tR\vpayloadType\x12%\n" +
+	"\x0eschema_version\x18\x04 \x01(\tR\rschemaVersion\"7\n" +
+	"\x10SubscribeRequest\x12#\n" +
+	"\rtopic_filters\x18\x01 \x03(\tR\ftopicFilters\"\xd0\x01\n" +
+	"\x11ReadEventsRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12;\n" +
+	"\x05kinds\x18\x02 \x03(\x0e2%.pluggableharness.kernel.v1.EventKindR\x05kinds\x12(\n" +
+	"\rfrom_sequence\x18\x03 \x01(\x03H\x00R\ffromSequence\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\x04 \x01(\x05H\x01R\x05limit\x88\x01\x01B\x10\n" +
+	"\x0e_from_sequenceB\b\n" +
+	"\x06_limit\"2\n" +
+	"\x11GetSessionRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionIdB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
 
 var (
 	file_pluggableharness_kernel_v1_rpc_request_proto_rawDescOnce sync.Once
@@ -373,29 +872,42 @@ func file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescData
 }
 
-var file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_pluggableharness_kernel_v1_rpc_request_proto_goTypes = []any{
-	(*RunSessionRequest)(nil),  // 0: pluggableharness.kernel.v1.RunSessionRequest
-	(*CountTokensRequest)(nil), // 1: pluggableharness.kernel.v1.CountTokensRequest
-	(*EmitRequest)(nil),        // 2: pluggableharness.kernel.v1.EmitRequest
-	(*LogRequest)(nil),         // 3: pluggableharness.kernel.v1.LogRequest
-	(*v1.ProviderRef)(nil),     // 4: pluggableharness.common.v1.ProviderRef
-	(*v11.ContentBlock)(nil),   // 5: pluggableharness.content.v1.ContentBlock
-	(*v12.ModelRef)(nil),       // 6: pluggableharness.model.v1.ModelRef
-	(EventKind)(0),             // 7: pluggableharness.kernel.v1.EventKind
-	(*v13.LogEntry)(nil),       // 8: pluggableharness.log.v1.LogEntry
+	(*RunSessionRequest)(nil),         // 0: pluggableharness.kernel.v1.RunSessionRequest
+	(*CountTokensRequest)(nil),        // 1: pluggableharness.kernel.v1.CountTokensRequest
+	(*EmitRequest)(nil),               // 2: pluggableharness.kernel.v1.EmitRequest
+	(*LogRequest)(nil),                // 3: pluggableharness.kernel.v1.LogRequest
+	(*ExportSpansRequest)(nil),        // 4: pluggableharness.kernel.v1.ExportSpansRequest
+	(*RecordMetricsRequest)(nil),      // 5: pluggableharness.kernel.v1.RecordMetricsRequest
+	(*GetTelemetryConfigRequest)(nil), // 6: pluggableharness.kernel.v1.GetTelemetryConfigRequest
+	(*GetConfigRequest)(nil),          // 7: pluggableharness.kernel.v1.GetConfigRequest
+	(*PublishRequest)(nil),            // 8: pluggableharness.kernel.v1.PublishRequest
+	(*SubscribeRequest)(nil),          // 9: pluggableharness.kernel.v1.SubscribeRequest
+	(*ReadEventsRequest)(nil),         // 10: pluggableharness.kernel.v1.ReadEventsRequest
+	(*GetSessionRequest)(nil),         // 11: pluggableharness.kernel.v1.GetSessionRequest
+	(*v1.ProviderRef)(nil),            // 12: pluggableharness.common.v1.ProviderRef
+	(*v11.ContentBlock)(nil),          // 13: pluggableharness.content.v1.ContentBlock
+	(*v12.ModelRef)(nil),              // 14: pluggableharness.model.v1.ModelRef
+	(EventKind)(0),                    // 15: pluggableharness.kernel.v1.EventKind
+	(*v13.LogEntry)(nil),              // 16: pluggableharness.log.v1.LogEntry
+	(*v14.Span)(nil),                  // 17: pluggableharness.trace.v1.Span
+	(*v15.MetricRecord)(nil),          // 18: pluggableharness.metric.v1.MetricRecord
 }
 var file_pluggableharness_kernel_v1_rpc_request_proto_depIdxs = []int32{
-	4, // 0: pluggableharness.kernel.v1.RunSessionRequest.scoped_providers:type_name -> pluggableharness.common.v1.ProviderRef
-	5, // 1: pluggableharness.kernel.v1.CountTokensRequest.content:type_name -> pluggableharness.content.v1.ContentBlock
-	6, // 2: pluggableharness.kernel.v1.CountTokensRequest.model_ref:type_name -> pluggableharness.model.v1.ModelRef
-	7, // 3: pluggableharness.kernel.v1.EmitRequest.kind:type_name -> pluggableharness.kernel.v1.EventKind
-	8, // 4: pluggableharness.kernel.v1.LogRequest.entry:type_name -> pluggableharness.log.v1.LogEntry
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	12, // 0: pluggableharness.kernel.v1.RunSessionRequest.scoped_providers:type_name -> pluggableharness.common.v1.ProviderRef
+	13, // 1: pluggableharness.kernel.v1.CountTokensRequest.content:type_name -> pluggableharness.content.v1.ContentBlock
+	14, // 2: pluggableharness.kernel.v1.CountTokensRequest.model_ref:type_name -> pluggableharness.model.v1.ModelRef
+	15, // 3: pluggableharness.kernel.v1.EmitRequest.kind:type_name -> pluggableharness.kernel.v1.EventKind
+	16, // 4: pluggableharness.kernel.v1.LogRequest.entries:type_name -> pluggableharness.log.v1.LogEntry
+	17, // 5: pluggableharness.kernel.v1.ExportSpansRequest.spans:type_name -> pluggableharness.trace.v1.Span
+	18, // 6: pluggableharness.kernel.v1.RecordMetricsRequest.metrics:type_name -> pluggableharness.metric.v1.MetricRecord
+	15, // 7: pluggableharness.kernel.v1.ReadEventsRequest.kinds:type_name -> pluggableharness.kernel.v1.EventKind
+	8,  // [8:8] is the sub-list for method output_type
+	8,  // [8:8] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_kernel_v1_rpc_request_proto_init() }
@@ -406,13 +918,16 @@ func file_pluggableharness_kernel_v1_rpc_request_proto_init() {
 	file_pluggableharness_kernel_v1_types_proto_init()
 	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[3].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[4].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[5].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc), len(file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

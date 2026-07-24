@@ -8,9 +8,11 @@ package kernelv1
 
 import (
 	v1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
+	v12 "github.com/pluggableharness/agent/pkg/log/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/session/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -287,11 +289,344 @@ func (*LogResult) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP(), []int{3}
 }
 
+// ExportSpansResult is empty, the same shape as LogResult and for the
+// same reason.
+type ExportSpansResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExportSpansResult) Reset() {
+	*x = ExportSpansResult{}
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExportSpansResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExportSpansResult) ProtoMessage() {}
+
+func (x *ExportSpansResult) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExportSpansResult.ProtoReflect.Descriptor instead.
+func (*ExportSpansResult) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP(), []int{4}
+}
+
+// RecordMetricsResult is empty, the same shape as LogResult and for the
+// same reason.
+type RecordMetricsResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecordMetricsResult) Reset() {
+	*x = RecordMetricsResult{}
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordMetricsResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordMetricsResult) ProtoMessage() {}
+
+func (x *RecordMetricsResult) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordMetricsResult.ProtoReflect.Descriptor instead.
+func (*RecordMetricsResult) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP(), []int{5}
+}
+
+// GetTelemetryConfigResult carries the operator's current tracing/
+// metrics/logs configuration. See kernel-callbacks.md's
+// GetTelemetryConfig.
+type GetTelemetryConfigResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether trace export is on. MUST be set.
+	TracesEnabled bool `protobuf:"varint,1,opt,name=traces_enabled,json=tracesEnabled,proto3" json:"traces_enabled,omitempty"`
+	// Whether metrics export is on. MUST be set.
+	MetricsEnabled bool `protobuf:"varint,2,opt,name=metrics_enabled,json=metricsEnabled,proto3" json:"metrics_enabled,omitempty"`
+	// Whether log export is on. MUST be set.
+	LogsEnabled bool `protobuf:"varint,3,opt,name=logs_enabled,json=logsEnabled,proto3" json:"logs_enabled,omitempty"`
+	// The floor below which a Log entry is accepted but immediately
+	// discarded kernel-side. MUST be set. See kernel-callbacks.md's Log
+	// section.
+	LogLevel v12.LogLevel `protobuf:"varint,4,opt,name=log_level,json=logLevel,proto3,enum=pluggableharness.log.v1.LogLevel" json:"log_level,omitempty"`
+	// The configured ParentBased(TraceIDRatioBased) sampler ratio. MUST be
+	// set; meaningful only when traces_enabled.
+	SamplingRatio float64 `protobuf:"fixed64,5,opt,name=sampling_ratio,json=samplingRatio,proto3" json:"sampling_ratio,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTelemetryConfigResult) Reset() {
+	*x = GetTelemetryConfigResult{}
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTelemetryConfigResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTelemetryConfigResult) ProtoMessage() {}
+
+func (x *GetTelemetryConfigResult) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTelemetryConfigResult.ProtoReflect.Descriptor instead.
+func (*GetTelemetryConfigResult) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetTelemetryConfigResult) GetTracesEnabled() bool {
+	if x != nil {
+		return x.TracesEnabled
+	}
+	return false
+}
+
+func (x *GetTelemetryConfigResult) GetMetricsEnabled() bool {
+	if x != nil {
+		return x.MetricsEnabled
+	}
+	return false
+}
+
+func (x *GetTelemetryConfigResult) GetLogsEnabled() bool {
+	if x != nil {
+		return x.LogsEnabled
+	}
+	return false
+}
+
+func (x *GetTelemetryConfigResult) GetLogLevel() v12.LogLevel {
+	if x != nil {
+		return x.LogLevel
+	}
+	return v12.LogLevel(0)
+}
+
+func (x *GetTelemetryConfigResult) GetSamplingRatio() float64 {
+	if x != nil {
+		return x.SamplingRatio
+	}
+	return 0
+}
+
+// GetConfigResult carries the calling plugin's own already-decoded
+// agent.hcl configuration. See kernel-callbacks.md's GetConfig.
+type GetConfigResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The plugin's resolved config, identical in shape to what its own
+	// ConfigureRequest.config carried at Configure time. MUST be set.
+	// Secrets are already resolved through the schema-to-cty bridge — see
+	// kernel-callbacks.md's GetConfig for the MUST NOT-echo rule this
+	// implies.
+	Config        *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetConfigResult) Reset() {
+	*x = GetConfigResult{}
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetConfigResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConfigResult) ProtoMessage() {}
+
+func (x *GetConfigResult) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetConfigResult.ProtoReflect.Descriptor instead.
+func (*GetConfigResult) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetConfigResult) GetConfig() *structpb.Struct {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+// PublishResult carries the fully-resolved topic an event was published
+// on. See kernel-callbacks.md's Publish.
+type PublishResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The topic this event was published on:
+	// "plugin.{category}.{name}.{event_type}". See
+	// event-bus.md#topic-grammar.
+	Topic         string `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishResult) Reset() {
+	*x = PublishResult{}
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishResult) ProtoMessage() {}
+
+func (x *PublishResult) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishResult.ProtoReflect.Descriptor instead.
+func (*PublishResult) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PublishResult) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+// GetSessionResult carries the calling plugin's own session's metadata
+// plus its live, in-memory budget rollups. See kernel-callbacks.md's
+// GetSession.
+type GetSessionResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's persisted metadata and cost rollup. MUST be set.
+	Info *v11.SessionInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
+	// The session's remaining sub-agent nesting depth. MUST be set. Live,
+	// in-memory kernel state — never persisted (state-backend.md's
+	// live-vs-post-hoc distinction) — not a value read back from the state
+	// backend the way info.cost_usd is.
+	RemainingDepth int32 `protobuf:"varint,2,opt,name=remaining_depth,json=remainingDepth,proto3" json:"remaining_depth,omitempty"`
+	// The session's remaining cost budget, in USD. MUST be set. Same
+	// live, in-memory rationale as remaining_depth.
+	RemainingCostBudgetUsd float64 `protobuf:"fixed64,3,opt,name=remaining_cost_budget_usd,json=remainingCostBudgetUsd,proto3" json:"remaining_cost_budget_usd,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *GetSessionResult) Reset() {
+	*x = GetSessionResult{}
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSessionResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSessionResult) ProtoMessage() {}
+
+func (x *GetSessionResult) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSessionResult.ProtoReflect.Descriptor instead.
+func (*GetSessionResult) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetSessionResult) GetInfo() *v11.SessionInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+func (x *GetSessionResult) GetRemainingDepth() int32 {
+	if x != nil {
+		return x.RemainingDepth
+	}
+	return 0
+}
+
+func (x *GetSessionResult) GetRemainingCostBudgetUsd() float64 {
+	if x != nil {
+		return x.RemainingCostBudgetUsd
+	}
+	return 0
+}
+
 var File_pluggableharness_kernel_v1_rpc_response_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_kernel_v1_rpc_response_proto_rawDesc = "" +
 	"\n" +
-	"-pluggableharness/kernel/v1/rpc_response.proto\x12\x1apluggableharness.kernel.v1\x1a'pluggableharness/content/v1/types.proto\x1a'pluggableharness/session/v1/types.proto\"\xc4\x02\n" +
+	"-pluggableharness/kernel/v1/rpc_response.proto\x12\x1apluggableharness.kernel.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a'pluggableharness/content/v1/types.proto\x1a#pluggableharness/log/v1/types.proto\x1a'pluggableharness/session/v1/types.proto\"\xc4\x02\n" +
 	"\x10RunSessionResult\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12I\n" +
@@ -307,7 +642,23 @@ const file_pluggableharness_kernel_v1_rpc_response_proto_rawDesc = "" +
 	"EmitResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x03R\bsequence\"\v\n" +
-	"\tLogResultB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
+	"\tLogResult\"\x13\n" +
+	"\x11ExportSpansResult\"\x15\n" +
+	"\x13RecordMetricsResult\"\xf4\x01\n" +
+	"\x18GetTelemetryConfigResult\x12%\n" +
+	"\x0etraces_enabled\x18\x01 \x01(\bR\rtracesEnabled\x12'\n" +
+	"\x0fmetrics_enabled\x18\x02 \x01(\bR\x0emetricsEnabled\x12!\n" +
+	"\flogs_enabled\x18\x03 \x01(\bR\vlogsEnabled\x12>\n" +
+	"\tlog_level\x18\x04 \x01(\x0e2!.pluggableharness.log.v1.LogLevelR\blogLevel\x12%\n" +
+	"\x0esampling_ratio\x18\x05 \x01(\x01R\rsamplingRatio\"B\n" +
+	"\x0fGetConfigResult\x12/\n" +
+	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"%\n" +
+	"\rPublishResult\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\"\xb4\x01\n" +
+	"\x10GetSessionResult\x12<\n" +
+	"\x04info\x18\x01 \x01(\v2(.pluggableharness.session.v1.SessionInfoR\x04info\x12'\n" +
+	"\x0fremaining_depth\x18\x02 \x01(\x05R\x0eremainingDepth\x129\n" +
+	"\x19remaining_cost_budget_usd\x18\x03 \x01(\x01R\x16remainingCostBudgetUsdB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
 
 var (
 	file_pluggableharness_kernel_v1_rpc_response_proto_rawDescOnce sync.Once
@@ -321,23 +672,35 @@ func file_pluggableharness_kernel_v1_rpc_response_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_kernel_v1_rpc_response_proto_rawDescData
 }
 
-var file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_pluggableharness_kernel_v1_rpc_response_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_pluggableharness_kernel_v1_rpc_response_proto_goTypes = []any{
-	(*RunSessionResult)(nil),  // 0: pluggableharness.kernel.v1.RunSessionResult
-	(*CountTokensResult)(nil), // 1: pluggableharness.kernel.v1.CountTokensResult
-	(*EmitResult)(nil),        // 2: pluggableharness.kernel.v1.EmitResult
-	(*LogResult)(nil),         // 3: pluggableharness.kernel.v1.LogResult
-	(*v1.Message)(nil),        // 4: pluggableharness.content.v1.Message
-	(v11.SessionStatus)(0),    // 5: pluggableharness.session.v1.SessionStatus
+	(*RunSessionResult)(nil),         // 0: pluggableharness.kernel.v1.RunSessionResult
+	(*CountTokensResult)(nil),        // 1: pluggableharness.kernel.v1.CountTokensResult
+	(*EmitResult)(nil),               // 2: pluggableharness.kernel.v1.EmitResult
+	(*LogResult)(nil),                // 3: pluggableharness.kernel.v1.LogResult
+	(*ExportSpansResult)(nil),        // 4: pluggableharness.kernel.v1.ExportSpansResult
+	(*RecordMetricsResult)(nil),      // 5: pluggableharness.kernel.v1.RecordMetricsResult
+	(*GetTelemetryConfigResult)(nil), // 6: pluggableharness.kernel.v1.GetTelemetryConfigResult
+	(*GetConfigResult)(nil),          // 7: pluggableharness.kernel.v1.GetConfigResult
+	(*PublishResult)(nil),            // 8: pluggableharness.kernel.v1.PublishResult
+	(*GetSessionResult)(nil),         // 9: pluggableharness.kernel.v1.GetSessionResult
+	(*v1.Message)(nil),               // 10: pluggableharness.content.v1.Message
+	(v11.SessionStatus)(0),           // 11: pluggableharness.session.v1.SessionStatus
+	(v12.LogLevel)(0),                // 12: pluggableharness.log.v1.LogLevel
+	(*structpb.Struct)(nil),          // 13: google.protobuf.Struct
+	(*v11.SessionInfo)(nil),          // 14: pluggableharness.session.v1.SessionInfo
 }
 var file_pluggableharness_kernel_v1_rpc_response_proto_depIdxs = []int32{
-	4, // 0: pluggableharness.kernel.v1.RunSessionResult.final_message:type_name -> pluggableharness.content.v1.Message
-	5, // 1: pluggableharness.kernel.v1.RunSessionResult.status:type_name -> pluggableharness.session.v1.SessionStatus
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	10, // 0: pluggableharness.kernel.v1.RunSessionResult.final_message:type_name -> pluggableharness.content.v1.Message
+	11, // 1: pluggableharness.kernel.v1.RunSessionResult.status:type_name -> pluggableharness.session.v1.SessionStatus
+	12, // 2: pluggableharness.kernel.v1.GetTelemetryConfigResult.log_level:type_name -> pluggableharness.log.v1.LogLevel
+	13, // 3: pluggableharness.kernel.v1.GetConfigResult.config:type_name -> google.protobuf.Struct
+	14, // 4: pluggableharness.kernel.v1.GetSessionResult.info:type_name -> pluggableharness.session.v1.SessionInfo
+	5,  // [5:5] is the sub-list for method output_type
+	5,  // [5:5] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_kernel_v1_rpc_response_proto_init() }
@@ -351,7 +714,7 @@ func file_pluggableharness_kernel_v1_rpc_response_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_kernel_v1_rpc_response_proto_rawDesc), len(file_pluggableharness_kernel_v1_rpc_response_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

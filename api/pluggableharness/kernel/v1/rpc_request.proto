@@ -6,7 +6,9 @@ import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/kernel/v1/types.proto";
 import "pluggableharness/log/v1/types.proto";
+import "pluggableharness/metric/v1/types.proto";
 import "pluggableharness/model/v1/types.proto";
+import "pluggableharness/trace/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
 
@@ -79,9 +81,10 @@ message EmitRequest {
 
   // The event payload. MUST be set. Opaque to the kernel by design
   // (state-backend.md §4.1: "kernel never inspects this"); its structure
-  // is defined by whichever spec owns this EventKind. This is the one
-  // deliberate opaque-bytes carve-out in this file — every other field
-  // here is strongly typed.
+  // is defined by whichever spec owns this EventKind. One of two
+  // deliberate opaque-bytes carve-outs in this file — see PublishRequest
+  // below for the other — every other field in either message is
+  // strongly typed.
   bytes payload = 4;
 
   // Note: producer_category/producer_name/producer_version
@@ -93,8 +96,10 @@ message EmitRequest {
   // its own; there is no field here to spoof.
 }
 
-// LogRequest carries one structured log entry from a plugin to the
-// kernel. See kernel-callbacks.md §5.
+// LogRequest carries a batch of structured log entries from a plugin to
+// the kernel. See kernel-callbacks.md §5. Batched rather than one entry
+// per call: a plugin logging at TRACE would otherwise pay one unary
+// round-trip per line.
 message LogRequest {
   // The session this log entry is attributable to. MAY be omitted —
   // unlike EmitRequest.session_id, this is not mandatory, since logging
@@ -102,12 +107,128 @@ message LogRequest {
   // Configure-time, shutdown).
   optional string session_id = 1;
 
-  // The log entry itself. MUST be set.
-  pluggableharness.log.v1.LogEntry entry = 2;
+  reserved 2;
+  reserved "entry";
+
+  // The batch of log entries, in the order the plugin produced them.
+  // MUST be non-empty. A malformed entry within an otherwise-valid batch
+  // is skipped and warned about individually, not treated as failing the
+  // whole call — see kernel-callbacks.md §5.
+  repeated pluggableharness.log.v1.LogEntry entries = 3;
 
   // Note: producer_category/producer_name/producer_version are
   // deliberately NOT fields on this message, for the same reason
   // EmitRequest omits them — the kernel derives producer identity
   // server-side from the already-authenticated callback connection
   // established at handshake. There is no field here to spoof.
+}
+
+// ExportSpansRequest relays a batch of a plugin's own completed trace
+// spans to the kernel for forwarding to the operator's configured
+// collector. See kernel-callbacks.md's ExportSpans and
+// observability.md#the-relay-model.
+message ExportSpansRequest {
+  // The session this batch is attributable to, when any. MAY be
+  // omitted — same session-optional rule as LogRequest.session_id, since
+  // a plugin may produce spans outside any session context.
+  optional string session_id = 1;
+
+  // The batch of completed spans. MUST be non-empty. The kernel MUST NOT
+  // alter any span's identity or timing fields before relaying it.
+  repeated pluggableharness.trace.v1.Span spans = 2;
+}
+
+// RecordMetricsRequest relays a batch of metric observations. See
+// kernel-callbacks.md's RecordMetrics and
+// observability.md#the-tracing-metrics-asymmetry for why this is not a
+// transparent relay the way ExportSpansRequest is.
+message RecordMetricsRequest {
+  // The session this batch is attributable to, when any. MAY be
+  // omitted — same rule as LogRequest.session_id.
+  optional string session_id = 1;
+
+  // The batch of metric observations. MUST be non-empty.
+  repeated pluggableharness.metric.v1.MetricRecord metrics = 2;
+}
+
+// GetTelemetryConfigRequest asks the kernel whether tracing/metrics/logs
+// are enabled and at what level/ratio. See kernel-callbacks.md's
+// GetTelemetryConfig. Empty: the caller's identity comes from the
+// callback connection, never a request field.
+message GetTelemetryConfigRequest {}
+
+// GetConfigRequest asks the kernel for the calling plugin's own resolved
+// agent.hcl configuration. See kernel-callbacks.md's GetConfig. Empty:
+// the caller's identity comes from the callback connection, never a
+// request field.
+message GetConfigRequest {}
+
+// PublishRequest emits one event onto the event bus. See
+// kernel-callbacks.md's Publish and event-bus.md.
+message PublishRequest {
+  // A single dot-free, wildcard-free segment naming this occurrence
+  // within the plugin's own namespace, e.g. "file_changed". MUST be set.
+  // The kernel MUST reject a value containing "." or "*".
+  string event_type = 1;
+
+  // The event payload. MAY be empty. Opaque to the kernel by design —
+  // the second of two deliberate opaque-bytes carve-outs in this
+  // package (see EmitRequest.payload above); a third-party plugin's own
+  // event shape can't be named by this proto ahead of time.
+  bytes payload = 2;
+
+  // Identifies payload's shape for a subscriber: a fully-qualified proto
+  // message name (preferred) or a media type. MUST be set.
+  string payload_type = 3;
+
+  // Versions payload_type the same way EmitRequest.schema_version
+  // versions Emit's payload. MUST be set.
+  string schema_version = 4;
+
+  // Note: no topic field exists here on purpose — the kernel constructs
+  // the fully-resolved topic ("plugin.{category}.{name}.{event_type}")
+  // from the authenticated callback connection's producer identity, the
+  // same anti-spoof rule EmitRequest/LogRequest already apply. See
+  // event-bus.md#topic-grammar.
+}
+
+// SubscribeRequest opens a server-streaming subscription to the event
+// bus. See kernel-callbacks.md's Subscribe and event-bus.md#filter-grammar.
+message SubscribeRequest {
+  // The topics to receive events for. MUST be non-empty. Each entry is
+  // either an exact topic or a topic prefix ending in "*"
+  // (event-bus.md#filter-grammar). No other wildcard form is valid in
+  // v1.
+  repeated string topic_filters = 1;
+}
+
+// ReadEventsRequest asks the kernel to read back the calling plugin's own
+// session's persisted event log, ordered by sequence. See
+// kernel-callbacks.md's ReadEvents.
+message ReadEventsRequest {
+  // The calling session's id. MUST be set. Same one-session-only rule as
+  // EmitRequest.session_id — the kernel MUST reject a call naming any
+  // other session.
+  string session_id = 1;
+
+  // Restricts the stream to these kinds. MAY be empty, meaning every
+  // kind.
+  repeated EventKind kinds = 2;
+
+  // Resume point: only events with sequence >= this value are streamed.
+  // MAY be omitted, meaning from the start of the session's log.
+  optional int64 from_sequence = 3;
+
+  // Caps the number of events streamed. MAY be omitted, meaning no
+  // limit.
+  optional int32 limit = 4;
+}
+
+// GetSessionRequest asks the kernel for the calling plugin's own
+// session's metadata and live budget rollups. See kernel-callbacks.md's
+// GetSession.
+message GetSessionRequest {
+  // The calling session's id. MUST be set. Same one-session-only rule as
+  // EmitRequest.session_id.
+  string session_id = 1;
 }

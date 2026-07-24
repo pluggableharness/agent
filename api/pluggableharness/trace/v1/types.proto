@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+// Package pluggableharness.trace.v1 defines the wire shape of one relayed
+// trace span, described in specifications/observability.md and consumed by
+// pluggableharness.kernel.v1's ExportSpans RPC (KernelCallbackService).
+// This is a minimal, purpose-built mirror of OTel's own span model — not a
+// re-export of any upstream OTel proto package — so this project's wire
+// contract stays self-contained and versioned under this series' own
+// buf-breaking guarantees rather than an external schema's. A Span here is
+// relayed, never re-created through the kernel's own tracer
+// (observability.md#the-relay-model): the kernel forwards it to a
+// collector essentially unchanged, so every identity/timing field below is
+// authored by the plugin's own OTel SDK and MUST reach the kernel exactly
+// as that SDK produced it.
+package pluggableharness.trace.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/trace/proto/v1;tracev1";
+
+// SpanKind mirrors OTel's own span-kind taxonomy — which side of a call a
+// span represents, when that's meaningful.
+enum SpanKind {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  SPAN_KIND_UNSPECIFIED = 0;
+  // The default: an operation internal to the reporting process, with no
+  // remote counterpart.
+  SPAN_KIND_INTERNAL = 1;
+  // The receiving side of a synchronous remote call.
+  SPAN_KIND_SERVER = 2;
+  // The calling side of a synchronous remote call.
+  SPAN_KIND_CLIENT = 3;
+  // The initiating side of an asynchronous message.
+  SPAN_KIND_PRODUCER = 4;
+  // The receiving side of an asynchronous message.
+  SPAN_KIND_CONSUMER = 5;
+}
+
+// StatusCode is a span's outcome, mirroring OTel's own three-value status
+// model.
+enum StatusCode {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  STATUS_CODE_UNSPECIFIED = 0;
+  // The operation completed successfully, or no status was explicitly set
+  // (OTel's own "Unset" reads as success for export purposes).
+  STATUS_CODE_OK = 1;
+  // The operation failed.
+  STATUS_CODE_ERROR = 2;
+}
+
+// Status is a span's terminal outcome.
+message Status {
+  // The outcome. MUST be set.
+  StatusCode code = 1;
+
+  // A human-readable description of the status, meaningful only when
+  // code == STATUS_CODE_ERROR. MAY be empty.
+  string message = 2;
+}
+
+// InstrumentationScope identifies the tracer that produced a Span,
+// mirroring OTel's own instrumentation-scope concept (the tracer's own
+// name/version, distinct from the plugin's ProducerRef, which the kernel
+// attaches server-side at export time rather than reading from the span).
+message InstrumentationScope {
+  // The tracer's name, e.g. "github.com/pluggableharness/agent/plugin". MUST be set.
+  string name = 1;
+
+  // The tracer's version. MAY be empty.
+  string version = 2;
+}
+
+// SpanEvent is a timestamped annotation attached to a Span, mirroring
+// OTel's own span-event model (e.g. an exception recorded mid-span).
+message SpanEvent {
+  // The event's name. MUST be set.
+  string name = 1;
+
+  // When the event occurred. MUST be set.
+  google.protobuf.Timestamp time = 2;
+
+  // The event's attributes. A Struct because the attribute set is
+  // genuinely open-ended per call site (see .claude/rules/proto.md's
+  // Struct carve-out). MAY be empty.
+  google.protobuf.Struct attributes = 3;
+}
+
+// SpanLink references another span this one is causally related to
+// without being its parent, mirroring OTel's own span-link model (e.g. a
+// batched operation linking back to each request that fed it).
+message SpanLink {
+  // The linked span's trace id: 32-character lowercase hex, the W3C
+  // trace-context trace-id format. MUST be set.
+  string trace_id = 1;
+
+  // The linked span's span id: 16-character lowercase hex, the W3C
+  // trace-context span-id format. MUST be set.
+  string span_id = 2;
+
+  // The link's attributes. A Struct for the same reason as SpanEvent's
+  // attributes above (.claude/rules/proto.md's Struct carve-out). MAY be
+  // empty.
+  google.protobuf.Struct attributes = 3;
+}
+
+// Span is one completed trace span, exactly as the reporting plugin's own
+// OTel SDK produced it. The kernel MUST NOT alter trace_id, span_id,
+// parent_span_id, start_time, or end_time before relaying this to a
+// collector (observability.md#span-relay-is-transparent) — doing so would
+// silently sever this span from the parent/child relationships it already
+// had within the plugin's own process.
+message Span {
+  // This span's trace id: 32-character lowercase hex, the W3C
+  // trace-context trace-id format. MUST be set.
+  string trace_id = 1;
+
+  // This span's own id: 16-character lowercase hex, the W3C trace-context
+  // span-id format. MUST be set.
+  string span_id = 2;
+
+  // The parent span's id, same format as span_id. Absent for a root span.
+  optional string parent_span_id = 3;
+
+  // The span's name. MUST be set.
+  string name = 4;
+
+  // The span's kind. MUST be set.
+  SpanKind kind = 5;
+
+  // When the span started. MUST be set.
+  google.protobuf.Timestamp start_time = 6;
+
+  // When the span ended. MUST be set.
+  google.protobuf.Timestamp end_time = 7;
+
+  // The span's terminal status. MUST be set.
+  Status status = 8;
+
+  // The span's attributes. A Struct because the attribute set is
+  // genuinely open-ended per call site (see .claude/rules/proto.md's
+  // Struct carve-out) — unlike a metric.v1.MetricRecord's attributes, a
+  // span's attributes are never cardinality-bounded by the kernel
+  // (observability.md#the-tracing-metrics-asymmetry). MAY be empty.
+  google.protobuf.Struct attributes = 9;
+
+  // Timestamped annotations recorded during the span's lifetime, in
+  // occurrence order. MAY be empty.
+  repeated SpanEvent events = 10;
+
+  // Other spans this one is causally related to without being their
+  // parent. MAY be empty.
+  repeated SpanLink links = 11;
+
+  // The tracer that produced this span. MUST be set.
+  InstrumentationScope scope = 12;
+}

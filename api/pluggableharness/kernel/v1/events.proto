@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package pluggableharness.kernel.v1;
+
+import "google/protobuf/timestamp.proto";
+import "pluggableharness/common/v1/types.proto";
+import "pluggableharness/kernel/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
+
+// Occurrence-shaped messages streamed by the two server-streaming
+// KernelCallbackService RPCs: BusEvent (Subscribe) and StoredEvent
+// (ReadEvents).
+
+// BusEvent is one event delivered to a Subscribe stream. See
+// kernel-callbacks.md's Subscribe and event-bus.md.
+message BusEvent {
+  // The event's fully-resolved topic. See event-bus.md#topic-grammar.
+  string topic = 1;
+
+  // The event payload, exactly as published. MAY be empty. Opaque to the
+  // kernel — see PublishRequest.payload (rpc_request.proto).
+  bytes payload = 2;
+
+  // Identifies payload's shape. See PublishRequest.payload_type.
+  string payload_type = 3;
+
+  // Versions payload_type. See PublishRequest.schema_version.
+  string schema_version = 4;
+
+  // When the kernel received the Publish call this event fans out from.
+  // MUST be set. Display-only — this bus assigns no sequence number and
+  // makes no cross-subscriber ordering guarantee
+  // (event-bus.md#delivery-semantics).
+  google.protobuf.Timestamp time = 5;
+}
+
+// StoredEvent is one persisted event, read back by ReadEvents. Mirrors
+// state-backend.md's events table row. See kernel-callbacks.md's
+// ReadEvents.
+message StoredEvent {
+  // The row's ordering-authoritative sequence number. MUST be set.
+  // ReadEvents streams StoredEvents in ascending sequence order — never
+  // by time (.claude/rules/determinism.md).
+  int64 sequence = 1;
+
+  // The stable, storage-independent event id. MUST be set.
+  string id = 2;
+
+  // When this event occurred, wall-clock, display-only — never used to
+  // order anything (.claude/rules/determinism.md). MUST be set.
+  google.protobuf.Timestamp time = 3;
+
+  // The event's kind. MUST be set.
+  EventKind kind = 4;
+
+  // The plugin that originally Emit'd this event, read back from
+  // storage — unlike EmitRequest, which never carries a producer field,
+  // this is server-populated on write and simply returned here, not
+  // server-derived from the calling connection (the caller reading this
+  // back may be a different plugin than the one that emitted it). MUST
+  // be set.
+  pluggableharness.common.v1.ProducerRef producer = 5;
+
+  // The schema version of `payload`. MUST be set. See
+  // EmitRequest.schema_version.
+  string schema_version = 6;
+
+  // The event payload, exactly as the originating Emit call wrote it.
+  // Opaque to the kernel — see EmitRequest.payload.
+  bytes payload = 7;
+}

@@ -2,7 +2,9 @@ syntax = "proto3";
 
 package pluggableharness.kernel.v1;
 
+import "google/protobuf/struct.proto";
 import "pluggableharness/content/v1/types.proto";
+import "pluggableharness/log/v1/types.proto";
 import "pluggableharness/session/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
@@ -76,3 +78,72 @@ message EmitResult {
 // LogResult is empty: a Log call either succeeds or the RPC itself
 // returns a gRPC error status. There is nothing else to report back.
 message LogResult {}
+
+// ExportSpansResult is empty, the same shape as LogResult and for the
+// same reason.
+message ExportSpansResult {}
+
+// RecordMetricsResult is empty, the same shape as LogResult and for the
+// same reason.
+message RecordMetricsResult {}
+
+// GetTelemetryConfigResult carries the operator's current tracing/
+// metrics/logs configuration. See kernel-callbacks.md's
+// GetTelemetryConfig.
+message GetTelemetryConfigResult {
+  // Whether trace export is on. MUST be set.
+  bool traces_enabled = 1;
+
+  // Whether metrics export is on. MUST be set.
+  bool metrics_enabled = 2;
+
+  // Whether log export is on. MUST be set.
+  bool logs_enabled = 3;
+
+  // The floor below which a Log entry is accepted but immediately
+  // discarded kernel-side. MUST be set. See kernel-callbacks.md's Log
+  // section.
+  pluggableharness.log.v1.LogLevel log_level = 4;
+
+  // The configured ParentBased(TraceIDRatioBased) sampler ratio. MUST be
+  // set; meaningful only when traces_enabled.
+  double sampling_ratio = 5;
+}
+
+// GetConfigResult carries the calling plugin's own already-decoded
+// agent.hcl configuration. See kernel-callbacks.md's GetConfig.
+message GetConfigResult {
+  // The plugin's resolved config, identical in shape to what its own
+  // ConfigureRequest.config carried at Configure time. MUST be set.
+  // Secrets are already resolved through the schema-to-cty bridge — see
+  // kernel-callbacks.md's GetConfig for the MUST NOT-echo rule this
+  // implies.
+  google.protobuf.Struct config = 1;
+}
+
+// PublishResult carries the fully-resolved topic an event was published
+// on. See kernel-callbacks.md's Publish.
+message PublishResult {
+  // The topic this event was published on:
+  // "plugin.{category}.{name}.{event_type}". See
+  // event-bus.md#topic-grammar.
+  string topic = 1;
+}
+
+// GetSessionResult carries the calling plugin's own session's metadata
+// plus its live, in-memory budget rollups. See kernel-callbacks.md's
+// GetSession.
+message GetSessionResult {
+  // The session's persisted metadata and cost rollup. MUST be set.
+  pluggableharness.session.v1.SessionInfo info = 1;
+
+  // The session's remaining sub-agent nesting depth. MUST be set. Live,
+  // in-memory kernel state — never persisted (state-backend.md's
+  // live-vs-post-hoc distinction) — not a value read back from the state
+  // backend the way info.cost_usd is.
+  int32 remaining_depth = 2;
+
+  // The session's remaining cost budget, in USD. MUST be set. Same
+  // live, in-memory rationale as remaining_depth.
+  double remaining_cost_budget_usd = 3;
+}

@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+// Package pluggableharness.metric.v1 defines the wire shape of one relayed
+// metric observation, described in specifications/observability.md and
+// consumed by pluggableharness.kernel.v1's RecordMetrics RPC
+// (KernelCallbackService). Unlike pluggableharness.trace.v1's Span, a
+// MetricRecord is NOT relayed transparently: the kernel records each
+// observation against its own, kernel-owned instrument rather than
+// forwarding it as OTLP, and bounds `attributes`' key set before the
+// observation reaches any exporter
+// (observability.md#the-tracing-metrics-asymmetry) — the non-negotiable
+// metric-cardinality rule in .claude/rules/logging-telemetry.md would
+// otherwise let an arbitrary third-party plugin hand the kernel an
+// unbounded attribute set.
+package pluggableharness.metric.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/metric/proto/v1;metricv1";
+
+// MetricKind identifies which of OTel's three instrument shapes a
+// MetricRecord observation belongs to.
+enum MetricKind {
+  // Zero value. Never valid on the wire; its presence means a caller
+  // forgot to set the field.
+  METRIC_KIND_UNSPECIFIED = 0;
+  // A monotonically increasing sum, e.g. a request count.
+  METRIC_KIND_COUNTER = 1;
+  // A sum that can both increase and decrease, e.g. an active-connection
+  // gauge.
+  METRIC_KIND_UP_DOWN_COUNTER = 2;
+  // One observation to be aggregated into a distribution, e.g. a call
+  // duration. A MetricRecord carries exactly one observation, never a
+  // pre-aggregated bucket set — the kernel's own histogram instrument
+  // performs the aggregation, the same way an OTel Histogram instrument's
+  // Record(ctx, value) call does on the reporting side.
+  METRIC_KIND_HISTOGRAM = 3;
+}
+
+// MetricRecord is one metric observation, relayed by RecordMetrics.
+message MetricRecord {
+  // The metric's name. MUST be set. The kernel records this observation
+  // against an instrument named "plugin.{category}.{name}.{metric name}"
+  // — {category}/{name} come from the calling plugin's server-derived
+  // producer identity, never from a field on this message
+  // (kernel-callbacks.md's anti-spoof rule, applied here identically to
+  // Emit/Log/Publish).
+  string name = 1;
+
+  // A human-readable description of what this metric measures. MAY be
+  // empty.
+  string description = 2;
+
+  // The metric's unit, UCUM-style (e.g. "ms", "By", "1"). MAY be empty.
+  string unit = 3;
+
+  // Which instrument shape this observation belongs to. MUST be set. The
+  // kernel MUST reject a RecordMetrics call whose kind disagrees with a
+  // previously-created instrument of the same name.
+  MetricKind kind = 4;
+
+  // The observed value. Exactly one variant MUST be set.
+  oneof value {
+    // An integer observation.
+    int64 int_value = 5;
+    // A floating-point observation.
+    double double_value = 6;
+  }
+
+  // Open-ended key/value attributes for this observation (e.g. a status
+  // label). A genuine open-ended-by-design case, not a structured-payload
+  // dodge (.claude/rules/proto.md's map<string,string> carve-out) — but
+  // unlike trace.v1.Span's Struct-typed attributes, the kernel bounds this
+  // map's key set per instrument before the observation reaches any
+  // exporter (observability.md#the-tracing-metrics-asymmetry); a key
+  // beyond the bound is dropped, not rejected, with a throttled WARN log
+  // identifying what was dropped.
+  map<string, string> attributes = 7;
+
+  // When this observation occurred at the plugin. MUST be set.
+  google.protobuf.Timestamp time = 8;
+}
