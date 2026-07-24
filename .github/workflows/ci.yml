@@ -176,12 +176,15 @@ jobs:
   #
   #   1. buf lint      style/naming per buf.yaml (STANDARD rule set)
   #   2. buf format    formatting drift in .proto sources
-  #   3. buf breaking  wire-compat vs the PR base branch (FILE rule set).
-  #                    Plugins are versioned artifacts resolved at runtime —
-  #                    an unnoticed contract break strands every provider
-  #                    built against the old wire format. An intentional
-  #                    break must be visible: this check forces the PR to
-  #                    say so.
+  #   3. buf breaking  wire-compat vs the latest v* release tag (FILE rule
+  #                    set), per .claude/rules/proto.md's policy: the
+  #                    permanence guarantee applies from the first released
+  #                    tag onward, not from repo inception. Skipped entirely
+  #                    when no v* tag exists yet. Plugins are versioned
+  #                    artifacts resolved at runtime — an unnoticed contract
+  #                    break strands every provider built against the old
+  #                    wire format. An intentional break must be visible:
+  #                    this check forces the PR to say so.
   #   4. drift check   pkg/*/proto/v1 is 100% derived output and must match
   #                    what the pinned generators produce from api/ exactly.
   #                    Catches both hand-edited .pb.go files and .proto
@@ -216,13 +219,22 @@ jobs:
       - name: Format check
         run: buf format --diff --exit-code
 
-      # The base ref isn't fetched on a shallow PR checkout — fetch it into
-      # a real remote-tracking ref so buf can diff against it.
-      - name: Breaking-change check (vs base branch)
+      # Compares against the latest v* release tag, not the PR base branch —
+      # .claude/rules/proto.md's wire-compat guarantee is scoped to "any v1
+      # (or later-released) package", not to every commit since repo
+      # inception. A shallow PR checkout doesn't have tags by default, so
+      # fetch them explicitly.
+      - name: Breaking-change check (vs latest release tag)
         if: github.event_name == 'pull_request'
         run: |
-          git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
-          buf breaking --against ".git#ref=refs/remotes/origin/${{ github.base_ref }}"
+          git fetch --tags origin
+          latest_tag="$(git tag -l 'v*' --sort=-v:refname | head -n1)"
+          if [ -z "$latest_tag" ]; then
+            echo "No v* release tag exists yet — skipping buf breaking (proto.md: the wire-compat guarantee applies from the first released tag onward)."
+            exit 0
+          fi
+          echo "Comparing against $latest_tag"
+          buf breaking --against ".git#tag=$latest_tag"
 
       # Generator versions are pinned by go.mod `tool` directives, so this
       # regeneration is byte-for-byte reproducible. Binaries go to bin/ per

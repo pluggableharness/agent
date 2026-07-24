@@ -38,7 +38,7 @@ GOBIN=$PWD/bin go install tool                     # generators pinned via go.mo
 PATH=$PWD/bin:$PATH buf generate                   # regenerate pkg/*/proto/v1 — commit the result
 ```
 
-CI additionally runs `buf breaking` against the PR base branch — a wire-contract break fails the build by design; if it's intentional, say so explicitly in the PR.
+CI additionally runs `buf breaking` against the latest `v*` release tag (skipped when no tag exists yet) — a wire-contract break fails the build by design; if it's intentional, say so explicitly in the PR.
 
 Ground rules the gate can't fully check:
 
