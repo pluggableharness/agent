@@ -31,11 +31,32 @@
   happen. `launchScope` is shared by reference across every
   `categoryPlugin` in one launch's plugin map, so "exactly once" holds
   however many categories that launch dispenses; it also owns the
-  callback server (`newCallbackServer`), which is equally per-launch
-  rather than per-category. `adapter_test.go`'s `TestLaunchScope_serveOnce` asserts
+  callback server (`newCallbackServer`) and the recorded muxed
+  `*grpc.ClientConn`, both of which are equally per-launch rather than
+  per-category. `adapter_test.go`'s `TestLaunchScope_serveOnce` asserts
   this directly against a seven-category plugin map. Don't move the
   `sync.Once`, the callback, or the telemetry provider back onto
   `categoryPlugin` to "keep the adapter self-contained."
+
+- **`HookClient()` exposes the muxed connection as exactly one extra
+  typed client, deliberately not as a raw `*grpc.ClientConn`.**
+  `agent-loop/hook-dispatch.md#wire-contract--pluggableharnesshookv1`
+  requires the kernel dial `HookSubscriberService` "on the same connection
+  it already holds to that plugin's category service", so `Plugin` retains
+  the `*grpc.ClientConn` that `categoryPlugin.GRPCClient` was handed
+  (recorded on `launchScope`, read once in `Launch`). It is *not* handed
+  out raw: that connection is owned by the underlying `*plugin.Client` and
+  closed by `Close`, so a `Conn()` accessor would let a caller close it out
+  from under go-plugin or dial arbitrary services on it. The reason
+  `Dispensed()` returns `any` — this package has no category-specific
+  knowledge — doesn't apply here, because `HookSubscriberService` is the
+  one service in the whole protocol that is category-*agnostic* (one shared
+  service across all seven categories), so naming it costs this package no
+  category knowledge at all. Every launched `Plugin` exposes it
+  unconditionally, with no launch-time flag: a plugin declaring no `hook{}`
+  block simply never has `DispatchHook` called on it. If a later phase
+  needs a *second* extra service, add another named accessor — don't
+  reopen this by exposing the connection.
 
 - **This package never constructs the `kernelcallback.Server` it serves.**
   `Config.Callback` is a `kernelv1.KernelCallbackServiceServer` the
@@ -161,6 +182,12 @@
   a hand-rolled `hashicorp/go-plugin` adapter; a passing
   `TestLaunch_realSubprocess` is therefore this package's own end-to-end
   proof that SDK actually round-trips through a real subprocess launch.
+  Its `hook.Observer` facet is not decoration either: it logs back through
+  the kernel callback, which is what makes
+  `TestLaunch_hookClientSharesCategoryConnection` a real proof that a
+  `HookClient()` `DispatchHook` reached *that* subprocess over the same
+  muxed connection its `ToolServiceClient` came from, rather than an
+  assumption that go-plugin muxed it.
   Still don't grow it into a second, parallel plugin SDK inside this
   package, though: any new SDK ergonomics belong in `pkg/plugin` (or a
   category's own `pkg/<category>`) so every plugin author benefits, not

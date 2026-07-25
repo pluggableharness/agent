@@ -16,11 +16,11 @@
 // registers hook.Service alongside tool.Service on the same
 // plugin.Config.Services slice, proving pkg/plugin's multi-service muxing
 // (agent-loop/hook-dispatch.md's "one shared connection, more than one
-// gRPC service") doesn't break a real subprocess launch — this fixture
-// does not itself call DispatchHook, since internal/pluginruntime.Plugin
-// deliberately dispenses only the primary category client (Dispensed()),
-// not the raw *grpc.ClientConn a second service client would need; see
-// this package's CLAUDE.md on why that boundary exists.
+// gRPC service") doesn't break a real subprocess launch. Its Observe
+// facet logs back through the kernel callback so
+// launch_integration_test.go can prove a DispatchHook issued through
+// internal/pluginruntime.Plugin.HookClient reached *this* subprocess over
+// the same muxed connection its ToolServiceClient was dispensed on.
 //
 // Build-tagged integration so it never enters the default `go build ./...`
 // (which already skips testdata/ regardless).
@@ -42,6 +42,12 @@ import (
 // through the real subprocess rather than returning a zero value some
 // other way.
 const fixtureToolName = "fixture_echo"
+
+// fixtureHookLogMessage is what Observe logs back through the kernel
+// callback — launch_integration_test.go waits for it to confirm a
+// DispatchHook call landed in this subprocess, rather than being answered
+// by anything else on the kernel side.
+const fixtureHookLogMessage = "fixture hook observed"
 
 // fixtureIdentity is this fixture's own self-reported plugin.Identity, per
 // pkg/plugin.Identity's doc comment — used both for Describe (not
@@ -105,10 +111,16 @@ func (p *fixtureProvider) Invoke(_ context.Context, call *tool.Call, stream *too
 	return stream.Send(tool.NewResultEvent(map[string]any{"echo": call.Arguments}))
 }
 
-// Observe implements hook.Observer as a no-op — this fixture's test never
-// dispatches a hook; the point is only that hook.NewService(p) can be
-// registered alongside tool.NewService(p) without breaking the launch.
-func (p *fixtureProvider) Observe(context.Context, *hook.Payload) error {
+// Observe implements hook.Observer by logging back through the kernel
+// callback channel, so a DispatchHook call the kernel issues over the
+// muxed connection is observable on the kernel side as having genuinely
+// reached this subprocess. Like Schema, this is an RPC handler — the
+// sanctioned call site for callback.Client per pkg/plugin's
+// "callback-timing trap" doc comment.
+func (p *fixtureProvider) Observe(ctx context.Context, payload *hook.Payload) error {
+	if client, err := p.callback.Client(ctx); err == nil {
+		slog.New(client.NewSlogHandler()).Info(fixtureHookLogMessage, "point", payload.Point.String())
+	}
 	return nil
 }
 

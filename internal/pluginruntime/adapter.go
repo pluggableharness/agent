@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -36,9 +37,10 @@ var errUnrecognizedCategory = errors.New("pluginruntime: unrecognized category")
 
 // launchScope holds everything scoped to one Launch call rather than to
 // one category: the callback server served on the fixed callback broker,
-// and the sync.Once guarding that serve. Exactly one launchScope exists
-// per launched subprocess, shared by reference across every
-// categoryPlugin in that launch's plugin map.
+// the sync.Once guarding that serve, and the muxed *grpc.ClientConn every
+// service client for this subprocess is dialed over. Exactly one
+// launchScope exists per launched subprocess, shared by reference across
+// every categoryPlugin in that launch's plugin map.
 //
 // The Once lives here, not on categoryPlugin, because pkg/common's fixed
 // CallbackBrokerID is only collision-free while broker.AcceptAndServe is
@@ -55,6 +57,7 @@ type launchScope struct {
 	telemetry *telemetry.Provider
 
 	serveOnce sync.Once
+	conn      atomic.Pointer[grpc.ClientConn]
 }
 
 // newLaunchScope returns the launchScope shared by every categoryPlugin
@@ -91,6 +94,12 @@ func (s *launchScope) newCallbackServer(opts []grpc.ServerOption) *grpc.Server {
 	return gs
 }
 
+// clientConn returns the muxed connection this launch's category client
+// was dialed over, or nil before any categoryPlugin has been dispensed.
+func (s *launchScope) clientConn() *grpc.ClientConn {
+	return s.conn.Load()
+}
+
 // categoryPlugin is the plugin.GRPCPlugin dispensed for exactly one
 // category. GRPCClient (run kernel-side) registers the launch's callback
 // server on the fixed callback broker — via the shared launchScope, so
@@ -112,11 +121,14 @@ func (p *categoryPlugin) GRPCServer(*plugin.GRPCBroker, *grpc.Server) error {
 	return errGRPCServerUnsupported
 }
 
-// GRPCClient runs kernel-side. It starts serving KernelCallbackService on
-// the fixed callback broker — once per launch, via the shared launchScope,
-// however many categories that launch dispenses — then dispenses and
-// returns the raw category service client dialed over conn.
+// GRPCClient runs kernel-side. It records the muxed connection on the
+// shared launchScope (so Launch can dial a second service — the
+// category-agnostic HookSubscriberService — over that same connection,
+// per agent-loop/hook-dispatch.md's wire contract), starts serving
+// KernelCallbackService on the fixed callback broker once per launch, then
+// dispenses and returns the raw category service client dialed over conn.
 func (p *categoryPlugin) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (any, error) {
+	p.scope.conn.Store(conn)
 	p.scope.serveCallbackOnce(broker)
 	return newCategoryClient(p.category, conn)
 }

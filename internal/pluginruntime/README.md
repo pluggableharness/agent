@@ -24,6 +24,15 @@ subprocess implementing one category:
 8. Returning a `*Plugin` wrapping the dispensed client and the plugin's
    producer identity.
 
+`(*Plugin).HookClient()` returns a `HookSubscriberService` client dialed
+over the very same connection the category client was dialed over —
+`go-plugin` muxes several gRPC services over one subprocess connection, and
+`specifications/agent-loop/hook-dispatch.md` requires the kernel dial hook
+dispatch on exactly that connection rather than opening a second one. It is
+available on every launched plugin regardless of whether that plugin
+declares a `hook{}` block in `agent.hcl`; one that declares none simply
+never has `DispatchHook` called on it.
+
 Every launched plugin is simultaneously wired with a real, servable
 `KernelCallbackService` — the plugin-to-kernel reverse channel described
 in `specifications/kernel-callbacks.md` — served over a fixed, well-known

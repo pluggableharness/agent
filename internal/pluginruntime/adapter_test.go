@@ -263,3 +263,12 @@ func TestLaunchScope_newCallbackServer(t *testing.T) {
 		t.Fatalf("KernelCallbackService not registered: %v", server.GetServiceInfo())
 	}
 }
+
+func TestLaunchScope_clientConn(t *testing.T) {
+	t.Parallel()
+
+	scope := newLaunchScope(&fakeCallbackServer{}, newTestTelemetry(t))
+	if got := scope.clientConn(); got != nil {
+		t.Fatalf("clientConn() = %v before any dispense, want nil", got)
+	}
+}

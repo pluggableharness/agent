@@ -21,6 +21,7 @@ import (
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
 	"github.com/pluggableharness/agent/internal/telemetryrelay"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	hookv1 "github.com/pluggableharness/agent/pkg/hook/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 )
 
@@ -73,10 +74,17 @@ func (h *captureHandler) WithGroup(string) slog.Handler      { return h }
 // Log callback has arrived, attributed to producer via
 // internal/kernelcallback.Server's server-derived identity.
 func (h *captureHandler) hasFixtureLog(producer *commonv1.ProducerRef) bool {
+	return h.hasLog("fixture plugin started", producer)
+}
+
+// hasLog reports whether a Log callback carrying msg has arrived from the
+// fixture, attributed to producer via internal/kernelcallback.Server's
+// server-derived identity.
+func (h *captureHandler) hasLog(msg string, producer *commonv1.ProducerRef) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, r := range h.records {
-		if r.Message != "fixture plugin started" {
+		if r.Message != msg {
 			continue
 		}
 		var gotName, gotCategory bool
@@ -192,6 +200,104 @@ func TestLaunch_realSubprocess(t *testing.T) {
 			t.Fatal("fixture's Log callback never reached internal/kernelcallback.Server with correct producer attribution")
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// waitForLog blocks until a Log callback carrying msg has arrived from
+// the fixture with correct producer attribution, or fails the test. The
+// fixture's callbacks arrive on a background goroutine on its side, so
+// polling is required rather than assuming synchronous delivery; the
+// bound sits well inside the 5s integration-test budget.
+func waitForLog(t *testing.T, h *captureHandler, msg string, producer *commonv1.ProducerRef) {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for !h.hasLog(msg, producer) {
+		if time.Now().After(deadline) {
+			t.Fatalf("fixture's %q Log callback never reached internal/kernelcallback.Server with correct producer attribution", msg)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// TestLaunch_hookClientSharesCategoryConnection is the actual proof of
+// agent-loop/hook-dispatch.md#wire-contract--pluggableharnesshookv1's
+// "the kernel dials HookSubscriberService on the same connection it
+// already holds to that plugin's category service" — not an assumption
+// about it. The fixture is launched as a tool plugin, its ToolServiceClient
+// is exercised first so the connection under test is demonstrably the one
+// already carrying category traffic, and only then is HookClient's
+// DispatchHook issued over that same connection. The fixture's Observe
+// facet logs back through the kernel callback, so the assertion is that
+// the dispatch genuinely reached *that* subprocess.
+//
+// The post-Close assertion closes the loop from the other direction: one
+// shared connection means one shared lifecycle, so the hook client must
+// die with the category client rather than surviving as an independent
+// dial.
+func TestLaunch_hookClientSharesCategoryConnection(t *testing.T) {
+	cfg, h, producer := newFixtureLaunch(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	pl, err := pluginruntime.Launch(ctx, cfg)
+	if err != nil {
+		t.Fatalf("Launch: %v", err)
+	}
+	t.Cleanup(func() {
+		closeCtx, closeCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer closeCancel()
+		_ = pl.Close(closeCtx) // idempotent; the in-body Close below is the one under test
+	})
+
+	toolClient, ok := pl.Dispensed().(toolv1.ToolServiceClient)
+	if !ok {
+		t.Fatalf("Dispensed() = %T, want toolv1.ToolServiceClient", pl.Dispensed())
+	}
+	if _, err := toolClient.GetSchema(ctx, &toolv1.GetSchemaRequest{}); err != nil {
+		t.Fatalf("GetSchema: %v", err)
+	}
+
+	hookClient, ok := pl.HookClient()
+	if !ok {
+		t.Fatal("HookClient() ok = false after a successful Launch, want true")
+	}
+
+	req := &hookv1.DispatchHookRequest{
+		Mode: hookv1.HookMode_HOOK_MODE_OBSERVE,
+		Payload: &hookv1.HookPayload{
+			Payload: &hookv1.HookPayload_SessionStart{
+				SessionStart: &hookv1.SessionStartPayload{
+					SessionId:        "session-pluginruntime-integration",
+					Profile:          "default",
+					WorkingDirectory: t.TempDir(),
+				},
+			},
+		},
+	}
+	resp, err := hookClient.DispatchHook(ctx, req)
+	if err != nil {
+		t.Fatalf("DispatchHook over the category client's own connection: %v", err)
+	}
+	if resp.GetObserve() == nil {
+		t.Fatalf("DispatchHook outcome = %v, want an ObserveAck for HOOK_MODE_OBSERVE", resp.GetOutcome())
+	}
+
+	// The fixture's Observe logs this back through the kernel callback —
+	// see testdata/plugin/main.go's fixtureHookLogMessage.
+	waitForLog(t, h, "fixture hook observed", producer)
+
+	closeCtx, closeCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer closeCancel()
+	if err := pl.Close(closeCtx); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	rpcCtx, rpcCancel := context.WithTimeout(context.Background(), time.Second)
+	defer rpcCancel()
+	if _, err := hookClient.DispatchHook(rpcCtx, req); err == nil {
+		t.Error("DispatchHook succeeded after Close, want an error — the hook client must share the category client's connection and lifecycle, not hold an independent one")
 	}
 }
 
