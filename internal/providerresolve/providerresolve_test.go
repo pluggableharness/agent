@@ -40,11 +40,12 @@ func rangeAt(offset int) hcl.Range {
 }
 
 // writeBinary creates an executable placeholder at the plugin-cache path
-// for (source, version, platform) under cacheDir, and returns that path.
-func writeBinary(t *testing.T, cacheDir, source, version, platform string) string {
+// for (source, version) under cacheDir for testPlatform, and returns that
+// path.
+func writeBinary(t *testing.T, cacheDir, source, version string) string {
 	t.Helper()
 
-	path := plugincache.BinaryPath(cacheDir, source, version, platform)
+	path := plugincache.BinaryPath(cacheDir, source, version, testPlatform)
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
 	}
@@ -55,18 +56,17 @@ func writeBinary(t *testing.T, cacheDir, source, version, platform string) strin
 }
 
 // writeNonExecutable creates a present-but-unrunnable file at the
-// plugin-cache path for (source, version, platform).
-func writeNonExecutable(t *testing.T, cacheDir, source, version, platform string) string {
+// plugin-cache path for (source, version) under testPlatform.
+func writeNonExecutable(t *testing.T, cacheDir, source, version string) {
 	t.Helper()
 
-	path := plugincache.BinaryPath(cacheDir, source, version, platform)
+	path := plugincache.BinaryPath(cacheDir, source, version, testPlatform)
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte("not a binary"), 0o600); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
-	return path
 }
 
 func TestOrder(t *testing.T) {
@@ -232,7 +232,7 @@ func TestResolve_lockedProvider(t *testing.T) {
 	dir := t.TempDir()
 	cacheDir := filepath.Join(dir, "cache")
 	const source = "github.com/agentco/provider-anthropic"
-	path := writeBinary(t, cacheDir, source, "1.2.3", testPlatform)
+	path := writeBinary(t, cacheDir, source, "1.2.3")
 
 	in := providerresolve.Input{
 		Config: &config.Config{
@@ -307,7 +307,7 @@ func TestResolve_categoryText(t *testing.T) {
 			dir := t.TempDir()
 			cacheDir := filepath.Join(dir, "cache")
 			const source = "github.com/agentco/p"
-			writeBinary(t, cacheDir, source, "1.0.0", testPlatform)
+			writeBinary(t, cacheDir, source, "1.0.0")
 
 			in := providerresolve.Input{
 				Config: &config.Config{RequiredProviders: map[string]config.RequiredProvider{"p": {Source: source}}},
@@ -363,7 +363,7 @@ func TestResolve_missingReasons(t *testing.T) {
 		{
 			name: "no checksum for this platform",
 			setup: func(t *testing.T, cacheDir string) map[string]registry.LockedProvider {
-				writeBinary(t, cacheDir, source, "1.0.0", testPlatform)
+				writeBinary(t, cacheDir, source, "1.0.0")
 				return map[string]registry.LockedProvider{
 					"p": {Source: source, Version: "1.0.0", Checksums: map[string]string{"darwin_arm64": "sha256:x"}},
 				}
@@ -374,7 +374,7 @@ func TestResolve_missingReasons(t *testing.T) {
 		{
 			name: "not executable",
 			setup: func(t *testing.T, cacheDir string) map[string]registry.LockedProvider {
-				writeNonExecutable(t, cacheDir, source, "1.0.0", testPlatform)
+				writeNonExecutable(t, cacheDir, source, "1.0.0")
 				return map[string]registry.LockedProvider{
 					"p": {Source: source, Version: "1.0.0", Checksums: map[string]string{testPlatform: "sha256:x"}},
 				}
@@ -488,9 +488,9 @@ func TestResolve_accumulatesEveryProblem(t *testing.T) {
 	}
 
 	cacheDir := filepath.Join(t.TempDir(), "cache")
-	writeBinary(t, cacheDir, "github.com/agentco/nochecksum", "1.0.0", testPlatform)
-	writeNonExecutable(t, cacheDir, "github.com/agentco/notexec", "1.0.0", testPlatform)
-	writeBinary(t, cacheDir, "github.com/agentco/ok", "1.0.0", testPlatform)
+	writeBinary(t, cacheDir, "github.com/agentco/nochecksum", "1.0.0")
+	writeNonExecutable(t, cacheDir, "github.com/agentco/notexec", "1.0.0")
+	writeBinary(t, cacheDir, "github.com/agentco/ok", "1.0.0")
 
 	in := providerresolve.Input{
 		Config: &config.Config{

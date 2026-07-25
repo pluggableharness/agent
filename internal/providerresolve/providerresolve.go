@@ -46,6 +46,14 @@ type Resolved struct {
 	// (source, version, platform).
 	BinaryPath string
 
+	// Platform is the "<os>_<arch>" key this entry was resolved for —
+	// the same key BinaryPath was built from and, for a locked provider,
+	// the key Locked.Checksums was confirmed to carry. Carried here so a
+	// later checksum verification uses the platform this resolution
+	// actually happened for, rather than re-deriving one that could
+	// silently disagree with it.
+	Platform string
+
 	// ViaDevOverride reports whether this entry came from the global
 	// config's dev_overrides map, bypassing the registry/lock machinery
 	// (configuration/settings-and-global.md#dev_overrides).
@@ -204,6 +212,7 @@ func resolveOne(ctx context.Context, logger *slog.Logger, in Input, name string,
 			Source:         req.Source,
 			Category:       commonv1.Category_CATEGORY_UNSPECIFIED,
 			BinaryPath:     path,
+			Platform:       in.Platform,
 			ViaDevOverride: true,
 		}, nil
 	}
@@ -244,6 +253,7 @@ func resolveOne(ctx context.Context, logger *slog.Logger, in Input, name string,
 		Version:    locked.Version,
 		Category:   parseCategory(locked.Category),
 		BinaryPath: path,
+		Platform:   in.Platform,
 		Locked:     &locked,
 	}, nil
 }
