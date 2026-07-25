@@ -101,6 +101,55 @@ var eventTextKind = func() map[string]kernelv1.EventKind {
 	return m
 }()
 
+// eventPayloadType maps EventKind to the fully-qualified
+// pluggableharness.event.v1 message name that kind's payload is marshaled
+// as, transcribed from docs/specifications/state-backend.md#the-kind-enum's
+// kind -> event.v1 message table. The three memory kinds deliberately share
+// one message (MemoryMutationEvent) — the mutating verb is the kind itself,
+// not a payload field. EVENT_KIND_UNSPECIFIED is absent for the same reason
+// it is absent from eventKindText: it is never valid on the wire.
+var eventPayloadType = map[kernelv1.EventKind]string{
+	kernelv1.EventKind_EVENT_KIND_MESSAGE:              "pluggableharness.event.v1.MessageEvent",
+	kernelv1.EventKind_EVENT_KIND_TOOL_CALL:            "pluggableharness.event.v1.ToolCallEvent",
+	kernelv1.EventKind_EVENT_KIND_TOOL_RESULT:          "pluggableharness.event.v1.ToolResultEvent",
+	kernelv1.EventKind_EVENT_KIND_PLAN:                 "pluggableharness.event.v1.PlanEvent",
+	kernelv1.EventKind_EVENT_KIND_APPLY:                "pluggableharness.event.v1.ApplyEvent",
+	kernelv1.EventKind_EVENT_KIND_CONTEXT_CONTRIBUTION: "pluggableharness.event.v1.ContextContributionEvent",
+	kernelv1.EventKind_EVENT_KIND_MEMORY_WRITE:         "pluggableharness.event.v1.MemoryMutationEvent",
+	kernelv1.EventKind_EVENT_KIND_MEMORY_UPDATE:        "pluggableharness.event.v1.MemoryMutationEvent",
+	kernelv1.EventKind_EVENT_KIND_MEMORY_DELETE:        "pluggableharness.event.v1.MemoryMutationEvent",
+	kernelv1.EventKind_EVENT_KIND_HOOK_ERROR:           "pluggableharness.event.v1.HookErrorEvent",
+}
+
+// EventKindText returns kind's stable lowercase TEXT encoding — the exact
+// value this package stores in events.kind, and the same vocabulary
+// kernel-callbacks.md#emit's reserved bus topic `kernel.event.{kind}` is
+// built from. EVENT_KIND_UNSPECIFIED and any unrecognized value return
+// ErrInvalidKind. This is a thin exported wrapper over the package-internal
+// encodeEventKind rather than a second switch: the stored vocabulary has
+// exactly one definition (eventKindText), and callers outside this package
+// get it from here.
+func EventKindText(kind kernelv1.EventKind) (string, error) {
+	return encodeEventKind(kind)
+}
+
+// EventPayloadType returns the fully-qualified pluggableharness.event.v1
+// message name that kind's payload MUST be marshaled as, per
+// docs/specifications/state-backend.md#the-kind-enum — the value a
+// kernel.v1.BusEvent.payload_type field carries when the kernel republishes
+// a persisted event onto the bus. EVENT_KIND_UNSPECIFIED and any
+// unrecognized value return ErrInvalidKind, matching EventKindText.
+//
+// This is a name, not a decode: this package never unmarshals a payload
+// (events.payload is opaque to the kernel, per the spec's events table).
+func EventPayloadType(kind kernelv1.EventKind) (string, error) {
+	name, ok := eventPayloadType[kind]
+	if !ok {
+		return "", fmt.Errorf("statebackend: %w: %v", ErrInvalidKind, kind)
+	}
+	return name, nil
+}
+
 // encodeEventKind renders kind as its stored TEXT representation.
 // EVENT_KIND_UNSPECIFIED and any unrecognized value return ErrInvalidKind.
 func encodeEventKind(kind kernelv1.EventKind) (string, error) {
