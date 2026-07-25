@@ -56,10 +56,21 @@
   nothing durable").
 
 - **This package MUST NOT import `internal/kernelcallback`.** It is the
-  primitive a later phase's `kernelcallback` `Emit`/`ReadEvents`/
-  `GetSession` implementation is built on top of, not a peer or a
-  consumer of it — importing it here would be backwards and likely
-  cyclic once that phase lands.
+  primitive `internal/kernelcallback`'s `Emit`/`ReadEvents`/`GetSession`
+  implementation is built on top of, not a peer or a consumer of it —
+  importing it here would be backwards and cyclic.
+
+- **`query.go`'s `Meta`/`TotalCostUSD`/`Events` are the additive read
+  pass-throughs `internal/kernelcallback`'s `GetSession`/`ReadEvents`
+  needed, added deliberately narrow.** Each is a one-line delegation to
+  the wrapped `*statebackend.Session` and, unlike every `Emit*` method in
+  `emit.go`, takes no lock: they're read-only, and sqlite's own WAL-mode
+  readers already see either the state before or after a concurrent
+  write's commit, never a torn one, so serializing a read against `Live.mu`
+  would only add unneeded contention with an in-flight `Emit*` call. If a
+  future caller needs a read that isn't a direct pass-through to an
+  existing `*statebackend.Session` method, add another narrow method here
+  rather than exposing the `session` field itself.
 
 - **`republish`'s `EventKindText`/`EventPayloadType` error branches are
   unreachable in practice, not dead code to delete.** `rec.Kind` already
