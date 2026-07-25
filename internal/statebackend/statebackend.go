@@ -251,8 +251,19 @@ func (st *Store) sessionPath(sessionID string) string {
 // a PRAGMA exec deliberately: WAL is a durable property of the database
 // file itself (recorded in the file header), not a per-connection
 // setting, so a replacement connection sees it automatically.
+//
+// busy_timeout is set for the same per-connection reason as foreign_keys.
+// WAL keeps a concurrent reader from blocking the kernel's writes as a
+// steady state, but it does not make every moment lock-free: another
+// process opening the file (a CLI `agent sessions show <id>` against a
+// running session) briefly takes an exclusive lock while sqlite
+// initializes the -shm/-wal sidecars. With no busy timeout, a write
+// landing in that window fails outright with SQLITE_BUSY — exactly the
+// "gets blocked by a concurrent reader" outcome
+// docs/specifications/state-backend.md#ordering--concurrency rules out.
+// Waiting briefly for the lock is what makes that guarantee hold.
 func openDB(ctx context.Context, path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)")
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, fmt.Errorf("statebackend: open %s: %w", path, err)
 	}

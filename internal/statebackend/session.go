@@ -91,7 +91,7 @@ func (s *Session) appendEventTx(ctx context.Context, ev Event, extra func(ctx co
 	if ev.Producer == nil {
 		return 0, fmt.Errorf("statebackend: append event: producer is required")
 	}
-	categoryText, err := encodeProducerCategory(ev.Producer.GetCategory())
+	categoryText, err := encodeProducer(ev.Producer, ev.Kind)
 	if err != nil {
 		return 0, fmt.Errorf("statebackend: append event: %w", err)
 	}

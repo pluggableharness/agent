@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"iter"
+	"strings"
 
 	"github.com/pluggableharness/agent/internal/telemetry"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 )
 
 // rowScanner is the subset of *sql.Row and *sql.Rows this package's scan
@@ -35,6 +37,28 @@ func (s *Session) Meta(ctx context.Context) (_ SessionMeta, err error) {
 	return meta, nil
 }
 
+// EventQuery filters a Session.EventsMatching call, mirroring
+// docs/specifications/kernel-callbacks.md#readevents' ReadEventsRequest
+// field for field. Its zero value is the "everything" query.
+type EventQuery struct {
+	// Kinds, when non-empty, restricts results to these kinds. Order here
+	// does not affect result order — results are always sequence-ascending
+	// regardless — and duplicates are ignored. An EVENT_KIND_UNSPECIFIED or
+	// otherwise unrecognized entry fails the query with ErrInvalidKind
+	// rather than being silently dropped.
+	Kinds []kernelv1.EventKind
+
+	// FromSequence, when non-nil, restricts results to sequence >=
+	// *FromSequence ("from the start of the session's log" when omitted).
+	FromSequence *int64
+
+	// Limit, when non-nil, caps the number of returned rows ("no limit"
+	// when omitted). Zero is a legitimate limit and returns no rows; a
+	// negative value fails the query, because sqlite would silently read it
+	// as "no limit" — the opposite of what any caller passing one means.
+	Limit *int32
+}
+
 // Events returns every event in this session's file as a sequence-ordered
 // iter.Seq2 — sequence is the sole ordering authority
 // (docs/specifications/state-backend.md#ordering--concurrency,
@@ -44,7 +68,23 @@ func (s *Session) Meta(ctx context.Context) (_ SessionMeta, err error) {
 // iteration — the caller sees no further events after that point. If
 // Close has already been called, the sequence yields exactly one
 // (Event{}, ErrClosed) pair.
+//
+// This is exactly EventsMatching with a zero-value EventQuery; there is one
+// read path, not two.
 func (s *Session) Events(ctx context.Context) iter.Seq2[Event, error] {
+	return s.EventsMatching(ctx, EventQuery{})
+}
+
+// EventsMatching returns this session's persisted events matching q as a
+// sequence-ordered iter.Seq2 — ascending by sequence always, never by
+// timestamp (determinism.md#ordering,
+// docs/specifications/kernel-callbacks.md#readevents), whatever order q's
+// own fields are in. A zero-value EventQuery matches every event and is
+// identical to Events. Error and early-break behavior match Events: a
+// closed session yields exactly one (Event{}, ErrClosed) pair, and a build,
+// query, or decode failure surfaces through the error side of the pair and
+// stops iteration.
+func (s *Session) EventsMatching(ctx context.Context, q EventQuery) iter.Seq2[Event, error] {
 	return func(yield func(Event, error) bool) {
 		if s.closed.Load() {
 			yield(Event{}, ErrClosed)
@@ -54,10 +94,16 @@ func (s *Session) Events(ctx context.Context) iter.Seq2[Event, error] {
 		ctx, span := s.telemetry.StartStateBackendEventsQuery(ctx, s.id)
 		var err error
 		defer func() { telemetry.EndSpan(span, err) }()
-		s.logger.DebugContext(ctx, "statebackend: querying events", "session_id", s.id)
+		s.logger.DebugContext(ctx, "statebackend: querying events", "session_id", s.id, "kind_filters", len(q.Kinds))
 
-		const q = `SELECT sequence, id, timestamp, kind, producer_category, producer_name, producer_version, schema_version, payload FROM events ORDER BY sequence`
-		rows, queryErr := s.db.QueryContext(ctx, q)
+		query, args, buildErr := buildEventsQuery(q)
+		if buildErr != nil {
+			err = fmt.Errorf("statebackend: query events: %w", buildErr)
+			yield(Event{}, err)
+			return
+		}
+
+		rows, queryErr := s.db.QueryContext(ctx, query, args...)
 		if queryErr != nil {
 			err = fmt.Errorf("statebackend: query events: %w", queryErr)
 			yield(Event{}, err)
@@ -81,6 +127,79 @@ func (s *Session) Events(ctx context.Context) iter.Seq2[Event, error] {
 			yield(Event{}, err)
 		}
 	}
+}
+
+// eventsSelect is the column list every events read shares — the same
+// columns, in the same order, scanEvent expects.
+const eventsSelect = `SELECT sequence, id, timestamp, kind, producer_category, producer_name, producer_version, schema_version, payload FROM events`
+
+// buildEventsQuery renders q as a parameterized SELECT plus its bind
+// arguments. Only fixed SQL fragments and `?` placeholders are ever
+// concatenated into the statement — every value from q is bound, never
+// interpolated.
+func buildEventsQuery(q EventQuery) (string, []any, error) {
+	var (
+		conditions []string
+		args       []any
+	)
+
+	if len(q.Kinds) > 0 {
+		kindTexts, err := encodeEventKinds(q.Kinds)
+		if err != nil {
+			return "", nil, err
+		}
+		conditions = append(conditions, "kind IN ("+placeholders(len(kindTexts))+")")
+		for _, text := range kindTexts {
+			args = append(args, text)
+		}
+	}
+	if q.FromSequence != nil {
+		conditions = append(conditions, "sequence >= ?")
+		args = append(args, *q.FromSequence)
+	}
+
+	var b strings.Builder
+	b.WriteString(eventsSelect)
+	if len(conditions) > 0 {
+		b.WriteString(" WHERE ")
+		b.WriteString(strings.Join(conditions, " AND "))
+	}
+	b.WriteString(" ORDER BY sequence")
+	if q.Limit != nil {
+		if *q.Limit < 0 {
+			return "", nil, fmt.Errorf("statebackend: limit must not be negative, got %d", *q.Limit)
+		}
+		b.WriteString(" LIMIT ?")
+		args = append(args, *q.Limit)
+	}
+	return b.String(), args, nil
+}
+
+// encodeEventKinds renders kinds as their stored TEXT values, deduplicated
+// in first-seen order. The order is derived from the caller's slice alone —
+// never from Go map iteration (determinism.md), so the same EventQuery
+// always produces a byte-identical statement.
+func encodeEventKinds(kinds []kernelv1.EventKind) ([]string, error) {
+	texts := make([]string, 0, len(kinds))
+	seen := make(map[kernelv1.EventKind]struct{}, len(kinds))
+	for _, kind := range kinds {
+		if _, dup := seen[kind]; dup {
+			continue
+		}
+		seen[kind] = struct{}{}
+		text, err := encodeEventKind(kind)
+		if err != nil {
+			return nil, err
+		}
+		texts = append(texts, text)
+	}
+	return texts, nil
+}
+
+// placeholders returns n comma-separated `?` bind placeholders. n is always
+// >= 1 at every call site.
+func placeholders(n int) string {
+	return strings.TrimSuffix(strings.Repeat("?, ", n), ", ")
 }
 
 // scanEvent decodes one events row, translating its stored TEXT
@@ -107,7 +226,7 @@ func scanEvent(row rowScanner) (Event, error) {
 	}
 	ev.Kind = kind
 
-	category, err := decodeProducerCategory(categoryText)
+	category, err := decodeProducer(categoryText, name)
 	if err != nil {
 		return Event{}, err
 	}
@@ -144,7 +263,7 @@ func (s *Session) Producers(ctx context.Context) (_ []*commonv1.ProducerRef, err
 			err = fmt.Errorf("statebackend: query producers: %w", scanErr)
 			return nil, err
 		}
-		category, decErr := decodeProducerCategory(categoryText)
+		category, decErr := decodeProducer(categoryText, name)
 		if decErr != nil {
 			err = fmt.Errorf("statebackend: query producers: %w", decErr)
 			return nil, err

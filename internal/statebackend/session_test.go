@@ -248,6 +248,177 @@ func TestSession_AppendEvent_missingProducer(t *testing.T) {
 	}
 }
 
+// TestSession_KernelProducer_roundTrip is the required end-to-end check for
+// the reserved kernel identity: a plan event appended under it must read
+// back as the kernel, and must sit alongside a real plugin producer in the
+// same session's manifest without either being confused for the other.
+func TestSession_KernelProducer_roundTrip(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	sess := createSession(t, st, testSessionMeta())
+
+	items := []PlanItem{
+		{TurnID: "t1", ToolCallID: "c1", ProviderName: "ripgrep", ToolName: "search", Decision: planv1.PlanDecision_PLAN_DECISION_ALLOW, DecidedBy: "policy"},
+		{TurnID: "t1", ToolCallID: "c2", ProviderName: "fs", ToolName: "write_file", Decision: planv1.PlanDecision_PLAN_DECISION_DENY, DecidedBy: "policy"},
+	}
+	planEvent := testEvent(NewEventID(time.Now()))
+	planEvent.Kind = kernelv1.EventKind_EVENT_KIND_PLAN
+	planEvent.Producer = KernelProducer()
+	if _, err := sess.AppendPlan(context.Background(), planEvent, items); err != nil {
+		t.Fatalf("AppendPlan (kernel producer): %v", err)
+	}
+
+	applyEvent := testEvent(NewEventID(time.Now()))
+	applyEvent.Kind = kernelv1.EventKind_EVENT_KIND_APPLY
+	applyEvent.Producer = KernelProducer()
+	if _, err := sess.AppendEvent(context.Background(), applyEvent); err != nil {
+		t.Fatalf("AppendEvent (kernel producer, apply): %v", err)
+	}
+
+	// A real plugin producer in the same file, to prove the two coexist.
+	toolEvent := testEvent(NewEventID(time.Now()))
+	if _, err := sess.AppendEvent(context.Background(), toolEvent); err != nil {
+		t.Fatalf("AppendEvent (tool producer): %v", err)
+	}
+
+	got := collectEvents(t, sess.Events(context.Background()))
+	if len(got) != 3 {
+		t.Fatalf("Events returned %d events, want 3", len(got))
+	}
+	for i, ev := range got[:2] {
+		if !IsKernelProducer(ev.Producer) {
+			t.Errorf("event[%d].Producer = %+v, want the kernel producer", i, ev.Producer)
+		}
+		if ev.Producer.GetName() != "kernel" || ev.Producer.GetVersion() != "1" || ev.Producer.GetCategory() != commonv1.Category_CATEGORY_UNSPECIFIED {
+			t.Errorf("event[%d].Producer = %+v, want %+v", i, ev.Producer, KernelProducer())
+		}
+	}
+	if IsKernelProducer(got[2].Producer) {
+		t.Errorf("event[2].Producer = %+v, want the real tool producer", got[2].Producer)
+	}
+	if got[2].Producer.GetCategory() != commonv1.Category_CATEGORY_TOOL {
+		t.Errorf("event[2].Producer.Category = %v, want CATEGORY_TOOL", got[2].Producer.GetCategory())
+	}
+
+	// The producers manifest carries the kernel exactly once, deduped like
+	// any other producer, alongside the real plugin.
+	producers, err := sess.Producers(context.Background())
+	if err != nil {
+		t.Fatalf("Producers: %v", err)
+	}
+	if len(producers) != 2 {
+		t.Fatalf("Producers = %d entries, want 2 (kernel + tool)", len(producers))
+	}
+	kernelSeen := 0
+	for _, p := range producers {
+		if IsKernelProducer(p) {
+			kernelSeen++
+			if p.GetVersion() != "1" {
+				t.Errorf("kernel producer version = %q, want %q", p.GetVersion(), "1")
+			}
+		}
+	}
+	if kernelSeen != 1 {
+		t.Errorf("kernel producer appears %d times in the manifest, want exactly 1", kernelSeen)
+	}
+
+	// The plan items the kernel-produced plan event carried are intact.
+	planItems, err := sess.PlanItems(context.Background())
+	if err != nil {
+		t.Fatalf("PlanItems: %v", err)
+	}
+	if len(planItems) != len(items) {
+		t.Fatalf("PlanItems = %d, want %d", len(planItems), len(items))
+	}
+
+	// Filtering by kind finds the kernel's own events without any special
+	// casing at the query layer.
+	kernelEvents := collectEvents(t, sess.EventsMatching(context.Background(), EventQuery{
+		Kinds: []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_PLAN, kernelv1.EventKind_EVENT_KIND_APPLY},
+	}))
+	if len(kernelEvents) != 2 {
+		t.Fatalf("EventsMatching(plan, apply) = %d events, want 2", len(kernelEvents))
+	}
+}
+
+// TestSession_AppendEvent_kernelProducerKindGate pins the write-path half
+// of the reserved kernel identity: it is storable on plan and apply events
+// only, and nothing is written when it is refused.
+func TestSession_AppendEvent_kernelProducerKindGate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		kind    kernelv1.EventKind
+		wantErr bool
+	}{
+		{"plan", kernelv1.EventKind_EVENT_KIND_PLAN, false},
+		{"apply", kernelv1.EventKind_EVENT_KIND_APPLY, false},
+		{"tool_call", kernelv1.EventKind_EVENT_KIND_TOOL_CALL, true},
+		{"message", kernelv1.EventKind_EVENT_KIND_MESSAGE, true},
+		{"hook_error", kernelv1.EventKind_EVENT_KIND_HOOK_ERROR, true},
+		{"memory_write", kernelv1.EventKind_EVENT_KIND_MEMORY_WRITE, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			st := newTestStore(t)
+			sess := createSession(t, st, testSessionMeta())
+
+			ev := testEvent("evt-1")
+			ev.Kind = tt.kind
+			ev.Producer = KernelProducer()
+
+			_, err := sess.AppendEvent(context.Background(), ev)
+			if tt.wantErr {
+				if !errors.Is(err, ErrInvalidProducer) {
+					t.Fatalf("AppendEvent (kernel producer on %v) err = %v, want ErrInvalidProducer", tt.kind, err)
+				}
+				var count int
+				if scanErr := sess.db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM events").Scan(&count); scanErr != nil {
+					t.Fatalf("count events: %v", scanErr)
+				}
+				if count != 0 {
+					t.Errorf("events table holds %d rows after a refused append, want 0", count)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("AppendEvent (kernel producer on %v): %v", tt.kind, err)
+			}
+		})
+	}
+}
+
+// TestSession_AppendEvent_unspecifiedCategoryStillRejected is the
+// regression guard for the invariant the kernel identity must not weaken:
+// CATEGORY_UNSPECIFIED remains unwritable for any producer that is not
+// exactly the reserved kernel identity, on every kind — including plan.
+func TestSession_AppendEvent_unspecifiedCategoryStillRejected(t *testing.T) {
+	t.Parallel()
+
+	for _, kind := range []kernelv1.EventKind{
+		kernelv1.EventKind_EVENT_KIND_PLAN,
+		kernelv1.EventKind_EVENT_KIND_APPLY,
+		kernelv1.EventKind_EVENT_KIND_TOOL_CALL,
+	} {
+		t.Run(kind.String(), func(t *testing.T) {
+			t.Parallel()
+			st := newTestStore(t)
+			sess := createSession(t, st, testSessionMeta())
+
+			ev := testEvent("evt-1")
+			ev.Kind = kind
+			ev.Producer = &commonv1.ProducerRef{Name: "not-the-kernel", Version: "1.0.0"}
+
+			if _, err := sess.AppendEvent(context.Background(), ev); !errors.Is(err, ErrInvalidProducer) {
+				t.Fatalf("AppendEvent (unspecified category, %v) err = %v, want ErrInvalidProducer", kind, err)
+			}
+		})
+	}
+}
+
 // TestSession_appendEventTx_extraFailureRollsBackEvent tests the
 // same-tx-atomicity mechanism AppendMessage and AppendPlan both build on
 // directly: if the "extra" step (cost_ledger or plan_items insert) fails,

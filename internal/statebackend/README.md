@@ -6,11 +6,11 @@ The kernel state backend from [`docs/specifications/state-backend.md`](../../doc
 
 - `statebackend.go` — `Store`: manages the sessions directory. `Create` makes a new session file (schema applied, `PRAGMA user_version` stamped, initial `session_meta` row inserted) and returns an open `Session`. `Open` opens an existing one, running corruption recovery and schema migration first. `List`/`Children` scan `session_meta` across every file for cross-session queries — there is no separate index.
 - `schema.go` — the five-table DDL, reproduced verbatim from the spec, plus the ordered `migrationStep` slice `Open` walks when a file's `user_version` is older than `currentSchemaVersion`.
-- `event.go` — `Event`, `CostEntry`, `PlanItem`: the Go mirrors of the `events`, `cost_ledger`, and `plan_items` columns, plus the encode/decode helpers between their proto enum fields and the lowercase TEXT vocabulary the spec stores on disk.
+- `event.go` — `Event`, `CostEntry`, `PlanItem`: the Go mirrors of the `events`, `cost_ledger`, and `plan_items` columns, plus the encode/decode helpers between their proto enum fields and the lowercase TEXT vocabulary the spec stores on disk. Also the two exported kind tables — `EventKindText` (a kind's stored TEXT form, the same vocabulary `kernel.event.{kind}` bus topics use) and `EventPayloadType` (a kind's `pluggableharness.event.v1` payload message name) — and `KernelProducer`, the reserved producer identity for the `plan`/`apply` events the kernel synthesizes itself rather than receiving from a plugin.
 - `session.go` — `Session`'s write path: `AppendEvent`, `AppendMessage`, `AppendPlan`, `SetStatus`, `Close`. The kernel is this file's sole writer; every append runs in one transaction so an event row never exists without its accompanying `cost_ledger`/`plan_items`/`producers` rows.
-- `query.go` — `Session`'s read path: `Meta`, `Events` (a sequence-ordered `iter.Seq2[Event, error]` — replay's entry point), `Producers`, `TotalCostUSD`, `CostLedger`, `PlanItems`.
+- `query.go` — `Session`'s read path: `Meta`, `Events` (a sequence-ordered `iter.Seq2[Event, error]` — replay's entry point), `EventsMatching` (the same iterator filtered by an `EventQuery`'s kinds/from-sequence/limit, mirroring `kernel-callbacks.md`'s `ReadEvents`; `Events` is just the zero-value query), `Producers`, `TotalCostUSD`, `CostLedger`, `PlanItems`.
 - `integrity.go` — `PRAGMA integrity_check` on every `Open`, and the salvage recovery path when it fails.
-- `sessionid.go` — `NewSessionID`/`ValidateSessionID`: session IDs are canonical uppercase ULIDs, sortable chronologically by filename alone.
+- `sessionid.go` — `NewSessionID`/`NewEventID`/`ValidateSessionID`: session and event IDs are canonical uppercase ULIDs from one shared monotonic generator, sortable chronologically by filename alone.
 
 ## Public API sketch
 
@@ -38,6 +38,6 @@ On `Open`, `checkIntegrity` runs `PRAGMA integrity_check`. If the file can't be 
 
 - Unit tests are the default tier (`go-testing.md`) — in-memory sqlite files under `t.TempDir()`, no external fixtures.
 - Concurrency-sensitive paths (every write method, corruption recovery) run under `go test -race`, per `.claude/rules/go-testing.md`'s hard requirement for anything touching the state backend.
-- `event_fuzz_test.go`'s `FuzzEventRoundTrip` and `sessionid_fuzz_test.go`'s `FuzzValidateSessionID` are the two fuzz targets — event append/scan round-tripping and ULID validation, respectively.
+- `event_fuzz_test.go`'s `FuzzEventRoundTrip` and `sessionid_fuzz_test.go`'s `FuzzValidateSessionID`/`FuzzNewEventID` are the fuzz targets — event append/scan round-tripping, ULID validation, and event-ID generation across arbitrary instants, respectively.
 - `integrity_test.go` covers the corruption-recovery path directly: deliberately truncated/corrupted files, partial-table salvage, and the `ErrUnrecoverable` case.
 - Replay-adjacent assertions compare `sequence`, never wall-clock time, per `.claude/rules/determinism.md`.
