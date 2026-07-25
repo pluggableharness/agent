@@ -526,6 +526,31 @@ func TestOpenDB_foreignKeysEnabled(t *testing.T) {
 	}
 }
 
+// TestOpenDB_busyTimeoutSet asserts the observable effect of openDB's
+// second DSN pragma: a write landing while another process is opening the
+// same file waits for the lock instead of failing outright with
+// SQLITE_BUSY, which is what makes
+// docs/specifications/state-backend.md#ordering--concurrency's "a
+// concurrent reader doesn't block or get blocked by the kernel's writes"
+// actually hold.
+func TestOpenDB_busyTimeoutSet(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "test.sqlite")
+	db, err := openDB(context.Background(), path)
+	if err != nil {
+		t.Fatalf("openDB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	var timeoutMS int
+	if err := db.QueryRowContext(context.Background(), "PRAGMA busy_timeout").Scan(&timeoutMS); err != nil {
+		t.Fatalf("PRAGMA busy_timeout: %v", err)
+	}
+	if timeoutMS != 5000 {
+		t.Errorf("PRAGMA busy_timeout = %d, want 5000", timeoutMS)
+	}
+}
+
 func TestPopulateCreatedFile_openDBFailure(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
