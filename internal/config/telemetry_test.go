@@ -3,9 +3,14 @@ package config
 import (
 	"context"
 	"log/slog"
+	"reflect"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel/codes"
+
+	"github.com/pluggableharness/agent/internal/telemetry"
+	"github.com/pluggableharness/agent/internal/telemetry/drivers"
 )
 
 // fakeLogHandler is a hand-written slog.Handler fake (go-testing.md: fakes,
@@ -24,6 +29,197 @@ func (h *fakeLogHandler) Handle(_ context.Context, r slog.Record) error {
 
 func (h *fakeLogHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
 func (h *fakeLogHandler) WithGroup(string) slog.Handler      { return h }
+
+// loudObservability is a fully-populated, deliberately non-default
+// Observability, used to prove telemetry = false discards it entirely
+// rather than letting any of it reach an exporter.
+var loudObservability = Observability{
+	Endpoint:         "collector.example:4317",
+	Protocol:         "grpc",
+	SamplingRatio:    0.25,
+	TracesEnabled:    true,
+	MetricsEnabled:   true,
+	LogsEnabled:      true,
+	ExportIntervalMS: 2500,
+	ServiceName:      "kernel",
+	ResourceAttrs:    map[string]string{"env": "prod"},
+}
+
+func TestTelemetryConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings Settings
+		want     telemetry.Config
+	}{
+		{
+			// settings-and-global.md#the-telemetry-switch: telemetry =
+			// false MUST wire a discarding backend regardless of what
+			// observability{} declared — no exporter is ever constructed.
+			name:     "telemetry off forces the noop backend",
+			settings: Settings{Telemetry: false, Observability: loudObservability},
+			want: telemetry.Config{
+				Enabled:        false,
+				Backend:        "noop",
+				Endpoint:       "collector.example:4317",
+				SamplingRatio:  0.25,
+				TracesEnabled:  true,
+				MetricsEnabled: true,
+				LogsEnabled:    true,
+				ExportInterval: 2500 * time.Millisecond,
+				ServiceName:    "kernel",
+				ResourceAttrs:  map[string]string{"env": "prod"},
+			},
+		},
+		{
+			name:     "telemetry on with observability declared, grpc",
+			settings: Settings{Telemetry: true, Observability: loudObservability},
+			want: telemetry.Config{
+				Enabled:        true,
+				Backend:        "otlpgrpc",
+				Endpoint:       "collector.example:4317",
+				SamplingRatio:  0.25,
+				TracesEnabled:  true,
+				MetricsEnabled: true,
+				LogsEnabled:    true,
+				ExportInterval: 2500 * time.Millisecond,
+				ServiceName:    "kernel",
+				ResourceAttrs:  map[string]string{"env": "prod"},
+			},
+		},
+		{
+			name: "http protocol selects the otlphttp driver",
+			settings: Settings{
+				Telemetry: true,
+				Observability: Observability{
+					Endpoint:         "https://collector.example",
+					Protocol:         "http",
+					SamplingRatio:    1.0,
+					TracesEnabled:    true,
+					MetricsEnabled:   false,
+					LogsEnabled:      true,
+					ExportIntervalMS: 1000,
+					ServiceName:      "kernel",
+				},
+			},
+			want: telemetry.Config{
+				Enabled:        true,
+				Backend:        "otlphttp",
+				Endpoint:       "https://collector.example",
+				SamplingRatio:  1.0,
+				TracesEnabled:  true,
+				MetricsEnabled: false,
+				LogsEnabled:    true,
+				ExportInterval: 1000 * time.Millisecond,
+				ServiceName:    "kernel",
+			},
+		},
+		{
+			// The observability{}-absent path: LoadFile hands
+			// DefaultObservability through, which must land on
+			// telemetry.DefaultConfig's own values.
+			name:     "telemetry on with observability absent uses DefaultObservability",
+			settings: Settings{Telemetry: true, Observability: DefaultObservability},
+			want: telemetry.Config{
+				Enabled:        true,
+				Backend:        "otlpgrpc",
+				Endpoint:       "localhost:4317",
+				SamplingRatio:  1.0,
+				TracesEnabled:  true,
+				MetricsEnabled: true,
+				LogsEnabled:    true,
+				ExportInterval: 10 * time.Second,
+				ServiceName:    "pluggableharness-agent",
+			},
+		},
+		{
+			// A protocol outside {grpc, http} can only arise from a
+			// hand-built Settings (LoadFile rejects it at decode time), and
+			// yields a deliberately invalid backend name so drivers.New
+			// fails loudly instead of guessing a transport.
+			name: "unknown protocol yields an unusable backend name",
+			settings: Settings{
+				Telemetry:     true,
+				Observability: Observability{Protocol: "carrier-pigeon", ServiceName: "kernel"},
+			},
+			want: telemetry.Config{Enabled: true, Backend: "", ServiceName: "kernel"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := TelemetryConfig(tt.settings)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("TelemetryConfig() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestTelemetryConfig_backendNamesAreRealDrivers pins the mapping against
+// drivers.New's actual name set rather than against string literals
+// duplicated in this test, so a driver rename can't leave this bridge
+// silently producing an unroutable backend name.
+func TestTelemetryConfig_backendNamesAreRealDrivers(t *testing.T) {
+	t.Parallel()
+
+	settings := []Settings{
+		{Telemetry: true, Observability: Observability{Protocol: "grpc", ServiceName: "kernel"}},
+		{Telemetry: true, Observability: Observability{Protocol: "http", ServiceName: "kernel"}},
+		{Telemetry: false, Observability: loudObservability},
+	}
+	for _, s := range settings {
+		cfg := TelemetryConfig(s)
+		if _, err := drivers.New(cfg.Backend, cfg); err != nil {
+			t.Errorf("drivers.New(%q): %v", cfg.Backend, err)
+		}
+	}
+
+	// The converse: the unknown-protocol escape hatch really is rejected.
+	bad := TelemetryConfig(Settings{Telemetry: true, Observability: Observability{Protocol: "carrier-pigeon"}})
+	if _, err := drivers.New(bad.Backend, bad); err == nil {
+		t.Errorf("drivers.New(%q): want ErrUnknownDriver, got nil", bad.Backend)
+	}
+}
+
+// TestTelemetryConfig_fromLoadedFile is the end-to-end shape: an agent.hcl
+// with telemetry = false and a populated observability{} still bridges to
+// the discarding backend.
+func TestTelemetryConfig_fromLoadedFile(t *testing.T) {
+	t.Parallel()
+
+	path := writeHCL(t, `
+settings {
+  default_frontend = "tui"
+  log_level        = "info"
+  telemetry        = false
+
+  observability {
+    endpoint            = "collector.example:4317"
+    protocol            = "grpc"
+    sampling_ratio      = 0.5
+    traces_enabled      = true
+    metrics_enabled     = true
+    logs_enabled        = true
+    export_interval_ms  = 5000
+    service_name        = "kernel"
+  }
+}
+`)
+	cfg, err := LoadFile(context.Background(), testProvider(t), path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	tel := TelemetryConfig(cfg.Settings)
+	if tel.Enabled {
+		t.Error("Enabled = true, want false")
+	}
+	if tel.Backend != "noop" {
+		t.Errorf("Backend = %q, want noop despite observability{} declaring grpc", tel.Backend)
+	}
+	if err := tel.Validate(); err != nil {
+		t.Errorf("Validate: %v", err)
+	}
+}
 
 // TestLoadFile_recordsSpanAndDebugLog asserts LoadFile's internal/CLAUDE.md
 // instrumentation: exactly one config.load span recorded via the fake

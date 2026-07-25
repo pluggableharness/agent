@@ -8,6 +8,11 @@ import (
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
 )
 
+// ptr returns a pointer to v, for building the *int expectations of the
+// optional-integer fields (Hook.TimeoutMS, Settings.MaxDepth) whose whole
+// point is that nil and an explicit 0 differ.
+func ptr[T any](v T) *T { return &v }
+
 // testProvider returns a *telemetry.Provider wired to a fresh fake backend
 // (internal/telemetry/drivers/fake), for tests that call LoadFile and need
 // a non-nil Provider without a real OTel collector. Mirrors

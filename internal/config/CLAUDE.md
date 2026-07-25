@@ -31,6 +31,66 @@
   masking what it claims to verify). This happened when `logs_enabled` was
   added — check every fixture, not just the ones the compiler complains
   about.
+- **`defaultSettings()` (`settings.go`) is the single source of the
+  "settings{} absent entirely" values**, called by both `load.go`'s
+  `decode()` and `decodeSettings`. Adding a new defaulted `Settings` field
+  means adding it there once, not in two places — the earlier two-copy
+  arrangement for `Retry`/`Observability` is what made the previous bullet's
+  drift hazard real. `Settings.MaxDepth` is the one deliberate exception:
+  it stays `nil` in `defaultSettings()`, see its own bullet below.
+- **`event_bus{}` and `doom_loop{}` deliberately do NOT follow
+  `retry{}`/`observability{}`'s all-or-nothing convention**, for two
+  different reasons, both recorded in their schema vars' doc comments.
+  `event_bus{}` declares exactly one attribute
+  (`blocks-reference.md#event_bus`), so no partial-specification case
+  exists to guard against — an empty `event_bus {}` block and an absent one
+  are indistinguishable by design, both yielding `DefaultEventBus`
+  (`subscribe_queue_bound = 1024`). `doom_loop{}` has two attributes, but
+  `turn-algorithm.md#doom-loop-detection` states a MUST-level default for
+  `window_size` and `threshold` *individually*, which is incompatible with
+  requiring both together — each falls back to `DefaultDoomLoopSettings`
+  on its own. Don't "fix" either by adding `Required: true`.
+- **`DefaultDoomLoopSettings` reads its numbers from
+  `doomloop.DefaultConfig`, never restates them.** There is exactly one
+  source of truth for the window/threshold defaults, and
+  `TestDecodeSettings_defaultDoomLoopMatchesDoomloopPackage` locks that in.
+  Range validation (`threshold` in [3, 5], `window_size >= threshold`) is
+  `doomloop.New`'s job, not this package's — `internal/config` carries what
+  was declared.
+- **`Settings.DefaultHookTimeoutMS` (5000) and `Settings.DefaultToolTimeoutMS`
+  (30000) are project-level judgment calls, not spec-mandated values.**
+  `hook-dispatch.md#per-subscriber-timeout` and `tool/protocol.md#getschema`
+  each establish that a kernel-configurable default exists without ever
+  naming one. Both are exported consts so the "what is the number, and who
+  chose it" answer lives in one place; if the spec later states a canonical
+  value, change the const and the doc comment together.
+- **`Settings.MaxDepth` is a `*int` that this package never defaults.**
+  `nil` (unset) and an explicit `0` ("this root session may spawn nothing")
+  are genuinely different declarations, mirroring
+  `agentprofile.AgentProfile.MaxDepth`'s shape. Unlike
+  `Retry`/`Observability`/`EventBus`/`DoomLoop`, `nil` is carried through
+  untouched: `agentprofile.RootRemainingDepth` already resolves the unset
+  case via its own `kernelDefault` parameter, so defaulting it here too
+  would be a second source of truth that could disagree with the first.
+  Resolve `nil` at the call site.
+- **`Hook.TimeoutMS` is `*int` for the same nil-vs-zero reason** — `nil`
+  means "fall back to `Settings.DefaultHookTimeoutMS`", `0` means the
+  subscriber declared a zero-millisecond deadline. `timeout_ms` is the only
+  optional attribute in `hookSchema`.
+- **`TelemetryConfig` (`telemetry.go`) is the only bridge from this
+  package's HCL types into `internal/telemetry.Config`** — that package
+  stays HCL/cty-free (its own `CLAUDE.md`), so the translation lives here,
+  not there. Three asymmetries are intentional and documented on the
+  function: `Observability.Protocol` is consumed into `Config.Backend`
+  (`grpc` → `otlpgrpc`, `http` → `otlphttp`, anything else → `""` so
+  `drivers.New` rejects it loudly rather than guessing a transport);
+  `Config.Insecure`/`Config.ServiceVersion` have no `observability{}`
+  attribute to read from and stay at their zero values until
+  `blocks-reference.md#observability` grows one; and `Settings.LogLevel`
+  isn't carried because `telemetry.Config` has no log-severity field.
+  `settings.telemetry = false` forces `Backend: "noop"` regardless of
+  `observability{}`'s contents, per
+  `settings-and-global.md#the-telemetry-switch`.
 - **HCL single-line block syntax only permits one argument.**
   `primary { provider = "x", id = "y" }` is a parse error — has to be
   written as a multi-line block. This bit the test fixtures more than once

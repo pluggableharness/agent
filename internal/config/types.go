@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 
 	"github.com/pluggableharness/agent/internal/agentprofile"
+	"github.com/pluggableharness/agent/internal/doomloop"
 	"github.com/pluggableharness/agent/internal/policy"
 )
 
@@ -84,6 +85,64 @@ var DefaultObservability = Observability{
 	ServiceName:      "pluggableharness-agent",
 }
 
+// EventBus is the settings.event_bus{} block
+// (configuration/blocks-reference.md#event_bus).
+type EventBus struct {
+	// SubscribeQueueBound is the per-Subscribe-stream backpressure bound
+	// (event-bus.md#backpressure): once a stream's undelivered-event queue
+	// exceeds it, the kernel closes that stream with
+	// codes.ResourceExhausted rather than growing the queue further.
+	// Defaults to 1024 when the block — or this specific attribute — is
+	// absent.
+	SubscribeQueueBound int
+}
+
+// DefaultEventBus is the canonical default applied whenever an
+// event_bus{} sub-block (or the whole settings{} block) is absent, so a
+// bare agent.hcl runs with a bounded Subscribe queue
+// (configuration/blocks-reference.md#event_bus).
+var DefaultEventBus = EventBus{SubscribeQueueBound: 1024}
+
+// DoomLoopSettings is the settings.doom_loop{} block
+// (agent-loop/turn-algorithm.md#doom-loop-detection) — the kernel-owned
+// repeated-call detector's tunable window and threshold.
+type DoomLoopSettings struct {
+	// WindowSize is how many recent call hashes the detector retains.
+	WindowSize int
+
+	// Threshold is how many consecutive identical hashes trip the
+	// detector. The spec constrains it to [3, 5]; this package carries
+	// what was declared and leaves the range check to doomloop.New, which
+	// already owns it (ErrInvalidThreshold).
+	Threshold int
+}
+
+// DefaultDoomLoopSettings is the canonical default applied whenever a
+// doom_loop{} sub-block (or one of its two attributes, or the whole
+// settings{} block) is absent. Its values are read from
+// doomloop.DefaultConfig rather than restated, so the window/threshold
+// defaults have exactly one source of truth.
+var DefaultDoomLoopSettings = DoomLoopSettings{
+	WindowSize: doomloop.DefaultConfig.WindowSize,
+	Threshold:  doomloop.DefaultConfig.Threshold,
+}
+
+// DefaultHookTimeoutMS is the canonical default for
+// Settings.DefaultHookTimeoutMS. No canonical value is given anywhere in
+// the spec prose — agent-loop/hook-dispatch.md#per-subscriber-timeout
+// only establishes that the knob exists and is kernel-configurable — so
+// this is a project-level judgment call: a reasonable
+// operator-overridable starting point in the same spirit as
+// DefaultRetrySettings, not a value dictated by the spec text.
+const DefaultHookTimeoutMS = 5000
+
+// DefaultToolTimeoutMS is the canonical default for
+// Settings.DefaultToolTimeoutMS. Same judgment-call reasoning as
+// DefaultHookTimeoutMS: tool/protocol.md#getschema establishes only that
+// the kernel has a global default a ToolSchema.default_timeout may
+// override, never what that default is.
+const DefaultToolTimeoutMS = 30000
+
 // Settings is the settings{} block (configuration.md §9).
 type Settings struct {
 	// DefaultFrontend names which required_providers entry the CLI attaches
@@ -102,6 +161,45 @@ type Settings struct {
 	// Observability holds the OTel-specific tracing/metrics configuration,
 	// operator-overridable.
 	Observability Observability
+
+	// EventBus holds the event-bus backpressure configuration,
+	// operator-overridable.
+	EventBus EventBus
+
+	// DoomLoop holds the doom-loop detector's window/threshold,
+	// operator-overridable.
+	DoomLoop DoomLoopSettings
+
+	// DefaultHookTimeoutMS is the per-hook-subscriber dispatch deadline
+	// (agent-loop/hook-dispatch.md#per-subscriber-timeout), overridable
+	// per subscriber via a hook{} block's own timeout_ms attribute
+	// (Hook.TimeoutMS). Defaults to DefaultHookTimeoutMS when settings{}
+	// or this attribute is absent — see that constant for why the value
+	// is a project-level judgment call rather than a spec-mandated one.
+	DefaultHookTimeoutMS int
+
+	// DefaultToolTimeoutMS is the kernel's global Invoke deadline, applied
+	// absent a ToolSchema.default_timeout override
+	// (tool/protocol.md#getschema). Defaults to DefaultToolTimeoutMS when
+	// settings{} or this attribute is absent — same judgment-call
+	// reasoning as DefaultHookTimeoutMS.
+	DefaultToolTimeoutMS int
+
+	// MaxDepth is settings.max_depth, the kernel's configured default
+	// root-session depth ceiling (agent-loop/subagents.md#depth-limits,
+	// configuration/agent-profiles.md#depth-budget's "kernel's own
+	// configured default"). A *int rather than an int because unset and an
+	// explicit 0 are semantically different — 0 means "the root session
+	// may spawn nothing at all", which is a real, declarable choice —
+	// mirroring agentprofile.AgentProfile.MaxDepth's own *int shape.
+	//
+	// Unlike Retry/Observability/EventBus/DoomLoop, nil is deliberately
+	// NOT replaced with a canonical default here: this package carries
+	// what agent.hcl declared and lets the consuming call site resolve
+	// nil, because agentprofile.RootRemainingDepth already resolves the
+	// same "unset" case through its own kernelDefault parameter.
+	// Defaulting it in both places would be redundant and could disagree.
+	MaxDepth *int
 }
 
 // Hook is an explicit hook{} block (configuration.md §8.6) — a plugin
@@ -115,6 +213,14 @@ type Hook struct {
 
 	// Mode is one of "observe", "transform", "veto".
 	Mode string
+
+	// TimeoutMS is this hook{} block's optional per-subscriber timeout
+	// override, in milliseconds
+	// (agent-loop/hook-dispatch.md#per-subscriber-timeout:
+	// "default_hook_timeout_ms, with a per-subscriber agent.hcl
+	// override"). nil when the block doesn't declare it, in which case a
+	// caller falls back to Settings.DefaultHookTimeoutMS.
+	TimeoutMS *int
 
 	// Range is this block's source position, for a caller to resolve
 	// ordering against implicit subscriptions by textual declaration
