@@ -70,6 +70,14 @@ type Instruments struct {
 	// a batch, not once per ExportSpans call.
 	RelayedSpans metric.Int64Counter
 
+	// InteractiveResolutions counts interactive-kind call resolutions
+	// through the internal/interactive seam
+	// (agent-loop/plan-apply-gate.md#data-source-and-interactive-calls),
+	// one per Resolve, by ToolNameKey and OutcomeKey — both bounded, so
+	// both are safe here. A build with no frontend attached refuses every
+	// one of them, which shows up as a pure OutcomeError series.
+	InteractiveResolutions metric.Int64Counter
+
 	// RecordMetricsAttributesDropped counts attribute keys dropped by
 	// RecordDynamicMetric's cardinality bound
 	// (observability.md#the-tracing-metrics-asymmetry) — incremented by
@@ -183,6 +191,10 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		metric.WithDescription("Spans successfully relayed via ExportSpans, one per span."))
 	check("pluggableharness.telemetry.relayed_spans", err)
 
+	interactiveResolutions, err := meter.Int64Counter("pluggableharness.interactive.resolutions",
+		metric.WithDescription("Interactive-kind call resolutions, by tool.name and outcome."))
+	check("pluggableharness.interactive.resolutions", err)
+
 	recordMetricsAttributesDropped, err := meter.Int64Counter("pluggableharness.telemetry.record_metrics.attributes_dropped",
 		metric.WithDescription("Attribute keys dropped by RecordMetrics' per-instrument cardinality bound."))
 	check("pluggableharness.telemetry.record_metrics.attributes_dropped", err)
@@ -216,6 +228,7 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		EventBusSubscriptionsActive: eventBusSubscriptionsActive,
 
 		EventBusSubscribeStreamsClosed: eventBusSubscribeStreamsClosed,
+		InteractiveResolutions:         interactiveResolutions,
 		RelayedSpans:                   relayedSpans,
 		RecordMetricsAttributesDropped: recordMetricsAttributesDropped,
 	}, nil
