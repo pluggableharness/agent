@@ -10,6 +10,7 @@ var hookSchema = &hcl.BodySchema{
 	Attributes: []hcl.AttributeSchema{
 		{Name: "provider", Required: true},
 		{Name: "mode", Required: true},
+		{Name: "timeout_ms", Required: false},
 	},
 }
 
@@ -35,5 +36,18 @@ func decodeHook(point string, body hcl.Body, defRange hcl.Range) (Hook, error) {
 		return Hook{}, fmt.Errorf("config: hook %q: mode: %w: %q", point, ErrInvalidValue, mode)
 	}
 
-	return Hook{Point: point, Provider: provider, Mode: mode, Range: defRange}, nil
+	hook := Hook{Point: point, Provider: provider, Mode: mode, Range: defRange}
+
+	// timeout_ms is optional: absent leaves TimeoutMS nil, meaning the
+	// caller falls back to Settings.DefaultHookTimeoutMS
+	// (agent-loop/hook-dispatch.md#per-subscriber-timeout).
+	if attr, ok := content.Attributes["timeout_ms"]; ok {
+		v, err := attrInt(attr)
+		if err != nil {
+			return Hook{}, fmt.Errorf("config: hook %q: timeout_ms: %w", point, err)
+		}
+		hook.TimeoutMS = &v
+	}
+
+	return hook, nil
 }

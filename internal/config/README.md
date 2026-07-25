@@ -16,6 +16,11 @@ Top-level `agent.hcl` parsing (`specifications/configuration.md` §1-3),
   for the blocks that belong to those packages' domains).
 - `bridge.go` — `DecodeProviderConfig`, the schema-to-cty bridge itself.
   The only place a `cty.Value` exists anywhere in this package.
+- `telemetry.go` — `TelemetryConfig`, the bridge from a decoded `Settings`
+  into `internal/telemetry.Config`. That package is deliberately HCL/cty-free,
+  so the translation (including `settings.telemetry = false` forcing the
+  discarding `noop` backend regardless of `observability{}`'s contents) lives
+  on this side of the boundary.
 
 ## Logging and telemetry
 

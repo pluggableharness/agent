@@ -61,7 +61,10 @@ func decode(body hcl.Body) (*Config, error) {
 		ProviderBodies:    map[string]hcl.Body{},
 		ProviderRanges:    map[string]hcl.Range{},
 		AgentProfiles:     map[string]agentprofile.AgentProfile{},
-		Settings:          Settings{Retry: DefaultRetrySettings, Observability: DefaultObservability},
+		// A config with no settings{} block at all never reaches
+		// decodeSettings, so the canonical defaults have to be applied here
+		// too — both paths share defaultSettings() so they can't drift.
+		Settings: defaultSettings(),
 	}
 
 	var sawSettings, sawRequiredProviders bool

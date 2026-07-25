@@ -141,6 +141,23 @@ required_providers {
 	if !reflect.DeepEqual(cfg.Settings.Observability, DefaultObservability) {
 		t.Fatalf("Settings.Observability = %+v, want DefaultObservability %+v", cfg.Settings.Observability, DefaultObservability)
 	}
+	if cfg.Settings.EventBus != DefaultEventBus {
+		t.Errorf("Settings.EventBus = %+v, want DefaultEventBus %+v", cfg.Settings.EventBus, DefaultEventBus)
+	}
+	if cfg.Settings.DoomLoop != DefaultDoomLoopSettings {
+		t.Errorf("Settings.DoomLoop = %+v, want DefaultDoomLoopSettings %+v", cfg.Settings.DoomLoop, DefaultDoomLoopSettings)
+	}
+	if cfg.Settings.DefaultHookTimeoutMS != DefaultHookTimeoutMS {
+		t.Errorf("Settings.DefaultHookTimeoutMS = %d, want %d", cfg.Settings.DefaultHookTimeoutMS, DefaultHookTimeoutMS)
+	}
+	if cfg.Settings.DefaultToolTimeoutMS != DefaultToolTimeoutMS {
+		t.Errorf("Settings.DefaultToolTimeoutMS = %d, want %d", cfg.Settings.DefaultToolTimeoutMS, DefaultToolTimeoutMS)
+	}
+	// MaxDepth is deliberately NOT defaulted in this package — nil is what
+	// a caller resolves via agentprofile.RootRemainingDepth's kernelDefault.
+	if cfg.Settings.MaxDepth != nil {
+		t.Errorf("Settings.MaxDepth = %v, want nil (resolved at the call site, not here)", *cfg.Settings.MaxDepth)
+	}
 }
 
 func TestLoadFile_unknownTopLevelBlock(t *testing.T) {
@@ -502,6 +519,70 @@ settings {
   }
 }
 `},
+		{"default_hook_timeout_ms not a number", `
+settings {
+  default_frontend        = "tui"
+  log_level               = "info"
+  telemetry               = false
+  default_hook_timeout_ms = "5s"
+}
+`},
+		{"default_tool_timeout_ms not a number", `
+settings {
+  default_frontend        = "tui"
+  log_level               = "info"
+  telemetry               = false
+  default_tool_timeout_ms = "30s"
+}
+`},
+		{"max_depth not a number", `
+settings {
+  default_frontend = "tui"
+  log_level        = "info"
+  telemetry        = false
+  max_depth        = "deep"
+}
+`},
+		{"event_bus subscribe_queue_bound not a number", `
+settings {
+  default_frontend = "tui"
+  log_level        = "info"
+  telemetry        = false
+  event_bus {
+    subscribe_queue_bound = "lots"
+  }
+}
+`},
+		{"event_bus unknown attribute", `
+settings {
+  default_frontend = "tui"
+  log_level        = "info"
+  telemetry        = false
+  event_bus {
+    publish_queue_bound = 1024
+  }
+}
+`},
+		{"doom_loop window_size not a number", `
+settings {
+  default_frontend = "tui"
+  log_level        = "info"
+  telemetry        = false
+  doom_loop {
+    window_size = "eight"
+  }
+}
+`},
+		{"doom_loop threshold not a number", `
+settings {
+  default_frontend = "tui"
+  log_level        = "info"
+  telemetry        = false
+  doom_loop {
+    threshold = "three"
+  }
+}
+`},
 		{"observability logs_enabled not a bool", `
 settings {
   default_frontend = "tui"
@@ -576,6 +657,68 @@ agent_profile "broken" {
 	if _, err := LoadFile(context.Background(), testProvider(t), path); err == nil {
 		t.Fatal("LoadFile: want error for a model ref missing id, got nil")
 	}
+}
+
+func TestLoadFile_hookTimeoutMS(t *testing.T) {
+	tests := []struct {
+		name string
+		hcl  string
+		want *int
+	}{
+		{"declared", `
+hook "post-tool-call" {
+  provider   = "audit-logger"
+  mode       = "observe"
+  timeout_ms = 250
+}
+`, ptr(250)},
+		{"omitted falls back to Settings.DefaultHookTimeoutMS", `
+hook "post-tool-call" {
+  provider = "audit-logger"
+  mode     = "observe"
+}
+`, nil},
+		{"explicit zero is not unset", `
+hook "plan-ready" {
+  provider   = "policy"
+  mode       = "veto"
+  timeout_ms = 0
+}
+`, ptr(0)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			path := writeHCL(t, tt.hcl)
+			cfg, err := LoadFile(context.Background(), testProvider(t), path)
+			if err != nil {
+				t.Fatalf("LoadFile: unexpected error: %v", err)
+			}
+			got := cfg.Hooks[0].TimeoutMS
+			switch {
+			case tt.want == nil && got != nil:
+				t.Fatalf("Hook.TimeoutMS = %d, want nil", *got)
+			case tt.want != nil && got == nil:
+				t.Fatalf("Hook.TimeoutMS = nil, want pointer to %d", *tt.want)
+			case tt.want != nil && *got != *tt.want:
+				t.Fatalf("Hook.TimeoutMS = %d, want %d", *got, *tt.want)
+			}
+		})
+	}
+
+	t.Run("wrong type", func(t *testing.T) {
+		t.Parallel()
+		path := writeHCL(t, `
+hook "post-tool-call" {
+  provider   = "audit-logger"
+  mode       = "observe"
+  timeout_ms = "quickly"
+}
+`)
+		if _, err := LoadFile(context.Background(), testProvider(t), path); !errors.Is(err, ErrInvalidValue) {
+			t.Fatalf("LoadFile error = %v, want wrapping ErrInvalidValue", err)
+		}
+	})
 }
 
 func TestLoadFile_hookErrors(t *testing.T) {
