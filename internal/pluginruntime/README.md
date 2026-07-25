@@ -10,7 +10,9 @@ categories (provider, tool, context, memory, frontend, widget), each a
 subprocess implementing one category:
 
 1. A no-op-today pre-flight protocol-version check.
-2. Building the one-entry go-plugin `PluginSet` for the launch's category.
+2. Building the one-entry go-plugin `PluginSet` for the launch's category,
+   around the single per-launch scope that serves the callback broker
+   exactly once for the whole subprocess.
 3. Spawning the subprocess (`exec.CommandContext`) under a minimal,
    explicit environment allowlist — never the kernel's full `os.Environ()`.
 4. Constructing the `*plugin.Client`, with gRPC dial options that wire in

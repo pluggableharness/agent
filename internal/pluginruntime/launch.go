@@ -187,7 +187,7 @@ func buildClient(ctx context.Context, cfg Config, logger *slog.Logger) (*plugin.
 	name := cfg.Producer.GetName()
 	version := cfg.Producer.GetVersion()
 
-	plugins := pluginMap(category, cfg.Callback, cfg.Telemetry)
+	plugins := pluginMap(newLaunchScope(cfg.Callback, cfg.Telemetry), category)
 
 	launchCtx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(launchCtx, cfg.BinaryPath) // #nosec G204 -- launching the operator-configured, checksum-verified plugin binary is this package's entire purpose, not attacker-controlled input
