@@ -31,6 +31,9 @@ message StreamEvent {
     Stop stop = 8;
     // The completion failed.
     Error error = 9;
+    // A complete, vendor-encrypted reasoning block the kernel cannot
+    // interpret.
+    RedactedThinking redacted_thinking = 10;
   }
 
   // TextDelta carries one incremental fragment of assistant text output.
@@ -100,6 +103,20 @@ message StreamEvent {
   message Error {
     // The structured error, classified per model.md §8.
     ModelError error = 1;
+  }
+
+  // RedactedThinking carries one complete, vendor-encrypted reasoning
+  // block — not an incremental fragment, unlike ThinkingDelta: the
+  // vendor emits the block whole because its contents are deliberately
+  // opaque, so there is nothing to accumulate. MUST be emitted whenever
+  // the vendor produces reasoning content it requires be echoed back
+  // verbatim on a later turn (model.md §4/§5); the kernel MUST store and
+  // round-trip it without inspecting it, into ContentBlock's
+  // RedactedThinkingBlock.data. Only emitted when the target model's
+  // ThinkingSpec.supported is true.
+  message RedactedThinking {
+    // The opaque, vendor-encrypted bytes. The kernel never inspects this.
+    bytes data = 1;
   }
 }
 

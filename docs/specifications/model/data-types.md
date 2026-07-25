@@ -113,6 +113,9 @@ StreamEvent = oneof {
                                                              // MUST be emitted if the vendor's
                                                              // thinking blocks carry an integrity
                                                              // signature
+  redacted_thinking    { data: bytes }                     // a complete vendor-encrypted
+                                                             // reasoning block, not a fragment;
+                                                             // only when ThinkingSpec.supported
   tool_call_start      { id: string, name: string }
   tool_call_delta       { id: string, arguments_fragment: string }  // partial-JSON accumulation
   tool_call_done        { id: string }
@@ -152,6 +155,7 @@ Per [`architecture.md`](../architecture.md#canonical-message--tool-schema-format
 - `document` — inline non-image document content (e.g. a PDF), carrying `data: bytes`, `media_type: string`, and an optional `filename`. MUST be supported by every plugin for a model where `ModelSpec.supports_documents == true`; MUST be rejected with a clear `invalid_request` error (not silently dropped) if sent to a model where it's `false` — the same rule `image`/`supports_vision` already establishes, applied to a second, independent capability flag.
 - `tool_use` / `tool_result` — MUST be supported wherever `supports_tool_use == true`.
 - `thinking` / `redacted_thinking` — only relevant where `ThinkingSpec.supported == true`. **A `thinking` block MAY carry an opaque, vendor-specific integrity token** (e.g. a cryptographic signature) that the plugin must store verbatim and echo back unmodified on the next turn, or the vendor API will reject the request. The kernel and state backend MUST treat this token as an opaque blob — never inspected, re-derived, or reformatted, just round-tripped. On the wire, this is [`StreamEvent`](#streamevent)'s `thinking_signature` variant (`bytes`) — see [`examples.md`](examples.md).
+- A `redacted_thinking` block is the whole-block analogue of that rule: reasoning content the vendor encrypts outright, opaque even as text, that the plugin MUST still store verbatim and echo back unmodified on a later turn or the vendor rejects the entire conversation — not just the affected block. On the wire it arrives as [`StreamEvent`](#streamevent)'s `redacted_thinking` variant carrying `data: bytes`, and unlike `thinking_delta` it is never fragmented across events: there is nothing for the kernel to accumulate, so the vendor emits the block whole and the plugin forwards it whole into `ContentBlock`'s `redacted_thinking`. A plugin serving a vendor that produces such blocks MUST emit this variant rather than dropping the content or flattening it into a `thinking` block.
 
 Each model-provider adapter owns its own lossy translation between this canonical form and its vendor's wire format (e.g. OpenAI has no `thinking` block equivalent — an adapter targeting OpenAI simply never emits one).
 

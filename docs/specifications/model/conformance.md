@@ -31,6 +31,7 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 | `image` (vision) | MUST support where `supports_vision = true`; MUST reject cleanly where `false` | |
 | `document` | MUST support where `supports_documents = true`; MUST reject cleanly where `false` | [`data-types.md#canonical-message--content-block-schema`](data-types.md#canonical-message--content-block-schema) — mirrors `image`/`supports_vision`'s rule |
 | Extended thinking/reasoning | MAY, capability-gated via `ThinkingSpec` | declare `mode` precisely, don't collapse to a bool |
+| `StreamEvent.redacted_thinking` | MUST, for a vendor that emits vendor-encrypted reasoning blocks | [`data-types.md#streamevent`](data-types.md#streamevent) — a whole block, never fragmented; stored and echoed back verbatim or the vendor rejects the whole conversation on a later turn |
 | Prompt caching | MAY, capability-gated via `CachingSpec` | declare `mode` (explicit vs. implicit) |
 | Cache breakpoints (`StreamCompletionRequest.cache_breakpoints`) | MUST honor where `CachingSpec.mode = CACHING_MODE_EXPLICIT_MARKERS`; MUST ignore otherwise | [`protocol.md#cache-breakpoint-placement-policy`](protocol.md#cache-breakpoint-placement-policy) — placement is a kernel decision, never the plugin's |
 | Parallel tool calls in one turn | SHOULD declare via `supports_parallel_tool_calls` | kernel serializes calls if absent/false |
