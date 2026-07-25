@@ -19,8 +19,10 @@ import (
 	"github.com/pluggableharness/agent/internal/providerresolve"
 	"github.com/pluggableharness/agent/internal/registry"
 	"github.com/pluggableharness/agent/internal/sessionscope"
+	"github.com/pluggableharness/agent/internal/sessionstate"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/internal/telemetryrelay"
+	"github.com/pluggableharness/agent/internal/tokencount"
 	"github.com/pluggableharness/agent/pkg/common"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 )
@@ -33,6 +35,9 @@ var (
 	ErrMissingTelemetry = errors.New("pluginhost: config: telemetry provider is required")
 	ErrMissingRelay     = errors.New("pluginhost: config: telemetry relay is required")
 	ErrMissingLog       = errors.New("pluginhost: config: log server is required")
+	ErrMissingScopes    = errors.New("pluginhost: config: session-grant registry is required")
+	ErrMissingSessions  = errors.New("pluginhost: config: live-session table is required")
+	ErrMissingTokens    = errors.New("pluginhost: config: token counter is required")
 )
 
 // ErrIdentityMismatch reports a plugin whose Describe response
@@ -87,13 +92,22 @@ type Config struct {
 	Log *log.Server
 
 	// Scopes is the process-wide session-grant registry
-	// (internal/sessionscope). MAY be nil today: internal/kernelcallback's
-	// Config has no field to wire it into yet — the session-scoped
-	// callbacks it gates (Emit, ReadEvents, GetSession) are still
-	// Unimplemented there. It is carried here so wiring it is a
-	// one-line change in newCallbackServer the moment that field lands,
-	// rather than a signature change through this package.
+	// (internal/sessionscope), wired into every plugin's kernel-callback
+	// server so its session-scoped RPCs (Emit, ReadEvents, GetSession) can
+	// authorize a call against the session it names. MUST be set.
 	Scopes *sessionscope.Registry
+
+	// Sessions is the process-wide live-session table
+	// (internal/sessionstate), wired into every plugin's kernel-callback
+	// server alongside Scopes — authorization alone isn't enough to serve
+	// Emit/ReadEvents/GetSession; the RPC also needs the live session
+	// object a granted call is authorized against. MUST be set.
+	Sessions *sessionstate.Table
+
+	// Tokens is the kernel's single token-counting primitive
+	// (internal/tokencount), wired into every plugin's kernel-callback
+	// server for CountTokens. MUST be set.
+	Tokens *tokencount.Counter
 
 	// ProviderBodies is config.Config.ProviderBodies — each provider{}
 	// block's raw, undecoded HCL body, keyed by local name. A local name
@@ -126,6 +140,12 @@ func (c Config) validate() error {
 		return ErrMissingRelay
 	case c.Log == nil:
 		return ErrMissingLog
+	case c.Scopes == nil:
+		return ErrMissingScopes
+	case c.Sessions == nil:
+		return ErrMissingSessions
+	case c.Tokens == nil:
+		return ErrMissingTokens
 	default:
 		return nil
 	}
@@ -375,13 +395,9 @@ func (s *Supervisor) launchConfig(resolved providerresolve.Resolved, category co
 // newCallbackServer builds one plugin's kernel-callback server, binding
 // the process-wide singletons alongside that plugin's own identity and
 // resolved config (internal/kernelcallback's "one Server per plugin
-// instance" design).
-//
-// Config.Scopes is deliberately not wired here yet: internal/kernelcallback's
-// Config has no field for a session-grant registry, because the callbacks
-// that would consult it (Emit, ReadEvents, GetSession) are still
-// Unimplemented there pending exactly that authorization mechanism. When
-// that field lands, it is one line here — see Config.Scopes' own comment.
+// instance" design). Scopes/Sessions/Tokens are the same process-wide
+// singletons shared across every launched plugin's server — only
+// Producer/ResolvedConfig are per-plugin.
 func (s *Supervisor) newCallbackServer(producer *commonv1.ProducerRef, resolvedConfig *structpb.Struct) *kernelcallback.Server {
 	return kernelcallback.NewServer(kernelcallback.Config{
 		Log:                    s.cfg.Log,
@@ -391,6 +407,9 @@ func (s *Supervisor) newCallbackServer(producer *commonv1.ProducerRef, resolvedC
 		Bus:                    s.cfg.Bus,
 		BusSubscribeQueueBound: s.cfg.BusSubscribeQueueBound,
 		ResolvedConfig:         resolvedConfig,
+		Scopes:                 s.cfg.Scopes,
+		Sessions:               s.cfg.Sessions,
+		Tokens:                 s.cfg.Tokens,
 		Logger:                 s.logger,
 	})
 }

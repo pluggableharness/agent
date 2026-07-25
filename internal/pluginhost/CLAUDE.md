@@ -63,15 +63,18 @@
   category, so a mis-wired case fails with the wrong name rather than
   passing on a nil.
 
-- **`Config.Scopes` is carried and not yet wired, on purpose.**
-  `internal/kernelcallback.Config` has no session-grant-registry field —
-  the callbacks that would consult one (`Emit`, `ReadEvents`,
-  `GetSession`) are still `codes.Unimplemented` there, blocked on exactly
-  that authorization mechanism (see that package's `CLAUDE.md`). Holding
-  it here means wiring it later is one line in `newCallbackServer`
-  instead of a signature change through this package. Don't remove the
-  field as unused, and don't invent a local authorization check to
-  "use" it — that decision belongs to `internal/kernelcallback`.
+- **`Config.Scopes`/`Config.Sessions`/`Config.Tokens` are wired straight
+  through to `internal/kernelcallback.Config` in `newCallbackServer`, one
+  shared instance of each across every launched plugin's server — this
+  was a gap discovered and fixed post-merge: this package was originally
+  built before `internal/kernelcallback`'s session-authorization
+  completion landed, so its `newCallbackServer` didn't pass them and
+  `NewSupervisor` didn't require them, which meant a real launched plugin
+  calling `Emit`/`ReadEvents`/`GetSession`/`CountTokens` would nil-pointer
+  panic inside `internal/kernelcallback`. All three are now MUST-be-set
+  in `Config.validate()`, matching `internal/kernelcallback`'s own
+  MUST-be-set convention for the same fields. Don't make any of them
+  optional again — that reintroduces the exact panic this fix closed.
 
 - **`reconcile` deliberately does not compare `Producer.Name` to
   anything.** The lock file records source, version, and (optionally)

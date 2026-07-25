@@ -16,15 +16,19 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/kernelcallback"
 	"github.com/pluggableharness/agent/internal/log"
 	"github.com/pluggableharness/agent/internal/providerresolve"
 	"github.com/pluggableharness/agent/internal/registry"
+	"github.com/pluggableharness/agent/internal/sessionscope"
+	"github.com/pluggableharness/agent/internal/sessionstate"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
 	"github.com/pluggableharness/agent/internal/telemetryrelay"
+	"github.com/pluggableharness/agent/internal/tokencount"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 )
@@ -32,6 +36,25 @@ import (
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
+
+// fakeReadEventsStream is a minimal hand-written fake of
+// kernelv1.KernelCallbackService_ReadEventsServer (go-testing.md: fakes,
+// not mocking frameworks), mirroring
+// internal/kernelcallback/events_test.go's fakeReadEventsStream — needed
+// here because ReadEvents (once implemented, unlike its former
+// codes.Unimplemented stub) calls stream.Context() unconditionally, so a
+// nil stream argument is no longer a valid way to exercise it.
+type fakeReadEventsStream struct {
+	ctx context.Context
+}
+
+func (f *fakeReadEventsStream) Send(*kernelv1.StoredEvent) error { return nil }
+func (f *fakeReadEventsStream) Context() context.Context         { return f.ctx }
+func (f *fakeReadEventsStream) SetHeader(metadata.MD) error      { return nil }
+func (f *fakeReadEventsStream) SendHeader(metadata.MD) error     { return nil }
+func (f *fakeReadEventsStream) SetTrailer(metadata.MD)           {}
+func (f *fakeReadEventsStream) SendMsg(any) error                { return nil }
+func (f *fakeReadEventsStream) RecvMsg(any) error                { return nil }
 
 // testDeps builds the process-wide singletons a valid Config needs.
 func testDeps(t *testing.T) Config {
@@ -58,6 +81,9 @@ func testDeps(t *testing.T) Config {
 		Telemetry:      prov,
 		TelemetryRelay: telemetryrelay.New(backend.RelayedSpans),
 		Log:            log.NewServer(logger),
+		Scopes:         sessionscope.NewRegistry(),
+		Sessions:       sessionstate.NewTable(),
+		Tokens:         tokencount.NewCounter(nil, prov, logger),
 		Logger:         logger,
 	}
 }
@@ -73,6 +99,9 @@ func TestNewSupervisor_validation(t *testing.T) {
 		{"missing telemetry", func(c *Config) { c.Telemetry = nil }, ErrMissingTelemetry},
 		{"missing relay", func(c *Config) { c.TelemetryRelay = nil }, ErrMissingRelay},
 		{"missing log", func(c *Config) { c.Log = nil }, ErrMissingLog},
+		{"missing scopes", func(c *Config) { c.Scopes = nil }, ErrMissingScopes},
+		{"missing sessions", func(c *Config) { c.Sessions = nil }, ErrMissingSessions},
+		{"missing tokens", func(c *Config) { c.Tokens = nil }, ErrMissingTokens},
 	}
 
 	for _, tt := range tests {
@@ -350,10 +379,14 @@ func TestCallbackSlot_forwardsEveryRPC(t *testing.T) {
 	t.Parallel()
 
 	logger := discardLogger()
+	prov := mustTelemetry(t)
 	slot := newCallbackSlot(kernelcallback.NewServer(kernelcallback.Config{
 		Log:       log.NewServer(logger),
 		Producer:  &commonv1.ProducerRef{Name: "p", Category: commonv1.Category_CATEGORY_TOOL},
-		Telemetry: mustTelemetry(t),
+		Telemetry: prov,
+		Scopes:    sessionscope.NewRegistry(),
+		Sessions:  sessionstate.NewTable(),
+		Tokens:    tokencount.NewCounter(nil, prov, logger),
 		Logger:    logger,
 	}))
 
@@ -386,7 +419,13 @@ func TestCallbackSlot_forwardsEveryRPC(t *testing.T) {
 		{"CountTokens", "kernelcallback:", func() error { _, err := slot.CountTokens(ctx, &kernelv1.CountTokensRequest{}); return err }},
 		{"Emit", "kernelcallback:", func() error { _, err := slot.Emit(ctx, &kernelv1.EmitRequest{}); return err }},
 		{"GetSession", "kernelcallback:", func() error { _, err := slot.GetSession(ctx, &kernelv1.GetSessionRequest{}); return err }},
-		{"ReadEvents", "kernelcallback:", func() error { return slot.ReadEvents(&kernelv1.ReadEventsRequest{}, nil) }},
+		{"ReadEvents", "kernelcallback:", func() error {
+			// ReadEvents is server-streaming: its context comes from the
+			// stream argument (stream.Context()), not a direct ctx
+			// parameter, so contextcheck can't see that ctx does flow
+			// through via fakeReadEventsStream.ctx below.
+			return slot.ReadEvents(&kernelv1.ReadEventsRequest{}, &fakeReadEventsStream{ctx: ctx}) //nolint:contextcheck // ctx flows via the stream, see comment above
+		}},
 		{"ExportSpans", "kernelcallback:", func() error { _, err := slot.ExportSpans(ctx, &kernelv1.ExportSpansRequest{}); return err }},
 		{"RecordMetrics", "kernelcallback:", func() error { _, err := slot.RecordMetrics(ctx, &kernelv1.RecordMetricsRequest{}); return err }},
 		{"Publish", "kernelcallback:", func() error { _, err := slot.Publish(ctx, &kernelv1.PublishRequest{}); return err }},
