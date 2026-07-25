@@ -226,7 +226,7 @@ func scanEvent(row rowScanner) (Event, error) {
 	}
 	ev.Kind = kind
 
-	category, err := decodeProducerCategory(categoryText)
+	category, err := decodeProducer(categoryText, name)
 	if err != nil {
 		return Event{}, err
 	}
@@ -263,7 +263,7 @@ func (s *Session) Producers(ctx context.Context) (_ []*commonv1.ProducerRef, err
 			err = fmt.Errorf("statebackend: query producers: %w", scanErr)
 			return nil, err
 		}
-		category, decErr := decodeProducerCategory(categoryText)
+		category, decErr := decodeProducer(categoryText, name)
 		if decErr != nil {
 			err = fmt.Errorf("statebackend: query producers: %w", decErr)
 			return nil, err

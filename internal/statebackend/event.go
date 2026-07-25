@@ -203,23 +203,141 @@ var producerTextCategory = func() map[string]commonv1.Category {
 
 // encodeProducerCategory renders category as its stored TEXT
 // representation. CATEGORY_UNSPECIFIED and any unrecognized value are
-// rejected.
+// rejected — including kernelProducerCategoryText's reserved name, which is
+// deliberately absent from producerCategoryText so this function can never
+// mint it and can never be a general decode target for it (see
+// encodeProducer/decodeProducer).
 func encodeProducerCategory(category commonv1.Category) (string, error) {
 	text, ok := producerCategoryText[category]
 	if !ok {
-		return "", fmt.Errorf("statebackend: producer category %v has no stored representation", category)
+		return "", fmt.Errorf("statebackend: %w: category %v has no stored representation", ErrInvalidProducer, category)
 	}
 	return text, nil
 }
 
 // decodeProducerCategory is the inverse of encodeProducerCategory, used
-// when reading an events or producers row back (Stage 3's query.go).
+// when reading an events or producers row back (query.go). It resolves only
+// the seven real plugin categories: kernelProducerCategoryText is not in
+// producerTextCategory, so a "kernel" row reaching here is an error — the
+// reserved identity is resolved one level up, in decodeProducer, where the
+// paired producer_name is available to authenticate it.
 func decodeProducerCategory(text string) (commonv1.Category, error) {
 	category, ok := producerTextCategory[text]
 	if !ok {
-		return commonv1.Category_CATEGORY_UNSPECIFIED, fmt.Errorf("statebackend: unrecognized producer category %q", text)
+		return commonv1.Category_CATEGORY_UNSPECIFIED, fmt.Errorf("statebackend: %w: unrecognized category %q", ErrInvalidProducer, text)
 	}
 	return category, nil
+}
+
+// The reserved kernel producer identity. plan and apply events are assembled
+// by the kernel from a whole turn's tool calls, spanning potentially several
+// different tool providers (docs/specifications/state-backend.md#the-kind-enum,
+// docs/specifications/agent-loop/plan-apply-gate.md), so no single plugin owns
+// them as producer — yet events.producer_category/name/version are all NOT
+// NULL. These three constants are that gap's answer: a well-known
+// (category-text, name, version) triple that is structurally impossible for
+// a real plugin to hold.
+const (
+	// kernelProducerCategoryText is the reserved events.producer_category /
+	// producers.category TEXT value. It is deliberately NOT an entry in
+	// producerCategoryText: no commonv1.Category encodes to it, and it
+	// decodes to nothing on its own.
+	kernelProducerCategoryText = "kernel"
+	// kernelProducerName is the reserved events.producer_name /
+	// producers.name value. Paired with kernelProducerCategoryText it forms
+	// the composite sentinel — the category text alone is never sufficient
+	// to decode.
+	kernelProducerName = "kernel"
+	// kernelProducerVersion is the reserved events.producer_version /
+	// producers.version value. Fixed at the event.v1 payload generation the
+	// kernel writes plan/apply events as; it moves only alongside an
+	// event.v2, never with the kernel binary's own release version, so a
+	// session's producers manifest stays stable across kernel upgrades.
+	kernelProducerVersion = "1"
+)
+
+// kernelProducerKinds is the complete set of event kinds the reserved
+// kernel producer identity may be written under. plan and apply are the
+// only two kinds with no owning plugin; every other kind is written by the
+// producing plugin's own callback connection
+// (docs/specifications/kernel-callbacks.md#emit), and hook_error — though
+// kernel-synthesized — deliberately carries the *failing subscriber's*
+// identity, not the kernel's (state-backend.md#the-kind-enum).
+var kernelProducerKinds = map[kernelv1.EventKind]struct{}{
+	kernelv1.EventKind_EVENT_KIND_PLAN:  {},
+	kernelv1.EventKind_EVENT_KIND_APPLY: {},
+}
+
+// KernelProducer returns the reserved producer identity for events the
+// kernel itself synthesizes rather than receiving from a plugin's Emit:
+// EVENT_KIND_PLAN and EVENT_KIND_APPLY, and no others. The returned value
+// is fixed and well-known:
+//
+//	Name:     "kernel"
+//	Version:  "1"       (the event.v1 payload generation, not a kernel release)
+//	Category: CATEGORY_UNSPECIFIED
+//	Source:   ""        (the kernel is not installed from anywhere; unstored anyway)
+//
+// CATEGORY_UNSPECIFIED is the honest value — the kernel implements none of
+// the seven plugin categories — and it stays as invalid as it has always
+// been on its own: encodeProducerCategory still rejects it outright. What
+// makes this identity storable is the *pair*: only a producer whose
+// category is unspecified AND whose name is exactly "kernel" encodes, and
+// it encodes to the reserved "kernel" category text that no real category
+// can produce. A plugin can never reach this path, because a registered
+// plugin always carries one of the seven real categories, and a producer
+// carrying UNSPECIFIED with any other name is still rejected exactly as
+// before.
+//
+// A fresh value is returned per call: *commonv1.ProducerRef is a mutable
+// pointer, and a shared package-level instance would let one caller's edit
+// corrupt every other caller's identity.
+func KernelProducer() *commonv1.ProducerRef {
+	return &commonv1.ProducerRef{
+		Name:     kernelProducerName,
+		Version:  kernelProducerVersion,
+		Category: commonv1.Category_CATEGORY_UNSPECIFIED,
+	}
+}
+
+// IsKernelProducer reports whether p is the reserved kernel producer
+// identity — CATEGORY_UNSPECIFIED paired with the name "kernel". Version is
+// deliberately not part of the test: a session file written by a future
+// kernel whose payload generation is "2" is still the kernel's own row, and
+// must still read back as such.
+func IsKernelProducer(p *commonv1.ProducerRef) bool {
+	return p.GetCategory() == commonv1.Category_CATEGORY_UNSPECIFIED && p.GetName() == kernelProducerName
+}
+
+// encodeProducer renders p's category as the TEXT stored in
+// events.producer_category and producers.category for an event of the given
+// kind. It accepts exactly two producer shapes: a real plugin (one of the
+// seven categories, via encodeProducerCategory) or the reserved kernel
+// identity on a plan/apply event. A kernel producer on any other kind, and
+// any other CATEGORY_UNSPECIFIED producer, return ErrInvalidProducer.
+func encodeProducer(p *commonv1.ProducerRef, kind kernelv1.EventKind) (string, error) {
+	if IsKernelProducer(p) {
+		if _, ok := kernelProducerKinds[kind]; !ok {
+			return "", fmt.Errorf("statebackend: %w: the kernel producer is reserved for plan and apply events, not %v", ErrInvalidProducer, kind)
+		}
+		return kernelProducerCategoryText, nil
+	}
+	return encodeProducerCategory(p.GetCategory())
+}
+
+// decodeProducer is the inverse of encodeProducer, resolving a stored
+// (category text, producer name) pair back to a category. The reserved
+// kernel category text resolves to CATEGORY_UNSPECIFIED only when paired
+// with the reserved kernel name; paired with anything else it is a
+// malformed row, not a licence to hand back an unspecified category.
+func decodeProducer(categoryText, name string) (commonv1.Category, error) {
+	if categoryText == kernelProducerCategoryText {
+		if name != kernelProducerName {
+			return commonv1.Category_CATEGORY_UNSPECIFIED, fmt.Errorf("statebackend: %w: category %q is reserved for producer name %q, got %q", ErrInvalidProducer, kernelProducerCategoryText, kernelProducerName, name)
+		}
+		return commonv1.Category_CATEGORY_UNSPECIFIED, nil
+	}
+	return decodeProducerCategory(categoryText)
 }
 
 // planDecisionText maps a PlanDecision to the exact lowercase text

@@ -17,6 +17,11 @@ var ErrInvalidKind = errors.New("statebackend: invalid event kind")
 // ErrInvalidDecision is returned when a plan item's decision is invalid or unspecified.
 var ErrInvalidDecision = errors.New("statebackend: invalid plan decision")
 
+// ErrInvalidProducer is returned when an event's producer cannot be stored:
+// an unrepresentable category, or a misuse of the reserved kernel producer
+// identity (see KernelProducer).
+var ErrInvalidProducer = errors.New("statebackend: invalid producer")
+
 // ErrUnrecoverable is returned when a session file is corrupted and recovery failed.
 var ErrUnrecoverable = errors.New("statebackend: session file unrecoverable")
 
