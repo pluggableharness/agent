@@ -79,6 +79,21 @@ func TestNewLive_budgetIsUsable(t *testing.T) {
 	}
 }
 
+// TestLive_Session asserts the accessor hands back the very handle
+// NewLive was given — the composition root relies on it being the same
+// sole-writer *statebackend.Session, not a copy or a second open.
+func TestLive_Session(t *testing.T) {
+	t.Parallel()
+	sess := newTestSession(t)
+	bus := eventbus.New()
+	t.Cleanup(func() { _ = bus.Close() })
+
+	live := NewLive(sess, bus, bounds.Limits{}, nil, nil, nil, nil)
+	if got := live.Session(); got != sess {
+		t.Errorf("Session() = %p, want %p", got, sess)
+	}
+}
+
 func TestLive_Close(t *testing.T) {
 	t.Parallel()
 	live, _ := newTestLive(t, bounds.Limits{}, nil, time.Time{})

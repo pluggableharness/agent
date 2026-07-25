@@ -95,6 +95,26 @@ func (l *Live) Budget() *bounds.Tracker {
 	return l.budget
 }
 
+// Session exposes the *statebackend.Session this Live wraps, so the
+// composition root can hand the kernel's own turn-stack collaborators
+// (internal/contextassembly, internal/modelcall, internal/tooldispatch,
+// internal/hookdispatch, internal/plangate — every one of which declares
+// its sink interface as *statebackend.Session's own Append* signatures)
+// the very same handle rather than opening a second one on the same file.
+//
+// This exists because internal/session mints the session id and creates
+// the session file itself, so nothing above it can construct those
+// collaborators until a session already exists; the composition root
+// resolves the handle out of the live-session Table on the first turn.
+// See internal/kernel's CLAUDE.md for that late-binding seam.
+//
+// It is NOT a license to bypass this type's own Emit/EmitMessage/EmitPlan
+// path: those debit the budget tracker and republish onto the event bus,
+// and a plugin-originated event routed around them would do neither.
+func (l *Live) Session() *statebackend.Session {
+	return l.session
+}
+
 // Close closes the underlying statebackend.Session.
 func (l *Live) Close() error {
 	return l.session.Close()
