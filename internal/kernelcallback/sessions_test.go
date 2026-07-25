@@ -149,14 +149,24 @@ func TestServer_GetSession_returnsPersistedAndLiveHalves(t *testing.T) {
 		t.Fatalf("test setup: session %q not registered live", sessionID)
 	}
 	cost := statebackend.CostEntry{ProviderName: "anthropic", ModelID: "claude", CostUSD: 2.5}
-	if _, err := live.EmitMessage(t.Context(), sessionstate.EmitRecord{
-		Producer:      testProducer(),
+	now := time.Unix(1700000000, 0).UTC()
+	if _, err := live.AppendMessage(t.Context(), statebackend.Event{
+		ID:            statebackend.NewEventID(now),
+		Timestamp:     now,
 		Kind:          kernelv1.EventKind_EVENT_KIND_MESSAGE,
+		Producer:      testProducer(),
 		SchemaVersion: "1",
 		Payload:       []byte("hi"),
 	}, cost); err != nil {
-		t.Fatalf("EmitMessage: %v", err)
+		t.Fatalf("AppendMessage: %v", err)
 	}
+	// The debit is deliberately separate from the append: the session
+	// driver owns it (internal/session's absorb, once per turn), so
+	// AppendMessage persists the cost_ledger row and moves no tracker.
+	// This test asserts GetSession reports both halves — the persisted
+	// rollup and the live tracker — so it has to set the live half up the
+	// same way production does.
+	live.Budget().Debit(cost.CostUSD)
 
 	result, err := f.server.GetSession(t.Context(), &kernelv1.GetSessionRequest{SessionId: sessionID})
 	if err != nil {

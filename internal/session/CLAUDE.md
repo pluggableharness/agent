@@ -71,11 +71,18 @@ Two things about the grant set itself:
 
 `internal/modelcall` persists the `cost_ledger` row at usage-event time but holds no `bounds.Tracker`; `internal/turn` holds none either. The session driver is the only thing on the path that can decrement the live budget, so `absorb` calls `st.budget.Debit(result.CostUSD)` — `turn.Result.CostUSD` is **one turn's** completion cost, not a running total.
 
-The tracker itself comes from `sessionstate.Live.Budget()`, never a second `bounds.NewTracker` of this package's own: `Live.EmitMessage` debits into that same tracker for plugin-emitted message events, and two trackers would each see half the spend.
+The tracker itself comes from `sessionstate.Live.Budget()`, never a second `bounds.NewTracker` of this package's own — two trackers would each see half the spend. `internal/sessionstate`'s own `AppendMessage` deliberately does *not* debit, precisely so this stays the single debit site; don't add one there to "make it symmetric."
 
 ## The initial user message is not persisted
 
-`userMessage` mints a kernel-assigned id for the prompt (determinism.md requires one) and puts it in the turn's history, but nothing writes it to the `events` table. The only kernel path that writes a message event is `sessionstate.Live.EmitMessage`, which requires a `statebackend.CostEntry` in the same transaction (`state-backend.md` requires `cost_ledger` be populated alongside its message event) — and a user prompt has no cost. Writing a zero-cost ledger row to work around that would pollute `SUM(cost_usd)`'s meaning. This is a real transcript gap, recorded rather than papered over; the fix belongs in `internal/sessionstate` (a message-without-cost append path), not here.
+`userMessage` mints a kernel-assigned id for the prompt (determinism.md requires one) and puts it in the turn's history, but nothing writes it to the `events` table. Replaying a session therefore reconstructs every assistant message, tool call, and plan — but not the prompt that caused them.
+
+**This is blocked on a spec decision, not on an implementation detail here.** It is tracked in [`state-backend.md`](../../docs/specifications/state-backend.md#open-questions)'s open questions; do not work around it locally. Two independent things block it:
+
+- **No legal producer.** `events.producer_category` is the seven plugin categories, and `state-backend.md` is explicit that every `kind` except `hook_error` is written by the producing plugin's own callback connection. A user's turn has no `ProducerRef` at all, and `statebackend`'s reserved `kernel` producer is restricted to `plan`/`apply` (`kernelProducerKinds`) — an append under it for any other kind returns `ErrInvalidProducer`.
+- **`message` is the wrong shape.** A `message` event's payload carries `Usage`/`cost_usd`, extracted into `cost_ledger` at write time. A user prompt has neither, and writing a zero-cost ledger row to satisfy the pairing would pollute what `SUM(cost_usd)` means.
+
+Resolving it means either widening the reserved kernel producer to cover a user-authored `message` (with the usage/cost fields optional in that case), or giving the user turn its own `kind` and payload. Both are wire-visible. Don't reach for a local hack in the meantime — a fabricated producer or a zero-cost row would put a lie in the audit log, which is worse than the gap.
 
 ## `effectiveCeilingPercent` is this package's policy, by design
 

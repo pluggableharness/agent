@@ -46,6 +46,18 @@ func newTestSession(t *testing.T) *statebackend.Session {
 	return sess
 }
 
+// newTestLiveSession wraps a real session file as the *sessionstate.Live
+// the sink actually binds. The sink takes a Live rather than the raw
+// handle so that every kernel-originated event republishes onto
+// kernel.event.{kind}; see sessionSink's own doc comment.
+func newTestLiveSession(t *testing.T) *sessionstate.Live {
+	t.Helper()
+
+	bus := eventbus.New()
+	t.Cleanup(func() { _ = bus.Close() })
+	return sessionstate.NewLive(newTestSession(t), bus, bounds.Limits{}, nil, nil, nil, nil)
+}
+
 // testEvent returns an event a plugin-shaped producer could have emitted.
 func testEvent(now time.Time) statebackend.Event {
 	return statebackend.Event{
@@ -82,9 +94,8 @@ func TestSessionSink_unboundRefusesEveryAppend(t *testing.T) {
 func TestSessionSink_boundForwardsToTheSession(t *testing.T) {
 	t.Parallel()
 
-	sess := newTestSession(t)
 	var sink sessionSink
-	sink.bind(sess)
+	sink.bind(newTestLiveSession(t))
 
 	seq, err := sink.AppendEvent(context.Background(), testEvent(time.Now()))
 	if err != nil {
@@ -100,7 +111,7 @@ func TestSessionSink_boundForwardsToTheSession(t *testing.T) {
 func TestSessionSink_rebindRetargets(t *testing.T) {
 	t.Parallel()
 
-	first, second := newTestSession(t), newTestSession(t)
+	first, second := newTestLiveSession(t), newTestLiveSession(t)
 	var sink sessionSink
 
 	sink.bind(first)

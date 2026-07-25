@@ -12,8 +12,8 @@ But **`internal/session` mints the session id and creates the session file itsel
 
 The seam has two halves:
 
-- **`sessionSink`** — an `atomic.Pointer[statebackend.Session]` forwarder, the same shape and the same justification as [`internal/pluginhost`'s `callbackSlot`](../pluginhost/slot.go). Read that file before proposing a different mechanism.
-- **`sessionstate.Live.Session()`** — added for this, so the composition root hands the turn stack the very handle `Live` already wraps rather than opening a second one on the same file (which would break the sole-writer property `state-backend.md` requires). It is **not** a license to route plugin-originated events around `Live.Emit`: those debit the budget tracker and republish onto the event bus, and `Live.EmitMessage` in particular would double-count cost that `internal/session`'s `absorb` already debits.
+- **`sessionSink`** — an `atomic.Pointer[sessionstate.Live]` forwarder, the same shape and the same justification as [`internal/pluginhost`'s `callbackSlot`](../pluginhost/slot.go). Read that file before proposing a different mechanism.
+- **The sink binds a `*sessionstate.Live`, never the raw `*statebackend.Session` that `Live` wraps.** It used to bind the raw handle, which persisted every kernel-originated event correctly and published none of them — `Live`'s `Append*` methods are what serialize a session's writes under one lock *and* republish each committed event onto the reserved `kernel.event.{kind}` topic ([`event-bus.md#the-kernel-namespace`](../../docs/specifications/event-bus.md)), so bypassing them meant a plugin subscribed to `kernel.event.*` saw other plugins' `Emit` calls and never a `message`, `tool_call`, `tool_result`, `plan`, or `apply`. `Live.AppendEvent`/`AppendMessage`/`AppendPlan` take the caller's own already-built `statebackend.Event`, so the five collaborators keep owning their event ids and timestamps exactly as before. The `Session()` accessor that made the old wiring possible has been removed; don't reintroduce it.
 
 ### The one window where the sink is unbound
 

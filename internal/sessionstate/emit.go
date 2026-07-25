@@ -86,79 +86,90 @@ func (l *Live) Emit(ctx context.Context, rec EmitRecord) (_ EmitOutcome, err err
 	return EmitOutcome{ID: ev.ID, Sequence: seq}, nil
 }
 
-// EmitMessage is the kernel-internal path for EVENT_KIND_MESSAGE events —
-// it additionally writes a cost_ledger row in the same transaction (via
-// statebackend.Session.AppendMessage) and debits this session's (and, via
-// the parent link, every ancestor's) budget tracker. This method is NOT
-// reachable from a plugin's Emit call — a future kernelcallback handler
-// rejects EVENT_KIND_MESSAGE from a plugin-facing Emit and calls THIS
-// method itself instead, since only the kernel's own model-call path
-// produces message events (state-backend.md's conformance table requires
-// cost_ledger populated "at the same time as the message event that
-// produced it", which a generic plugin Emit path cannot guarantee).
-func (l *Live) EmitMessage(ctx context.Context, rec EmitRecord, cost statebackend.CostEntry) (_ EmitOutcome, err error) {
+// The three Append* methods below are the KERNEL-INTERNAL write path, and
+// they are what every kernel-side collaborator (internal/modelcall,
+// internal/tooldispatch, internal/plangate, internal/hookdispatch,
+// internal/contextassembly) persists through. Each takes an already-built
+// statebackend.Event rather than an EmitRecord, and that difference is the
+// whole point: those callers assign their own event identity and their own
+// timestamp (internal/modelcall deliberately reuses the kernel-assigned
+// message id as the event id, per its own notes), so a method that minted
+// a fresh one would overwrite a decision the caller already made.
+//
+// They deliberately do NOT debit the budget tracker. The session driver
+// debits exactly once per turn from turn.Result.CostUSD
+// (internal/session's absorb); debiting here as well would count every
+// completion's cost twice. Budget.Debit stays the session driver's job —
+// see internal/session/CLAUDE.md.
+//
+// Their signatures are exactly *statebackend.Session's own Append*
+// signatures, which is what lets a *Live be dropped in wherever those five
+// packages declare their event-sink interface, with no adapter and no call
+// site change — and it is what routes every kernel-originated event
+// through the bus republish below, rather than straight to sqlite.
+
+// AppendEvent persists ev verbatim and republishes it onto
+// kernel.event.{kind} after the commit succeeds.
+func (l *Live) AppendEvent(ctx context.Context, ev statebackend.Event) (_ int64, err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	ctx, span := l.telem.StartSessionStateEmitMessage(ctx, l.id, rec.Producer)
+	ctx, span := l.telem.StartSessionStateEmit(ctx, l.id, ev.Producer)
 	defer func() { telemetry.EndSpan(span, err) }()
-	l.logger.DebugContext(ctx, "sessionstate: emit message", "session_id", l.id)
+	l.logger.DebugContext(ctx, "sessionstate: append event", "session_id", l.id, "kind", ev.Kind)
 
-	now := l.clock()
-	ev := statebackend.Event{
-		ID:            statebackend.NewEventID(now),
-		Timestamp:     now,
-		Kind:          rec.Kind,
-		Producer:      rec.Producer,
-		SchemaVersion: rec.SchemaVersion,
-		Payload:       rec.Payload,
+	seq, appendErr := l.session.AppendEvent(ctx, ev)
+	if appendErr != nil {
+		err = fmt.Errorf("sessionstate: append event: %w", appendErr)
+		l.logger.ErrorContext(ctx, "sessionstate: append event: failed", "session_id", l.id, "err", err)
+		return 0, err
 	}
+
+	l.republish(ctx, ev.ID, seq, ev.Kind, ev.SchemaVersion, ev.Payload, ev.Timestamp)
+	return seq, nil
+}
+
+// AppendMessage persists ev and its cost_ledger row in one transaction
+// (state-backend.md requires cost_ledger populated at the same time as the
+// message event that produced it), then republishes.
+func (l *Live) AppendMessage(ctx context.Context, ev statebackend.Event, cost statebackend.CostEntry) (_ int64, err error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	ctx, span := l.telem.StartSessionStateEmitMessage(ctx, l.id, ev.Producer)
+	defer func() { telemetry.EndSpan(span, err) }()
+	l.logger.DebugContext(ctx, "sessionstate: append message", "session_id", l.id)
 
 	seq, appendErr := l.session.AppendMessage(ctx, ev, cost)
 	if appendErr != nil {
-		err = fmt.Errorf("sessionstate: emit message: %w", appendErr)
-		l.logger.ErrorContext(ctx, "sessionstate: emit message: append failed", "session_id", l.id, "err", err)
-		return EmitOutcome{}, err
+		err = fmt.Errorf("sessionstate: append message: %w", appendErr)
+		l.logger.ErrorContext(ctx, "sessionstate: append message: failed", "session_id", l.id, "err", err)
+		return 0, err
 	}
 
-	l.budget.Debit(cost.CostUSD)
-	l.republish(ctx, ev.ID, seq, rec.Kind, rec.SchemaVersion, rec.Payload, now)
-	return EmitOutcome{ID: ev.ID, Sequence: seq}, nil
+	l.republish(ctx, ev.ID, seq, ev.Kind, ev.SchemaVersion, ev.Payload, ev.Timestamp)
+	return seq, nil
 }
 
-// EmitPlan is the analogous kernel-internal path for EVENT_KIND_PLAN,
-// writing plan_items rows in the same transaction via
-// statebackend.Session.AppendPlan. Also not reachable from a plugin's
-// Emit — use statebackend.KernelProducer() as rec.Producer here (this is
-// exactly the "kernel-synthesized event with no single owning plugin"
-// case that producer identity exists to serve).
-func (l *Live) EmitPlan(ctx context.Context, rec EmitRecord, items []statebackend.PlanItem) (_ EmitOutcome, err error) {
+// AppendPlan persists ev and every plan_items row in one transaction
+// (state-backend.md#plan_items), then republishes.
+func (l *Live) AppendPlan(ctx context.Context, ev statebackend.Event, items []statebackend.PlanItem) (_ int64, err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	ctx, span := l.telem.StartSessionStateEmitPlan(ctx, l.id, rec.Producer)
+	ctx, span := l.telem.StartSessionStateEmitPlan(ctx, l.id, ev.Producer)
 	defer func() { telemetry.EndSpan(span, err) }()
-	l.logger.DebugContext(ctx, "sessionstate: emit plan", "session_id", l.id, "item_count", len(items))
-
-	now := l.clock()
-	ev := statebackend.Event{
-		ID:            statebackend.NewEventID(now),
-		Timestamp:     now,
-		Kind:          rec.Kind,
-		Producer:      rec.Producer,
-		SchemaVersion: rec.SchemaVersion,
-		Payload:       rec.Payload,
-	}
+	l.logger.DebugContext(ctx, "sessionstate: append plan", "session_id", l.id, "item_count", len(items))
 
 	seq, appendErr := l.session.AppendPlan(ctx, ev, items)
 	if appendErr != nil {
-		err = fmt.Errorf("sessionstate: emit plan: %w", appendErr)
-		l.logger.ErrorContext(ctx, "sessionstate: emit plan: append failed", "session_id", l.id, "err", err)
-		return EmitOutcome{}, err
+		err = fmt.Errorf("sessionstate: append plan: %w", appendErr)
+		l.logger.ErrorContext(ctx, "sessionstate: append plan: failed", "session_id", l.id, "err", err)
+		return 0, err
 	}
 
-	l.republish(ctx, ev.ID, seq, rec.Kind, rec.SchemaVersion, rec.Payload, now)
-	return EmitOutcome{ID: ev.ID, Sequence: seq}, nil
+	l.republish(ctx, ev.ID, seq, ev.Kind, ev.SchemaVersion, ev.Payload, ev.Timestamp)
+	return seq, nil
 }
 
 // republish builds the kernel.event.{kind} BusEvent for a just-persisted

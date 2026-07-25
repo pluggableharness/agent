@@ -1,8 +1,43 @@
 # internal/sessionstate — agent notes
 
-- **`EmitMessage` and `EmitPlan` are kernel-internal paths, never reachable
-  from a plugin-facing `Emit` RPC — and this is a correctness requirement,
-  not a style preference.** [`state-backend.md`](../../docs/specifications/state-backend.md)'s
+- **Two write paths, and the split is by *who is writing*, not by event
+  kind.** `Emit` is the plugin-facing path: it takes an `EmitRecord` and
+  mints the event's id and timestamp itself, because a plugin has no
+  business assigning either. `AppendEvent`/`AppendMessage`/`AppendPlan` are
+  the kernel-internal path: they take an already-built
+  `statebackend.Event`, because the kernel-side collaborator *does* own
+  that identity — `internal/modelcall` deliberately reuses the
+  kernel-assigned message id as the event id, and a method that minted a
+  fresh one would silently overwrite that decision. Their signatures are
+  exactly `*statebackend.Session`'s own `Append*` signatures, which is what
+  lets a `*Live` satisfy the sink interface all five kernel collaborators
+  (`contextassembly`, `modelcall`, `tooldispatch`, `hookdispatch`,
+  `plangate`) already declare, with no adapter.
+
+- **Nothing may hand out the wrapped `*statebackend.Session`.** A
+  `Session()` accessor existed so the composition root could give those
+  five collaborators the same open handle. It was removed because it
+  defeated both properties this type exists to provide: writes through the
+  raw handle skipped `mu` (so a session no longer had one writer at a time)
+  **and** skipped the `kernel.event.{kind}` republish — so no
+  kernel-originated event ever reached the bus, and a plugin subscribed to
+  `kernel.event.*` saw other plugins' `Emit` calls and never a `message`,
+  `tool_call`, `tool_result`, `plan`, or `apply`.
+  `TestLive_AppendEvent_republishesEveryKernelKind` is the regression test.
+  Don't reintroduce the accessor.
+
+- **The `Append*` methods deliberately do NOT debit the budget tracker.**
+  `internal/session`'s `absorb` debits `turn.Result.CostUSD` exactly once
+  per turn, and it is the only thing on the path that can — so debiting
+  here as well would count every completion twice, compounding silently
+  rather than failing. `TestLive_AppendMessage_doesNotDebitBudget` asserts
+  both the session's own tracker and its parent stay at zero (a stray debit
+  would corrupt every ancestor, since `bounds.Tracker.Debit` walks the
+  chain). Budget ownership lives in `internal/session`; see its `CLAUDE.md`.
+
+- **`EVENT_KIND_MESSAGE`/`EVENT_KIND_PLAN` are still rejected on the
+  plugin-facing `Emit`, and that is a correctness requirement rather than
+  a style preference.** [`state-backend.md`](../../docs/specifications/state-backend.md)'s
   conformance table requires `cost_ledger` populated "at the same time as
   the message event that produced it," and `plan_items` populated
   alongside its plan event, both in the same transaction
@@ -11,31 +46,33 @@
   call has no way to also supply a `CostEntry` or `[]PlanItem` — those
   shapes don't exist on the wire `EmitRequest`
   ([`kernel-callbacks.md#emit`](../../docs/specifications/kernel-callbacks.md#emit)).
-  The future `internal/kernelcallback` `Emit` RPC handler MUST reject
-  `EVENT_KIND_MESSAGE`/`EVENT_KIND_PLAN` from a plugin's own `Emit` call
-  and route the kernel's own model-call/plan-build code to `EmitMessage`/
-  `EmitPlan` directly instead — don't "simplify" by routing everything
-  through the plain `Emit` and bolting the cost/plan-item write on
-  separately; that reopens the exact race the same-transaction requirement
-  exists to close.
+  `internal/kernelcallback`'s `Emit` handler rejects both kinds and the
+  kernel's own model-call/plan-build code calls `AppendMessage`/
+  `AppendPlan` instead — don't "simplify" by routing everything through
+  the plain `Emit` and bolting the cost/plan-item write on separately;
+  that reopens the exact race the same-transaction requirement exists to
+  close.
 
 - **Validation is the caller's job, not this package's.** `EmitRecord`'s
   own doc comment lists what a future `kernelcallback.Emit` handler is
   expected to have already checked (session_id authorized via
   `internal/sessionscope`, `kind != EVENT_KIND_UNSPECIFIED`,
   `schema_version` non-empty, payload non-nil, the kernel-owned-kind
-  rejection above) before ever calling into `Live.Emit`/`EmitMessage`/
-  `EmitPlan`. This package still gets `ErrInvalidKind`/`ErrInvalidProducer`
+  rejection above) before ever calling into `Live.Emit`. This package
+  still gets `ErrInvalidKind`/`ErrInvalidProducer`
   for free from `statebackend.Session`'s own append validation (it never
   duplicates that logic), but it does not itself implement the
   session-scope authorization check or the plugin-vs-kernel kind
   partitioning — those live one layer up, deliberately, per this package's
   own `doc.go`.
 
-- **`Live.mu` is held for the full duration of every `Emit*` call —
-  append, budget debit, and republish, in that order — never just the
-  append.** This is what makes "one writer at a time per session" true for
-  the whole write-then-republish sequence, not just the sqlite half of it.
+- **`Live.mu` is held for the full duration of every write call — append
+  then republish — never just the append.** This is what makes "one writer
+  at a time per session" true for the whole write-then-republish sequence,
+  not just the sqlite half of it. It holds only because every writer goes
+  through this type: the moment something writes to the wrapped
+  `*statebackend.Session` directly, the property is gone, which is why no
+  accessor for that handle exists.
   Don't narrow the critical section to just the `AppendEvent`/
   `AppendMessage`/`AppendPlan` call on the theory that the republish
   doesn't need serializing — a narrower lock would let two concurrent
@@ -50,7 +87,7 @@
   `AppendMessage`/`AppendPlan` call already returned successfully — never
   reordered, and never called speculatively before the append to "save a
   branch." A republish failure is logged at `WARN` and swallowed; it must
-  never cause `Emit`/`EmitMessage`/`EmitPlan` to return an error, since the
+  never cause `Emit`/`AppendEvent`/`AppendMessage`/`AppendPlan` to return an error, since the
   durable write already committed (`kernel-callbacks.md#emit`'s own
   documented rationale: "a subscriber that never connects... loses
   nothing durable").
@@ -82,13 +119,13 @@
   package's "never let a bus-side problem take down a durable write" rule
   above.
 
-- **Budget rollup is `bounds.Tracker.Debit`'s job, not this package's.**
-  `EmitMessage` calls `l.budget.Debit(cost.CostUSD)` exactly once and
-  trusts `Debit`'s own parent-chain walk
-  ([`internal/bounds`](../../internal/bounds)) to roll the same amount up
-  through every ancestor. Don't add a second rollup loop here — `bounds`
-  already owns that lock-ordering-sensitive logic, and duplicating it
-  would risk diverging from `bounds_test.go`'s own coverage of the
+- **Budget rollup is `bounds.Tracker.Debit`'s job, and the single call site
+  is `internal/session`'s `absorb` — not this package.** `Live` exposes the
+  tracker via `Budget()` and otherwise leaves it alone. If a future path
+  ever does need to debit from here, it debits once and trusts `Debit`'s
+  own parent-chain walk ([`internal/bounds`](../../internal/bounds)) to
+  roll the amount up through every ancestor — never a second rollup loop,
+  which would risk diverging from `bounds_test.go`'s coverage of the
   ancestor-walk invariants.
 
 - **Tests use a real `*statebackend.Store`/`*statebackend.Session` over

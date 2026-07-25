@@ -12,6 +12,7 @@ import (
 	"github.com/pluggableharness/agent/internal/bounds"
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/statebackend"
+	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 )
@@ -154,17 +155,29 @@ func TestLive_Emit_republishFailureStillSucceedsDurably(t *testing.T) {
 	}
 }
 
-func TestLive_EmitMessage_writesCostAndDebitsBudget(t *testing.T) {
+// kernelEvent builds the already-identified statebackend.Event a
+// kernel-side collaborator hands to Live's Append* methods. Unlike an
+// EmitRecord, the caller owns the id and the timestamp — that ownership is
+// the whole reason those methods take an Event rather than a record.
+func kernelEvent(t *testing.T, producer *commonv1.ProducerRef, kind kernelv1.EventKind, payload []byte) statebackend.Event {
+	t.Helper()
+	now := time.Unix(1700000000, 0).UTC()
+	return statebackend.Event{
+		ID:            statebackend.NewEventID(now),
+		Timestamp:     now,
+		Kind:          kind,
+		Producer:      producer,
+		SchemaVersion: "1",
+		Payload:       payload,
+	}
+}
+
+func TestLive_AppendMessage_writesCostLedgerAndRepublishes(t *testing.T) {
 	t.Parallel()
 	live, bus := newTestLive(t, bounds.Limits{MaxCostUSD: 100}, nil, time.Time{})
 	got := subscribeCollect(t, bus, "kernel.event.message")
 
-	rec := EmitRecord{
-		Producer:      testProducer(),
-		Kind:          kernelv1.EventKind_EVENT_KIND_MESSAGE,
-		SchemaVersion: "1",
-		Payload:       []byte("message-payload"),
-	}
+	ev := kernelEvent(t, testProducer(), kernelv1.EventKind_EVENT_KIND_MESSAGE, []byte("message-payload"))
 	cost := statebackend.CostEntry{
 		ProviderName: "anthropic",
 		ModelID:      "claude",
@@ -173,15 +186,17 @@ func TestLive_EmitMessage_writesCostAndDebitsBudget(t *testing.T) {
 		CostUSD:      1.5,
 	}
 
-	outcome, err := live.EmitMessage(context.Background(), rec, cost)
+	seq, err := live.AppendMessage(context.Background(), ev, cost)
 	if err != nil {
-		t.Fatalf("EmitMessage: %v", err)
+		t.Fatalf("AppendMessage: %v", err)
+	}
+	if seq != 1 {
+		t.Errorf("sequence = %d, want 1", seq)
 	}
 
-	waitForBusEvent(t, got)
-
-	if got := live.Budget().TotalCostUSD(); got != cost.CostUSD {
-		t.Errorf("Budget().TotalCostUSD() = %v, want %v", got, cost.CostUSD)
+	busEvent := waitForBusEvent(t, got)
+	if busEvent.GetTopic() != "kernel.event.message" {
+		t.Errorf("BusEvent.Topic = %q, want %q", busEvent.GetTopic(), "kernel.event.message")
 	}
 
 	entries, err := live.session.CostLedger(context.Background())
@@ -197,43 +212,38 @@ func TestLive_EmitMessage_writesCostAndDebitsBudget(t *testing.T) {
 	if entries[0].ModelID != cost.ModelID {
 		t.Errorf("CostLedger[0].ModelID = %q, want %q", entries[0].ModelID, cost.ModelID)
 	}
-	_ = outcome
 }
 
-func TestLive_EmitMessage_debitsRollUpToParent(t *testing.T) {
+// TestLive_AppendMessage_doesNotDebitBudget pins the single-debit rule.
+// internal/session's absorb debits turn.Result.CostUSD exactly once per
+// turn; debiting here as well would count every completion twice, and the
+// two would compound silently rather than fail. The parent tracker is
+// asserted alongside because bounds.Tracker.Debit walks the ancestor
+// chain, so a stray debit here would corrupt every ancestor too.
+func TestLive_AppendMessage_doesNotDebitBudget(t *testing.T) {
 	t.Parallel()
 	parent := bounds.NewTracker(bounds.Limits{MaxCostUSD: 100}, nil)
 	live, _ := newTestLive(t, bounds.Limits{MaxCostUSD: 100}, parent, time.Time{})
 
-	rec := EmitRecord{
-		Producer:      testProducer(),
-		Kind:          kernelv1.EventKind_EVENT_KIND_MESSAGE,
-		SchemaVersion: "1",
-		Payload:       []byte("x"),
-	}
-	cost := statebackend.CostEntry{CostUSD: 2.25}
-
-	if _, err := live.EmitMessage(context.Background(), rec, cost); err != nil {
-		t.Fatalf("EmitMessage: %v", err)
+	ev := kernelEvent(t, testProducer(), kernelv1.EventKind_EVENT_KIND_MESSAGE, []byte("x"))
+	if _, err := live.AppendMessage(context.Background(), ev, statebackend.CostEntry{CostUSD: 2.25}); err != nil {
+		t.Fatalf("AppendMessage: %v", err)
 	}
 
-	if got := parent.TotalCostUSD(); got != cost.CostUSD {
-		t.Errorf("parent.TotalCostUSD() = %v, want %v (rollup via bounds.Tracker.Debit)", got, cost.CostUSD)
+	if got := live.Budget().TotalCostUSD(); got != 0 {
+		t.Errorf("Budget().TotalCostUSD() = %v, want 0 (the session driver owns the debit, not this package)", got)
+	}
+	if got := parent.TotalCostUSD(); got != 0 {
+		t.Errorf("parent.TotalCostUSD() = %v, want 0 (no debit here means no ancestor rollup here)", got)
 	}
 }
 
-func TestLive_EmitPlan_writesPlanItemsWithKernelProducer(t *testing.T) {
+func TestLive_AppendPlan_writesPlanItemsWithKernelProducer(t *testing.T) {
 	t.Parallel()
 	live, bus := newTestLive(t, bounds.Limits{}, nil, time.Time{})
 	got := subscribeCollect(t, bus, "kernel.event.plan")
 
-	producer := statebackend.KernelProducer()
-	rec := EmitRecord{
-		Producer:      producer,
-		Kind:          kernelv1.EventKind_EVENT_KIND_PLAN,
-		SchemaVersion: "1",
-		Payload:       []byte("plan-payload"),
-	}
+	ev := kernelEvent(t, statebackend.KernelProducer(), kernelv1.EventKind_EVENT_KIND_PLAN, []byte("plan-payload"))
 	items := []statebackend.PlanItem{
 		{
 			TurnID:       "turn-1",
@@ -253,8 +263,8 @@ func TestLive_EmitPlan_writesPlanItemsWithKernelProducer(t *testing.T) {
 		},
 	}
 
-	if _, err := live.EmitPlan(context.Background(), rec, items); err != nil {
-		t.Fatalf("EmitPlan: %v", err)
+	if _, err := live.AppendPlan(context.Background(), ev, items); err != nil {
+		t.Fatalf("AppendPlan: %v", err)
 	}
 
 	busEvent := waitForBusEvent(t, got)
@@ -328,42 +338,78 @@ func TestLive_Emit_concurrentSequencesAreExactlyOneToN(t *testing.T) {
 	}
 }
 
-func TestLive_EmitMessage_afterCloseFails(t *testing.T) {
+func TestLive_AppendMessage_afterCloseFails(t *testing.T) {
 	t.Parallel()
 	live, _ := newTestLive(t, bounds.Limits{}, nil, time.Time{})
 	if err := live.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 
-	_, err := live.EmitMessage(context.Background(), EmitRecord{
-		Producer:      testProducer(),
-		Kind:          kernelv1.EventKind_EVENT_KIND_MESSAGE,
-		SchemaVersion: "1",
-		Payload:       []byte("x"),
-	}, statebackend.CostEntry{CostUSD: 1})
+	ev := kernelEvent(t, testProducer(), kernelv1.EventKind_EVENT_KIND_MESSAGE, []byte("x"))
+	_, err := live.AppendMessage(context.Background(), ev, statebackend.CostEntry{CostUSD: 1})
 	if !errors.Is(err, statebackend.ErrClosed) {
-		t.Errorf("EmitMessage after Close error = %v, want wrapping statebackend.ErrClosed", err)
-	}
-	if got := live.Budget().TotalCostUSD(); got != 0 {
-		t.Errorf("Budget().TotalCostUSD() after failed EmitMessage = %v, want 0 (no debit on append failure)", got)
+		t.Errorf("AppendMessage after Close error = %v, want wrapping statebackend.ErrClosed", err)
 	}
 }
 
-func TestLive_EmitPlan_afterCloseFails(t *testing.T) {
+func TestLive_AppendEvent_afterCloseFails(t *testing.T) {
 	t.Parallel()
 	live, _ := newTestLive(t, bounds.Limits{}, nil, time.Time{})
 	if err := live.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 
-	_, err := live.EmitPlan(context.Background(), EmitRecord{
-		Producer:      statebackend.KernelProducer(),
-		Kind:          kernelv1.EventKind_EVENT_KIND_PLAN,
-		SchemaVersion: "1",
-		Payload:       []byte("x"),
-	}, nil)
-	if !errors.Is(err, statebackend.ErrClosed) {
-		t.Errorf("EmitPlan after Close error = %v, want wrapping statebackend.ErrClosed", err)
+	ev := kernelEvent(t, testProducer(), kernelv1.EventKind_EVENT_KIND_TOOL_CALL, []byte("x"))
+	if _, err := live.AppendEvent(context.Background(), ev); !errors.Is(err, statebackend.ErrClosed) {
+		t.Errorf("AppendEvent after Close error = %v, want wrapping statebackend.ErrClosed", err)
+	}
+}
+
+func TestLive_AppendPlan_afterCloseFails(t *testing.T) {
+	t.Parallel()
+	live, _ := newTestLive(t, bounds.Limits{}, nil, time.Time{})
+	if err := live.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	ev := kernelEvent(t, statebackend.KernelProducer(), kernelv1.EventKind_EVENT_KIND_PLAN, []byte("x"))
+	if _, err := live.AppendPlan(context.Background(), ev, nil); !errors.Is(err, statebackend.ErrClosed) {
+		t.Errorf("AppendPlan after Close error = %v, want wrapping statebackend.ErrClosed", err)
+	}
+}
+
+// TestLive_AppendEvent_republishesEveryKernelKind is the regression test
+// for the defect these methods exist to fix: kernel-originated events used
+// to be written straight to the wrapped *statebackend.Session, so they
+// persisted correctly and reached the bus never. A subscriber to
+// kernel.event.* saw only other plugins' Emit calls.
+func TestLive_AppendEvent_republishesEveryKernelKind(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		kind  kernelv1.EventKind
+		topic string
+	}{
+		{kernelv1.EventKind_EVENT_KIND_TOOL_CALL, "kernel.event.tool_call"},
+		{kernelv1.EventKind_EVENT_KIND_TOOL_RESULT, "kernel.event.tool_result"},
+		{kernelv1.EventKind_EVENT_KIND_CONTEXT_CONTRIBUTION, "kernel.event.context_contribution"},
+		{kernelv1.EventKind_EVENT_KIND_HOOK_ERROR, "kernel.event.hook_error"},
+	} {
+		t.Run(tc.topic, func(t *testing.T) {
+			t.Parallel()
+			live, bus := newTestLive(t, bounds.Limits{}, nil, time.Time{})
+			got := subscribeCollect(t, bus, tc.topic)
+
+			ev := kernelEvent(t, testProducer(), tc.kind, []byte("payload"))
+			if _, err := live.AppendEvent(context.Background(), ev); err != nil {
+				t.Fatalf("AppendEvent: %v", err)
+			}
+
+			busEvent := waitForBusEvent(t, got)
+			if busEvent.GetTopic() != tc.topic {
+				t.Errorf("BusEvent.Topic = %q, want %q", busEvent.GetTopic(), tc.topic)
+			}
+		})
 	}
 }
 

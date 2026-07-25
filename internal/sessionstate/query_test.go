@@ -51,14 +51,9 @@ func TestLive_TotalCostUSD(t *testing.T) {
 	}
 
 	cost := statebackend.CostEntry{ProviderName: "anthropic", ModelID: "claude", CostUSD: 3.5}
-	rec := EmitRecord{
-		Producer:      testProducer(),
-		Kind:          kernelv1.EventKind_EVENT_KIND_MESSAGE,
-		SchemaVersion: "1",
-		Payload:       []byte("x"),
-	}
-	if _, err := live.EmitMessage(context.Background(), rec, cost); err != nil {
-		t.Fatalf("EmitMessage: %v", err)
+	ev := kernelEvent(t, testProducer(), kernelv1.EventKind_EVENT_KIND_MESSAGE, []byte("x"))
+	if _, err := live.AppendMessage(context.Background(), ev, cost); err != nil {
+		t.Fatalf("AppendMessage: %v", err)
 	}
 
 	total, err = live.TotalCostUSD(context.Background())

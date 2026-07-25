@@ -16,6 +16,7 @@ import (
 	"github.com/pluggableharness/agent/internal/plangate"
 	"github.com/pluggableharness/agent/internal/retrypolicy"
 	"github.com/pluggableharness/agent/internal/session"
+	"github.com/pluggableharness/agent/internal/sessionstate"
 	"github.com/pluggableharness/agent/internal/statebackend"
 	"github.com/pluggableharness/agent/internal/tooldispatch"
 	"github.com/pluggableharness/agent/internal/turn"
@@ -78,38 +79,48 @@ var ErrNoLiveSession = errors.New("kernel: event sink has no live session bound"
 // registered it in. An append before that returns ErrNoLiveSession rather
 // than panicking on a nil handle; see this package's CLAUDE.md for the one
 // window in which that is reachable.
+//
+// It binds a *sessionstate.Live, NOT the raw *statebackend.Session that
+// Live wraps, and that distinction is load-bearing rather than incidental.
+// Live's own Append* methods are what serialize a session's writes under
+// one lock and republish each committed event onto the reserved
+// kernel.event.{kind} bus topic (event-bus.md#the-kernel-namespace).
+// Binding the raw handle would persist every kernel-originated event
+// correctly and publish none of them — a plugin subscribed to
+// kernel.event.* would see other plugins' Emit calls and never a message,
+// tool_call, tool_result, plan, or apply. Don't reach past Live here.
 type sessionSink struct {
-	inner atomic.Pointer[statebackend.Session]
+	inner atomic.Pointer[sessionstate.Live]
 }
 
-// bind installs sess as the target every subsequent append forwards to.
-func (s *sessionSink) bind(sess *statebackend.Session) { s.inner.Store(sess) }
+// bind installs live as the target every subsequent append forwards to.
+func (s *sessionSink) bind(live *sessionstate.Live) { s.inner.Store(live) }
 
 // AppendEvent forwards to the bound session.
 func (s *sessionSink) AppendEvent(ctx context.Context, ev statebackend.Event) (int64, error) {
-	sess := s.inner.Load()
-	if sess == nil {
+	live := s.inner.Load()
+	if live == nil {
 		return 0, ErrNoLiveSession
 	}
-	return sess.AppendEvent(ctx, ev)
+	return live.AppendEvent(ctx, ev)
 }
 
 // AppendMessage forwards to the bound session.
 func (s *sessionSink) AppendMessage(ctx context.Context, ev statebackend.Event, cost statebackend.CostEntry) (int64, error) {
-	sess := s.inner.Load()
-	if sess == nil {
+	live := s.inner.Load()
+	if live == nil {
 		return 0, ErrNoLiveSession
 	}
-	return sess.AppendMessage(ctx, ev, cost)
+	return live.AppendMessage(ctx, ev, cost)
 }
 
 // AppendPlan forwards to the bound session.
 func (s *sessionSink) AppendPlan(ctx context.Context, ev statebackend.Event, items []statebackend.PlanItem) (int64, error) {
-	sess := s.inner.Load()
-	if sess == nil {
+	live := s.inner.Load()
+	if live == nil {
 		return 0, ErrNoLiveSession
 	}
-	return sess.AppendPlan(ctx, ev, items)
+	return live.AppendPlan(ctx, ev, items)
 }
 
 // The sink stands in for *statebackend.Session at five call sites, each of
@@ -195,7 +206,7 @@ func (k *kernel) newTurnDriver(ctx context.Context, sessionID string) (session.T
 	if !ok {
 		return nil, fmt.Errorf("kernel: session %s is not in the live-session table", sessionID)
 	}
-	k.sink.bind(live.Session())
+	k.sink.bind(live)
 
 	// One Breaker per session, wired into BOTH the plan gate (which
 	// records denials) and the tool scheduler (which records crashes).

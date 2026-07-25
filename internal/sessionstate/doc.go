@@ -3,7 +3,7 @@
 // (docs/specifications/state-backend.md#ordering--concurrency: "the
 // kernel is the sole writer to any given session's file"). A *Live wraps
 // exactly one already-created/opened *statebackend.Session, serializing
-// every Emit/EmitMessage/EmitPlan call through one mutex so appends and
+// every Emit/Append* call through one mutex so appends and
 // their same-transaction accompanying rows (cost_ledger, plan_items) are
 // never interleaved, and republishes each successfully-persisted event
 // onto the event bus's reserved kernel.event.{kind} topic

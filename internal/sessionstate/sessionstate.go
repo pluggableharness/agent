@@ -95,25 +95,19 @@ func (l *Live) Budget() *bounds.Tracker {
 	return l.budget
 }
 
-// Session exposes the *statebackend.Session this Live wraps, so the
-// composition root can hand the kernel's own turn-stack collaborators
-// (internal/contextassembly, internal/modelcall, internal/tooldispatch,
-// internal/hookdispatch, internal/plangate — every one of which declares
-// its sink interface as *statebackend.Session's own Append* signatures)
-// the very same handle rather than opening a second one on the same file.
+// There is deliberately NO accessor exposing the wrapped
+// *statebackend.Session.
 //
-// This exists because internal/session mints the session id and creates
-// the session file itself, so nothing above it can construct those
-// collaborators until a session already exists; the composition root
-// resolves the handle out of the live-session Table on the first turn.
-// See internal/kernel's CLAUDE.md for that late-binding seam.
-//
-// It is NOT a license to bypass this type's own Emit/EmitMessage/EmitPlan
-// path: those debit the budget tracker and republish onto the event bus,
-// and a plugin-originated event routed around them would do neither.
-func (l *Live) Session() *statebackend.Session {
-	return l.session
-}
+// One existed, so the composition root could hand the kernel's turn-stack
+// collaborators the same open handle rather than a second one on the same
+// file. It was removed because it defeated the two properties this type
+// exists to provide: every event written through the raw handle skipped
+// both mu (so a session no longer had one writer at a time) and the
+// kernel.event.{kind} republish (so no kernel-originated event ever
+// reached the bus at all). AppendEvent/AppendMessage/AppendPlan in emit.go
+// are the supported way to hand a caller that same session — they take the
+// caller's own already-built statebackend.Event, so nothing is lost by
+// going through them. Don't reintroduce the accessor.
 
 // Close closes the underlying statebackend.Session.
 func (l *Live) Close() error {
