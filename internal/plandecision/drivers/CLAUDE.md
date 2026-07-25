@@ -1,0 +1,9 @@
+# internal/plandecision/drivers — agent notes
+
+- **There is no default driver name, and adding one would be a regression.** `New("")` is `ErrUnknownDriver`, identical to a typo. Do not add `if name == "" { name = ... }`, a `DefaultDriver` constant, or a fallback in the `default:` branch — the absence of a default is what stops a build from silently ending up on the auto-allow resolver by omission.
+- **The registered name is `"auto-allow-unsafe"`, not `"autoallow"`.** The name is meant to read as a warning wherever it surfaces: an `agent.hcl`, a startup log, a review diff. Don't add `"autoallow"` as a friendlier alias.
+- **Selecting a driver by name is not an acknowledgement.** `Config.AcknowledgeUnsafeAutoAllow` is passed straight through to `autoallow.Config`, and naming `auto-allow-unsafe` without it fails with `autoallow.ErrNotAcknowledged`. Two independent gates, on purpose. Don't collapse them by defaulting the field to true for that name.
+- **`"frontend"` is reserved in a comment, not stubbed.** When the spec-correct driver lands, add the case here. Until then an unimplemented name must fail construction — a stub returning `allow` would be exactly the confusion this whole seam is built to prevent.
+- **`drivers/fake` is intentionally unregistered.** Its scripted responses have no `Config` representation, and a name-selectable fake is one more way to obtain a resolver that never asks a human. Tests import it directly.
+- **This is the only package that imports every driver.** A driver sub-package must never import a sibling driver or this package — that direction is one-way, per `go-layout.md`.
+- **`Config` is uniform across drivers, including ones that ignore parts of it.** Keep the selector signature the same regardless of which driver a name selects; don't special-case per driver.
