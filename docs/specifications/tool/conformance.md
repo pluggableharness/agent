@@ -72,6 +72,7 @@ This interacts with, but is distinct from, `concurrency_conflict`'s existing "re
 | `ConcurrencySpec.key_fields` | MAY, per operation | only meaningful under `safe: true` |
 | `default_timeout` | SHOULD, per operation | [`protocol.md#getschema`](protocol.md#getschema); absent means the kernel's global default applies |
 | `idempotent` | MUST, per operation | [`protocol.md#getschema`](protocol.md#getschema); gates kernel auto-retry, see above |
+| `terminates_turn` | MAY, per operation | [`data-types.md#terminates_turn`](data-types.md#terminates_turn); `resource`-only; opts into [`agent-loop/turn-algorithm.md#done-detection`](../agent-loop/turn-algorithm.md#done-detection)'s explicit terminal-tool path, absent/`false` otherwise |
 | `supported_hook_points` | MAY | [`protocol.md#getschema`](protocol.md#getschema); empty means this provider subscribes no `hook{}` blocks |
 | `exit_status` event | MUST for process-backed (exec-family) operations; MUST NOT otherwise | |
 | `output_chunk` / `progress` / `partial_result` events | MAY | only for operations with `streaming: true` |

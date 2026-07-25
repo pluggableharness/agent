@@ -2,7 +2,7 @@
 
 ## `ToolSchema`
 
-See [`protocol.md#getschema`](protocol.md#getschema) for the full shape; this section covers the two classification fields, `RiskClass` and `ConcurrencySpec`, in detail.
+See [`protocol.md#getschema`](protocol.md#getschema) for the full shape; this section covers the two classification fields, `RiskClass` and `ConcurrencySpec`, plus the `terminates_turn` declaration, in detail.
 
 ## `RiskClass`
 
@@ -88,3 +88,21 @@ A provider that does not populate `ConcurrencySpec` at all (e.g. an older plugin
 `data_source` operations SHOULD declare `safe: true` with no `key_fields` in the common case (reads generally don't conflict), but this is a per-operation choice, not implied by `kind` — a `data_source` that reads from a provider-internal cache with a bounded writer could still need a key.
 
 `ConcurrencySpec` MUST NOT be declared for a `kind == interactive` operation; if present, the kernel MUST ignore it and enforce sequential execution unconditionally — see [`protocol.md#kind-interactive`](protocol.md#kind-interactive). Whether `key_fields` needs to support derived/composite keys beyond "the literal value of named input fields" (e.g. a filesystem provider wanting to serialize on a resolved absolute path rather than the raw, possibly relative or symlinked, `path` argument) is a genuinely open question — see [`conformance.md#open-questions`](conformance.md#open-questions).
+
+## terminates_turn
+
+```protobuf
+ToolSchema {
+  ...
+  terminates_turn  bool  // MAY. true = the kernel MUST treat this call as an immediate,
+                          // successful DoneCheck once the call's post-tool-call hook has
+                          // fired. Resource-only. Absent/false = this operation does not
+                          // terminate the turn.
+}
+```
+
+`terminates_turn` is a tool provider's opt-in to the explicit terminal-tool done-detection path described in [`agent-loop/turn-algorithm.md#done-detection`](../agent-loop/turn-algorithm.md#done-detection). When the model calls an operation declaring `terminates_turn: true`, the kernel MUST treat that call as `DoneCheck` success immediately after the call's `post-tool-call` hook fires — independent of whether other `tool_use` blocks were present in the same assistant message, and without waiting for a subsequent no-tool-calls message. The remaining `tool_use` blocks in that message are not a reason to keep looping; the terminal tool's own `result` is the turn's completion report.
+
+`terminates_turn` is orthogonal to `kind`/`risk`/`idempotent` — it says nothing about mutation, blast radius, or retry safety. It MAY be `true` only on a `kind == resource` operation: a turn-terminating call is a deliberate, model-driven state transition, so it goes through the plan/apply gate like any other resource, and a `data_source` or `interactive` operation declaring it is an invalid `ToolSchema` the kernel MUST reject at `GetSchema` time rather than silently honor.
+
+Absent or `false` is the default, exactly as with `idempotent`: proto3's zero value for `bool` is `false`, so an operation MUST explicitly declare `terminates_turn: true` to opt in and MUST NOT rely on an implicit default. Implicit no-tool-calls done detection remains the MUST-support baseline the kernel applies regardless of whether any provider declares this field at all — `terminates_turn` layers on top of it, never replaces it.

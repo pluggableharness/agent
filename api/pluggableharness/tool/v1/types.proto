@@ -136,6 +136,15 @@ message ToolSchema {
   // TOOL_KIND_DATA_SOURCE operations are implicitly safe to retry
   // regardless of this field.
   bool idempotent = 10;
+
+  // Declares that the model calling this operation MUST be treated as an
+  // immediate, successful DoneCheck once this call's post-tool-call hook
+  // has fired, independent of whether other tool_use blocks were present
+  // in the same message — see
+  // agent-loop/turn-algorithm.md#done-detection. MAY, per operation; MAY
+  // be true only on a TOOL_KIND_RESOURCE operation. Absent or false means
+  // this operation does not terminate the turn.
+  bool terminates_turn = 11;
 }
 
 // ToolCall is one request to execute an operation, per tool.md §4.

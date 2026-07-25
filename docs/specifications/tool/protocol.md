@@ -28,12 +28,18 @@ ToolSchema {
   idempotent        bool     // MUST — true iff re-running this operation with identical
                               // arguments cannot produce a different end state than running it
                               // once; see conformance.md#error-taxonomy for the retry interaction
+  terminates_turn   bool     // MAY — true declares that a model call to this operation MUST be
+                              // treated as an immediate, successful DoneCheck once the call's
+                              // post-tool-call hook has fired; resource-only, see
+                              // data-types.md#terminates_turn
 }
 ```
 
 `kind` and `risk` are deliberately separate axes. `kind` is the binary the plan/apply gate mechanically needs — [`configuration/policy-dsl.md`](../configuration/policy-dsl.md)'s policy examples match on it directly (`match = { kind = "data_source" }`). `risk` exists because `kind = resource` alone is too coarse for policy or UX to treat uniformly — the `bash`/`exec` operation alone spans everything from `ls` to `rm -rf $DIR`. A `resource` MUST declare one of `low`/`moderate`/`high`/`critical`; there is no `resource` with `read_only` risk. `risk` MUST be `read_only` for `kind == data_source` and `kind == interactive` alike — neither mutates nor reads anything external, so neither has a blast radius to classify. See [`data-types.md#riskclass`](data-types.md#riskclass) for the full enum, and [`reference-catalog.md`](reference-catalog.md) for how the reference tool set is classified in practice.
 
 `default_timeout` and `idempotent` are both new, independent capability hints, not part of the `kind`/`risk` classification above. `default_timeout` lets a plugin author declare a sensible per-operation deadline (a `web_search` call and a `read_file` call warrant very different defaults) without every `agent.hcl` author having to override it by hand; the kernel's own configured global default (`configuration/settings-and-global.md`) is the fallback when it's absent. `idempotent` exists purely to gate auto-retry: the kernel MAY only auto-retry a retryable `ToolError` for a `TOOL_KIND_RESOURCE` operation when that operation's `idempotent` is `true` — a `TOOL_KIND_DATA_SOURCE` operation is implicitly safe to retry regardless of this field, since it cannot mutate anything by definition. See [`conformance.md#error-taxonomy`](conformance.md#error-taxonomy) for the full retry interaction.
+
+`terminates_turn` is a third such independent hint, and the only field on `ToolSchema` that reaches out of the tool protocol and into the agent loop's control flow: it is a provider's opt-in to the explicit terminal-tool done-detection path, so a call to an operation declaring it ends the turn as a `DoneCheck` success rather than feeding another iteration. It MAY be `true` only on a `kind = resource` operation. See [`data-types.md#terminates_turn`](data-types.md#terminates_turn) for the full semantics and [`agent-loop/turn-algorithm.md#done-detection`](../agent-loop/turn-algorithm.md#done-detection) for the loop behavior it selects.
 
 ### `kind: interactive`
 

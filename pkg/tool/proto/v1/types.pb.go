@@ -268,9 +268,17 @@ type ToolSchema struct {
 	// operation — see conformance.md#error-taxonomy's retry interaction.
 	// TOOL_KIND_DATA_SOURCE operations are implicitly safe to retry
 	// regardless of this field.
-	Idempotent    bool `protobuf:"varint,10,opt,name=idempotent,proto3" json:"idempotent,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Idempotent bool `protobuf:"varint,10,opt,name=idempotent,proto3" json:"idempotent,omitempty"`
+	// Declares that the model calling this operation MUST be treated as an
+	// immediate, successful DoneCheck once this call's post-tool-call hook
+	// has fired, independent of whether other tool_use blocks were present
+	// in the same message — see
+	// agent-loop/turn-algorithm.md#done-detection. MAY, per operation; MAY
+	// be true only on a TOOL_KIND_RESOURCE operation. Absent or false means
+	// this operation does not terminate the turn.
+	TerminatesTurn bool `protobuf:"varint,11,opt,name=terminates_turn,json=terminatesTurn,proto3" json:"terminates_turn,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ToolSchema) Reset() {
@@ -369,6 +377,13 @@ func (x *ToolSchema) GetDefaultTimeout() *durationpb.Duration {
 func (x *ToolSchema) GetIdempotent() bool {
 	if x != nil {
 		return x.Idempotent
+	}
+	return false
+}
+
+func (x *ToolSchema) GetTerminatesTurn() bool {
+	if x != nil {
+		return x.TerminatesTurn
 	}
 	return false
 }
@@ -512,7 +527,7 @@ const file_pluggableharness_tool_v1_types_proto_rawDesc = "" +
 	"\x0fConcurrencySpec\x12\x12\n" +
 	"\x04safe\x18\x01 \x01(\bR\x04safe\x12\x1d\n" +
 	"\n" +
-	"key_fields\x18\x02 \x03(\tR\tkeyFields\"\xab\x04\n" +
+	"key_fields\x18\x02 \x03(\tR\tkeyFields\"\xd4\x04\n" +
 	"\n" +
 	"ToolSchema\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x126\n" +
@@ -527,7 +542,8 @@ const file_pluggableharness_tool_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"idempotent\x18\n" +
 	" \x01(\bR\n" +
-	"idempotentB\x12\n" +
+	"idempotent\x12'\n" +
+	"\x0fterminates_turn\x18\v \x01(\bR\x0eterminatesTurnB\x12\n" +
 	"\x10_default_timeout\"\xba\x01\n" +
 	"\bToolCall\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
