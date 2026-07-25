@@ -64,6 +64,16 @@ const (
 	spanNameSessionStateEmit        = "sessionstate.emit"
 	spanNameSessionStateEmitMessage = "sessionstate.emit_message"
 	spanNameSessionStateEmitPlan    = "sessionstate.emit_plan"
+
+	// spanNameContextAssemble and spanNameContextProviderContribute are
+	// deliberately their own names rather than reusing
+	// spanNameHookDispatch/spanNameHookSubscriber: context-assemble stays
+	// on ContextService.Contribute, not a hook.v1 dispatch
+	// (context/protocol.md#contribute-the-context-assemble-rpc,
+	// agent-loop/hook-dispatch.md#hook-points), and a trace reusing the
+	// hook-dispatch span name would wrongly imply it rode that mechanism.
+	spanNameContextAssemble           = "context.assemble"
+	spanNameContextProviderContribute = "context.provider.contribute"
 )
 
 // SessionSpan describes the session a StartSession call is opening
@@ -102,6 +112,30 @@ func (p *Provider) StartTurn(ctx context.Context, turnIndex int) (context.Contex
 // visible as sibling children in the trace.
 func (p *Provider) StartHookDispatch(ctx context.Context, point string) (context.Context, trace.Span) {
 	return p.tracer.Start(ctx, spanNameHookDispatch, trace.WithAttributes(HookPointKey.String(point)))
+}
+
+// StartContextAssemble opens the span covering one context-assemble
+// firing's whole provider chain — step 1 of RunTurn
+// (agent-loop/turn-algorithm.md), the ContextService.Contribute chain
+// across every loaded context provider in agent.hcl declaration order
+// (context/protocol.md#contribute-the-context-assemble-rpc). A provider's
+// own Contribute call, instrumented via StartContextProviderContribute
+// using the ctx this returns, nests as a child of this span. This is
+// deliberately NOT StartHookDispatch under a borrowed point name —
+// context-assemble is not a hook.v1 dispatch (see spanNameContextAssemble's
+// doc comment) — so internal/contextassembly gets its own pair of Start*
+// helpers here rather than reusing the hook-dispatch ones.
+func (p *Provider) StartContextAssemble(ctx context.Context, turnID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameContextAssemble, trace.WithAttributes(TurnIDKey.String(turnID)))
+}
+
+// StartContextProviderContribute opens the span covering one context
+// provider's Contribute RPC call within a context-assemble firing, nested
+// inside the ctx StartContextAssemble returns. producer identifies the
+// contributing provider.
+func (p *Provider) StartContextProviderContribute(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := producerAttributes(producer)
+	return p.tracer.Start(ctx, spanNameContextProviderContribute, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attrs...))
 }
 
 // StartHookSubscriber opens the span covering one subscriber's invocation

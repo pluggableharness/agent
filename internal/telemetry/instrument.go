@@ -84,6 +84,12 @@ type Instruments struct {
 	// however many keys a single observation dropped, not once per
 	// observation.
 	RecordMetricsAttributesDropped metric.Int64Counter
+
+	// ContextContributionViolations counts a context provider's
+	// contribution discarded by internal/contextassembly during a
+	// context-assemble firing, by ContextViolationReasonKey's bounded
+	// 3-value reason (scope, budget, non_text).
+	ContextContributionViolations metric.Int64Counter
 }
 
 // newInstruments registers every instrument against meter. An error here
@@ -199,6 +205,10 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		metric.WithDescription("Attribute keys dropped by RecordMetrics' per-instrument cardinality bound."))
 	check("pluggableharness.telemetry.record_metrics.attributes_dropped", err)
 
+	contextContributionViolations, err := meter.Int64Counter("pluggableharness.context.contribution.violations",
+		metric.WithDescription("Context provider contributions discarded during context-assemble, by violation_reason."))
+	check("pluggableharness.context.contribution.violations", err)
+
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
@@ -231,5 +241,6 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		InteractiveResolutions:         interactiveResolutions,
 		RelayedSpans:                   relayedSpans,
 		RecordMetricsAttributesDropped: recordMetricsAttributesDropped,
+		ContextContributionViolations:  contextContributionViolations,
 	}, nil
 }
