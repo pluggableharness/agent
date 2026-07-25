@@ -98,6 +98,55 @@ provider "anthropic" {
 			t.Fatal("LoadLockFile: want error for malformed resolved_at, got nil")
 		}
 	})
+
+	t.Run("with optional category field", func(t *testing.T) {
+		path := writeHCL(t, `
+lock_file_version = 1
+
+provider "anthropic" {
+  source      = "github.com/agentco/provider-anthropic"
+  version     = "1.2.4"
+  resolved_at = "2026-07-22T18:04:00Z"
+  checksums   = { "linux_amd64" = "sha256:1a2b3c" }
+  category    = "model"
+}
+`)
+		lf, err := LoadLockFile(context.Background(), testProvider(t), path)
+		if err != nil {
+			t.Fatalf("LoadLockFile: unexpected error: %v", err)
+		}
+		p, ok := lf.Providers["anthropic"]
+		if !ok {
+			t.Fatal("Providers[anthropic] missing")
+		}
+		if p.Category != "model" {
+			t.Fatalf("Category = %q, want %q", p.Category, "model")
+		}
+	})
+
+	t.Run("without optional category field (backward compatibility)", func(t *testing.T) {
+		path := writeHCL(t, `
+lock_file_version = 1
+
+provider "anthropic" {
+  source      = "github.com/agentco/provider-anthropic"
+  version     = "1.2.4"
+  resolved_at = "2026-07-22T18:04:00Z"
+  checksums   = { "linux_amd64" = "sha256:1a2b3c" }
+}
+`)
+		lf, err := LoadLockFile(context.Background(), testProvider(t), path)
+		if err != nil {
+			t.Fatalf("LoadLockFile: unexpected error: %v", err)
+		}
+		p, ok := lf.Providers["anthropic"]
+		if !ok {
+			t.Fatal("Providers[anthropic] missing")
+		}
+		if p.Category != "" {
+			t.Fatalf("Category = %q, want empty string", p.Category)
+		}
+	})
 }
 
 // TestLoadLockFile_instrumentation asserts LoadLockFile's
