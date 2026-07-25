@@ -27,6 +27,15 @@ var (
 	ProducerNameKey     = attribute.Key("pluggableharness.producer.name")
 	ProducerVersionKey  = attribute.Key("pluggableharness.producer.version")
 
+	// ProviderLocalNameKey is a plugin's agent.hcl required_providers
+	// local name — the operator's own label for it, distinct from
+	// ProducerNameKey (the name the plugin publishes for itself). It is
+	// the only identity available before a plugin has answered Describe,
+	// which is why the plugin bring-up span carries it. Bounded by the
+	// operator's own required_providers block, so it is safe on metrics
+	// as well as spans.
+	ProviderLocalNameKey = attribute.Key("pluggableharness.provider.local_name")
+
 	// SessionIDKey, SessionParentIDKey, and SessionRootIDKey describe a
 	// session's place in the RunSession tree (agent-loop.md §7).
 	SessionIDKey       = attribute.Key("pluggableharness.session.id")
