@@ -95,6 +95,30 @@ func (s *Sink) ThinkingSignature(signature []byte) error {
 	}, false)
 }
 
+// RedactedThinking sends one complete, vendor-encrypted reasoning block.
+//
+// Unlike ThinkingDelta this is never fragmented: the vendor emits the
+// block whole because its contents are deliberately opaque, so there is
+// nothing to accumulate. A plugin MUST emit this whenever its vendor
+// produces reasoning content it requires be echoed back verbatim on a
+// later turn (docs/specifications/model/conformance.md's
+// StreamEvent.redacted_thinking row); the kernel stores and round-trips
+// it into ContentBlock's RedactedThinkingBlock.data without inspecting
+// it. Only meaningful when the target model's ThinkingSpec.Supported.
+//
+// data is passed through byte-for-byte. A Provider MUST NOT decode and
+// re-encode a vendor's base64 payload on the way through: a re-encoding
+// that differs in padding or alphabet from the vendor's own makes the
+// block fail the vendor's integrity check on the next turn, which
+// typically rejects the whole conversation rather than just the block.
+func (s *Sink) RedactedThinking(data []byte) error {
+	return s.send(&modelv1.StreamEvent{
+		Event: &modelv1.StreamEvent_RedactedThinking_{
+			RedactedThinking: &modelv1.StreamEvent_RedactedThinking{Data: data},
+		},
+	}, false)
+}
+
 // ToolCallStart announces the model has begun requesting a tool
 // invocation. id correlates the matching ToolCallDelta/ToolCallDone calls
 // and the resulting ToolUseBlock.id; name is the tool's declared name.

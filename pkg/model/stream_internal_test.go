@@ -67,6 +67,9 @@ func TestSink_EventVariants(t *testing.T) {
 	if err := sink.ThinkingSignature([]byte("sig")); err != nil {
 		t.Fatalf("ThinkingSignature() = %v, want nil", err)
 	}
+	if err := sink.RedactedThinking([]byte("encrypted")); err != nil {
+		t.Fatalf("RedactedThinking() = %v, want nil", err)
+	}
 	if err := sink.ToolCallStart("call-1", "read_file"); err != nil {
 		t.Fatalf("ToolCallStart() = %v, want nil", err)
 	}
@@ -82,14 +85,19 @@ func TestSink_EventVariants(t *testing.T) {
 	}
 
 	events := stream.events()
-	if len(events) != 7 {
-		t.Fatalf("len(events) = %d, want 7", len(events))
+	if len(events) != 8 {
+		t.Fatalf("len(events) = %d, want 8", len(events))
 	}
 	if events[0].GetTextDelta().GetText() != "hello" {
 		t.Errorf("events[0].TextDelta.Text = %q, want %q", events[0].GetTextDelta().GetText(), "hello")
 	}
-	if events[6].GetUsage().GetReasoningTokens() != 5 {
-		t.Errorf("events[6].Usage.ReasoningTokens = %d, want 5", events[6].GetUsage().GetReasoningTokens())
+	// RedactedThinking carries the vendor's bytes through untouched — the
+	// kernel round-trips them verbatim or the vendor rejects the next turn.
+	if got := string(events[3].GetRedactedThinking().GetData()); got != "encrypted" {
+		t.Errorf("events[3].RedactedThinking.Data = %q, want %q", got, "encrypted")
+	}
+	if events[7].GetUsage().GetReasoningTokens() != 5 {
+		t.Errorf("events[7].Usage.ReasoningTokens = %d, want 5", events[7].GetUsage().GetReasoningTokens())
 	}
 }
 
