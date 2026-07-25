@@ -1,0 +1,47 @@
+# internal/plandecision/drivers/autoallow — agent notes
+
+**Read this file before changing one line of this package.** Every guard here looks like something you could simplify. None of them are.
+
+## What this package is
+
+A `plandecision.Resolver` that approves every `ask`-decision plan item without ever asking a human. That is a **deliberate deviation from a spec MUST**: [`plan-apply-gate.md#decision-semantics`](../../../../docs/specifications/agent-loop/plan-apply-gate.md#decision-semantics) requires an `ask` decision to emit a `permission-request` state event and block that item's apply until a frontend returns a client decision. No frontend attach path exists anywhere in this codebase yet, so the current build stage cannot satisfy that MUST.
+
+The deviation is tracked and operator-approved, **on the explicit condition that it be structurally impossible to mistake for the real, spec-correct behavior**. The requirements below are that condition, written down. They are not stylistic preference, defensive programming, or leftover scaffolding.
+
+The real implementation is a future `drivers/frontend` in this same directory. When it lands, this driver stops being the default anything.
+
+## The six behavioral requirements, and why each exists
+
+Each has its own named test in `autoallow_test.go`. If you change behavior here, you will break one of them — that is the point. Do not "fix" the test.
+
+1. **`Resolve` always returns `PLAN_DECISION_ALLOW`. It never denies, regardless of the item's risk, kind, or provider.** — `TestResolve_alwaysAllows`.
+   Why: the alternative — denying "risky" items on some heuristic of this driver's own — would be this package quietly inventing policy. Policy is `internal/policy`'s job, evaluated at the `plan-ready` hook before an item ever reaches a resolver; an item arriving here has *already* been classified `ask` by the real policy engine. A resolver that second-guesses that would make the auto-allow stage behave differently from the frontend stage in ways nobody has specified, and would hide the fact that no human is in the loop behind a veneer of selectivity. Blanket approval is the honest behavior: it is obviously unsafe, so nobody mistakes it for safe.
+
+2. **The scope is always `PLAN_DECISION_SCOPE_ONCE` — never `SESSION`, never `ALWAYS`.** — `TestResolve_alwaysScopeOnce`.
+   Why: `SESSION` and `ALWAYS` create durable state. `SESSION` is an in-memory session-wide suppression the kernel must remember and auto-apply to future matching `(provider, operation_name)` pairs; `ALWAYS` is a persisted policy rule surviving into future sessions ([`plan-apply-gate.md#plandecisionscope-semantics`](../../../../docs/specifications/agent-loop/plan-apply-gate.md#plandecisionscope-semantics)). Either would be state the REAL frontend resolver later has to discover and reconcile — an operator who attaches a frontend would find decisions already made on their behalf, by a resolver that never asked them, with no prompt ever having been shown. Auto-allow must leave **zero durable trace** beyond the ordinary per-item audit row. A `SESSION` scope here would also be a pointless optimization: this resolver's "decision" costs nothing to recompute.
+   Note the second-order reason: `ALWAYS` would additionally require policy persistence this build does not have, whose correct failure mode is `plandecision.ErrPolicyPersistenceUnavailable`, never a silent downgrade. Emitting `ONCE` sidesteps that entire class of wrongness.
+
+3. **`CorrectedInput` is always nil.** — `TestResolve_neverCorrectsInput`.
+   Why: a correction is an *operator's* substitute arguments — the opencode-style `CorrectedError` redirect ([`frontend-protocol.md#plan_decisioncorrected_input`](../../../../docs/specifications/frontend/frontend-protocol.md#plan_decisioncorrected_input)). There is no operator here. Synthesizing one would mean this driver rewriting the model's tool arguments on nobody's authority, and would drag in the mandatory re-validation path (`plandecision.ValidateDecision`) for a correction that no human ever asked for. This resolver blanket-approves the *original* input or it returns an error; it never proposes alternatives.
+
+4. **`DecidedBy` is exactly the `DecidedBy` constant, verbatim, on every single resolution — no per-item variation, no truncation, no wrapping.** — `TestResolve_decidedByIsVerbatim` (which also asserts the constant's exact text).
+   Why: this is the audit trail, and it is the single most important artifact this package produces. `DecidedBy` lands in `state-backend.md`'s `plan_items.decided_by` column. Six months later, someone auditing a session needs to be able to answer "did a human approve this?" by looking at one column — and get an unambiguous, greppable `UNSAFE-AUTO-ALLOW(no-frontend-attached)` for every item that ran this way. Per-item variation (appending a provider name, a timestamp, a reason) breaks the exact-match grep that makes such an audit reliable. Softening the wording ("auto-approved", "no frontend") makes it read like a routine mechanism rather than a warning. **Do not soften this string.** It is deliberately shouty.
+
+5. **Exactly one `WARN` per resolution, carrying `session_id`, `plan_item_id`, `provider`, `operation_name`, and `risk`.** — `TestResolve_logsOneWarnPerResolution`.
+   Why: the audit row (requirement 4) answers the question after the fact; the WARN makes a live session noisy about it *as it happens*, so an operator watching logs sees each unapproved mutation go by rather than discovering the whole set later. `WARN` specifically, per `logging-telemetry.md`'s level vocabulary: this is a recoverable anomaly / fallback path taken, not routine lifecycle (`INFO` would let it blend into normal output) and not a handled failure (`ERROR` is paired with returning an error, which this is not). The five fields are the correlation set needed to tie the line back to a specific item in a specific session. `DEBUG` entry/exit lines exist alongside it per `logging-telemetry.md`'s driver rule — they do not replace the WARN, and a debug-suppressed logger must not silence it. There is also one construction-time `WARN` from `New`; the test accounts for it separately.
+
+6. **An already-cancelled `ctx` returns `ctx.Err()` (wrapped) instead of auto-allowing.** — `TestResolve_honorsContextCancellation`.
+   Why: this resolver does no real I/O, so a cancellation check looks like dead code. It is not. A caller — the plan/apply gate, or a generic conformance test run across every driver — must be able to rely on `Resolver` cancellation semantics being uniform, because the real `drivers/frontend` blocks on a human and *will* be cancelled routinely (turn timeout, session abort, frontend detach). A driver that ignores cancellation would make the auto-allow build behave differently under abort than the frontend build, which is exactly the "mistake this for the real thing" failure the whole package is designed to prevent. It also means a cancelled turn cannot produce a phantom approval for work that will never run. The error is wrapped with `fmt.Errorf("autoallow: resolve: %w", ...)` per `go-style.md`, so `errors.Is(err, context.Canceled)` still matches.
+
+## The construction guards
+
+- **`Config.AcknowledgeUnsafeAutoAllow` must be explicitly true or `New` returns `ErrNotAcknowledged`.** There is deliberately **no usable zero value**: the returned type is an unexported `*resolver`, so `New` is the only route to a working instance, and `New` refuses without the acknowledgement. The point is that the opt-in is *in code, at the call site*, visible in a diff and in code review — not a config-file value someone can flip without reading anything. Do not add a `Must…` constructor, a package-level default instance, or an exported struct type that bypasses this.
+- **The selector name is `"auto-allow-unsafe"`, not `"autoallow"`** (`../drivers.go`), so the name reads as a warning wherever it appears. Selecting it by name is *not* the acknowledgement — the caller must still set the Config field. Both gates, deliberately.
+- **`New` logs one `WARN` naming the deviation, its reason, and the replacement.** Keep all four attributes (`deviation`, `reason`, `replacement`, `decided_by`) — a startup log line that says only "auto-allow enabled" doesn't tell an operator reading it cold what MUST is being deviated from or what will fix it.
+
+## Lower-stakes notes
+
+- `Config.Logger`/`Config.Telemetry` nil-default to `slog.Default()` and an all-signals-disabled Provider (`defaultTelemetryProvider`, mirroring `internal/eventbus` and `internal/statebackend`). **A nil logger must never make this resolver silent** — that path is covered by `TestNew_defaultsNilLoggerAndTelemetry`, which asserts the WARNs still land.
+- Instrumentation follows `logging-telemetry.md`: the span is `telemetry.Provider.StartPlanDecisionResolve` (do not hand-roll a `tracer.Start`), and the metric is the existing `Instruments.PolicyDecisions` counter with the low-cardinality `PolicyDecisionKey` attribute. Never put `session_id`, `turn_id`, or `plan_item_id` on a metric — span/log attributes only.
+- `New` returns `plandecision.Resolver`, not a concrete type, on purpose: there is nothing to reach for on the concrete value, and returning the interface keeps callers from growing a dependency on this driver specifically.
+- The uncovered branch in `New` is `defaultTelemetryProvider`'s error return, which cannot fire for the fixed, package-controlled `telemetry.Config{}` passed to it.
