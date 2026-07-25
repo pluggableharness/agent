@@ -169,13 +169,22 @@ type Subscriber struct {
 	Origin Origin
 }
 
-// KernelVeto is an in-process, non-plugin veto subscriber. The policy
-// engine is the only intended implementation:
-// architecture.md#policy--first-party-not-a-plugin-category requires that
-// it never go through HookSubscriberService at all.
+// KernelVeto is an in-process, non-plugin veto subscriber. Only a
+// kernel-owned component may hold this slot:
+// architecture.md#policy--first-party-not-a-plugin-category puts policy
+// outside the plugin categories entirely, so it never goes through
+// HookSubscriberService.
 //
-// It is declared here as a narrow interface so this package never imports
-// internal/policy — a later phase wires a concrete adapter.
+// That is a restriction on who *may* be pinned, not an expectation that
+// policy always is. Policy's real evaluation is per-item — policy.Evaluate
+// per call, feeding a plan item's decided_by (plan-apply-gate.md) — and
+// that path does not come through this package. A plan gate that already
+// evaluates policy per item MUST NOT also pin a policy veto here; see this
+// package's CLAUDE.md for why the coarse decision would corrupt the audit
+// trail.
+//
+// It is declared as a narrow interface so this package never imports
+// internal/policy.
 type KernelVeto interface {
 	// Name identifies this veto for Outcome.DeniedBy and for logs. It is
 	// not a plugin name and never becomes an event producer.
@@ -421,6 +430,10 @@ func indexFilenames(pendings []pending) map[string]int {
 // produced earlier in the chain": policy has no agent.hcl block, so it
 // has no textual position to be sorted by, and only running it first
 // makes "earlier in the chain" true in every configuration.
+//
+// Pinning is optional, and leaving a point unpinned is the right call
+// whenever the kernel component in question already decides upstream by
+// another path (KernelVeto's doc comment).
 //
 // Pin panics if point is not veto-bearing — a kernel veto at a point that
 // gates nothing is a wiring bug in kernel code, not operator input.

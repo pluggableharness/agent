@@ -36,6 +36,18 @@ This is enforced on the other side too, so a mistake here fails loudly rather th
 
 **The corollary, which is easy to get wrong:** a failing `KernelVeto` (the policy engine) has **no `ProducerRef` at all** — it is not a plugin, and it is structurally impossible to persist a `hook_error` for it. `runKernelVeto` therefore logs at `WARN` and increments the hook-error counter, and persists nothing. Don't "fix" this by reaching for `KernelProducer()`; statebackend will reject it, and the spec says the field identifies a subscriber, which policy is not one of in the plugin sense. If policy's own failures need to be persisted, that needs a separate event kind and a spec change, not a widened producer rule.
 
+## Don't pin a policy veto next to a plan gate that already evaluates policy per item
+
+`KernelVeto`'s doc comment says the policy engine is the only intended implementation, which follows [`architecture.md#policy--first-party-not-a-plugin-category`](../../docs/specifications/architecture.md#policy--first-party-not-a-plugin-category). Read that as "no *plugin* may hold this slot" — **not** as "policy is expected to be pinned here in every build."
+
+Policy's real evaluation path is per-item and does not come through this package at all: `internal/policy.Evaluate(rules, call)` runs per call and returns the matched rule's name, which is what [`plan-apply-gate.md`](../../docs/specifications/agent-loop/plan-apply-gate.md) records in a plan item's `decided_by` ("subscriber/policy-rule name that produced the decision"). That matches [`#veto-mode-subscription-trust-model`](../../docs/specifications/agent-loop/hook-dispatch.md#veto-mode-subscription-trust-model), which describes policy as "producing per-item `PlanDecision`s" and notes a third-party veto subscriber "cannot express `PlanDecision`'s per-item PENDING/ALLOW/ASK/DENY granularity."
+
+So a plan gate that already evaluates policy per item before dispatching `plan-ready` must **not** also `Pin` a policy veto into that chain. Doing so evaluates the same rules twice at different granularities, and the coarse one wins the audit trail: a plan-wide `hook-veto:<name>` row where a per-item `policy:<rule>` row is the correct record. `Pin` exists for a kernel veto that has no other path into the chain, not as a second front door for policy.
+
+The ordering guarantee `Pin` provides is unaffected by leaving it unused — it exists so that *if* a kernel veto is pinned, it runs ahead of every plugin subscriber. An empty pin slot means the chain is plugin subscribers only, which is exactly right when policy has already decided per item upstream.
+
+`internal/plangate` documents the same constraint from its side. If a future build genuinely needs both a per-item policy pass and a pinned kernel veto, `Outcome` needs an explicit origin field so a caller can tell "policy denied" from "a third-party hook veto denied" — do that rather than pattern-matching on `DeniedBy`, which carries a bare name with no marker of which kind of subscriber produced it.
+
 ## Other things worth knowing
 
 - **`Position.FileIndex` exists because the ordering spec assumes one file and this project allows several.** `agent-profiles.md` says textual position is unambiguous "because `agent.hcl` is a single file", but `architecture.md`'s XDG layout permits "+ other `*.hcl` in project dir, merged". `NewRegistry` resolves the multi-file case by sorting filenames **lexicographically** — never by filesystem enumeration order, which would make chain order depend on directory iteration (`determinism.md`). It derives the indices itself from the `hcl.Range` filenames; a caller never assigns one.
