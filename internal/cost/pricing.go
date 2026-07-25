@@ -102,6 +102,24 @@ func ValidatePricing(p *modelv1.Pricing) error {
 	return nil
 }
 
+// IsFree reports whether p is a free model declared with no tiers at all
+// — the one shape ValidatePricing accepts without any tier coverage, and
+// therefore the one shape ResolveTier can never resolve.
+//
+// A caller computing a completion's cost MUST check this before calling
+// ResolveTier: a `free = true, tiers = []` Pricing is legal per
+// data-types.md#pricing and ValidatePricing lets it through, so treating
+// ResolveTier's ErrNoMatchingTier as the only outcome would make every
+// free model unusable — it would fail its first completion rather than
+// bill it at zero.
+//
+// A free Pricing that also declares tiers is deliberately NOT covered
+// here: ValidatePricing validates those tiers like any other, so they are
+// real rates a caller must resolve against rather than assume away.
+func IsFree(p *modelv1.Pricing) bool {
+	return p.GetFree() && len(p.GetTiers()) == 0
+}
+
 // ResolveTier finds the single PricingTier in p matching both at (a
 // timestamp) and inputTokens (the completion's input token count), per
 // docs/specifications/model/protocol.md#cost-computation's per-event

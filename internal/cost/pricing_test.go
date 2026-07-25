@@ -363,3 +363,49 @@ func TestGapDetectionCatchesWhatPkgModelMisses(t *testing.T) {
 		t.Fatalf("pkg/model.NewCapabilities() = %v, want nil (its validatePricing is documented as overlap-only and should accept this gapped fixture) — if this now fails, pkg/model gained gap detection and this test's premise (and its comment) needs updating", err)
 	}
 }
+
+func TestIsFree(t *testing.T) {
+	t.Parallel()
+
+	tier := &modelv1.PricingTier{InputPerMtok: 1}
+	tests := []struct {
+		name string
+		p    *modelv1.Pricing
+		want bool
+	}{
+		{"nil pricing", nil, false},
+		{"free with no tiers", &modelv1.Pricing{Currency: "USD", Free: true}, true},
+		{"paid with no tiers", &modelv1.Pricing{Currency: "USD"}, false},
+		{"paid with tiers", &modelv1.Pricing{Currency: "USD", Tiers: []*modelv1.PricingTier{tier}}, false},
+		// A free Pricing that also declares tiers is deliberately not
+		// "free" here: ValidatePricing validates those tiers like any
+		// other, so a caller must resolve against them.
+		{"free with tiers", &modelv1.Pricing{Currency: "USD", Free: true, Tiers: []*modelv1.PricingTier{tier}}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := IsFree(tc.p); got != tc.want {
+				t.Errorf("IsFree = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestIsFree_agreesWithValidatePricing pins the invariant the helper
+// exists for: exactly the tier-less shape ValidatePricing accepts is the
+// shape ResolveTier cannot serve.
+func TestIsFree_agreesWithValidatePricing(t *testing.T) {
+	t.Parallel()
+
+	p := &modelv1.Pricing{Currency: "USD", Free: true}
+	if err := ValidatePricing(p); err != nil {
+		t.Fatalf("ValidatePricing accepts a tier-less free Pricing: %v", err)
+	}
+	if _, err := ResolveTier(p, time.Now(), 1); !errors.Is(err, ErrNoMatchingTier) {
+		t.Fatalf("ResolveTier on a tier-less free Pricing = %v, want ErrNoMatchingTier", err)
+	}
+	if !IsFree(p) {
+		t.Error("IsFree = false for the one shape both of the above describe")
+	}
+}

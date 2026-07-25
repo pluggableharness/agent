@@ -985,6 +985,39 @@ func TestPersist_resolveTierError(t *testing.T) {
 	}
 }
 
+// TestPersist_freePricingBillsZeroWithoutATier covers the shape
+// cost.ValidatePricing accepts with no tier coverage at all: free = true,
+// tiers = []. Resolving a tier for it would fail every completion from a
+// legally-declared free provider.
+func TestPersist_freePricingBillsZeroWithoutATier(t *testing.T) {
+	t.Parallel()
+
+	sink := &fakeSink{}
+	caller := New(Config{
+		Retry:     testSettings(0, 0),
+		Events:    sink,
+		Clock:     func() time.Time { return time.Unix(0, 0).UTC() },
+		Telemetry: testTelemetry(t),
+		Logger:    testLogger(&bytes.Buffer{}),
+	})
+
+	handle := testModelHandle(&fakeModelServiceClient{})
+	handle.Spec = &modelv1.ModelSpec{
+		Id:      "acme-free",
+		Pricing: &modelv1.Pricing{Currency: "USD", Free: true},
+	}
+	req := Request{Model: handle, MessageID: "m", Request: &modelv1.StreamCompletionRequest{}}
+
+	msg := &contentv1.Message{Role: contentv1.Role_ROLE_ASSISTANT}
+	costUSD, err := caller.persist(context.Background(), req, msg, &modelv1.Usage{InputTokens: 12, OutputTokens: 6})
+	if err != nil {
+		t.Fatalf("persist for a free model: %v", err)
+	}
+	if costUSD != 0 {
+		t.Errorf("cost = %v, want 0 for a free model", costUSD)
+	}
+}
+
 func TestPersist_appendMessageError(t *testing.T) {
 	t.Parallel()
 

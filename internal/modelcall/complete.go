@@ -283,11 +283,20 @@ func (c *Caller) persist(ctx context.Context, req Request, message *contentv1.Me
 	message.ProducedByProvider = &providerName
 
 	receivedAt := c.cfg.Clock()
-	tier, err := cost.ResolveTier(req.Model.Spec.GetPricing(), receivedAt, usage.GetInputTokens())
-	if err != nil {
-		return 0, fmt.Errorf("modelcall: resolve pricing tier: %w", err)
+
+	// A free model declared with no tiers bills at zero without any tier
+	// resolution. cost.ValidatePricing accepts exactly that shape, so
+	// resolving unconditionally would fail every completion from a
+	// legally-declared free provider — see cost.IsFree.
+	var costUSD float64
+	pricing := req.Model.Spec.GetPricing()
+	if !cost.IsFree(pricing) {
+		tier, err := cost.ResolveTier(pricing, receivedAt, usage.GetInputTokens())
+		if err != nil {
+			return 0, fmt.Errorf("modelcall: resolve pricing tier: %w", err)
+		}
+		costUSD = cost.Compute(tier, usage)
 	}
-	costUSD := cost.Compute(tier, usage)
 
 	payload, err := proto.Marshal(&eventv1.MessageEvent{
 		Message: message,
