@@ -37,6 +37,23 @@ type Instruments struct {
 
 	ActiveSessions metric.Int64UpDownCounter
 
+	// SessionsStarted counts session starts, one per session
+	// (agent-loop.md §1/§7's session-start), root and sub-agent alike.
+	SessionsStarted metric.Int64Counter
+
+	// SessionsEnded counts session ends, one per session, by session.status
+	// (SessionStatusKey's bounded 7-value vocabulary) — the terminal
+	// SessionStatus a session's session_meta row was set to.
+	SessionsEnded metric.Int64Counter
+
+	// TokenCountFallbacks counts a CountTokens resolution
+	// (kernel-callbacks.md#counttokens) that fell back to the heuristic
+	// formula instead of an exact vendor count, by
+	// TokenCountFallbackReasonKey's bounded 4-value reason. Deliberately
+	// carries no provider-name attribute — see TokenCountFallbackReasonKey's
+	// doc comment.
+	TokenCountFallbacks metric.Int64Counter
+
 	EventBusEventsPublished     metric.Int64Counter
 	EventBusEventsDelivered     metric.Int64Counter
 	EventBusSubscriptionsActive metric.Int64UpDownCounter
@@ -134,6 +151,18 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		metric.WithDescription("Currently active sessions (root + sub-agent)."))
 	check("pluggableharness.sessions.active", err)
 
+	sessionsStarted, err := meter.Int64Counter("pluggableharness.sessions.started",
+		metric.WithDescription("Sessions started, root and sub-agent alike."))
+	check("pluggableharness.sessions.started", err)
+
+	sessionsEnded, err := meter.Int64Counter("pluggableharness.sessions.ended",
+		metric.WithDescription("Sessions ended, by session.status."))
+	check("pluggableharness.sessions.ended", err)
+
+	tokenCountFallbacks, err := meter.Int64Counter("pluggableharness.token_count.fallbacks",
+		metric.WithDescription("CountTokens resolutions that used the fallback heuristic instead of an exact vendor count, by fallback_reason."))
+	check("pluggableharness.token_count.fallbacks", err)
+
 	eventBusEventsPublished, err := meter.Int64Counter("pluggableharness.eventbus.events.published",
 		metric.WithDescription("internal/eventbus Publish calls that reached at least the fan-out step (topic is never an attribute here — see EventBusTopicKey's cardinality rule)."))
 	check("pluggableharness.eventbus.events.published", err)
@@ -177,6 +206,10 @@ func newInstruments(meter metric.Meter) (*Instruments, error) {
 		ToolDuration:    toolDuration,
 		HookDuration:    hookDuration,
 		ActiveSessions:  activeSessions,
+
+		SessionsStarted:     sessionsStarted,
+		SessionsEnded:       sessionsEnded,
+		TokenCountFallbacks: tokenCountFallbacks,
 
 		EventBusEventsPublished:     eventBusEventsPublished,
 		EventBusEventsDelivered:     eventBusEventsDelivered,

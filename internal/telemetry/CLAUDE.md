@@ -28,11 +28,11 @@
 
 - **Cardinality rule (load-bearing, silently breaks a metrics backend if
   violated).** `SessionIDKey`, `SessionParentIDKey`, `SessionRootIDKey`,
-  and `TurnIndexKey` are unbounded and MUST only ever be attached to
-  spans, never used as a metric attribute — see `attributes.go`'s doc
-  comment. Every other attribute key in this package is deliberately
-  bounded (a fixed enum, or bounded by the operator's configured
-  tool/model set) and is safe on both spans and metrics.
+  `TurnIndexKey`, `TurnIDKey`, and `PlanItemIDKey` are unbounded and MUST
+  only ever be attached to spans, never used as a metric attribute — see
+  `attributes.go`'s doc comment. Every other attribute key in this package
+  is deliberately bounded (a fixed enum, or bounded by the operator's
+  configured tool/model set) and is safe on both spans and metrics.
 
 - **`sdkmetric.MeterProvider.Shutdown` is NOT idempotent — this bit a
   test during development.** Unlike `sdktrace.TracerProvider.Shutdown`
