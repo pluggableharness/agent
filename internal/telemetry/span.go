@@ -13,19 +13,25 @@ import (
 
 // Span names for this package's instrumentation scope (pluggableharness-agent/kernel).
 const (
-	spanNameSession          = "session"
-	spanNameTurn             = "turn"
-	spanNameHookDispatch     = "hook.dispatch"
-	spanNameHookSubscriber   = "hook.subscriber"
-	spanNameModelCall        = "model.call"
-	spanNameToolExecute      = "tool.execute"
-	spanNamePolicyEvaluate   = "policy.evaluate"
-	spanNameRunSessionSpawn  = "session.spawn"
-	spanNameConfigLoad       = "config.load"
-	spanNameGlobalConfigLoad = "registry.global_config.load"
-	spanNameLockFileLoad     = "registry.lockfile.load"
-	spanNameChecksumVerify   = "registry.checksum.verify"
-	spanNamePluginLaunch     = "plugin.launch"
+	spanNameSession             = "session"
+	spanNameTurn                = "turn"
+	spanNameHookDispatch        = "hook.dispatch"
+	spanNameHookSubscriber      = "hook.subscriber"
+	spanNameModelCall           = "model.call"
+	spanNameModelAttempt        = "model.attempt"
+	spanNameToolExecute         = "tool.execute"
+	spanNameToolPreview         = "tool.preview"
+	spanNamePolicyEvaluate      = "policy.evaluate"
+	spanNamePlanBuild           = "plan.build"
+	spanNamePlanApply           = "plan.apply"
+	spanNamePlanDecisionResolve = "plan.decision.resolve"
+	spanNameInteractiveResolve  = "interactive.resolve"
+	spanNameRunSessionSpawn     = "session.spawn"
+	spanNameConfigLoad          = "config.load"
+	spanNameGlobalConfigLoad    = "registry.global_config.load"
+	spanNameLockFileLoad        = "registry.lockfile.load"
+	spanNameChecksumVerify      = "registry.checksum.verify"
+	spanNamePluginLaunch        = "plugin.launch"
 
 	spanNameStateBackendSessionCreate   = "statebackend.session.create"
 	spanNameStateBackendSessionOpen     = "statebackend.session.open"
@@ -44,6 +50,8 @@ const (
 
 	spanNameEventBusPublish = "eventbus.publish"
 
+	spanNameKernelCallbackCountTokens        = "kernelcallback.count_tokens"
+	spanNameKernelCallbackEmit               = "kernelcallback.emit"
 	spanNameKernelCallbackExportSpans        = "kernelcallback.export_spans"
 	spanNameKernelCallbackRecordMetrics      = "kernelcallback.record_metrics"
 	spanNameKernelCallbackGetTelemetryConfig = "kernelcallback.get_telemetry_config"
@@ -112,6 +120,18 @@ func (p *Provider) StartModelCall(ctx context.Context, modelID string, producer 
 	return p.tracer.Start(ctx, spanNameModelCall, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attrs...))
 }
 
+// StartModelAttempt opens the span covering one retry attempt within a
+// model call's overall span — nested inside the ctx StartModelCall
+// returns. attempt is a small bounded int (configuration/settings-and-global.md's
+// max_retries default is 5) — safe as a span attribute.
+func (p *Provider) StartModelAttempt(ctx context.Context, modelID string, producer *commonv1.ProducerRef, attempt int) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{
+		ModelIDKey.String(modelID),
+		AttemptKey.Int(attempt),
+	}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameModelAttempt, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attrs...))
+}
+
 // StartToolExecute opens the span covering one resolved tool call's
 // execution (steps 9/9b/12 of agent-loop.md §2).
 func (p *Provider) StartToolExecute(ctx context.Context, toolName, toolKind string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
@@ -122,11 +142,55 @@ func (p *Provider) StartToolExecute(ctx context.Context, toolName, toolKind stri
 	return p.tracer.Start(ctx, spanNameToolExecute, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attrs...))
 }
 
+// StartToolPreview opens the span covering one Preview RPC call
+// (tool/protocol.md#preview) made during plan construction — the
+// dry-run description populated on a resource PlanItem
+// (agent-loop/plan-apply-gate.md#preview-flow).
+func (p *Provider) StartToolPreview(ctx context.Context, toolName string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{ToolNameKey.String(toolName)}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameToolPreview, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attrs...))
+}
+
 // StartPolicyEvaluate opens the span covering plan/policy evaluation — the
 // plan-ready hook's veto chain plus any tool-call prechecks
 // (agent-loop.md §5.1).
 func (p *Provider) StartPolicyEvaluate(ctx context.Context) (context.Context, trace.Span) {
 	return p.tracer.Start(ctx, spanNamePolicyEvaluate)
+}
+
+// StartPlanBuild opens the span covering one turn's plan construction —
+// build_plan(resource_calls), step 10 of turn-algorithm.md's RunTurn
+// algorithm. turnID is unbounded (TurnIDKey's doc comment) — span
+// attribute only.
+func (p *Provider) StartPlanBuild(ctx context.Context, turnID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNamePlanBuild, trace.WithAttributes(TurnIDKey.String(turnID)))
+}
+
+// StartPlanApply opens the span covering applying one turn's approved
+// plan — apply_approved_items(plan), step 12 of turn-algorithm.md's
+// RunTurn algorithm. turnID is unbounded (TurnIDKey's doc comment) — span
+// attribute only.
+func (p *Provider) StartPlanApply(ctx context.Context, turnID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNamePlanApply, trace.WithAttributes(TurnIDKey.String(turnID)))
+}
+
+// StartPlanDecisionResolve opens the span covering resolving one
+// ask-decision plan item via the plan-decision resolver seam
+// (agent-loop/plan-apply-gate.md#decision-semantics's ask handling,
+// frontend/frontend-protocol.md's ClientEvent.PlanDecision). planItemID is
+// unbounded (PlanItemIDKey's doc comment) — span attribute only.
+func (p *Provider) StartPlanDecisionResolve(ctx context.Context, planItemID string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNamePlanDecisionResolve, trace.WithAttributes(PlanItemIDKey.String(planItemID)))
+}
+
+// StartInteractiveResolve opens the span covering resolving one
+// interactive-kind call via the interactive resolver seam
+// (agent-loop/plan-apply-gate.md#data-source-and-interactive-calls,
+// frontend/frontend-protocol.md's interactive_request/interactive_response
+// pair). toolName is bounded by the operator's configured tool set
+// (ToolNameKey's doc comment), so it's safe here same as StartToolExecute.
+func (p *Provider) StartInteractiveResolve(ctx context.Context, toolName string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameInteractiveResolve, trace.WithAttributes(ToolNameKey.String(toolName)))
 }
 
 // StartRunSessionSpawn opens the span covering a RunSession callback that
@@ -293,6 +357,23 @@ func (p *Provider) StartStateBackendPlanItemsQuery(ctx context.Context, sessionI
 // never to a metric (EventBusTopicKey's doc comment).
 func (p *Provider) StartEventBusPublish(ctx context.Context, topic string) (context.Context, trace.Span) {
 	return p.tracer.Start(ctx, spanNameEventBusPublish, trace.WithAttributes(EventBusTopicKey.String(topic)))
+}
+
+// StartKernelCallbackCountTokens opens the span covering one CountTokens
+// call (kernel-callbacks.md's CountTokens) — plugin-scoped, so, unlike
+// StartKernelCallbackReadEvents/GetSession, it carries no session_id
+// (kernel-callbacks.md's "The callback channel" plugin-scoped-vs-session-scoped
+// split).
+func (p *Provider) StartKernelCallbackCountTokens(ctx context.Context, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameKernelCallbackCountTokens, trace.WithAttributes(producerAttributes(producer)...))
+}
+
+// StartKernelCallbackEmit opens the span covering one Emit call
+// (kernel-callbacks.md's Emit) — the RPC through which a plugin persists an
+// event into the calling session's state backend.
+func (p *Provider) StartKernelCallbackEmit(ctx context.Context, sessionID string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{SessionIDKey.String(sessionID)}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameKernelCallbackEmit, trace.WithAttributes(attrs...))
 }
 
 // StartKernelCallbackExportSpans opens the span covering one ExportSpans

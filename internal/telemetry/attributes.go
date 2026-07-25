@@ -13,10 +13,11 @@ import (
 // duplicating it here.
 //
 // Cardinality rule (load-bearing — see CLAUDE.md): SessionIDKey,
-// SessionParentIDKey, SessionRootIDKey, and TurnIndexKey are unbounded and
-// MUST only ever be attached to spans, never used as a metric attribute.
-// Every other key here is low-cardinality (a fixed enum, or bounded by the
-// operator's configured tool/model set) and is safe on both.
+// SessionParentIDKey, SessionRootIDKey, TurnIndexKey, TurnIDKey, and
+// PlanItemIDKey are unbounded and MUST only ever be attached to spans, never
+// used as a metric attribute. Every other key here is low-cardinality (a
+// fixed enum, or bounded by the operator's configured tool/model set) and is
+// safe on both.
 var (
 	// ProducerCategoryKey, ProducerNameKey, and ProducerVersionKey identify
 	// which plugin a span concerns. The identity itself comes from the
@@ -39,9 +40,31 @@ var (
 
 	AgentProfileKey = attribute.Key("pluggableharness.agent.profile")
 
+	// SessionStatusKey is a session's terminal SessionStatus
+	// (state-backend.md#session_meta), in the same lowercase snake_case
+	// text form internal/statebackend stores in the status column. Bounded
+	// to the fixed 7-value enum below (internal/statebackend's own mapping
+	// is unexported, and importing it here would cycle back into this
+	// package, which internal/statebackend already imports — so this
+	// package keeps its own copy of the same spec-derived vocabulary), so
+	// it's safe on both spans and metrics.
+	SessionStatusKey = attribute.Key("pluggableharness.session.status")
+
 	// TurnIndexKey is unbounded (see the cardinality rule above) — span
 	// attribute only.
 	TurnIndexKey = attribute.Key("pluggableharness.turn.index")
+
+	// TurnIDKey is a turn's stable ULID identifier (standardized across the
+	// whole protocol — turn-algorithm.md, context/data-types.md's
+	// ContextRequest.turn_id, plan.v1's turn_id field), distinct from
+	// TurnIndexKey's loop-iteration ordinal. Unbounded (see the cardinality
+	// rule above) — span attribute only.
+	TurnIDKey = attribute.Key("pluggableharness.turn.id")
+
+	// PlanItemIDKey is a PlanItem's assigned id
+	// (state-backend.md#plan_items). Unbounded (see the cardinality rule
+	// above) — span attribute only.
+	PlanItemIDKey = attribute.Key("pluggableharness.plan_item.id")
 
 	// HookPointKey is one of the 9 named hook points (agent-loop.md §1).
 	HookPointKey = attribute.Key("pluggableharness.hook.point")
@@ -59,6 +82,12 @@ var (
 	// ModelIDKey names the model a call targeted. Bounded by the
 	// operator's required_providers set, so it's safe on metrics too.
 	ModelIDKey = attribute.Key("pluggableharness.model.id")
+
+	// AttemptKey is the retry attempt number within one model call,
+	// bounded by configuration/settings-and-global.md's max_retries
+	// default (5) — low-cardinality, safe on metrics too, though currently
+	// only used as a span attribute (StartModelAttempt).
+	AttemptKey = attribute.Key("pluggableharness.attempt")
 
 	// PolicyDecisionKey is one of "allow", "ask", "deny"
 	// (agent-loop.md §5.2).
@@ -92,6 +121,15 @@ var (
 	// string — so, per the cardinality rule above, span attribute only,
 	// never a metric attribute.
 	EventBusTopicKey = attribute.Key("pluggableharness.eventbus.topic")
+
+	// TokenCountFallbackReasonKey classifies why a CountTokens resolution
+	// (kernel-callbacks.md#counttokens) fell back to the heuristic formula
+	// instead of an exact vendor count. Bounded to the fixed 4-value enum
+	// below, so it's safe on both spans and metrics. Deliberately excludes
+	// the provider name — that's a higher-cardinality dimension that
+	// belongs on a span (ProducerNameKey via StartKernelCallbackCountTokens),
+	// never on this metric attribute.
+	TokenCountFallbackReasonKey = attribute.Key("pluggableharness.tokencount.fallback_reason")
 )
 
 // Token type values for TokenTypeKey.
@@ -148,6 +186,37 @@ const (
 const (
 	OutcomeOK    = "ok"
 	OutcomeError = "error"
+)
+
+// Session status values for SessionStatusKey — the lowercase snake_case
+// text form state-backend.md#session_meta's status column documents,
+// mirrored from internal/statebackend's (unexported) sessionStatusText.
+const (
+	SessionStatusRunning            = "running"
+	SessionStatusCompleted          = "completed"
+	SessionStatusErrorMaxTurns      = "error_max_turns"
+	SessionStatusErrorMaxBudgetUSD  = "error_max_budget_usd"
+	SessionStatusErrorMaxWallClockS = "error_max_wall_clock"
+	SessionStatusCancelled          = "cancelled"
+	SessionStatusFailed             = "failed"
+)
+
+// Token-count fallback reason values for TokenCountFallbackReasonKey — why
+// CountTokens (kernel-callbacks.md#counttokens) used the fallback heuristic
+// (determinism.md's fallback-token-heuristic section) instead of a real
+// vendor count.
+const (
+	// FallbackReasonNoModelRef is the request had no model_ref set at all.
+	FallbackReasonNoModelRef = "no_model_ref"
+	// FallbackReasonProviderAbsent is the named model_ref's provider is not
+	// currently loaded/reachable.
+	FallbackReasonProviderAbsent = "provider_absent"
+	// FallbackReasonUnimplemented is the provider is reachable but does not
+	// implement the optional CountTokens RPC.
+	FallbackReasonUnimplemented = "unimplemented"
+	// FallbackReasonError is the provider's CountTokens RPC returned an
+	// error.
+	FallbackReasonError = "error"
 )
 
 // producerAttributes returns the standard three-attribute set identifying

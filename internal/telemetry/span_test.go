@@ -154,6 +154,30 @@ func TestStartModelCall_withProducer(t *testing.T) {
 	}
 }
 
+func TestStartModelAttempt(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	producer := &commonv1.ProducerRef{Category: commonv1.Category_CATEGORY_MODEL, Name: "anthropic", Version: "1.0.0"}
+	_, span := p.StartModelAttempt(context.Background(), "claude-sonnet", producer, 2)
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "model.attempt" {
+		t.Errorf("Name = %q, want model.attempt", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.ModelIDKey).AsString() != "claude-sonnet" {
+		t.Errorf("model.id mismatch")
+	}
+	if findAttr(t, got.Attributes, telemetry.AttemptKey).AsInt64() != 2 {
+		t.Errorf("attempt = %d, want 2", findAttr(t, got.Attributes, telemetry.AttemptKey).AsInt64())
+	}
+	if findAttr(t, got.Attributes, telemetry.ProducerNameKey).AsString() != "anthropic" {
+		t.Errorf("producer.name mismatch")
+	}
+}
+
 func TestStartToolExecute(t *testing.T) {
 	t.Parallel()
 	p, backend := newTestProvider(t)
@@ -171,6 +195,30 @@ func TestStartToolExecute(t *testing.T) {
 	}
 }
 
+func TestStartToolPreview(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	producer := &commonv1.ProducerRef{Category: commonv1.Category_CATEGORY_TOOL, Name: "filesystem", Version: "1.0.0"}
+	_, span := p.StartToolPreview(context.Background(), "write_file", producer)
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "tool.preview" {
+		t.Errorf("Name = %q, want tool.preview", got.Name)
+	}
+	if got.SpanKind != trace.SpanKindClient {
+		t.Errorf("SpanKind = %v, want SpanKindClient", got.SpanKind)
+	}
+	if findAttr(t, got.Attributes, telemetry.ToolNameKey).AsString() != "write_file" {
+		t.Errorf("tool.name mismatch")
+	}
+	if findAttr(t, got.Attributes, telemetry.ProducerNameKey).AsString() != "filesystem" {
+		t.Errorf("producer.name mismatch")
+	}
+}
+
 func TestStartPolicyEvaluate(t *testing.T) {
 	t.Parallel()
 	p, backend := newTestProvider(t)
@@ -181,6 +229,74 @@ func TestStartPolicyEvaluate(t *testing.T) {
 	spans := flushedSpans(t, p, backend)
 	if spans[0].Name != "policy.evaluate" {
 		t.Errorf("Name = %q, want policy.evaluate", spans[0].Name)
+	}
+}
+
+func TestStartPlanBuild(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	_, span := p.StartPlanBuild(context.Background(), "turn-1")
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "plan.build" {
+		t.Errorf("Name = %q, want plan.build", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.TurnIDKey).AsString() != "turn-1" {
+		t.Errorf("turn.id mismatch")
+	}
+}
+
+func TestStartPlanApply(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	_, span := p.StartPlanApply(context.Background(), "turn-1")
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "plan.apply" {
+		t.Errorf("Name = %q, want plan.apply", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.TurnIDKey).AsString() != "turn-1" {
+		t.Errorf("turn.id mismatch")
+	}
+}
+
+func TestStartPlanDecisionResolve(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	_, span := p.StartPlanDecisionResolve(context.Background(), "item-1")
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "plan.decision.resolve" {
+		t.Errorf("Name = %q, want plan.decision.resolve", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.PlanItemIDKey).AsString() != "item-1" {
+		t.Errorf("plan_item.id mismatch")
+	}
+}
+
+func TestStartInteractiveResolve(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	_, span := p.StartInteractiveResolve(context.Background(), "ask_user")
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "interactive.resolve" {
+		t.Errorf("Name = %q, want interactive.resolve", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.ToolNameKey).AsString() != "ask_user" {
+		t.Errorf("tool.name mismatch")
 	}
 }
 
@@ -308,6 +424,45 @@ func TestStartEventBusPublish(t *testing.T) {
 	}
 	if findAttr(t, got.Attributes, telemetry.EventBusTopicKey).AsString() != "tool.result" {
 		t.Errorf("eventbus.topic = %q, want tool.result", findAttr(t, got.Attributes, telemetry.EventBusTopicKey).AsString())
+	}
+}
+
+func TestStartKernelCallbackCountTokens(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	producer := &commonv1.ProducerRef{Category: commonv1.Category_CATEGORY_CONTEXT, Name: "summarizer", Version: "1.0.0"}
+	_, span := p.StartKernelCallbackCountTokens(context.Background(), producer)
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "kernelcallback.count_tokens" {
+		t.Errorf("Name = %q, want kernelcallback.count_tokens", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.ProducerNameKey).AsString() != "summarizer" {
+		t.Errorf("producer.name mismatch")
+	}
+}
+
+func TestStartKernelCallbackEmit(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	producer := &commonv1.ProducerRef{Category: commonv1.Category_CATEGORY_TOOL, Name: "filesystem", Version: "1.0.0"}
+	_, span := p.StartKernelCallbackEmit(context.Background(), "sess-1", producer)
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	got := spans[0]
+	if got.Name != "kernelcallback.emit" {
+		t.Errorf("Name = %q, want kernelcallback.emit", got.Name)
+	}
+	if findAttr(t, got.Attributes, telemetry.SessionIDKey).AsString() != "sess-1" {
+		t.Errorf("session.id mismatch")
+	}
+	if findAttr(t, got.Attributes, telemetry.ProducerNameKey).AsString() != "filesystem" {
+		t.Errorf("producer.name mismatch")
 	}
 }
 
