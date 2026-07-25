@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"testing"
 	"time"
 
@@ -189,6 +190,330 @@ func TestSession_Events_stopsOnEarlyBreak(t *testing.T) {
 	}
 	if count != 2 {
 		t.Errorf("iteration count = %d, want 2 (stopped early)", count)
+	}
+}
+
+// collectEvents drains an events iterator, failing the test on the first
+// error the pair's error side carries.
+func collectEvents(t *testing.T, seq iter.Seq2[Event, error]) []Event {
+	t.Helper()
+	var got []Event
+	for ev, err := range seq {
+		if err != nil {
+			t.Fatalf("events iteration: %v", err)
+		}
+		got = append(got, ev)
+	}
+	return got
+}
+
+// eventsMatchingKinds is the realistic mix of kinds every EventsMatching
+// test seeds, in append order — so sequence N holds eventsMatchingKinds[N-1].
+var eventsMatchingKinds = []kernelv1.EventKind{
+	kernelv1.EventKind_EVENT_KIND_MESSAGE,       // sequence 1
+	kernelv1.EventKind_EVENT_KIND_TOOL_CALL,     // sequence 2
+	kernelv1.EventKind_EVENT_KIND_TOOL_RESULT,   // sequence 3
+	kernelv1.EventKind_EVENT_KIND_TOOL_CALL,     // sequence 4
+	kernelv1.EventKind_EVENT_KIND_TOOL_RESULT,   // sequence 5
+	kernelv1.EventKind_EVENT_KIND_PLAN,          // sequence 6
+	kernelv1.EventKind_EVENT_KIND_APPLY,         // sequence 7
+	kernelv1.EventKind_EVENT_KIND_MEMORY_WRITE,  // sequence 8
+	kernelv1.EventKind_EVENT_KIND_MESSAGE,       // sequence 9
+	kernelv1.EventKind_EVENT_KIND_MEMORY_DELETE, // sequence 10
+}
+
+// seedMixedEvents creates a session and appends eventsMatchingKinds to it,
+// returning the session.
+func seedMixedEvents(t *testing.T) *Session {
+	t.Helper()
+	st := newTestStore(t)
+	sess := createSession(t, st, testSessionMeta())
+	for i, kind := range eventsMatchingKinds {
+		ev := testEvent(fmt.Sprintf("evt-%02d", i))
+		ev.Kind = kind
+		ev.Payload = []byte(fmt.Sprintf("payload-%02d", i))
+		if _, err := sess.AppendEvent(context.Background(), ev); err != nil {
+			t.Fatalf("AppendEvent[%d]: %v", i, err)
+		}
+	}
+	return sess
+}
+
+func int64Ptr(v int64) *int64 { return &v }
+func int32Ptr(v int32) *int32 { return &v }
+
+// TestSession_EventsMatching_filters covers every combination of the three
+// EventQuery filters set and unset against one realistic mix of kinds,
+// asserting the exact matching sequences — which also pins
+// sequence-ascending order, since every want below is ascending.
+func TestSession_EventsMatching_filters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		query EventQuery
+		want  []int64
+	}{
+		{"zero value matches everything", EventQuery{}, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
+		{"kinds only, single", EventQuery{Kinds: []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_TOOL_RESULT}}, []int64{3, 5}},
+		{
+			"kinds only, several",
+			EventQuery{Kinds: []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_PLAN, kernelv1.EventKind_EVENT_KIND_APPLY}},
+			[]int64{6, 7},
+		},
+		{
+			"kinds order does not affect result order",
+			EventQuery{Kinds: []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_MEMORY_DELETE, kernelv1.EventKind_EVENT_KIND_MESSAGE}},
+			[]int64{1, 9, 10},
+		},
+		{
+			"duplicate kinds are ignored",
+			EventQuery{Kinds: []kernelv1.EventKind{
+				kernelv1.EventKind_EVENT_KIND_TOOL_CALL,
+				kernelv1.EventKind_EVENT_KIND_TOOL_CALL,
+				kernelv1.EventKind_EVENT_KIND_TOOL_CALL,
+			}},
+			[]int64{2, 4},
+		},
+		{"kinds matching nothing", EventQuery{Kinds: []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_HOOK_ERROR}}, nil},
+		{"from_sequence only", EventQuery{FromSequence: int64Ptr(8)}, []int64{8, 9, 10}},
+		{"from_sequence at 1 is everything", EventQuery{FromSequence: int64Ptr(1)}, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
+		{"from_sequence past the end", EventQuery{FromSequence: int64Ptr(99)}, nil},
+		{"limit only", EventQuery{Limit: int32Ptr(3)}, []int64{1, 2, 3}},
+		{"limit zero", EventQuery{Limit: int32Ptr(0)}, nil},
+		{"limit larger than the log", EventQuery{Limit: int32Ptr(500)}, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
+		{
+			"kinds + from_sequence",
+			EventQuery{
+				Kinds:        []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_TOOL_CALL, kernelv1.EventKind_EVENT_KIND_TOOL_RESULT},
+				FromSequence: int64Ptr(4),
+			},
+			[]int64{4, 5},
+		},
+		{
+			"kinds + limit",
+			EventQuery{
+				Kinds: []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_TOOL_CALL, kernelv1.EventKind_EVENT_KIND_TOOL_RESULT},
+				Limit: int32Ptr(3),
+			},
+			[]int64{2, 3, 4},
+		},
+		{"from_sequence + limit", EventQuery{FromSequence: int64Ptr(5), Limit: int32Ptr(2)}, []int64{5, 6}},
+		{
+			"kinds + from_sequence + limit",
+			EventQuery{
+				Kinds:        []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_MESSAGE, kernelv1.EventKind_EVENT_KIND_MEMORY_WRITE, kernelv1.EventKind_EVENT_KIND_MEMORY_DELETE},
+				FromSequence: int64Ptr(2),
+				Limit:        int32Ptr(2),
+			},
+			[]int64{8, 9},
+		},
+		{
+			"the last N events of one kind, the kernel-callbacks.md#readevents motivating case",
+			EventQuery{Kinds: []kernelv1.EventKind{kernelv1.EventKind_EVENT_KIND_TOOL_RESULT}, FromSequence: int64Ptr(4)},
+			[]int64{5},
+		},
+	}
+
+	// One seeded session for the whole table: every case here is a
+	// read-only query, so they share a session rather than each standing up
+	// its own sqlite file — the parent's createSession cleanup runs after
+	// every parallel subtest has finished.
+	sess := seedMixedEvents(t)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := collectEvents(t, sess.EventsMatching(context.Background(), tt.query))
+
+			if len(got) != len(tt.want) {
+				t.Fatalf("EventsMatching returned %d events, want %d", len(got), len(tt.want))
+			}
+			for i, ev := range got {
+				if ev.Sequence != tt.want[i] {
+					t.Errorf("event[%d].Sequence = %d, want %d", i, ev.Sequence, tt.want[i])
+				}
+				if i > 0 && got[i-1].Sequence >= ev.Sequence {
+					t.Errorf("results not sequence-ascending at index %d: %d then %d", i, got[i-1].Sequence, ev.Sequence)
+				}
+				if wantKind := eventsMatchingKinds[ev.Sequence-1]; ev.Kind != wantKind {
+					t.Errorf("event[%d].Kind = %v, want %v", i, ev.Kind, wantKind)
+				}
+			}
+		})
+	}
+}
+
+// TestSession_EventsMatching_zeroQueryEqualsEvents proves the equivalence
+// Events now depends on by construction: the same session read both ways
+// must yield identical Event values, field for field.
+func TestSession_EventsMatching_zeroQueryEqualsEvents(t *testing.T) {
+	t.Parallel()
+	sess := seedMixedEvents(t)
+
+	viaEvents := collectEvents(t, sess.Events(context.Background()))
+	viaMatching := collectEvents(t, sess.EventsMatching(context.Background(), EventQuery{}))
+
+	if len(viaEvents) != len(eventsMatchingKinds) {
+		t.Fatalf("Events returned %d events, want %d", len(viaEvents), len(eventsMatchingKinds))
+	}
+	if len(viaMatching) != len(viaEvents) {
+		t.Fatalf("EventsMatching(zero) returned %d events, Events returned %d", len(viaMatching), len(viaEvents))
+	}
+	for i := range viaEvents {
+		a, b := viaEvents[i], viaMatching[i]
+		if a.Sequence != b.Sequence || a.ID != b.ID || a.Kind != b.Kind || a.SchemaVersion != b.SchemaVersion {
+			t.Errorf("event[%d]: Events = %+v, EventsMatching(zero) = %+v", i, a, b)
+		}
+		if !a.Timestamp.Equal(b.Timestamp) {
+			t.Errorf("event[%d].Timestamp: Events = %v, EventsMatching(zero) = %v", i, a.Timestamp, b.Timestamp)
+		}
+		if !bytes.Equal(a.Payload, b.Payload) {
+			t.Errorf("event[%d].Payload differs between Events and EventsMatching(zero)", i)
+		}
+		if a.Producer.GetCategory() != b.Producer.GetCategory() || a.Producer.GetName() != b.Producer.GetName() || a.Producer.GetVersion() != b.Producer.GetVersion() {
+			t.Errorf("event[%d].Producer: Events = %+v, EventsMatching(zero) = %+v", i, a.Producer, b.Producer)
+		}
+	}
+}
+
+func TestSession_EventsMatching_invalidKindRejected(t *testing.T) {
+	t.Parallel()
+	sess := seedMixedEvents(t)
+
+	q := EventQuery{Kinds: []kernelv1.EventKind{
+		kernelv1.EventKind_EVENT_KIND_TOOL_CALL,
+		kernelv1.EventKind_EVENT_KIND_UNSPECIFIED,
+	}}
+
+	count := 0
+	var gotErr error
+	for _, err := range sess.EventsMatching(context.Background(), q) {
+		count++
+		gotErr = err
+	}
+	if count != 1 {
+		t.Fatalf("EventsMatching yielded %d pairs, want exactly 1", count)
+	}
+	if !errors.Is(gotErr, ErrInvalidKind) {
+		t.Errorf("EventsMatching err = %v, want ErrInvalidKind", gotErr)
+	}
+}
+
+func TestSession_EventsMatching_negativeLimitRejected(t *testing.T) {
+	t.Parallel()
+	sess := seedMixedEvents(t)
+
+	count := 0
+	var gotErr error
+	for _, err := range sess.EventsMatching(context.Background(), EventQuery{Limit: int32Ptr(-1)}) {
+		count++
+		gotErr = err
+	}
+	if count != 1 {
+		t.Fatalf("EventsMatching yielded %d pairs, want exactly 1", count)
+	}
+	if gotErr == nil {
+		t.Error("EventsMatching (negative limit) err = nil, want an error")
+	}
+}
+
+func TestSession_EventsMatching_errClosed(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	sess, err := st.Create(context.Background(), testSessionMeta())
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := sess.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	count := 0
+	var gotErr error
+	for _, err := range sess.EventsMatching(context.Background(), EventQuery{Limit: int32Ptr(1)}) {
+		count++
+		gotErr = err
+	}
+	if count != 1 {
+		t.Fatalf("EventsMatching after Close yielded %d pairs, want exactly 1", count)
+	}
+	if !errors.Is(gotErr, ErrClosed) {
+		t.Errorf("EventsMatching after Close err = %v, want ErrClosed", gotErr)
+	}
+}
+
+func TestSession_EventsMatching_stopsOnEarlyBreak(t *testing.T) {
+	t.Parallel()
+	sess := seedMixedEvents(t)
+
+	count := 0
+	for range sess.EventsMatching(context.Background(), EventQuery{FromSequence: int64Ptr(2)}) {
+		count++
+		if count == 3 {
+			break
+		}
+	}
+	if count != 3 {
+		t.Errorf("iteration count = %d, want 3 (stopped early)", count)
+	}
+}
+
+// TestBuildEventsQuery_deterministic pins the SQL an EventQuery renders to:
+// identical inputs must produce a byte-identical statement every time
+// (determinism.md — never a map-iteration-ordered IN list), and the
+// placeholder list must match the bound argument count exactly.
+func TestBuildEventsQuery_deterministic(t *testing.T) {
+	t.Parallel()
+
+	q := EventQuery{
+		Kinds: []kernelv1.EventKind{
+			kernelv1.EventKind_EVENT_KIND_TOOL_RESULT,
+			kernelv1.EventKind_EVENT_KIND_MESSAGE,
+			kernelv1.EventKind_EVENT_KIND_TOOL_RESULT, // duplicate
+			kernelv1.EventKind_EVENT_KIND_PLAN,
+		},
+		FromSequence: int64Ptr(4),
+		Limit:        int32Ptr(2),
+	}
+
+	wantSQL := eventsSelect + " WHERE kind IN (?, ?, ?) AND sequence >= ? ORDER BY sequence LIMIT ?"
+	wantArgs := []any{"tool_result", "message", "plan", int64(4), int32(2)}
+
+	for range 20 {
+		gotSQL, gotArgs, err := buildEventsQuery(q)
+		if err != nil {
+			t.Fatalf("buildEventsQuery: %v", err)
+		}
+		if gotSQL != wantSQL {
+			t.Fatalf("SQL = %q, want %q", gotSQL, wantSQL)
+		}
+		if len(gotArgs) != len(wantArgs) {
+			t.Fatalf("args = %v, want %v", gotArgs, wantArgs)
+		}
+		for i := range wantArgs {
+			if gotArgs[i] != wantArgs[i] {
+				t.Fatalf("args[%d] = %v, want %v", i, gotArgs[i], wantArgs[i])
+			}
+		}
+	}
+}
+
+func TestBuildEventsQuery_zeroValue(t *testing.T) {
+	t.Parallel()
+
+	gotSQL, gotArgs, err := buildEventsQuery(EventQuery{})
+	if err != nil {
+		t.Fatalf("buildEventsQuery: %v", err)
+	}
+	// Byte-identical to the unfiltered statement Events used before it was
+	// reimplemented on top of EventsMatching.
+	if want := eventsSelect + " ORDER BY sequence"; gotSQL != want {
+		t.Errorf("SQL = %q, want %q", gotSQL, want)
+	}
+	if len(gotArgs) != 0 {
+		t.Errorf("args = %v, want none", gotArgs)
 	}
 }
 
