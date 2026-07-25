@@ -32,6 +32,7 @@ const (
 	spanNameLockFileLoad        = "registry.lockfile.load"
 	spanNameChecksumVerify      = "registry.checksum.verify"
 	spanNamePluginLaunch        = "plugin.launch"
+	spanNameProviderBringUp     = "pluginhost.provider.bringup"
 
 	spanNameStateBackendSessionCreate   = "statebackend.session.create"
 	spanNameStateBackendSessionOpen     = "statebackend.session.open"
@@ -276,6 +277,25 @@ func (p *Provider) StartPluginLaunch(ctx context.Context, category, name, versio
 		ProducerCategoryKey.String(category),
 		ProducerNameKey.String(name),
 		ProducerVersionKey.String(version),
+	))
+}
+
+// StartProviderBringUp opens the span covering one declared provider's
+// whole bring-up sequence — subprocess launch, Describe, checksum
+// verification, capability/schema fetch, config decode, and Configure —
+// for use by internal/pluginhost.Supervisor.Start. It is the parent of
+// the StartPluginLaunch span internal/pluginruntime.Launch opens for the
+// subprocess spawn alone, which covers only the first of those steps.
+//
+// localName is the agent.hcl required_providers local name, the only
+// identity available before the plugin has answered Describe; category
+// is the lock file's cached record of the category, empty when unknown
+// (a dev-override provider, whose category is discovered by probing).
+// Ended via EndSpan by the caller.
+func (p *Provider) StartProviderBringUp(ctx context.Context, localName, category string) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameProviderBringUp, trace.WithAttributes(
+		ProviderLocalNameKey.String(localName),
+		ProducerCategoryKey.String(category),
 	))
 }
 
