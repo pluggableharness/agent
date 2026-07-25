@@ -38,25 +38,29 @@ func newTestTelemetry(t *testing.T) *telemetry.Provider {
 	return prov
 }
 
+// allCategories is every commonv1.Category a plugin map can be keyed by —
+// the full set the dev_overrides category probe keys one subprocess with.
+var allCategories = []commonv1.Category{
+	commonv1.Category_CATEGORY_MODEL,
+	commonv1.Category_CATEGORY_TOOL,
+	commonv1.Category_CATEGORY_CONTEXT,
+	commonv1.Category_CATEGORY_MEMORY,
+	commonv1.Category_CATEGORY_FRONTEND,
+	commonv1.Category_CATEGORY_WIDGET,
+	commonv1.Category_CATEGORY_SLASHCOMMAND,
+}
+
 func TestPluginMap(t *testing.T) {
 	t.Parallel()
 
 	prov := newTestTelemetry(t)
 	cb := &fakeCallbackServer{}
 
-	for _, category := range []commonv1.Category{
-		commonv1.Category_CATEGORY_MODEL,
-		commonv1.Category_CATEGORY_TOOL,
-		commonv1.Category_CATEGORY_CONTEXT,
-		commonv1.Category_CATEGORY_MEMORY,
-		commonv1.Category_CATEGORY_FRONTEND,
-		commonv1.Category_CATEGORY_WIDGET,
-		commonv1.Category_CATEGORY_SLASHCOMMAND,
-	} {
+	for _, category := range allCategories {
 		t.Run(category.String(), func(t *testing.T) {
 			t.Parallel()
 
-			set := pluginMap(category, cb, prov)
+			set := pluginMap(newLaunchScope(cb, prov), category)
 			if len(set) != 1 {
 				t.Fatalf("pluginMap: %d entries, want 1", len(set))
 			}
@@ -69,6 +73,40 @@ func TestPluginMap(t *testing.T) {
 				t.Fatalf("pluginMap[%q] does not implement plugin.GRPCPlugin", key)
 			}
 		})
+	}
+}
+
+// TestPluginMap_multiCategorySharesOneScope covers the dev_overrides
+// category-probe shape: one subprocess keyed by every category at once,
+// because the binary's real category isn't known ahead of time. Every
+// entry must point at the *same* launchScope — that shared pointer is
+// what makes the callback broker's exactly-once guarantee hold across all
+// seven (see TestLaunchScope_serveOnce).
+func TestPluginMap_multiCategorySharesOneScope(t *testing.T) {
+	t.Parallel()
+
+	scope := newLaunchScope(&fakeCallbackServer{}, newTestTelemetry(t))
+	set := pluginMap(scope, allCategories...)
+
+	if len(set) != len(allCategories) {
+		t.Fatalf("pluginMap: %d entries, want %d", len(set), len(allCategories))
+	}
+	for _, category := range allCategories {
+		key := common.PluginKey(category)
+		p, ok := set[key]
+		if !ok {
+			t.Fatalf("pluginMap: no entry for key %q", key)
+		}
+		cp, ok := p.(*categoryPlugin)
+		if !ok {
+			t.Fatalf("pluginMap[%q] = %T, want *categoryPlugin", key, p)
+		}
+		if cp.category != category {
+			t.Errorf("pluginMap[%q].category = %v, want %v", key, cp.category, category)
+		}
+		if cp.scope != scope {
+			t.Errorf("pluginMap[%q].scope = %p, want the single shared scope %p", key, cp.scope, scope)
+		}
 	}
 }
 
@@ -148,50 +186,89 @@ func TestNewCategoryClient_unrecognized(t *testing.T) {
 	}
 }
 
-// TestCategoryPlugin_brokerOnce exercises the "serve the callback broker
-// exactly once" guarantee directly against categoryPlugin.brokerOnce,
-// standing in for GRPCClient's own use of it. A real *plugin.GRPCBroker
-// has no exported constructor (confirmed: newGRPCBroker is unexported and
-// needs an unexported streamer type this package cannot supply), so the
-// "AcceptAndServe called once" assertion against a genuine broker lives in
-// the integration tier (launch_integration_test.go); this test covers the
-// sync.Once semantics categoryPlugin actually relies on.
-func TestCategoryPlugin_brokerOnce(t *testing.T) {
+// TestLaunchScope_serveOnce exercises the "serve the callback broker
+// exactly once per launched subprocess" guarantee directly against
+// launchScope.doServeOnce — the once-guarded core
+// launchScope.serveCallbackOnce wraps, and the sole reason the fixed
+// pkg/common.CallbackBrokerID is collision-free (CLAUDE.md). A real
+// *plugin.GRPCBroker has no exported constructor (confirmed: newGRPCBroker
+// is unexported and needs an unexported streamer type this package cannot
+// supply), so the "AcceptAndServe called once" assertion against a genuine
+// broker lives in the integration tier (launch_integration_test.go).
+//
+// The multi-category subtest is the safety-critical one: it drives
+// doServeOnce concurrently through every categoryPlugin of a seven-entry
+// plugin map — the dev_overrides category-probe shape — and proves a
+// single AcceptAndServe still results, which a per-categoryPlugin
+// sync.Once would not have guaranteed.
+func TestLaunchScope_serveOnce(t *testing.T) {
 	t.Parallel()
 
-	p := &categoryPlugin{}
-	var calls int
-	var mu sync.Mutex
-
-	var wg sync.WaitGroup
-	for range 5 {
-		wg.Go(func() {
-			p.brokerOnce.Do(func() {
-				mu.Lock()
-				calls++
-				mu.Unlock()
-			})
-		})
+	tests := []struct {
+		name       string
+		categories []commonv1.Category
+		// racers is how many goroutines pile onto each categoryPlugin.
+		racers int
+	}{
+		{"single category", []commonv1.Category{commonv1.Category_CATEGORY_TOOL}, 5},
+		{"every category on one subprocess", allCategories, 5},
 	}
-	wg.Wait()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	if calls != 1 {
-		t.Fatalf("brokerOnce fired %d times, want 1", calls)
+			scope := newLaunchScope(&fakeCallbackServer{}, newTestTelemetry(t))
+			set := pluginMap(scope, tt.categories...)
+
+			var mu sync.Mutex
+			var calls int
+
+			var wg sync.WaitGroup
+			for _, p := range set {
+				cp, ok := p.(*categoryPlugin)
+				if !ok {
+					t.Fatalf("plugin map entry = %T, want *categoryPlugin", p)
+				}
+				for range tt.racers {
+					wg.Go(func() {
+						cp.scope.doServeOnce(func() {
+							mu.Lock()
+							calls++
+							mu.Unlock()
+						})
+					})
+				}
+			}
+			wg.Wait()
+
+			if calls != 1 {
+				t.Fatalf("callback broker served %d times across %d categories, want exactly 1 — the fixed CallbackBrokerID is only collision-free at exactly one AcceptAndServe per subprocess", calls, len(tt.categories))
+			}
+		})
 	}
 }
 
-func TestCategoryPlugin_newCallbackServer(t *testing.T) {
+func TestLaunchScope_newCallbackServer(t *testing.T) {
 	t.Parallel()
 
 	prov := newTestTelemetry(t)
 	cb := &fakeCallbackServer{}
-	p := &categoryPlugin{category: commonv1.Category_CATEGORY_TOOL, callback: cb, telemetry: prov}
+	scope := newLaunchScope(cb, prov)
 
-	server := p.newCallbackServer(nil)
+	server := scope.newCallbackServer(nil)
 	if server == nil {
 		t.Fatal("newCallbackServer returned nil")
 	}
 	if _, ok := server.GetServiceInfo()["pluggableharness.kernel.v1.KernelCallbackService"]; !ok {
 		t.Fatalf("KernelCallbackService not registered: %v", server.GetServiceInfo())
+	}
+}
+
+func TestLaunchScope_clientConn(t *testing.T) {
+	t.Parallel()
+
+	scope := newLaunchScope(&fakeCallbackServer{}, newTestTelemetry(t))
+	if got := scope.clientConn(); got != nil {
+		t.Fatalf("clientConn() = %v before any dispense, want nil", got)
 	}
 }

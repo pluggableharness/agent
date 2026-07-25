@@ -10,8 +10,53 @@
   is an out-of-band constant both sides compile against instead — the same
   trick the magic cookie already uses. This is safe because the kernel is
   the *only* party that ever calls `broker.AcceptAndServe` (never
-  `broker.NextId()`), so there's no collision risk. Don't "fix" this by
-  adding a broker-ID field to a proto — that was considered and rejected.
+  `broker.NextId()`), **and because it calls it exactly once per launched
+  subprocess** — the guarantee the next bullet's `launchScope` exists to
+  hold. Don't "fix" this by adding a broker-ID field to a proto — that was
+  considered and rejected.
+
+- **The `sync.Once` guarding `AcceptAndServe` is scoped to one `Launch`
+  call (`launchScope`, `adapter.go`), never to one `categoryPlugin` — and
+  that distinction is load-bearing, not tidiness.** The previous bullet's
+  fixed broker ID is collision-free only while `AcceptAndServe` is called
+  exactly once per subprocess. A `categoryPlugin` is per *category*, and a
+  single launched subprocess may have more than one of them: the
+  `dev_overrides` category probe keys one plugin map by all seven
+  `commonv1.Category` values (a `dev_overrides` binary's real category
+  isn't knowable ahead of time), dispenses each, and calls `Describe` to
+  find which single category answers. With a per-`categoryPlugin`
+  `sync.Once`, up to seven `GRPCClient` calls would each fire their own
+  `go broker.AcceptAndServe(common.CallbackBrokerID, ...)` on the *same*
+  fixed ID — precisely the collision the fixed-ID decision assumes cannot
+  happen. `launchScope` is shared by reference across every
+  `categoryPlugin` in one launch's plugin map, so "exactly once" holds
+  however many categories that launch dispenses; it also owns the
+  callback server (`newCallbackServer`) and the recorded muxed
+  `*grpc.ClientConn`, both of which are equally per-launch rather than
+  per-category. `adapter_test.go`'s `TestLaunchScope_serveOnce` asserts
+  this directly against a seven-category plugin map. Don't move the
+  `sync.Once`, the callback, or the telemetry provider back onto
+  `categoryPlugin` to "keep the adapter self-contained."
+
+- **`HookClient()` exposes the muxed connection as exactly one extra
+  typed client, deliberately not as a raw `*grpc.ClientConn`.**
+  `agent-loop/hook-dispatch.md#wire-contract--pluggableharnesshookv1`
+  requires the kernel dial `HookSubscriberService` "on the same connection
+  it already holds to that plugin's category service", so `Plugin` retains
+  the `*grpc.ClientConn` that `categoryPlugin.GRPCClient` was handed
+  (recorded on `launchScope`, read once in `Launch`). It is *not* handed
+  out raw: that connection is owned by the underlying `*plugin.Client` and
+  closed by `Close`, so a `Conn()` accessor would let a caller close it out
+  from under go-plugin or dial arbitrary services on it. The reason
+  `Dispensed()` returns `any` — this package has no category-specific
+  knowledge — doesn't apply here, because `HookSubscriberService` is the
+  one service in the whole protocol that is category-*agnostic* (one shared
+  service across all seven categories), so naming it costs this package no
+  category knowledge at all. Every launched `Plugin` exposes it
+  unconditionally, with no launch-time flag: a plugin declaring no `hook{}`
+  block simply never has `DispatchHook` called on it. If a later phase
+  needs a *second* extra service, add another named accessor — don't
+  reopen this by exposing the connection.
 
 - **This package never constructs the `kernelcallback.Server` it serves.**
   `Config.Callback` is a `kernelv1.KernelCallbackServiceServer` the
@@ -19,7 +64,7 @@
   launched plugin, with that plugin's already-resolved `ProducerRef` baked
   in (`internal/kernelcallback/CLAUDE.md`'s "one Server per plugin
   instance" design). This package's job is purely to serve whatever it's
-  handed on the fixed broker ID via `categoryPlugin.newCallbackServer`
+  handed on the fixed broker ID via `launchScope.newCallbackServer`
   (`adapter.go`). Don't add a constructor for `kernelcallback.Server` here
   — that would duplicate a decision that already belongs to that package.
 
@@ -90,9 +135,14 @@
   whose only constructor (`newGRPCBroker`) is unexported and requires an
   unexported `streamer` type this package cannot supply from outside
   `github.com/hashicorp/go-plugin`. The "broker-serve-once" logic it
-  relies on (`categoryPlugin.brokerOnce`, a `sync.Once`) is still unit
-  tested directly (`adapter_test.go`'s `TestCategoryPlugin_brokerOnce`);
-  only the full `GRPCClient` method — and the "`AcceptAndServe` was
+  relies on is still unit tested directly: `launchScope.serveCallbackOnce`
+  is a one-line wrapper over `launchScope.doServeOnce`, and it's
+  `doServeOnce` — the once-guarded core, with the un-fakeable
+  `AcceptAndServe` call left outside it — that `adapter_test.go`'s
+  `TestLaunchScope_serveOnce` drives concurrently through a seven-category
+  plugin map. This is the same factor-for-testability move `closeWithKill`
+  makes in `shutdown.go`; don't inline the wrapper back into `GRPCClient`.
+  Only the full `GRPCClient` method — and the "`AcceptAndServe` was
   actually called" assertion — lives in the integration tier
   (`launch_integration_test.go`), which exercises it against a real
   broker via a real subprocess round-trip. Don't spend time trying to
@@ -132,6 +182,12 @@
   a hand-rolled `hashicorp/go-plugin` adapter; a passing
   `TestLaunch_realSubprocess` is therefore this package's own end-to-end
   proof that SDK actually round-trips through a real subprocess launch.
+  Its `hook.Observer` facet is not decoration either: it logs back through
+  the kernel callback, which is what makes
+  `TestLaunch_hookClientSharesCategoryConnection` a real proof that a
+  `HookClient()` `DispatchHook` reached *that* subprocess over the same
+  muxed connection its `ToolServiceClient` came from, rather than an
+  assumption that go-plugin muxed it.
   Still don't grow it into a second, parallel plugin SDK inside this
   package, though: any new SDK ergonomics belong in `pkg/plugin` (or a
   category's own `pkg/<category>`) so every plugin author benefits, not

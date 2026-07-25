@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -34,20 +35,83 @@ var errGRPCServerUnsupported = errors.New("pluginruntime: GRPCServer is not supp
 // commonv1.Category value with no known generated client type.
 var errUnrecognizedCategory = errors.New("pluginruntime: unrecognized category")
 
+// launchScope holds everything scoped to one Launch call rather than to
+// one category: the callback server served on the fixed callback broker,
+// the sync.Once guarding that serve, and the muxed *grpc.ClientConn every
+// service client for this subprocess is dialed over. Exactly one
+// launchScope exists per launched subprocess, shared by reference across
+// every categoryPlugin in that launch's plugin map.
+//
+// The Once lives here, not on categoryPlugin, because pkg/common's fixed
+// CallbackBrokerID is only collision-free while broker.AcceptAndServe is
+// called exactly once per subprocess (CLAUDE.md's "fixed callback broker
+// ID" note). A launch whose plugin map carries more than one category —
+// the dev_overrides category probe, which keys one subprocess by all seven
+// commonv1.Category values because the real category isn't known ahead of
+// time — dispenses more than one categoryPlugin against the same broker,
+// so a per-categoryPlugin Once would let several goroutines race to serve
+// the same fixed ID. Sharing one scope makes "exactly once" hold no matter
+// how many categories a single launch dispenses.
+type launchScope struct {
+	callback  kernelv1.KernelCallbackServiceServer
+	telemetry *telemetry.Provider
+
+	serveOnce sync.Once
+	conn      atomic.Pointer[grpc.ClientConn]
+}
+
+// newLaunchScope returns the launchScope shared by every categoryPlugin
+// built for one Launch call.
+func newLaunchScope(callback kernelv1.KernelCallbackServiceServer, prov *telemetry.Provider) *launchScope {
+	return &launchScope{callback: callback, telemetry: prov}
+}
+
+// serveCallbackOnce starts serving KernelCallbackService on the fixed
+// callback broker ID, at most once for this whole launch regardless of how
+// many categoryPlugin values call it. A real *plugin.GRPCBroker has no
+// exported constructor, so the once-guarded core is factored into
+// doServeOnce (unit-tested directly, adapter_test.go) and only the
+// one-line AcceptAndServe call itself is integration-tier.
+func (s *launchScope) serveCallbackOnce(broker *plugin.GRPCBroker) {
+	s.doServeOnce(func() {
+		go broker.AcceptAndServe(common.CallbackBrokerID, s.newCallbackServer)
+	})
+}
+
+// doServeOnce runs serve at most once per launchScope.
+func (s *launchScope) doServeOnce(serve func()) {
+	s.serveOnce.Do(serve)
+}
+
+// newCallbackServer builds the grpc.Server that serves
+// KernelCallbackService back to the plugin over the callback broker. This
+// is the only place internal/telemetry.Provider.ServerHandler() is wired
+// in this package — see this package's CLAUDE.md.
+func (s *launchScope) newCallbackServer(opts []grpc.ServerOption) *grpc.Server {
+	opts = append(opts, grpc.StatsHandler(s.telemetry.ServerHandler()))
+	gs := grpc.NewServer(opts...)
+	kernelv1.RegisterKernelCallbackServiceServer(gs, s.callback)
+	return gs
+}
+
+// clientConn returns the muxed connection this launch's category client
+// was dialed over, or nil before any categoryPlugin has been dispensed.
+func (s *launchScope) clientConn() *grpc.ClientConn {
+	return s.conn.Load()
+}
+
 // categoryPlugin is the plugin.GRPCPlugin dispensed for exactly one
-// category, for exactly one Launch call. GRPCClient (run kernel-side)
-// registers callback on the fixed callback broker exactly once via
-// brokerOnce, then returns the raw generated <X>ServiceClient for
-// category — never a hand-rolled wrapper (go-layout.md's "one Go
+// category. GRPCClient (run kernel-side) registers the launch's callback
+// server on the fixed callback broker — via the shared launchScope, so
+// exactly once per subprocess however many categories this launch
+// dispenses — then returns the raw generated <X>ServiceClient for
+// category, never a hand-rolled wrapper (go-layout.md's "one Go
 // representation of each wire message" rule).
 type categoryPlugin struct {
 	plugin.Plugin
 
-	category  commonv1.Category
-	callback  kernelv1.KernelCallbackServiceServer
-	telemetry *telemetry.Provider
-
-	brokerOnce sync.Once
+	category commonv1.Category
+	scope    *launchScope
 }
 
 var _ plugin.GRPCPlugin = (*categoryPlugin)(nil)
@@ -57,26 +121,16 @@ func (p *categoryPlugin) GRPCServer(*plugin.GRPCBroker, *grpc.Server) error {
 	return errGRPCServerUnsupported
 }
 
-// GRPCClient runs kernel-side. It starts serving KernelCallbackService on
-// the fixed callback broker (once per categoryPlugin instance, i.e. once
-// per Launch call), then dispenses and returns the raw category service
-// client dialed over conn.
+// GRPCClient runs kernel-side. It records the muxed connection on the
+// shared launchScope (so Launch can dial a second service — the
+// category-agnostic HookSubscriberService — over that same connection,
+// per agent-loop/hook-dispatch.md's wire contract), starts serving
+// KernelCallbackService on the fixed callback broker once per launch, then
+// dispenses and returns the raw category service client dialed over conn.
 func (p *categoryPlugin) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (any, error) {
-	p.brokerOnce.Do(func() {
-		go broker.AcceptAndServe(common.CallbackBrokerID, p.newCallbackServer)
-	})
+	p.scope.conn.Store(conn)
+	p.scope.serveCallbackOnce(broker)
 	return newCategoryClient(p.category, conn)
-}
-
-// newCallbackServer builds the grpc.Server that serves
-// KernelCallbackService back to the plugin over the callback broker. This
-// is the only place internal/telemetry.Provider.ServerHandler() is wired
-// in this package — see this package's CLAUDE.md.
-func (p *categoryPlugin) newCallbackServer(opts []grpc.ServerOption) *grpc.Server {
-	opts = append(opts, grpc.StatsHandler(p.telemetry.ServerHandler()))
-	s := grpc.NewServer(opts...)
-	kernelv1.RegisterKernelCallbackServiceServer(s, p.callback)
-	return s
 }
 
 // newCategoryClient returns the raw generated ServiceClient for category,
@@ -102,15 +156,24 @@ func newCategoryClient(category commonv1.Category, conn *grpc.ClientConn) (any, 
 	}
 }
 
-// pluginMap builds the one-entry go-plugin PluginSet for category (launch
-// step 2), keyed by common.PluginKey(category) — the only entry a single
-// launch ever has, since one subprocess implements exactly one category.
-func pluginMap(category commonv1.Category, callback kernelv1.KernelCallbackServiceServer, prov *telemetry.Provider) plugin.PluginSet {
-	return plugin.PluginSet{
-		common.PluginKey(category): &categoryPlugin{
-			category:  category,
-			callback:  callback,
-			telemetry: prov,
-		},
+// pluginMap builds the go-plugin PluginSet for categories (launch step 2),
+// keyed by common.PluginKey(category), with every entry sharing scope.
+//
+// A normal launch passes exactly one category: one subprocess implements
+// one category, and that stays the overwhelmingly common case. The
+// variadic form exists for the one deliberate exception — probing a
+// dev_overrides binary whose real category isn't known ahead of time,
+// which keys one subprocess by several categories and calls Describe on
+// each dispensed client to find the one that answers. Every entry sharing
+// one scope is what keeps AcceptAndServe on the fixed callback broker ID
+// exactly-once in that case (see launchScope).
+func pluginMap(scope *launchScope, categories ...commonv1.Category) plugin.PluginSet {
+	set := make(plugin.PluginSet, len(categories))
+	for _, category := range categories {
+		set[common.PluginKey(category)] = &categoryPlugin{
+			category: category,
+			scope:    scope,
+		}
 	}
+	return set
 }

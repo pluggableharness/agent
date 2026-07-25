@@ -13,6 +13,13 @@
 // (pkg/common.CallbackBrokerID), so the plugin can call back into the
 // kernel from the moment it starts.
 //
+// Plugin.HookClient returns a hookv1.HookSubscriberServiceClient dialed
+// over the same muxed connection the category client came from, which is
+// what specifications/agent-loop/hook-dispatch.md requires of hook
+// dispatch — go-plugin carries several gRPC services over one subprocess
+// connection, and this package hands out exactly that one extra client
+// rather than the raw connection it owns.
+//
 // See README.md for the package's role in the wider system and
 // CLAUDE.md for implementation-level conventions and gotchas
 // (specifications/plugin-runtime.md and

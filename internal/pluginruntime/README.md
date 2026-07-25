@@ -10,7 +10,9 @@ categories (provider, tool, context, memory, frontend, widget), each a
 subprocess implementing one category:
 
 1. A no-op-today pre-flight protocol-version check.
-2. Building the one-entry go-plugin `PluginSet` for the launch's category.
+2. Building the one-entry go-plugin `PluginSet` for the launch's category,
+   around the single per-launch scope that serves the callback broker
+   exactly once for the whole subprocess.
 3. Spawning the subprocess (`exec.CommandContext`) under a minimal,
    explicit environment allowlist — never the kernel's full `os.Environ()`.
 4. Constructing the `*plugin.Client`, with gRPC dial options that wire in
@@ -21,6 +23,15 @@ subprocess implementing one category:
    (`modelv1.ModelServiceClient`, `toolv1.ToolServiceClient`, ...).
 8. Returning a `*Plugin` wrapping the dispensed client and the plugin's
    producer identity.
+
+`(*Plugin).HookClient()` returns a `HookSubscriberService` client dialed
+over the very same connection the category client was dialed over —
+`go-plugin` muxes several gRPC services over one subprocess connection, and
+`specifications/agent-loop/hook-dispatch.md` requires the kernel dial hook
+dispatch on exactly that connection rather than opening a second one. It is
+available on every launched plugin regardless of whether that plugin
+declares a `hook{}` block in `agent.hcl`; one that declares none simply
+never has `DispatchHook` called on it.
 
 Every launched plugin is simultaneously wired with a real, servable
 `KernelCallbackService` — the plugin-to-kernel reverse channel described

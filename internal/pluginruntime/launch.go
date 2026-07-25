@@ -20,6 +20,7 @@ import (
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/pkg/common"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	hookv1 "github.com/pluggableharness/agent/pkg/hook/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 )
 
@@ -116,6 +117,7 @@ func (c Config) validate() error {
 type Plugin struct {
 	client       *plugin.Client
 	dispensed    any
+	conn         *grpc.ClientConn
 	producer     *commonv1.ProducerRef
 	cancelLaunch context.CancelFunc
 }
@@ -127,6 +129,32 @@ type Plugin struct {
 // category-specific knowledge of its own.
 func (p *Plugin) Dispensed() any {
 	return p.dispensed
+}
+
+// HookClient returns a HookSubscriberService client dialed over the very
+// connection Dispensed()'s category client was dialed over —
+// agent-loop/hook-dispatch.md#wire-contract--pluggableharnesshookv1
+// requires the kernel dial HookSubscriberService "on the same connection
+// it already holds to that plugin's category service", which go-plugin
+// muxes natively.
+//
+// This is the one additional service this package names concretely, and
+// it is deliberately not a raw *grpc.ClientConn accessor: the connection
+// is owned by the underlying go-plugin client and closed by Close, and
+// HookSubscriberService is the only service in the whole protocol that is
+// category-agnostic (one shared service across all seven categories), so
+// it is the only one this package can name without the category-specific
+// knowledge Dispensed() exists to avoid having.
+//
+// ok is false only for a Plugin that did not come from a successful
+// Launch; every launched plugin exposes this client unconditionally,
+// whether or not it declares a hook{} block in agent.hcl — a plugin that
+// declares none simply never has DispatchHook called on it.
+func (p *Plugin) HookClient() (hookv1.HookSubscriberServiceClient, bool) {
+	if p.conn == nil {
+		return nil, false
+	}
+	return hookv1.NewHookSubscriberServiceClient(p.conn), true
 }
 
 // Producer returns the identity this plugin was launched with.
@@ -178,16 +206,23 @@ func buildEnv(category commonv1.Category, name, version string, extra []string) 
 // actual spawn+handshake is client.Client(), called only by Launch,
 // exercised by launch_integration_test.go instead).
 //
+// The returned launchScope is the single per-launch holder every
+// categoryPlugin in the plugin map shares: it serves the callback broker
+// exactly once for the whole subprocess, and records the muxed
+// *grpc.ClientConn that Launch later hands the returned *Plugin so
+// HookClient can dial a second service over it.
+//
 // The returned context.CancelFunc cancels the launchCtx the returned
 // client's subprocess command was built with — Launch releases it on any
 // failure path, and a successful launch hands it to the returned *Plugin
 // for Close's shutdown escalation (shutdown.go).
-func buildClient(ctx context.Context, cfg Config, logger *slog.Logger) (*plugin.Client, context.CancelFunc) {
+func buildClient(ctx context.Context, cfg Config, logger *slog.Logger) (*plugin.Client, *launchScope, context.CancelFunc) {
 	category := cfg.Producer.GetCategory()
 	name := cfg.Producer.GetName()
 	version := cfg.Producer.GetVersion()
 
-	plugins := pluginMap(category, cfg.Callback, cfg.Telemetry)
+	scope := newLaunchScope(cfg.Callback, cfg.Telemetry)
+	plugins := pluginMap(scope, category)
 
 	launchCtx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(launchCtx, cfg.BinaryPath) // #nosec G204 -- launching the operator-configured, checksum-verified plugin binary is this package's entire purpose, not attacker-controlled input
@@ -211,7 +246,7 @@ func buildClient(ctx context.Context, cfg Config, logger *slog.Logger) (*plugin.
 	})
 	holder.client.Store(client)
 
-	return client, cancel
+	return client, scope, cancel
 }
 
 // Launch runs the full launch sequence (plugin-runtime.md's "Handshake"
@@ -259,7 +294,7 @@ func Launch(ctx context.Context, cfg Config) (*Plugin, error) {
 	// unit-tested without spawning a real subprocess. cancel is released
 	// here on any failure path below; ownership passes to the returned
 	// *Plugin only on success.
-	client, cancel := buildClient(ctx, cfg, logger)
+	client, scope, cancel := buildClient(ctx, cfg, logger)
 	launchOK := false
 	defer func() {
 		if !launchOK {
@@ -285,7 +320,8 @@ func Launch(ctx context.Context, cfg Config) (*Plugin, error) {
 	}
 
 	// Step 7: dispense — triggers categoryPlugin.GRPCClient, which
-	// registers the callback broker and returns the raw category client.
+	// registers the callback broker, records the muxed connection on the
+	// launch scope, and returns the raw category client.
 	raw, dispenseErr := rpcClient.Dispense(categoryKey)
 	if dispenseErr != nil {
 		client.Kill()
@@ -297,6 +333,14 @@ func Launch(ctx context.Context, cfg Config) (*Plugin, error) {
 		"category", categoryKey, "name", name, "version", version)
 
 	launchOK = true
-	// Step 8.
-	return &Plugin{client: client, dispensed: raw, producer: cfg.Producer, cancelLaunch: cancel}, nil
+	// Step 8. scope.clientConn() is non-nil by construction here: a
+	// successful Dispense means categoryPlugin.GRPCClient ran and recorded
+	// the connection it dialed the category client over.
+	return &Plugin{
+		client:       client,
+		dispensed:    raw,
+		conn:         scope.clientConn(),
+		producer:     cfg.Producer,
+		cancelLaunch: cancel,
+	}, nil
 }

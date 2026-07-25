@@ -4,6 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/pluggableharness/agent/pkg/common"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 )
@@ -184,11 +187,17 @@ func TestBuildClient_doesNotStartAnything(t *testing.T) {
 		Telemetry: prov,
 	}
 
-	client, cancel := buildClient(t.Context(), cfg, nil)
+	client, scope, cancel := buildClient(t.Context(), cfg, nil)
 	defer cancel()
 
 	if client == nil {
 		t.Fatal("buildClient returned a nil client")
+	}
+	if scope == nil {
+		t.Fatal("buildClient returned a nil launchScope")
+	}
+	if got := scope.clientConn(); got != nil {
+		t.Errorf("scope.clientConn() = %v, want nil: buildClient must not have dialed", got)
 	}
 	// plugin.NewClient only builds a struct — nothing has been started,
 	// so Exited() must report false and NegotiatedVersion() its
@@ -214,6 +223,55 @@ func TestPlugin_accessors(t *testing.T) {
 	}
 	if got := p.Producer(); got != producer {
 		t.Errorf("Producer() = %v, want %v", got, producer)
+	}
+}
+
+// TestPlugin_HookClient_withoutConn covers the one case HookClient reports
+// not-ok: a *Plugin that did not come from a successful Launch, so no
+// categoryPlugin ever recorded a muxed connection on its launch scope. The
+// positive case — a real client dialed over the same connection the
+// category client came from, round-tripping a real DispatchHook — is
+// integration-tier (launch_integration_test.go), since it needs a real
+// subprocess.
+func TestPlugin_HookClient_withoutConn(t *testing.T) {
+	t.Parallel()
+
+	p := &Plugin{}
+	client, ok := p.HookClient()
+	if ok {
+		t.Errorf("HookClient() ok = true for a Plugin with no connection, want false")
+	}
+	if client != nil {
+		t.Errorf("HookClient() = %v, want nil when not ok", client)
+	}
+}
+
+// TestPlugin_HookClient_dialsTheRecordedConn confirms HookClient builds a
+// client over exactly the connection Launch recorded, without a real
+// subprocess: grpc.NewClient is lazy (nothing is dialed until an RPC), so
+// a *Plugin can be handed a real, never-connected *grpc.ClientConn here.
+// That the connection is genuinely the muxed one the category client came
+// from is proven in the integration tier.
+func TestPlugin_HookClient_dialsTheRecordedConn(t *testing.T) {
+	t.Parallel()
+
+	conn, err := grpc.NewClient("passthrough:///pluginruntime-test", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("grpc.NewClient: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := conn.Close(); err != nil {
+			t.Errorf("conn.Close: %v", err)
+		}
+	})
+
+	p := &Plugin{conn: conn}
+	client, ok := p.HookClient()
+	if !ok {
+		t.Fatal("HookClient() ok = false for a Plugin holding a connection, want true")
+	}
+	if client == nil {
+		t.Fatal("HookClient() returned a nil client with ok = true")
 	}
 }
 
