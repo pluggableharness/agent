@@ -26,9 +26,12 @@ import (
 	"github.com/pluggableharness/agent/internal/pluginhost"
 	"github.com/pluggableharness/agent/internal/providerresolve"
 	"github.com/pluggableharness/agent/internal/registry"
+	"github.com/pluggableharness/agent/internal/sessionscope"
+	"github.com/pluggableharness/agent/internal/sessionstate"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
 	"github.com/pluggableharness/agent/internal/telemetryrelay"
+	"github.com/pluggableharness/agent/internal/tokencount"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 )
@@ -176,6 +179,12 @@ func newHarness(t *testing.T, resolved []providerresolve.Resolved, bodies map[st
 	t.Cleanup(func() { _ = bus.Close() })
 
 	reg := pluginhost.NewRegistry()
+	// The three registries a per-plugin kernel-callback server resolves
+	// its caller's session through. Config requires all three; a real
+	// composition root shares one set process-wide (internal/kernel).
+	scopes := sessionscope.NewRegistry()
+	sessions := sessionstate.NewTable()
+
 	s, err := pluginhost.NewSupervisor(pluginhost.Config{
 		Resolved:       resolved,
 		Registry:       reg,
@@ -183,6 +192,9 @@ func newHarness(t *testing.T, resolved []providerresolve.Resolved, bodies map[st
 		Telemetry:      prov,
 		TelemetryRelay: telemetryrelay.New(backend.RelayedSpans),
 		Log:            log.NewServer(logger),
+		Scopes:         scopes,
+		Sessions:       sessions,
+		Tokens:         tokencount.NewCounter(reg, prov, logger),
 		ProviderBodies: bodies,
 		Logger:         logger,
 	})
