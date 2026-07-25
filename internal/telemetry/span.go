@@ -60,6 +60,10 @@ const (
 	spanNameKernelCallbackSubscribe          = "kernelcallback.subscribe"
 	spanNameKernelCallbackReadEvents         = "kernelcallback.read_events"
 	spanNameKernelCallbackGetSession         = "kernelcallback.get_session"
+
+	spanNameSessionStateEmit        = "sessionstate.emit"
+	spanNameSessionStateEmitMessage = "sessionstate.emit_message"
+	spanNameSessionStateEmitPlan    = "sessionstate.emit_plan"
 )
 
 // SessionSpan describes the session a StartSession call is opening
@@ -432,6 +436,35 @@ func (p *Provider) StartKernelCallbackReadEvents(ctx context.Context, sessionID 
 func (p *Provider) StartKernelCallbackGetSession(ctx context.Context, sessionID string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
 	attrs := append([]attribute.KeyValue{SessionIDKey.String(sessionID)}, producerAttributes(producer)...)
 	return p.tracer.Start(ctx, spanNameKernelCallbackGetSession, trace.WithAttributes(attrs...))
+}
+
+// StartSessionStateEmit opens the span covering one internal/sessionstate
+// Live.Emit call — the sole-writer session append (state-backend.md#ordering--concurrency)
+// plus its kernel.event.{kind} republish (kernel-callbacks.md#emit) —
+// distinct from StartKernelCallbackEmit, which covers the RPC handler one
+// layer up, and from the StartStateBackend*/StartEventBusPublish spans
+// this call nests, which cover the underlying append and bus fan-out.
+func (p *Provider) StartSessionStateEmit(ctx context.Context, sessionID string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{SessionIDKey.String(sessionID)}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameSessionStateEmit, trace.WithAttributes(attrs...))
+}
+
+// StartSessionStateEmitMessage opens the span covering one
+// internal/sessionstate Live.EmitMessage call — the kernel-internal path
+// that additionally writes a cost_ledger row and debits the session's
+// (and every ancestor's) budget tracker in the same call.
+func (p *Provider) StartSessionStateEmitMessage(ctx context.Context, sessionID string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{SessionIDKey.String(sessionID)}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameSessionStateEmitMessage, trace.WithAttributes(attrs...))
+}
+
+// StartSessionStateEmitPlan opens the span covering one
+// internal/sessionstate Live.EmitPlan call — the kernel-internal path that
+// additionally writes plan_items rows, using statebackend.KernelProducer()
+// as its producer (state-backend.md#the-kind-enum).
+func (p *Provider) StartSessionStateEmitPlan(ctx context.Context, sessionID string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
+	attrs := append([]attribute.KeyValue{SessionIDKey.String(sessionID)}, producerAttributes(producer)...)
+	return p.tracer.Start(ctx, spanNameSessionStateEmitPlan, trace.WithAttributes(attrs...))
 }
 
 // EndSpan ends span, recording err onto it first if non-nil (RecordError
