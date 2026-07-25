@@ -95,6 +95,7 @@ func TestInstruments_smoke(t *testing.T) {
 	instruments.EventBusEventsDelivered.Add(ctx, 1)
 	instruments.EventBusSubscriptionsActive.Add(ctx, 1)
 	instruments.EventBusSubscribeStreamsClosed.Add(ctx, 1)
+	instruments.InteractiveResolutions.Add(ctx, 1)
 	instruments.RelayedSpans.Add(ctx, 1)
 	instruments.RecordMetricsAttributesDropped.Add(ctx, 1)
 }
