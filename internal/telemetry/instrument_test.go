@@ -98,4 +98,5 @@ func TestInstruments_smoke(t *testing.T) {
 	instruments.InteractiveResolutions.Add(ctx, 1)
 	instruments.RelayedSpans.Add(ctx, 1)
 	instruments.RecordMetricsAttributesDropped.Add(ctx, 1)
+	instruments.ContextContributionViolations.Add(ctx, 1)
 }

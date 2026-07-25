@@ -130,6 +130,18 @@ var (
 	// belongs on a span (ProducerNameKey via StartKernelCallbackCountTokens),
 	// never on this metric attribute.
 	TokenCountFallbackReasonKey = attribute.Key("pluggableharness.tokencount.fallback_reason")
+
+	// ContextViolationReasonKey classifies why internal/contextassembly
+	// discarded a context provider's Contribute contribution for a
+	// context-assemble firing (context/data-types.md#ordering--chaining's
+	// scope-violation rule, context/data-types.md#budget-mechanics'
+	// budget-violation rule, and context/conformance.md's non-text content
+	// rejection). Bounded to the fixed 3-value enum below, so it's safe on
+	// both spans and metrics. Deliberately excludes the provider name, same
+	// reasoning as TokenCountFallbackReasonKey above — that belongs on a
+	// span (ProducerNameKey via StartContextProviderContribute), never on
+	// this metric attribute.
+	ContextViolationReasonKey = attribute.Key("pluggableharness.context.violation_reason")
 )
 
 // Token type values for TokenTypeKey.
@@ -217,6 +229,25 @@ const (
 	// FallbackReasonError is the provider's CountTokens RPC returned an
 	// error.
 	FallbackReasonError = "error"
+)
+
+// Context-assemble violation reason values for ContextViolationReasonKey —
+// why internal/contextassembly discarded a provider's contribution for a
+// context-assemble firing.
+const (
+	// ContextViolationReasonScope is a non-compactor provider's Contribute
+	// response mutated, reordered, or dropped a section it does not own
+	// (context/data-types.md#ordering--chaining) — its entire response was
+	// discarded and the prior chain restored.
+	ContextViolationReasonScope = "scope"
+	// ContextViolationReasonBudget is a provider's own section exceeded its
+	// allocated token_budget (context/data-types.md#budget-mechanics) — that
+	// section was dropped, not the provider's whole response.
+	ContextViolationReasonBudget = "budget"
+	// ContextViolationReasonNonText is a provider's own section contained a
+	// non-text content block, which v1 of the protocol rejects rather than
+	// silently drops (context/data-types.md#contextsection).
+	ContextViolationReasonNonText = "non_text"
 )
 
 // producerAttributes returns the standard three-attribute set identifying
