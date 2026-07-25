@@ -8,21 +8,24 @@
 //
 // Server delegates Log to internal/log.Server, which already implements
 // that one RPC, and implements ExportSpans/RecordMetrics/GetTelemetryConfig
-// (telemetry.go), GetConfig (config.go), and Publish/Subscribe
-// (eventbus.go) directly against internal/telemetry, internal/telemetryrelay,
-// and internal/eventbus. RunSession and CountTokens are not yet
-// implemented; they return codes.Unimplemented until the packages that
-// carry out their semantics (agent-loop.md §7 for RunSession,
-// kernel-callbacks.md §2/§3 for CountTokens) exist. Emit, ReadEvents, and
-// GetSession are likewise stubbed — not for a missing data path (Emit's
-// target, internal/statebackend, and ReadEvents/GetSession's
-// Store.Open-based read path both already exist) but because nothing
-// anywhere in this codebase yet tracks which session(s) a given plugin
-// instance is authorized to touch, and kernel-callbacks.md's own MUST —
+// (telemetry.go), GetConfig (config.go), Publish/Subscribe (eventbus.go),
+// CountTokens (tokens.go), Emit (emit.go), ReadEvents (events.go), and
+// GetSession (sessions.go) directly against internal/telemetry,
+// internal/telemetryrelay, internal/eventbus, internal/tokencount,
+// internal/sessionscope, and internal/sessionstate. RunSession is the one
+// remaining stub, returning codes.Unimplemented until agent-loop.md §7's
+// session-tree semantics exist — this build is root-sessions-only.
+//
+// Emit, ReadEvents, and GetSession are session-scoped: each authorizes its
+// request's session_id via sessions.go's shared authorizedSession helper
+// before touching a session's data, per kernel-callbacks.md's own MUST —
 // "the kernel MUST reject a call naming any session other than the one
-// the calling plugin was actually invoked for" — has no enforcement
-// mechanism to call into without it. Implementing any of the three
-// without that check would be silently insecure, not merely incomplete.
+// the calling plugin was actually invoked for." authorizedSession returns
+// the identical codes.PermissionDenied error whether the calling plugin
+// was never granted the named session or was granted it but the session
+// is no longer live — a deliberate security property (never
+// codes.NotFound, never a distinguishable message), not an oversight; see
+// CLAUDE.md.
 //
 // Every Server instance is dedicated to exactly one launched plugin, with
 // that plugin's producer identity — and, as of this revision, every other

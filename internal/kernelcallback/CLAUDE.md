@@ -17,33 +17,59 @@
   and the future plugin-runtime broker wiring is expected to construct one
   per launched plugin, not reuse one across plugins.
 
-- **`RunSession`/`CountTokens`/`Emit`/`ReadEvents`/`GetSession` are
-  tracked stubs, not something to fill in opportunistically** — but for
-  two different reasons, not one:
-  - `RunSession` (`agent-loop.md` §7) and `CountTokens`
-    (`kernel-callbacks.md` §2/§3, including the single canonical fallback
-    token-count formula per `.claude/rules/determinism.md` — don't let a
-    "quick" stub grow a second formula) are blocked on packages that don't
-    exist yet.
-  - `Emit` (`kernel-callbacks.md` §4), `ReadEvents`, and `GetSession` are
-    blocked on something narrower and more specific: nothing anywhere in
-    this codebase tracks which session(s) a given plugin instance is
-    authorized to touch. `internal/statebackend.Store.Open` already gives
-    a working data-read path (confirmed by direct check before writing
-    `ReadEvents`/`GetSession`'s stubs) — the missing piece is purely the
-    authorization check kernel-callbacks.md's own MUST requires ("the
-    kernel MUST reject a call naming any session other than the one the
-    calling plugin was actually invoked for"). Implementing the data read
-    without that check would be silently insecure — any plugin could read
-    any session by guessing or discovering its id — which is worse than
-    an honest `codes.Unimplemented`. Don't "helpfully" wire these three up
-    against `Store.Open` directly without also building that
-    authorization mechanism first; that's new, separately-scoped work
-    (probably wherever `Emit`'s own implementation eventually lands, since
-    it needs the identical check).
-  - `Emit`'s eventual implementation does not belong in this package at
-    all regardless — it belongs wherever the kernel's sqlite write path
-    lives, called from here, per `state-backend.md` §3's sole-writer rule.
+- **`RunSession` is the one remaining tracked stub.** `agent-loop.md` §7
+  defines the session-tree semantics it will eventually carry out; this
+  build is root-sessions-only, so it stays `codes.Unimplemented` rather
+  than a partial implementation. `CountTokens`/`Emit`/`ReadEvents`/
+  `GetSession` are now implemented (`tokens.go`/`emit.go`/`events.go`/
+  `sessions.go`) — don't reintroduce a stub for any of them "to be safe."
+
+- **The session-authorization gate (`sessions.go`'s `authorizedSession`)
+  returns the identical `codes.PermissionDenied` error — the shared
+  `errNotAuthorized` value — whether a plugin was never granted the named
+  session, or was granted it but the session is no longer live (`Table.Get`
+  misses). This indistinguishability is a deliberate security property,
+  not a bug to "fix" into two error codes later**: `codes.NotFound` (or
+  any code/message that let a caller tell the two failure modes apart)
+  would let a caller probe for the existence of sessions it has no
+  business knowing about — exactly what kernel-callbacks.md's MUST
+  ("the kernel MUST reject a call naming any session other than the one
+  the calling plugin was actually invoked for") exists to prevent. Every
+  session-scoped RPC (`Emit`, `ReadEvents`, `GetSession`) goes through this
+  one helper rather than each reimplementing the check — don't add a
+  second authorization path.
+
+- **`Emit`'s implementation does not itself write to sqlite** — it
+  validates and delegates to the authorized session's
+  `*sessionstate.Live.Emit`, per `state-backend.md` §3's sole-writer rule.
+  It rejects `EVENT_KIND_MESSAGE`/`EVENT_KIND_PLAN` outright
+  (`kernelOwnedEventKinds` in `emit.go`) because only
+  `sessionstate.Live.EmitMessage`/`EmitPlan` — called from a future
+  kernel-internal path, never this RPC — can populate `cost_ledger`/
+  `plan_items` in the same transaction as their event, which a generic
+  plugin-facing `Emit(kind, payload)` call structurally cannot guarantee.
+  Don't "simplify" by routing those two kinds through the plain `Emit`
+  path; see `internal/sessionstate/CLAUDE.md`'s identical rule.
+
+- **`sessionstate.Live` gained three additive, unlocked read
+  pass-throughs (`Meta`, `TotalCostUSD`, `Events`) in
+  `internal/sessionstate/query.go`, specifically so `ReadEvents`/
+  `GetSession` never need to reach around `Live`'s sole-writer abstraction
+  to import `internal/statebackend` directly.** This package still MUST
+  NOT import `internal/statebackend` for anything beyond what
+  `sessionstate`/`sessionscope` already re-expose.
+
+- **`GetSession`'s `RemainingDepth` is a fixed placeholder
+  (`rootSessionRemainingDepth` in `sessions.go`, `math.MaxInt32`), not a
+  real depth-budget read — this build is root-sessions-only.** Nothing in
+  this codebase yet wires a live, per-session depth tracker the way
+  `bounds.Tracker` already does for cost (`internal/agentprofile`'s
+  `RootRemainingDepth`/`ChildRemainingDepth` compute the *number* per
+  `configuration.md` §8.4, but nothing tracks it live per session). Report
+  the honest "effectively unbounded" sentinel rather than fabricate a
+  ceiling this build can't enforce; a future phase adding real depth-budget
+  tracking replaces the constant with a live read and should delete this
+  note along with it.
 
 - **`internal/log.Server` is intentionally untouched by this package.**
   `Server.Log` here does exactly two things: inject this instance's fixed

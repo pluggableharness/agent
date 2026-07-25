@@ -9,17 +9,33 @@ import (
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/log"
 	"github.com/pluggableharness/agent/internal/producer"
+	"github.com/pluggableharness/agent/internal/sessionscope"
+	"github.com/pluggableharness/agent/internal/sessionstate"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
 	"github.com/pluggableharness/agent/internal/telemetryrelay"
+	"github.com/pluggableharness/agent/internal/tokencount"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	logv1 "github.com/pluggableharness/agent/pkg/log/proto/v1"
+	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// fakeModelLookup is a hand-written tokencount.ModelLookup fake
+// (go-testing.md: fakes, not mocking frameworks) that never has a
+// provider loaded, so a real *tokencount.Counter wired to it always falls
+// back to the documented heuristic — sufficient for this package's tests,
+// which exercise CountTokens' delegation, not tokencount's own resolution
+// algorithm (already covered by internal/tokencount's own test suite).
+type fakeModelLookup struct{}
+
+func (fakeModelLookup) ModelClientByLocalName(string) (modelv1.ModelServiceClient, bool) {
+	return nil, false
+}
 
 // fakeHandler is a hand-written slog.Handler fake (per go-testing.md: fakes,
 // not mocking frameworks) that captures every Record it receives instead of
@@ -70,6 +86,8 @@ type testFixture struct {
 	provider    *telemetry.Provider
 	bus         *eventbus.Bus
 	relayClient *fake.RelayedSpansRecorder
+	scopes      *sessionscope.Registry
+	sessions    *sessionstate.Table
 }
 
 // newTestServer builds a Server with every dependency wired to an
@@ -98,12 +116,19 @@ func newTestServer(t *testing.T, producerRef *commonv1.ProducerRef, opts ...func
 	bus := eventbus.New()
 	t.Cleanup(func() { _ = bus.Close() })
 
+	scopes := sessionscope.NewRegistry()
+	sessions := sessionstate.NewTable()
+	tokens := tokencount.NewCounter(fakeModelLookup{}, prov, slog.Default())
+
 	serverCfg := Config{
 		Log:            logServer,
 		Producer:       producerRef,
 		Telemetry:      prov,
 		TelemetryRelay: relay,
 		Bus:            bus,
+		Scopes:         scopes,
+		Sessions:       sessions,
+		Tokens:         tokens,
 	}
 	for _, opt := range opts {
 		opt(&serverCfg)
@@ -116,6 +141,8 @@ func newTestServer(t *testing.T, producerRef *commonv1.ProducerRef, opts ...func
 		provider:    prov,
 		bus:         bus,
 		relayClient: telemetryBackend.RelayedSpans,
+		scopes:      scopes,
+		sessions:    sessions,
 	}
 }
 
@@ -186,41 +213,12 @@ func TestServer_Log_ignoresContextProducer(t *testing.T) {
 	}
 }
 
-func TestServer_unimplementedMethods(t *testing.T) {
+func TestServer_RunSession_unimplemented(t *testing.T) {
 	t.Parallel()
 
 	f := newTestServer(t, &commonv1.ProducerRef{Name: "x"})
-	s := f.server
-
-	t.Run("RunSession", func(t *testing.T) {
-		t.Parallel()
-		_, err := s.RunSession(t.Context(), &kernelv1.RunSessionRequest{})
-		assertUnimplemented(t, err)
-	})
-
-	t.Run("CountTokens", func(t *testing.T) {
-		t.Parallel()
-		_, err := s.CountTokens(t.Context(), &kernelv1.CountTokensRequest{})
-		assertUnimplemented(t, err)
-	})
-
-	t.Run("Emit", func(t *testing.T) {
-		t.Parallel()
-		_, err := s.Emit(t.Context(), &kernelv1.EmitRequest{})
-		assertUnimplemented(t, err)
-	})
-
-	t.Run("GetSession", func(t *testing.T) {
-		t.Parallel()
-		_, err := s.GetSession(t.Context(), &kernelv1.GetSessionRequest{SessionId: "sess-1"})
-		assertUnimplemented(t, err)
-	})
-
-	t.Run("ReadEvents", func(t *testing.T) {
-		t.Parallel()
-		err := s.ReadEvents(&kernelv1.ReadEventsRequest{SessionId: "sess-1"}, nil)
-		assertUnimplemented(t, err)
-	})
+	_, err := f.server.RunSession(t.Context(), &kernelv1.RunSessionRequest{})
+	assertUnimplemented(t, err)
 }
 
 func TestNewServer_defaults(t *testing.T) {

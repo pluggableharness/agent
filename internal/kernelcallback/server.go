@@ -7,8 +7,11 @@ import (
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/log"
 	"github.com/pluggableharness/agent/internal/producer"
+	"github.com/pluggableharness/agent/internal/sessionscope"
+	"github.com/pluggableharness/agent/internal/sessionstate"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/internal/telemetryrelay"
+	"github.com/pluggableharness/agent/internal/tokencount"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	logv1 "github.com/pluggableharness/agent/pkg/log/proto/v1"
@@ -74,6 +77,26 @@ type Config struct {
 	// *plugin's* log output, not this package's own). A nil Logger
 	// defaults to slog.Default(), matching log.NewServer's own fallback.
 	Logger *slog.Logger
+
+	// Scopes is the process-wide session-authorization registry Emit,
+	// ReadEvents, and GetSession consult before honoring a session_id a
+	// plugin supplied — kernel-callbacks.md's "the kernel MUST reject a
+	// call naming any session other than the one the calling plugin was
+	// actually invoked for" (see sessions.go's authorizedSession). MUST
+	// be set.
+	Scopes *sessionscope.Registry
+
+	// Sessions is the process-wide table of currently-live sessions Emit,
+	// ReadEvents, and GetSession look an authorized session_id up in,
+	// once Scopes has confirmed the calling plugin holds a grant for it.
+	// MUST be set.
+	Sessions *sessionstate.Table
+
+	// Tokens resolves CountTokens calls per
+	// kernel-callbacks.md#the-fallback-heuristic's algorithm: exact when
+	// a model provider's own CountTokens RPC is reachable, the single
+	// documented fallback heuristic otherwise. MUST be set.
+	Tokens *tokencount.Counter
 }
 
 // defaultBusSubscribeQueueBound is the fallback per-Subscribe-stream
@@ -103,6 +126,9 @@ type Server struct {
 	resolvedConfig         *structpb.Struct
 	logLevel               logv1.LogLevel
 	logger                 *slog.Logger
+	scopes                 *sessionscope.Registry
+	sessions               *sessionstate.Table
+	tokens                 *tokencount.Counter
 }
 
 // NewServer returns a Server bound to cfg — see Config's field comments
@@ -130,6 +156,9 @@ func NewServer(cfg Config) *Server {
 		resolvedConfig:         cfg.ResolvedConfig,
 		logLevel:               logLevel,
 		logger:                 logger,
+		scopes:                 cfg.Scopes,
+		sessions:               cfg.Sessions,
+		tokens:                 cfg.Tokens,
 	}
 }
 
@@ -148,42 +177,7 @@ func (s *Server) RunSession(_ context.Context, _ *kernelv1.RunSessionRequest) (*
 	return nil, status.Error(codes.Unimplemented, "kernelcallback: RunSession not implemented")
 }
 
-// CountTokens is not yet implemented — tracked future work
-// (kernel-callbacks.md §2/§3 defines the semantics this will eventually
-// carry out).
-func (s *Server) CountTokens(_ context.Context, _ *kernelv1.CountTokensRequest) (*kernelv1.CountTokensResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: CountTokens not implemented")
-}
-
-// Emit is not yet implemented — tracked future work (kernel-callbacks.md
-// §4 defines the semantics, including the same server-derived-identity
-// requirement this package already applies to Log).
-func (s *Server) Emit(_ context.Context, _ *kernelv1.EmitRequest) (*kernelv1.EmitResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: Emit not implemented")
-}
-
-// ReadEvents is not yet implemented. internal/statebackend.Store.Open
-// already gives this package a working data-read path (open a session by
-// id, then Session.Events()), but kernel-callbacks.md's own MUST — "the
-// kernel MUST reject a call naming any session other than the one the
-// calling plugin was actually invoked for" — has no enforcement mechanism
-// to call into anywhere in this codebase yet: nothing tracks which
-// session(s) a given plugin instance is currently scoped to, the same gap
-// that already keeps Emit unimplemented above. Implementing the data read
-// without that authorization check would be silently insecure (any
-// plugin could read any session's full event log by guessing or
-// discovering its id) rather than honestly unimplemented, so this stays a
-// stub until that tracking exists — not a partial implementation to "fill
-// in opportunistically" (kernelcallback/CLAUDE.md's existing rule for
-// RunSession/CountTokens/Emit, extended here for the same reason).
-func (s *Server) ReadEvents(_ *kernelv1.ReadEventsRequest, _ kernelv1.KernelCallbackService_ReadEventsServer) error {
-	return status.Error(codes.Unimplemented, "kernelcallback: ReadEvents not implemented")
-}
-
-// GetSession is not yet implemented, for the identical session-
-// authorization gap ReadEvents documents above — GetSession also takes an
-// explicit session_id this package cannot yet verify the calling plugin
-// was actually invoked for.
-func (s *Server) GetSession(_ context.Context, _ *kernelv1.GetSessionRequest) (*kernelv1.GetSessionResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: GetSession not implemented")
-}
+// CountTokens is implemented in tokens.go. Emit is implemented in emit.go.
+// ReadEvents is implemented in events.go. GetSession is implemented in
+// sessions.go, alongside the shared authorizedSession helper all three
+// session-scoped RPCs (Emit, ReadEvents, GetSession) go through.
