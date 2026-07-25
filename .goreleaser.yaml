@@ -1,13 +1,37 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 
-# No cmd/ binary exists yet — this is a plugin-host monorepo still in the
-# library/proto/spec stage (see go-layout.md). Builds are explicitly
-# skipped rather than left to auto-detect a main package that doesn't
-# exist. Flip this to false and add a `builds:` block once cmd/<binary>
-# exists.
+# Two binaries: the kernel and the reference Anthropic model provider.
+# Both are stamped through -ldflags rather than reading their identity
+# from a file at runtime, matching how internal/pluginhost's integration
+# fixture is built (`-X main.fixtureName=...`) — a plugin's Describe RPC
+# has to answer from the running process, since a dev_overrides binary has
+# no lock-file entry to read identity from
+# (configuration/lock-file.md#dev_overrides-and-identity-without-a-lock-entry).
 builds:
-  - skip: true
+  - id: agent
+    main: ./cmd/agent
+    binary: agent
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+
+  - id: anthropic
+    main: ./cmd/anthropic
+    binary: agent-provider-anthropic
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      # pluginVersion is what this plugin reports through Describe; the
+      # source stays the -X-able default in main.go for a checkout build.
+      - -X main.pluginVersion={{ .Version }}
 
 archives:
   - formats: [tar.gz]

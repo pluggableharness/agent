@@ -22,6 +22,33 @@ linters:
     - unconvert
     - unparam
     - wastedassign
+    - depguard
+  settings:
+    depguard:
+      rules:
+        # internal/anthropic is the reference model-provider plugin. It
+        # runs out of process and is meant to be indistinguishable from a
+        # plugin a third party could write against pkg/ alone, so it may
+        # import only pkg/... and the standard library. Reaching into any
+        # other internal/ package would make it a privileged in-tree
+        # shortcut rather than a proof that the published SDK is
+        # sufficient — and the whole point of building it was to find out
+        # whether pkg/ really is.
+        #
+        # Scoped to non-test files: the integration tier legitimately
+        # imports internal/pluginruntime to launch the built binary the
+        # way the kernel does, which is the kernel-launches-plugin
+        # direction, not a dependency of the plugin itself.
+        anthropic-plugin-isolation:
+          list-mode: lax
+          files:
+            - "**/internal/anthropic/**"
+            - "!$test"
+          allow:
+            - github.com/pluggableharness/agent/internal/anthropic
+          deny:
+            - pkg: github.com/pluggableharness/agent/internal
+              desc: internal/anthropic is a reference plugin — it may import only pkg/... and the standard library, never another internal/ package (see internal/anthropic/CLAUDE.md)
   exclusions:
     rules:
       - path: _test\.go
