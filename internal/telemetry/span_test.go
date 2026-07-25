@@ -219,6 +219,19 @@ func TestStartToolPreview(t *testing.T) {
 	}
 }
 
+func TestStartProviderCatalogBuild(t *testing.T) {
+	t.Parallel()
+	p, backend := newTestProvider(t)
+
+	_, span := p.StartProviderCatalogBuild(context.Background())
+	telemetry.EndSpan(span, nil)
+
+	spans := flushedSpans(t, p, backend)
+	if spans[0].Name != "providercatalog.build" {
+		t.Errorf("Name = %q, want providercatalog.build", spans[0].Name)
+	}
+}
+
 func TestStartPolicyEvaluate(t *testing.T) {
 	t.Parallel()
 	p, backend := newTestProvider(t)

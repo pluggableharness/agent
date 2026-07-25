@@ -13,26 +13,27 @@ import (
 
 // Span names for this package's instrumentation scope (pluggableharness-agent/kernel).
 const (
-	spanNameSession             = "session"
-	spanNameTurn                = "turn"
-	spanNameHookDispatch        = "hook.dispatch"
-	spanNameHookSubscriber      = "hook.subscriber"
-	spanNameModelCall           = "model.call"
-	spanNameModelAttempt        = "model.attempt"
-	spanNameToolExecute         = "tool.execute"
-	spanNameToolPreview         = "tool.preview"
-	spanNamePolicyEvaluate      = "policy.evaluate"
-	spanNamePlanBuild           = "plan.build"
-	spanNamePlanApply           = "plan.apply"
-	spanNamePlanDecisionResolve = "plan.decision.resolve"
-	spanNameInteractiveResolve  = "interactive.resolve"
-	spanNameRunSessionSpawn     = "session.spawn"
-	spanNameConfigLoad          = "config.load"
-	spanNameGlobalConfigLoad    = "registry.global_config.load"
-	spanNameLockFileLoad        = "registry.lockfile.load"
-	spanNameChecksumVerify      = "registry.checksum.verify"
-	spanNamePluginLaunch        = "plugin.launch"
-	spanNameProviderBringUp     = "pluginhost.provider.bringup"
+	spanNameSession              = "session"
+	spanNameTurn                 = "turn"
+	spanNameHookDispatch         = "hook.dispatch"
+	spanNameHookSubscriber       = "hook.subscriber"
+	spanNameModelCall            = "model.call"
+	spanNameModelAttempt         = "model.attempt"
+	spanNameToolExecute          = "tool.execute"
+	spanNameToolPreview          = "tool.preview"
+	spanNamePolicyEvaluate       = "policy.evaluate"
+	spanNamePlanBuild            = "plan.build"
+	spanNamePlanApply            = "plan.apply"
+	spanNamePlanDecisionResolve  = "plan.decision.resolve"
+	spanNameInteractiveResolve   = "interactive.resolve"
+	spanNameRunSessionSpawn      = "session.spawn"
+	spanNameConfigLoad           = "config.load"
+	spanNameGlobalConfigLoad     = "registry.global_config.load"
+	spanNameLockFileLoad         = "registry.lockfile.load"
+	spanNameChecksumVerify       = "registry.checksum.verify"
+	spanNamePluginLaunch         = "plugin.launch"
+	spanNameProviderBringUp      = "pluginhost.provider.bringup"
+	spanNameProviderCatalogBuild = "providercatalog.build"
 
 	spanNameStateBackendSessionCreate   = "statebackend.session.create"
 	spanNameStateBackendSessionOpen     = "statebackend.session.open"
@@ -182,12 +183,25 @@ func (p *Provider) StartToolExecute(ctx context.Context, toolName, toolKind stri
 }
 
 // StartToolPreview opens the span covering one Preview RPC call
-// (tool/protocol.md#preview) made during plan construction — the
-// dry-run description populated on a resource PlanItem
-// (agent-loop/plan-apply-gate.md#preview-flow).
+// (tool/protocol.md#preview). Two call sites use this, both a real
+// Preview invocation on the wire: plan construction's dry-run
+// description populated on a resource PlanItem
+// (agent-loop/plan-apply-gate.md#preview-flow), and
+// providercatalog/drivers/plugin's one-time, catalog-build-time probe
+// that resolves ToolHandle.SupportsPreview (see that package's doc.go).
 func (p *Provider) StartToolPreview(ctx context.Context, toolName string, producer *commonv1.ProducerRef) (context.Context, trace.Span) {
 	attrs := append([]attribute.KeyValue{ToolNameKey.String(toolName)}, producerAttributes(producer)...)
 	return p.tracer.Start(ctx, spanNameToolPreview, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attrs...))
+}
+
+// StartProviderCatalogBuild opens the span covering one
+// providercatalog/drivers/plugin.New call: extracting every model spec,
+// tool schema, context capability, and hook subscription out of a
+// pluginhost.Registry's already-live plugins, including the one-time
+// Preview probes StartToolPreview covers as child spans. One-time,
+// startup-time cost — never on a turn's hot path.
+func (p *Provider) StartProviderCatalogBuild(ctx context.Context) (context.Context, trace.Span) {
+	return p.tracer.Start(ctx, spanNameProviderCatalogBuild)
 }
 
 // StartPolicyEvaluate opens the span covering plan/policy evaluation — the
