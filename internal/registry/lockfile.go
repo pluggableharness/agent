@@ -34,6 +34,7 @@ var lockedProviderSchema = &hcl.BodySchema{
 		{Name: "version", Required: true},
 		{Name: "resolved_at", Required: true},
 		{Name: "checksums", Required: true},
+		{Name: "category", Required: false},
 	},
 }
 
@@ -66,6 +67,23 @@ type LockedProvider struct {
 	// machine's — the lock file is committed/shared across mixed-platform
 	// teams.
 	Checksums map[string]string
+
+	// Category is this provider's plugin category (model/tool/context/
+	// memory/frontend/widget/slashcommand), recorded once a real
+	// provider-resolution/install step (not yet built) determines it.
+	// Empty/absent for a lock file written before this field existed, or
+	// for any provider whose category wasn't recorded at resolve time —
+	// this MUST decode without error either way (Required: false in the
+	// HCL schema). configuration/blocks-reference.md#required_providers
+	// notes a provider's category "is never declared here [in
+	// required_providers] — the kernel discovers it after loading the
+	// plugin" — this field is the lock file's OWN record of that
+	// already-discovered category, written back by whatever resolves a
+	// provider, purely as a cache to avoid re-probing every launch. It
+	// is a plain string, not the generated commonv1.Category enum type —
+	// this package doesn't import proto types for its lock-file model;
+	// whatever consumes this later parses the string itself.
+	Category string
 }
 
 // LoadLockFile parses path as a lock file. lock_file_version is checked
@@ -162,10 +180,20 @@ func decodeLockedProvider(body hcl.Body) (LockedProvider, error) {
 		checksums[platform] = v.AsString()
 	}
 
+	category := ""
+	if attr, ok := content.Attributes["category"]; ok {
+		categoryStr, err := attrString(attr)
+		if err != nil {
+			return LockedProvider{}, fmt.Errorf("category: %w", err)
+		}
+		category = categoryStr
+	}
+
 	return LockedProvider{
 		Source:     source,
 		Version:    version,
 		ResolvedAt: resolvedAt,
 		Checksums:  checksums,
+		Category:   category,
 	}, nil
 }

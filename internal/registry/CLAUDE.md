@@ -60,3 +60,12 @@
   functions in this package are safe since Go runs non-parallel top-level
   tests one at a time) — see `internal/telemetry/CLAUDE.md`'s own note
   about ambient global state racing against `t.Parallel()`.
+- **`LockedProvider.Category` is an optional, unvalidated string field**
+  — it records the provider's plugin category (model/tool/context/
+  memory/frontend/widget/slashcommand) discovered at resolve time, purely
+  as a cache to avoid re-probing on every launch. Empty for lock files
+  written before this field existed, or for any provider whose category
+  wasn't recorded at resolve time. Decoded as an optional HCL attribute
+  (`Required: false` in the schema); this package makes no attempt to
+  validate it against the set of legal category names — whatever consumes
+  this field later parses and validates the string itself.
