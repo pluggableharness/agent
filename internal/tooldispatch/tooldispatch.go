@@ -117,6 +117,18 @@ type Config struct {
 	// regardless of any call's declared ConcurrencySpec — set true for a
 	// model whose ModelSpec.supports_parallel_tool_calls is false.
 	SerializeAll bool
+	// Clock supplies the display-only timestamp and the ULID event id
+	// stamped onto every persisted tool_call/tool_result event, and the
+	// two readings the Invoke duration metric is the difference of.
+	// Defaults to time.Now.
+	//
+	// It is injectable for the same reason internal/plangate, internal/
+	// hookdispatch, internal/sessionstate, and internal/modelcall all take
+	// one: a test pins it, and one reading per event keeps an event's ULID
+	// timestamp and its Timestamp column the same instant rather than two
+	// adjacent ones. Never an ordering authority — sequence is
+	// (.claude/rules/determinism.md).
+	Clock func() time.Time
 	// Telemetry provides tracing/metrics. A nil Telemetry falls back to
 	// a Provider with every signal disabled, matching internal/
 	// sessionstate and internal/eventbus's own fallback convention.
@@ -168,6 +180,9 @@ func New(cfg Config) *Scheduler {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
+	if cfg.Clock == nil {
+		cfg.Clock = time.Now
+	}
 	if cfg.Telemetry == nil {
 		// Unreachable in practice once wired: this package's own fixed,
 		// valid telemetry.Config{} zero value cannot fail, the same
@@ -188,6 +203,17 @@ func New(cfg Config) *Scheduler {
 		keySems:         make(map[string]*semaphore.Weighted),
 		loggedUnspecOut: make(map[string]struct{}),
 	}
+}
+
+// callTimeout resolves one call's Invoke deadline: the operation's own
+// declared ToolSchema.default_timeout when it has one, otherwise
+// cfg.DefaultTimeout (settings.default_tool_timeout_ms). Zero means no
+// deadline is applied.
+func (s *Scheduler) callTimeout(schema *toolv1.ToolSchema) time.Duration {
+	if dt := schema.GetDefaultTimeout(); dt != nil {
+		return dt.AsDuration()
+	}
+	return s.cfg.DefaultTimeout
 }
 
 // providerSemaphore returns the shared provider-wide semaphore for

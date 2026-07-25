@@ -620,3 +620,65 @@ func TestExecute_Randomized_InputOrder(t *testing.T) {
 func durationOf(d time.Duration) *durationpb.Duration {
 	return durationpb.New(d)
 }
+
+// TestExecute_QueueTimeIsNotChargedToTheCallTimeout pins the boundary
+// ToolSchema.default_timeout actually measures.
+//
+// The deadline used to be derived before acquireLocks, so its clock ran
+// while a call was still queued behind an exclusive (safe:false) sibling
+// holding the provider-wide semaphore. A short-timeout call that never got
+// to run came back as TOOL_ERROR_CATEGORY_TIMEOUT — reporting a provider
+// failure for an operation that was never invoked, and marking it
+// Retryable so a caller would try it again. The timeout is documented as
+// the Invoke deadline, so it now starts only once the locks are held.
+//
+// The blocker's own delay is comfortably longer than the queued call's
+// timeout: if queue time were charged, this test would fail deterministically.
+func TestExecute_QueueTimeIsNotChargedToTheCallTimeout(t *testing.T) {
+	t.Parallel()
+	const (
+		blockerDelay = 120 * time.Millisecond
+		queuedBudget = 30 * time.Millisecond
+	)
+
+	slowClient := &fakeToolClient{invokeFunc: func(int, context.Context, *toolv1.ToolCall) (*fakeInvokeStream, error) {
+		st := resultStream(mustStruct(t, map[string]any{"ok": true}))
+		st.delay = blockerDelay
+		return st, nil
+	}}
+	fastClient := &fakeToolClient{invokeFunc: func(int, context.Context, *toolv1.ToolCall) (*fakeInvokeStream, error) {
+		return resultStream(mustStruct(t, map[string]any{"ok": true})), nil
+	}}
+
+	// The blocker is safe:false, so it takes the provider semaphore
+	// exclusively and every sibling waits for it.
+	blocker := newToolHandle("fs", "exec", toolv1.ToolKind_TOOL_KIND_RESOURCE,
+		&toolv1.ConcurrencySpec{Safe: false}, nil, slowClient)
+
+	// The queued call declares a deadline far shorter than the blocker's
+	// runtime, but its own execution is effectively instant.
+	queued := newToolHandle("fs", "read", toolv1.ToolKind_TOOL_KIND_DATA_SOURCE,
+		&toolv1.ConcurrencySpec{Safe: true}, nil, fastClient)
+	queued.Schema.DefaultTimeout = durationpb.New(queuedBudget)
+
+	calls := []Call{
+		newCall("blocker", "exec", mustStruct(t, map[string]any{}), blocker),
+		newCall("queued", "read", mustStruct(t, map[string]any{}), queued),
+	}
+
+	s, _ := testScheduler(t, Config{})
+	outcomes, err := s.Execute(context.Background(), calls)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	for i, o := range outcomes {
+		if o.Error != nil {
+			t.Fatalf("outcome %d (%s) errored with %v: a call that waited on a lock must not be charged its Invoke deadline for the wait",
+				i, o.Call.GetToolName(), o.Error.GetCategory())
+		}
+		if o.Result == nil {
+			t.Fatalf("outcome %d (%s) has neither result nor error", i, o.Call.GetToolName())
+		}
+	}
+}

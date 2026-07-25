@@ -12,7 +12,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pluggableharness/agent/internal/schemavalidate"
@@ -141,7 +140,8 @@ func (s *Scheduler) runOne(ctx context.Context, call Call) (Outcome, error) {
 	persistCtx := context.WithoutCancel(ctx)
 
 	ctx, span := s.cfg.Telemetry.StartToolExecute(ctx, toolCall.GetToolName(), toolKindAttr(schema.GetKind()), handle.Producer)
-	defer func() { telemetry.EndSpan(span, nil) }()
+	var spanErr error
+	defer func() { telemetry.EndSpan(span, spanErr) }()
 
 	logger := s.cfg.Logger.With(
 		slog.String("provider", handle.Provider),
@@ -151,19 +151,9 @@ func (s *Scheduler) runOne(ctx context.Context, call Call) (Outcome, error) {
 	logger.DebugContext(ctx, "tooldispatch: call entry")
 
 	if err := s.persistToolCall(persistCtx, toolCall, handle.Producer); err != nil {
+		spanErr = err
 		logger.ErrorContext(ctx, "tooldispatch: persist tool_call failed", "err", err)
 		return Outcome{}, fmt.Errorf("tooldispatch: persist tool_call: %w", err)
-	}
-
-	timeout := s.cfg.DefaultTimeout
-	if dt := schema.GetDefaultTimeout(); dt != nil {
-		timeout = dt.AsDuration()
-	}
-	invokeCtx := ctx
-	if timeout > 0 {
-		var cancel context.CancelFunc
-		invokeCtx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
 	}
 
 	safe, key, hasKey := concurrencyKey(handle.Provider, toolCall.GetToolName(), toolCall.GetArguments(), schema.GetConcurrency())
@@ -173,14 +163,29 @@ func (s *Scheduler) runOne(ctx context.Context, call Call) (Outcome, error) {
 	var exitCode *int32
 	var crashed bool
 
-	release, lockErr := s.acquireLocks(invokeCtx, handle.Provider, safe, key, hasKey)
+	// Locks are acquired under the caller's own ctx, NOT under the
+	// per-call deadline: ToolSchema.default_timeout is documented as the
+	// Invoke deadline, and starting its clock while a call is still queued
+	// behind an exclusive (safe:false) sibling would report a TIMEOUT for
+	// an operation that was never invoked at all. The per-call deadline is
+	// therefore derived below, after the locks are held, so it measures
+	// only the provider's own execution.
+	release, lockErr := s.acquireLocks(ctx, handle.Provider, safe, key, hasKey)
 	if lockErr != nil {
 		toolErr = buildToolError(classifyCtxErr(lockErr), lockErr)
 	} else {
 		defer release()
-		start := time.Now()
+
+		invokeCtx := ctx
+		if timeout := s.callTimeout(schema); timeout > 0 {
+			var cancel context.CancelFunc
+			invokeCtx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+
+		start := s.cfg.Clock()
 		result, toolErr, exitCode, crashed = s.invoke(invokeCtx, handle.Client, toolCall)
-		s.recordToolDuration(ctx, toolCall.GetToolName(), time.Since(start), toolErr == nil)
+		s.recordToolDuration(ctx, toolCall.GetToolName(), s.cfg.Clock().Sub(start), toolErr == nil)
 	}
 
 	s.recordBreaker(handle.Provider, crashed, toolErr)
@@ -200,6 +205,7 @@ func (s *Scheduler) runOne(ctx context.Context, call Call) (Outcome, error) {
 
 	seq, err := s.persistToolResult(persistCtx, toolCall.GetId(), result, toolErr, handle.Producer)
 	if err != nil {
+		spanErr = err
 		logger.ErrorContext(ctx, "tooldispatch: persist tool_result failed", "err", err)
 		return Outcome{}, fmt.Errorf("tooldispatch: persist tool_result: %w", err)
 	}
@@ -380,13 +386,17 @@ func (s *Scheduler) logUnspecifiedOnce(ctx context.Context, provider, tool strin
 // documented as the tool_result event's sequence specifically), so this
 // returns only an error.
 func (s *Scheduler) persistToolCall(ctx context.Context, call *toolv1.ToolCall, producer *commonv1.ProducerRef) error {
-	payload, err := proto.Marshal(&eventv1.ToolCallEvent{Call: call})
+	// MarshalPayload, never a bare proto.Marshal: ToolCall.arguments is a
+	// structpb.Struct, whose proto map marshals in randomized order unless
+	// ordering is pinned (.claude/rules/determinism.md).
+	payload, err := statebackend.MarshalPayload(&eventv1.ToolCallEvent{Call: call})
 	if err != nil {
 		return fmt.Errorf("tooldispatch: marshal ToolCallEvent: %w", err)
 	}
+	now := s.cfg.Clock()
 	ev := statebackend.Event{
-		ID:            statebackend.NewEventID(time.Now()),
-		Timestamp:     time.Now(),
+		ID:            statebackend.NewEventID(now),
+		Timestamp:     now,
 		Kind:          kernelv1.EventKind_EVENT_KIND_TOOL_CALL,
 		Producer:      producer,
 		SchemaVersion: eventSchemaVersion,
@@ -407,13 +417,18 @@ func (s *Scheduler) persistToolResult(ctx context.Context, toolCallID string, re
 		re.Outcome = &eventv1.ToolResultEvent_Result{Result: result}
 	}
 
-	payload, err := proto.Marshal(re)
+	// MarshalPayload, never a bare proto.Marshal: ToolResult.payload and
+	// ToolError.details are both structpb.Struct, whose proto map marshals
+	// in randomized order unless ordering is pinned
+	// (.claude/rules/determinism.md).
+	payload, err := statebackend.MarshalPayload(re)
 	if err != nil {
 		return 0, fmt.Errorf("tooldispatch: marshal ToolResultEvent: %w", err)
 	}
+	now := s.cfg.Clock()
 	ev := statebackend.Event{
-		ID:            statebackend.NewEventID(time.Now()),
-		Timestamp:     time.Now(),
+		ID:            statebackend.NewEventID(now),
+		Timestamp:     now,
 		Kind:          kernelv1.EventKind_EVENT_KIND_TOOL_RESULT,
 		Producer:      producer,
 		SchemaVersion: eventSchemaVersion,
