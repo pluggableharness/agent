@@ -5,6 +5,17 @@ import (
 	"testing"
 )
 
+// setHome points os.UserHomeDir at dir on every platform CI runs.
+// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows, so a
+// test that sets only one of them silently exercises the caller's real
+// home directory on the other platform — which is what made these tests
+// pass on Linux/macOS and fail on Windows.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+}
+
 func TestResolveAllXDGVarsSet(t *testing.T) {
 	t.Run("all env vars explicitly set", func(t *testing.T) {
 		configHome := t.TempDir()
@@ -90,7 +101,7 @@ func TestResolveXDGVarsUnset(t *testing.T) {
 			tempHome := t.TempDir()
 			projectDir := t.TempDir()
 
-			t.Setenv("HOME", tempHome)
+			setHome(t, tempHome)
 			t.Setenv("XDG_CONFIG_HOME", "")
 			t.Setenv("XDG_CACHE_HOME", "")
 			t.Setenv("XDG_DATA_HOME", "")
@@ -140,7 +151,7 @@ func TestResolveAllXDGVarsUnset(t *testing.T) {
 	tempHome := t.TempDir()
 	projectDir := t.TempDir()
 
-	t.Setenv("HOME", tempHome)
+	setHome(t, tempHome)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_CACHE_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")

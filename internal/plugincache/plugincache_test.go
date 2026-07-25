@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -93,7 +94,14 @@ func TestBinaryPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			path := BinaryPath(tt.cacheDir, tt.source, tt.version, tt.platform)
+			// The table writes cacheDir with forward slashes for
+			// readability; BinaryPath returns a filepath.Join result, which
+			// is backslash-separated on Windows. Normalize the input to the
+			// platform's own separator so the prefix assertion below
+			// compares like with like rather than passing only on POSIX.
+			cacheDir := filepath.FromSlash(tt.cacheDir)
+
+			path := BinaryPath(cacheDir, tt.source, tt.version, tt.platform)
 
 			// Check exact match if expectedPath is set.
 			if tt.expectedPath != "" && path != tt.expectedPath {
@@ -108,8 +116,8 @@ func TestBinaryPath(t *testing.T) {
 			}
 
 			// Check that the path starts with cacheDir.
-			if !strings.HasPrefix(path, tt.cacheDir) {
-				t.Errorf("BinaryPath() = %q; should start with cacheDir %q", path, tt.cacheDir)
+			if !strings.HasPrefix(path, cacheDir) {
+				t.Errorf("BinaryPath() = %q; should start with cacheDir %q", path, cacheDir)
 			}
 		})
 	}
@@ -242,6 +250,16 @@ func TestExists(t *testing.T) {
 
 	t.Run("permission denied handled as error", func(t *testing.T) {
 		t.Parallel()
+
+		// A 0o000 directory mode is a POSIX permission semantic. Windows
+		// derives access from ACLs and ignores the mode bits os.Mkdir
+		// carries, so the stat below succeeds there and this case exercises
+		// nothing. The behavior under test — Exists distinguishing "can't
+		// tell" from "not installed" — is real on every platform; only this
+		// way of provoking it is not.
+		if runtime.GOOS == "windows" {
+			t.Skip("directory mode bits do not deny access on Windows; ACLs govern instead")
+		}
 
 		tmpDir := t.TempDir()
 
