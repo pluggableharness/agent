@@ -9,7 +9,6 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	eventv1 "github.com/pluggableharness/agent/pkg/event/proto/v1"
@@ -298,7 +297,11 @@ func (c *Caller) persist(ctx context.Context, req Request, message *contentv1.Me
 		costUSD = cost.Compute(tier, usage)
 	}
 
-	payload, err := proto.Marshal(&eventv1.MessageEvent{
+	// MarshalPayload, never a bare proto.Marshal: every ToolUseBlock in
+	// message carries its arguments as a structpb.Struct, whose proto map
+	// marshals in randomized order unless ordering is pinned
+	// (.claude/rules/determinism.md).
+	payload, err := statebackend.MarshalPayload(&eventv1.MessageEvent{
 		Message: message,
 		Model:   req.Model.Producer,
 		Usage:   usage,

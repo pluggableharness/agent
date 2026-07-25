@@ -299,7 +299,11 @@ func (a *Assembler) validateOwnSections(ctx context.Context, handle providercata
 // (state-backend.md#the-kind-enum) for handle's surviving contribution
 // this firing.
 func (a *Assembler) persistContribution(ctx context.Context, handle providercatalog.ContextHandle, content []*contentv1.ContentBlock, tokens int64, target *modelv1.ModelTarget) {
-	payload, err := proto.Marshal(&eventv1.ContextContributionEvent{
+	// MarshalPayload, never a bare proto.Marshal: a contributed content
+	// block may carry a structpb.Struct, whose proto map marshals in
+	// randomized order unless ordering is pinned
+	// (.claude/rules/determinism.md).
+	payload, err := statebackend.MarshalPayload(&eventv1.ContextContributionEvent{
 		Content: content,
 		Tokens:  tokens,
 		Target:  target,

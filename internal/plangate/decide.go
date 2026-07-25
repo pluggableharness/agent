@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"google.golang.org/protobuf/proto"
-
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	eventv1 "github.com/pluggableharness/agent/pkg/event/proto/v1"
 	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
@@ -146,7 +144,24 @@ func (g *Gate) Decide(ctx context.Context, plan *planv1.Plan) (_ Decisions, err 
 	if err := g.persistPlan(ctx, plan); err != nil {
 		return Decisions{}, err
 	}
+
+	// The circuit breaker is debited only once the plan is durably
+	// recorded, deliberately. collect runs first because it is what
+	// rejects a non-terminal decision before the AppendPlan write — but
+	// debiting inside it would leave the breaker counting denials from a
+	// plan that failed to persist, so a run of failed appends could trip a
+	// provider on denials with no audit row to explain the trip.
+	g.recordDenials(d)
 	return d, nil
+}
+
+// recordDenials debits each denial against its provider's circuit breaker
+// and stamps the resulting trip onto its DeniedItem, in plan order. Called
+// only after the plan is persisted — see Decide.
+func (g *Gate) recordDenials(d Decisions) {
+	for i := range d.Denied {
+		d.Denied[i].Tripped = g.recordDenial(d.Denied[i].Item.GetProvider())
+	}
 }
 
 // evaluateItems runs policy once per item, stamping each item's decision
@@ -327,11 +342,14 @@ func (g *Gate) inputSchema(ctx context.Context, item *planv1.PlanItem) *schemav1
 	return handle.Schema.GetInputSchema()
 }
 
-// collect partitions the decided plan into its allowed and denied halves,
-// debiting each denial against its provider's circuit breaker as it goes.
+// collect partitions the decided plan into its allowed and denied halves.
 // It rejects any item still carrying a non-terminal decision — that is a
 // bug in this package, caught before the AppendPlan write so a PENDING or
 // ASK row can never reach plan_items.
+//
+// It deliberately does NOT touch the circuit breaker: Decide debits it
+// after the plan persists, so a failed append cannot leave the breaker
+// counting denials for a plan that was never recorded.
 func (g *Gate) collect(ctx context.Context, plan *planv1.Plan, vetoedBy string) (Decisions, error) {
 	d := Decisions{Plan: plan, VetoedBy: vetoedBy}
 	for _, item := range plan.GetItems() {
@@ -342,10 +360,9 @@ func (g *Gate) collect(ctx context.Context, plan *planv1.Plan, vetoedBy string) 
 			reason := fmt.Sprintf("%s.%s was denied (%s); this call was not executed",
 				item.GetProvider(), item.GetOperationName(), item.GetDecidedBy())
 			d.Denied = append(d.Denied, DeniedItem{
-				Item:    item,
-				Reason:  reason,
-				Error:   denialError(reason),
-				Tripped: g.recordDenial(item.GetProvider()),
+				Item:   item,
+				Reason: reason,
+				Error:  denialError(reason),
 			})
 		default:
 			return Decisions{}, fmt.Errorf("plangate: decide: item %q (%s.%s) is %v: %w",
@@ -361,7 +378,7 @@ func (g *Gate) collect(ctx context.Context, plan *planv1.Plan, vetoedBy string) 
 // persistPlan writes the turn's plan event and every plan_items row in one
 // AppendPlan transaction.
 func (g *Gate) persistPlan(ctx context.Context, plan *planv1.Plan) error {
-	payload, err := marshalDeterministic(&eventv1.PlanEvent{Plan: plan})
+	payload, err := statebackend.MarshalPayload(&eventv1.PlanEvent{Plan: plan})
 	if err != nil {
 		return fmt.Errorf("plangate: decide: marshal plan event: %w", err)
 	}
@@ -434,12 +451,4 @@ func decidedBy(rule string) string {
 // hookVetoDecidedBy renders a plan-ready veto as its decided_by form.
 func hookVetoDecidedBy(provider string) string {
 	return "hook-veto:" + provider
-}
-
-// marshalDeterministic marshals m with map ordering pinned. PlanItem.input
-// is a structpb.Struct — a map — and .claude/rules/determinism.md forbids
-// any persisted payload depending on Go map iteration order, so the
-// deterministic option is mandatory here, not an optimization.
-func marshalDeterministic(m proto.Message) ([]byte, error) {
-	return proto.MarshalOptions{Deterministic: true}.Marshal(m)
 }

@@ -1,16 +1,20 @@
 package statebackend
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	eventv1 "github.com/pluggableharness/agent/pkg/event/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
+	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 )
 
 func TestEventKind_roundTrip(t *testing.T) {
@@ -435,5 +439,45 @@ func TestDecodePlanDecision_unrecognized(t *testing.T) {
 	t.Parallel()
 	if _, err := decodePlanDecision("not_a_decision"); !errors.Is(err, ErrInvalidDecision) {
 		t.Fatalf("decodePlanDecision(garbage) err = %v, want ErrInvalidDecision", err)
+	}
+}
+
+// TestMarshalPayload_isDeterministicAcrossRemarshals is the regression
+// test for the defect MarshalPayload exists to prevent. structpb.Struct's
+// fields are a proto map, and protobuf-go randomizes map ordering on every
+// marshal unless ordering is pinned — so a bare proto.Marshal produces
+// different bytes for the identical event on every run, which
+// .claude/rules/determinism.md forbids for any persisted payload.
+//
+// The struct below is deliberately wide: one or two keys can collide into
+// the same order by chance often enough to let a broken implementation
+// pass intermittently.
+func TestMarshalPayload_isDeterministicAcrossRemarshals(t *testing.T) {
+	t.Parallel()
+
+	fields := make(map[string]*structpb.Value, 24)
+	for i := range 24 {
+		fields[fmt.Sprintf("key_%02d", i)] = structpb.NewStringValue(fmt.Sprintf("value-%02d", i))
+	}
+	ev := &eventv1.ToolCallEvent{
+		Call: &toolv1.ToolCall{
+			Id:        "call-1",
+			ToolName:  "search",
+			Arguments: &structpb.Struct{Fields: fields},
+		},
+	}
+
+	want, err := MarshalPayload(ev)
+	if err != nil {
+		t.Fatalf("MarshalPayload: %v", err)
+	}
+	for i := range 100 {
+		got, err := MarshalPayload(ev)
+		if err != nil {
+			t.Fatalf("MarshalPayload (remarshal %d): %v", i, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("MarshalPayload produced different bytes on remarshal %d: a persisted payload must not depend on Go map iteration order", i)
+		}
 	}
 }

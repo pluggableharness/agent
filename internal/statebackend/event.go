@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
@@ -148,6 +150,32 @@ func EventPayloadType(kind kernelv1.EventKind) (string, error) {
 		return "", fmt.Errorf("statebackend: %w: %v", ErrInvalidKind, kind)
 	}
 	return name, nil
+}
+
+// MarshalPayload marshals m as an event's opaque payload bytes, with proto
+// map ordering pinned.
+//
+// Every Event.Payload in this codebase MUST come from here rather than a
+// bare proto.Marshal. Several event.v1 payloads reach a structpb.Struct —
+// ToolCallEvent through ToolCall.arguments, ToolResultEvent through
+// ToolResult.payload and ToolError.details, MessageEvent through every
+// ToolUseBlock.arguments, ContextContributionEvent through whatever content
+// blocks a provider contributed — and a proto map marshals in randomized
+// order unless Deterministic is set. .claude/rules/determinism.md forbids
+// any persisted payload depending on Go map iteration order, so this is
+// mandatory rather than an optimization: without it the same session
+// replays to different bytes on every run.
+//
+// Deterministic pins ordering within one binary; the protobuf-go docs are
+// explicit that it is not a canonical form across versions. That is exactly
+// the guarantee replay needs, which pins each event to the plugin version
+// that produced it (docs/specifications/state-backend.md).
+func MarshalPayload(m proto.Message) ([]byte, error) {
+	body, err := proto.MarshalOptions{Deterministic: true}.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("statebackend: marshal event payload: %w", err)
+	}
+	return body, nil
 }
 
 // encodeEventKind renders kind as its stored TEXT representation.

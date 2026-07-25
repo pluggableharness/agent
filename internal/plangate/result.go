@@ -142,7 +142,7 @@ func applyItem(item *planv1.PlanItem, o ApplyOutcome) *planv1.ApplyResult_ApplyI
 
 // persistApply writes the turn's apply event.
 func (g *Gate) persistApply(ctx context.Context, result *planv1.ApplyResult) error {
-	payload, err := marshalDeterministic(&eventv1.ApplyEvent{Result: result})
+	payload, err := statebackend.MarshalPayload(&eventv1.ApplyEvent{Result: result})
 	if err != nil {
 		return fmt.Errorf("plangate: result: marshal apply event: %w", err)
 	}

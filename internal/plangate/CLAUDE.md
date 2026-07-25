@@ -22,9 +22,11 @@
 
 - **`Build` mutates the caller's `PlanItem` pointers.** Items are carried forward by identity so the same pointer a caller minted at turn step 7 is the one `Decide` later stamps a decision onto. `Build` never copies. If you change that, `TestBuild_carriesItemsForwardByIdentity` fails first, which is the intent.
 
-- **Both persisted payloads are marshaled with `Deterministic: true`, and that is mandatory.** `PlanItem.input` is a `structpb.Struct` — a map — and `.claude/rules/determinism.md` forbids any persisted output depending on Go map iteration order. `marshalDeterministic` is the one place that option is set; don't add a bare `proto.Marshal` call alongside it.
+- **Both persisted payloads go through `statebackend.MarshalPayload`, and that is mandatory.** `PlanItem.input` is a `structpb.Struct` — a map — and `.claude/rules/determinism.md` forbids any persisted output depending on Go map iteration order. That helper is the single place in the tree where `Deterministic: true` is set (this package used to keep its own local copy); don't add a bare `proto.Marshal` call alongside it.
 
 - **`Result` errors on a missing or unmatched outcome rather than dropping it.** `plan.v1.ApplyResult` carries one outcome per applied plan item, so a gap means the caller lost a result — silently omitting it would put a lie in the audit log. `APPLY_OUTCOME_SKIPPED` is never produced here; the proto reserves it for a future partial-apply-then-abort mode this build does not implement.
+
+- **The circuit breaker is debited only after the plan persists.** `collect` partitions the decided plan and rejects a non-terminal decision *before* the `AppendPlan` write, but it no longer touches the breaker; `Decide` calls `recordDenials` after `persistPlan` succeeds. Debiting inside `collect` meant a run of failed appends could trip a provider on denials that have no audit row to explain the trip. Keep the two ordered this way: validate before the write, debit after it.
 
 - **The circuit breaker is reported, never acted on.** `Decisions.TrippedProviders()` and `PrecheckResult.Tripped` exist so a future `internal/session` can route a trip through the same graceful-degradation path a bound uses. This package does not implement that path, does not stop deciding, and does not reset the breaker. `plan-apply-gate.md` makes the breaker a SHOULD, so a `Gate` built with a nil `Breaker` is conformant and simply never reports a trip.
 
