@@ -45,19 +45,11 @@ func (c *Client) ReadEvents(ctx context.Context, req *kernelv1.ReadEventsRequest
 	}
 
 	sub := &Subscription{cancel: cancel, done: make(chan struct{})}
-	go func() {
-		defer close(sub.done)
-		for {
-			event, err := stream.Recv()
-			if err != nil {
-				// Stream ended — naturally (every matching event delivered,
-				// the common case for this RPC), via Close's cancel, or an
-				// ordinary EOF. Nothing further to receive either way; same
-				// no-error-surfaced-from-this-goroutine shape Subscribe uses.
-				return
-			}
-			handler(event)
-		}
-	}()
+	// runSubscription's deferred cancel matters more for this RPC than for
+	// Subscribe: ReadEvents is naturally finite, and this method's own doc
+	// comment tells a plugin author the goroutine exits "without the caller
+	// needing to call Close at all" — so the documented happy path is
+	// precisely the one that would otherwise never release streamCtx.
+	go runSubscription(cancel, sub.done, stream.Recv, handler)
 	return sub, nil
 }

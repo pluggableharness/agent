@@ -48,6 +48,45 @@ func (s *Subscription) Close() error {
 	return nil
 }
 
+// runSubscription drives recv into handler until the stream ends, then
+// closes done and releases the subscription's own context.
+//
+// Both Subscribe and ReadEvents share this rather than each inlining the
+// loop, because the ordering of the two deferred cleanups is the whole
+// point and duplicating it invites the two from drifting: cancel MUST run
+// even when the stream ends on its own, not only when Close cancels it.
+// A caller is not obliged to call Close once delivery has stopped — for
+// ReadEvents, whose stream is naturally finite, that is the documented
+// normal case — so without this the derived context would stay attached to
+// its parent for the parent's whole lifetime, and repeated calls under one
+// long-lived plugin context would accumulate.
+//
+// Calling cancel here and again from Close is harmless:
+// context.CancelFunc is documented-safe to call repeatedly.
+//
+// The two defers are ordered so cancel runs BEFORE done is closed —
+// defers run LIFO, so close(done) is registered first. done is what Close
+// waits on, so it must be the last signal: closing it while the context
+// was still live would let Close return before teardown had actually
+// finished, which is the one thing a caller is entitled to rely on.
+func runSubscription[T any](cancel context.CancelFunc, done chan struct{}, recv func() (T, error), handler func(T)) {
+	defer close(done)
+	defer cancel()
+	for {
+		event, err := recv()
+		if err != nil {
+			// Stream ended — via Close's cancel, the kernel closing it
+			// (e.g. event-bus.md#backpressure's slow-consumer
+			// disconnect), or ordinary EOF. Nothing further to receive
+			// either way; the caller observes closure only via Close
+			// returning (or simply by handler calls stopping), not via an
+			// error surfaced from this goroutine.
+			return
+		}
+		handler(event)
+	}
+}
+
 // Subscribe opens a server-streaming subscription to the event bus,
 // filtered by filters (event-bus.md#filter-grammar: each entry is an
 // exact topic or a trailing-wildcard prefix ending in "*"), and invokes
@@ -67,21 +106,6 @@ func (c *Client) Subscribe(ctx context.Context, filters []string, handler BusEve
 	}
 
 	sub := &Subscription{cancel: cancel, done: make(chan struct{})}
-	go func() {
-		defer close(sub.done)
-		for {
-			event, err := stream.Recv()
-			if err != nil {
-				// Stream ended — via Close's cancel, the kernel closing it
-				// (e.g. event-bus.md#backpressure's slow-consumer
-				// disconnect), or ordinary EOF. Nothing further to receive
-				// either way; the caller observes closure only via Close
-				// returning (or simply by handler calls stopping), not via
-				// a returned error from this goroutine.
-				return
-			}
-			handler(event)
-		}
-	}()
+	go runSubscription(cancel, sub.done, stream.Recv, handler)
 	return sub, nil
 }
