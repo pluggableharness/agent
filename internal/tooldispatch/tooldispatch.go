@@ -42,6 +42,25 @@ const maxWeight = 1 << 20
 // only-ever-released generation of ToolCallEvent/ToolResultEvent.
 const eventSchemaVersion = "1"
 
+// BreakerTrippedDetail is the Outcome.Error.Details field name carrying a
+// crash-driven circuit-breaker trip — see Outcome.Error's doc comment for
+// why the signal rides inside Details rather than as a field of its own.
+//
+// It is exported because it is a real cross-package contract: this
+// package writes it, and internal/turn reads it to route a tripped
+// provider through the limit-reached path. Both sides MUST reference this
+// constant rather than repeating the literal, so the producer and the
+// consumer cannot silently drift apart — which is exactly what happened
+// before internal/turn read it at all.
+const BreakerTrippedDetail = "breaker_tripped"
+
+// BreakerProviderDetail is the Outcome.Error.Details field naming the
+// provider whose breaker tripped. It accompanies BreakerTrippedDetail and
+// exists for a caller inspecting a persisted tool_result event, which no
+// longer has the live ToolHandle the provider name would otherwise come
+// from.
+const BreakerProviderDetail = "provider"
+
 // Call is one resolved tool call ready to execute: the kernel-built
 // ToolCall plus the live provider handle to invoke it against. Declared
 // here rather than imported from internal/plangate — this package MUST

@@ -172,6 +172,15 @@ func (s *Scheduler) runOne(ctx context.Context, call Call) (Outcome, error) {
 	// only the provider's own execution.
 	release, lockErr := s.acquireLocks(ctx, handle.Provider, safe, key, hasKey)
 	if lockErr != nil {
+		// The breaker is deliberately NOT fed here. A failed lock acquire
+		// means the call never reached the provider at all (per
+		// golang.org/x/sync/semaphore's contract this can only be a ctx
+		// error), so it is not evidence about that provider's health in
+		// either direction. Feeding it would take the crashed == false
+		// path and record a SUCCESS, resetting the provider's
+		// consecutive-bad-event streak on the strength of a call that was
+		// never invoked — quietly un-tripping a breaker that a real run of
+		// crashes had almost tripped.
 		toolErr = buildToolError(classifyCtxErr(lockErr), lockErr)
 	} else {
 		defer release()
@@ -186,9 +195,8 @@ func (s *Scheduler) runOne(ctx context.Context, call Call) (Outcome, error) {
 		start := s.cfg.Clock()
 		result, toolErr, exitCode, crashed = s.invoke(invokeCtx, handle.Client, toolCall)
 		s.recordToolDuration(ctx, toolCall.GetToolName(), s.cfg.Clock().Sub(start), toolErr == nil)
+		s.recordBreaker(handle.Provider, crashed, toolErr)
 	}
-
-	s.recordBreaker(handle.Provider, crashed, toolErr)
 
 	if result != nil {
 		if verr := s.validateOutput(ctx, handle.Provider, toolCall.GetToolName(), schema.GetOutputSchema(), result.GetPayload()); verr != nil {
@@ -330,8 +338,8 @@ func (s *Scheduler) recordBreaker(provider string, crashed bool, toolErr *toolv1
 			if toolErr.Details == nil {
 				toolErr.Details = &structpb.Struct{Fields: make(map[string]*structpb.Value)}
 			}
-			toolErr.Details.Fields["breaker_tripped"] = structpb.NewBoolValue(true)
-			toolErr.Details.Fields["provider"] = structpb.NewStringValue(provider)
+			toolErr.Details.Fields[BreakerTrippedDetail] = structpb.NewBoolValue(true)
+			toolErr.Details.Fields[BreakerProviderDetail] = structpb.NewStringValue(provider)
 		}
 		return
 	}

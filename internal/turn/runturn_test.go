@@ -371,6 +371,67 @@ func TestRunTurn_precheckDenialSkipsScheduler(t *testing.T) {
 	}
 }
 
+// TestRunTurn_schedulerCrashTripSurfacesAsTrippedProvider covers the OTHER
+// half of the circuit breaker. One per-session *circuitbreaker.Breaker is
+// shared by the plan gate (which records denials) and the tool scheduler
+// (which records plugin crashes); the denial half already reaches
+// Result.TrippedProviders through Precheck and the plan gate, but the
+// crash half arrives inside tooldispatch.Outcome.Error.Details'
+// BreakerTrippedDetail boolean and used to be read by nobody at all.
+//
+// The consequence of not reading it was that a repeatedly-crashing tool
+// provider tripped its breaker and the session never noticed, re-calling
+// the crashing provider every turn until an ordinary bound fired — the
+// exact wall plan-apply-gate.md#circuit-breaker-on-repeated-denials
+// exists to stop the loop running into.
+func TestRunTurn_schedulerCrashTripSurfacesAsTrippedProvider(t *testing.T) {
+	t.Parallel()
+
+	tools := map[string]providercatalog.ToolHandle{
+		"fs.read_file": toolHandle("fs", "read_file", toolv1.ToolKind_TOOL_KIND_DATA_SOURCE),
+	}
+	msg := assistantMessage("msg-1", useBlock("call-a", "fs.read_file", map[string]any{"path": "a"}))
+
+	h := newHarness(t, response(msg))
+	h.tools.crashTripCalls = map[string]bool{"call-a": true}
+
+	res, err := h.driver.RunTurn(context.Background(), baseRequest(tools))
+	if err != nil {
+		t.Fatalf("RunTurn: unexpected error: %v", err)
+	}
+	if !equalStrings(res.TrippedProviders, []string{"fs"}) {
+		t.Fatalf("TrippedProviders = %v, want [fs] — a crash-driven breaker trip must reach the caller", res.TrippedProviders)
+	}
+	// The crash is still an ordinary per-call failure: it resolves to an
+	// error tool_result rather than failing the turn.
+	results := toolResultTexts(res.History[2])
+	if len(results) != 1 || !results[0].IsError {
+		t.Fatalf("tool_result blocks: got %+v, want one error result", results)
+	}
+}
+
+// TestRunTurn_schedulerSuccessLeavesNoTrippedProvider is the negative
+// control: an ordinary successful call must not report a trip, so the
+// check above cannot pass by reporting every provider it schedules.
+func TestRunTurn_schedulerSuccessLeavesNoTrippedProvider(t *testing.T) {
+	t.Parallel()
+
+	tools := map[string]providercatalog.ToolHandle{
+		"fs.read_file": toolHandle("fs", "read_file", toolv1.ToolKind_TOOL_KIND_DATA_SOURCE),
+	}
+	msg := assistantMessage("msg-1", useBlock("call-a", "fs.read_file", map[string]any{"path": "a"}))
+
+	h := newHarness(t, response(msg))
+
+	res, err := h.driver.RunTurn(context.Background(), baseRequest(tools))
+	if err != nil {
+		t.Fatalf("RunTurn: unexpected error: %v", err)
+	}
+	if len(res.TrippedProviders) != 0 {
+		t.Fatalf("TrippedProviders = %v, want empty for a healthy call", res.TrippedProviders)
+	}
+}
+
 // TestRunTurn_planDenialReusesGateBlocks asserts a plan-gate denial reaches
 // the model as plangate.DenialBlocks' own block, verbatim — one denial
 // vocabulary, not a second rendering of the same verdict — while still

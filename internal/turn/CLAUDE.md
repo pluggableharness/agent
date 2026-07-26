@@ -56,6 +56,18 @@ The conformance MUST is about **order**, not about firing every step uncondition
 
 If you refactor this, the property to preserve is: **`post-tool-call` dispatches and `tool_result` blocks both emerge in `tool_use` declaration order, not grouped by kind and not in completion order.** `TestRunTurn_historyPairsResultsInDeclarationOrder` deliberately interleaves resource/interactive/data_source/resource so any grouping-based implementation fails it.
 
+## `TrippedProviders` has three writers, and the scheduler one is easy to lose
+
+One per-session `*circuitbreaker.Breaker` is shared by the plan gate (denials) and the tool scheduler (plugin crashes), constructed in `internal/kernel`'s `turnstack.go`. Its trips reach a caller only through `Result.TrippedProviders`, which this package fills from **three** places:
+
+1. `runPrecheckedCalls` — a `plangate.PrecheckResult.Tripped` on a denied data_source/interactive call.
+2. `recordDenials` — a `plangate.DeniedItem.Tripped` on a denied resource item.
+3. `run.record` — a **crash** trip, which arrives inside `tooldispatch.Outcome.Error.Details[tooldispatch.BreakerTrippedDetail]` rather than as a field on `Outcome` (that package's `CLAUDE.md` explains why it rides there).
+
+The third one is the one that goes missing. It was absent entirely at first: `record` copied `Result`/`Error` and nothing read the `Details` field, so the scheduler debited the breaker, stamped the trip, and no consumer existed — a repeatedly-crashing tool provider tripped its breaker and the session never noticed, re-calling it every turn until `max_turns`/cost/wall-clock fired. That is precisely the wall `plan-apply-gate.md#circuit-breaker-on-repeated-denials` exists to stop the loop running into.
+
+Two details to preserve: `record` is a **method** on `run` (it was a package-level func, which is why it had no way to reach `r.tripped`), and it records `p.handle.Provider` rather than the `Details`' own provider field, so all three writers agree on the agent.hcl local name. `TestRunTurn_schedulerCrashTripSurfacesAsTrippedProvider` guards it, with `TestRunTurn_schedulerSuccessLeavesNoTrippedProvider` as the negative control.
+
 ## Other things worth knowing
 
 - **`ScopedTools` is keyed by the scoped `"<provider>.<tool>"` name, but `ToolCall.tool_name` is the bare schema name.** The map key is what `agentprofile.ResolveTools` produces and what the model sees in a `ToolUseBlock`; the wire `ToolCall` carries the provider-local operation name, because `tool.v1.ToolCall.tool_name` is documented as matching "a `ToolSchema.name` from **this provider's** `GetSchema` response". Don't collapse the two.

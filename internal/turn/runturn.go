@@ -560,15 +560,36 @@ func (r *run) schedule(ctx context.Context, allowed []*pending, sequential bool)
 	}
 
 	for i, o := range outcomes {
-		record(allowed[i], o)
+		r.record(ctx, allowed[i], o)
 	}
 	return nil
 }
 
-// record stores one scheduler outcome on its pending. tooldispatch
-// guarantees exactly one of Result/Error is set.
-func record(p *pending, o tooldispatch.Outcome) {
+// record stores one scheduler outcome on its pending and routes a
+// crash-driven circuit-breaker trip into this turn's tripped set.
+// tooldispatch guarantees exactly one of Result/Error is set.
+//
+// The trip arrives inside Error.Details' tooldispatch.BreakerTrippedDetail
+// boolean rather than as a field on Outcome — internal/tooldispatch's
+// CLAUDE.md records why it rides there — so this is the one place that
+// reads it. Without this the scheduler's half of the shared per-session
+// breaker would be debited and stamped but never acted on, leaving a
+// repeatedly-crashing provider to be re-called every turn until an
+// ordinary bound fired: exactly the wall the breaker exists to stop the
+// loop hitting. The gate's denial half already routes through
+// runPrecheckedCalls and recordDenials; this is the crash half.
+//
+// p.handle.Provider is the name recorded, not the Details' own "provider"
+// field, so all three writers of r.tripped agree on the agent.hcl local
+// name a caller's limit-reached path will report.
+func (r *run) record(ctx context.Context, p *pending, o tooldispatch.Outcome) {
 	p.result, p.toolErr, p.resolved = o.Result, o.Error, true
+	if o.Error.GetDetails().GetFields()[tooldispatch.BreakerTrippedDetail].GetBoolValue() {
+		r.logger.WarnContext(ctx, "turn: tool provider circuit breaker tripped",
+			slog.String("provider", p.handle.Provider),
+			slog.String("operation", p.handle.Schema.GetName()))
+		r.tripped = append(r.tripped, p.handle.Provider)
+	}
 }
 
 // buildDecideApply runs steps 10, 11, and 12.

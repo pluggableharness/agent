@@ -378,6 +378,59 @@ func TestExecute_ProviderCrash_TripsBreakerAndReturnsSignal(t *testing.T) {
 	}
 }
 
+// TestExecute_LockFailureDoesNotFeedTheBreaker pins that a call which
+// never reached its provider contributes nothing to that provider's
+// circuit-breaker state. A failed semaphore acquire can only be a ctx
+// error, so the call was never invoked — feeding the breaker on that path
+// took the crashed == false branch and recorded a SUCCESS, silently
+// resetting a consecutive-crash streak that was one event away from
+// tripping.
+//
+// The assertion is indirect on purpose: the breaker exposes no counter to
+// read, so the test arranges a streak that must trip on its next genuine
+// crash and fails if the intervening never-invoked call cleared it.
+func TestExecute_LockFailureDoesNotFeedTheBreaker(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeToolClient{invokeFunc: func(int, context.Context, *toolv1.ToolCall) (*fakeInvokeStream, error) {
+		return nil, status.Error(codes.Unavailable, "provider process exited")
+	}}
+	handle := newToolHandle("flaky", "op", toolv1.ToolKind_TOOL_KIND_DATA_SOURCE, &toolv1.ConcurrencySpec{Safe: true}, nil, client)
+
+	breaker := circuitbreaker.New(circuitbreaker.Config{ConsecutiveThreshold: 2})
+	s, _ := testScheduler(t, Config{Breaker: breaker})
+
+	// One real crash: streak is now 1, one short of the threshold.
+	if _, err := s.Execute(context.Background(), []Call{newCall("1", "op", mustStruct(t, map[string]any{}), handle)}); err != nil {
+		t.Fatalf("Execute (first crash): %v", err)
+	}
+
+	// A call that never gets past lock acquisition, because its ctx is
+	// already canceled. Persistence still happens (persistCtx is
+	// WithoutCancel), so this exercises the real runOne path.
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	outcomes, err := s.Execute(canceled, []Call{newCall("2", "op", mustStruct(t, map[string]any{}), handle)})
+	if err != nil {
+		t.Fatalf("Execute (canceled): %v", err)
+	}
+	if got := outcomes[0].Error.GetCategory(); got != toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_CANCELLED {
+		t.Fatalf("canceled call category = %v, want TOOL_ERROR_CATEGORY_CANCELLED", got)
+	}
+
+	// The second genuine crash must reach the threshold. If the canceled
+	// call had been recorded as a success, the streak would have restarted
+	// and this would come back untripped.
+	outcomes, err = s.Execute(context.Background(), []Call{newCall("3", "op", mustStruct(t, map[string]any{}), handle)})
+	if err != nil {
+		t.Fatalf("Execute (second crash): %v", err)
+	}
+	if !outcomes[0].Error.GetDetails().GetFields()[BreakerTrippedDetail].GetBoolValue() {
+		t.Fatalf("two crashes around one never-invoked call must trip a threshold-2 breaker; details = %+v",
+			outcomes[0].Error.GetDetails())
+	}
+}
+
 func TestExecute_CrashWithoutTrip_NoSignal(t *testing.T) {
 	t.Parallel()
 	client := &fakeToolClient{invokeFunc: func(int, context.Context, *toolv1.ToolCall) (*fakeInvokeStream, error) {
