@@ -24,24 +24,54 @@ func Platform() string {
 // function only computes the path — it does not check existence.
 //
 // Layout: cacheDir/<sanitized-source>/<version>/<platform>/<binary-name>
-// where sanitized-source replaces "/" with "_" (a git-forge address contains
-// slashes, which cannot appear in a single path segment) and binary-name is
-// the last path segment of source (e.g. "provider-anthropic").
+// where each of the three middle components is reduced to a single
+// path-safe directory segment and binary-name is the last path segment of
+// source (e.g. "provider-anthropic").
 //
-// Sanitization: forward slashes in the source are deterministically replaced
-// with underscores to form a single path-safe directory segment. Two different
-// sources will produce different sanitized forms (collision-resistant for
-// realistic git-forge addresses).
+// Sanitization is applied to EVERY caller-supplied component, not just the
+// source. A git-forge address obviously contains slashes, but version and
+// platform are equally caller-supplied — they come from a lock-file row —
+// and a separator or a ".." in either would let filepath.Join resolve the
+// result outside cacheDir entirely. That is not a privilege boundary (the
+// lock file is already the source of truth for what is allowed to run, and
+// registry.VerifyChecksum checks the binary against that same row), but a
+// path escaping the cache directory is never what a caller means, and a
+// malformed version silently resolving to a nonsense path outside the
+// cache reports "not installed" rather than "your lock file is malformed."
+// Every well-formed input — a semver version, a "<os>_<arch>" platform —
+// is unaffected, so this changes no real path.
 func BinaryPath(cacheDir, source, version, platform string) string {
 	// Extract the binary name — the last path segment of the source.
 	// For "github.com/agentco/provider-anthropic", this is "provider-anthropic".
 	binaryName := filepath.Base(source)
 
-	// Sanitize the source by replacing "/" with "_" to form a single path-safe
-	// segment. E.g. "github.com/agentco/provider-anthropic" → "github.com_agentco_provider-anthropic".
-	sanitized := strings.ReplaceAll(source, "/", "_")
+	return filepath.Join(
+		cacheDir,
+		pathSegment(source),
+		pathSegment(version),
+		pathSegment(platform),
+		binaryName,
+	)
+}
 
-	return filepath.Join(cacheDir, sanitized, version, platform, binaryName)
+// pathSegment reduces s to a single path-safe directory segment: both
+// separators are replaced with "_" (forward slash on every platform,
+// backslash because it separates on Windows too), and a segment that would
+// otherwise be "." or ".." — the two names filepath.Join resolves rather
+// than treats as a literal directory — is escaped the same way.
+//
+// The replacement is deterministic and injective enough for realistic
+// inputs: two different git-forge addresses, versions, or platforms
+// produce two different segments.
+func pathSegment(s string) string {
+	out := strings.ReplaceAll(s, "/", "_")
+	out = strings.ReplaceAll(out, `\`, "_")
+	switch out {
+	case ".", "..":
+		return strings.Repeat("_", len(out))
+	default:
+		return out
+	}
 }
 
 // Exists reports whether the binary at path is present and is a regular
