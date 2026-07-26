@@ -224,6 +224,58 @@ func TestBus_close_idempotent(t *testing.T) {
 	}
 }
 
+// TestBus_close_stopsWildcardOnlySubscriptions is the regression test for
+// a Subscription registered under nothing but wildcard filters. Such a
+// subscription lives only in b.wildcards, never in b.subs, so a Close that
+// collected from b.subs alone left its delivery goroutine running while
+// reporting a complete shutdown. The kernel-callback Subscribe RPC accepts
+// exactly these filters ("*", "kernel.*"), so this is a reachable shape,
+// not a synthetic one.
+func TestBus_close_stopsWildcardOnlySubscriptions(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	sub, err := b.SubscribeFilters(context.Background(), []string{"kernel.*"}, func(context.Context, Event) {})
+	if err != nil {
+		t.Fatalf("SubscribeFilters: %v", err)
+	}
+
+	if err := b.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Close waits for each Subscription's delivery goroutine to exit, so
+	// by the time it returns sub.done must already be closed. Asserting on
+	// done rather than NumGoroutine keeps this deterministic.
+	select {
+	case <-sub.done:
+	default:
+		t.Fatal("Bus.Close returned with a wildcard-only subscription still open; its delivery goroutine leaked")
+	}
+}
+
+// TestBus_close_closesEachSubscriptionOnce covers a Subscription reachable
+// through both registries at once — one exact filter and one wildcard —
+// which Close must collect exactly once rather than once per registration.
+func TestBus_close_closesEachSubscriptionOnce(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	sub, err := b.SubscribeFilters(context.Background(), []string{"kernel.event.plan", "kernel.*"}, func(context.Context, Event) {})
+	if err != nil {
+		t.Fatalf("SubscribeFilters: %v", err)
+	}
+
+	if err := b.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	select {
+	case <-sub.done:
+	default:
+		t.Fatal("Bus.Close left a mixed exact+wildcard subscription open")
+	}
+}
+
 func TestBus_close_stopsOpenSubscriptions(t *testing.T) {
 	t.Parallel()
 

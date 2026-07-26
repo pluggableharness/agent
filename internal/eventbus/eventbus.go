@@ -306,21 +306,43 @@ func (b *Bus) Close() error {
 	b.closeOnce.Do(func() {
 		b.closed.Store(true)
 
+		// BOTH registries are collected from, not just b.subs. A
+		// Subscription whose filters are all wildcards lives only in
+		// b.wildcards — SubscribeFilters registers it there and never
+		// touches b.subs for it — so collecting from b.subs alone left
+		// such a subscriber's delivery goroutine running past a Close
+		// that claims to have stopped everything.
+		//
+		// seen dedupes for the same reason Publish's fan-out does: one
+		// Subscription can be registered under several exact filters, or
+		// under both an exact and a wildcard filter, and would otherwise
+		// appear here once per registration.
 		b.mu.Lock()
-		subs := make([]*Subscription, 0)
+		seen := make(map[*Subscription]struct{}, len(b.subs)+len(b.wildcards))
+		subs := make([]*Subscription, 0, len(b.subs)+len(b.wildcards))
+		collect := func(sub *Subscription) {
+			if _, dup := seen[sub]; dup {
+				return
+			}
+			seen[sub] = struct{}{}
+			subs = append(subs, sub)
+		}
 		for _, set := range b.subs {
 			for sub := range set {
-				subs = append(subs, sub)
+				collect(sub)
 			}
+		}
+		for _, entry := range b.wildcards {
+			collect(entry.sub)
 		}
 		b.mu.Unlock()
 
 		// Each Close call below waits for that Subscription's delivery
 		// goroutine to fully exit (subscription.go's Close), and that
 		// goroutine's own exit calls b.remove — so by the time this loop
-		// finishes, every subscriber's goroutine is gone and b.subs (read
-		// again, if ever, by a stray call already in flight) reflects an
-		// empty registry.
+		// finishes, every subscriber's goroutine is gone and b.subs and
+		// b.wildcards (read again, if ever, by a stray call already in
+		// flight) both reflect an empty registry.
 		for _, sub := range subs {
 			_ = sub.Close()
 		}
