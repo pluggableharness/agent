@@ -44,11 +44,53 @@ func NewEventID(t time.Time) string {
 // NewEventID — one mutex, one monotonic entropy source, so IDs of either
 // kind minted in the same millisecond can never collide with each other.
 func newULID(t time.Time) string {
+	ms := clampULIDTime(t)
+
 	mu.Lock()
-	ms := ulid.Timestamp(t)
-	id, _ := ulid.New(ms, monotonic)
-	mu.Unlock()
+	defer mu.Unlock()
+
+	id, err := ulid.New(ms, monotonic)
+	if err != nil {
+		// ms is already range-clamped, so the only error left is
+		// ulid.ErrMonotonicOverflow: the monotonic source's 80-bit entropy
+		// space for THIS millisecond is exhausted, which takes on the
+		// order of 2^40 ids inside one millisecond. Falling back to plain
+		// random entropy gives up only the within-millisecond monotonic
+		// ordering property — never an ordering authority here, since
+		// sequence is (.claude/rules/determinism.md) — and cannot itself
+		// fail, because crypto/rand does not return errors as of Go 1.24.
+		//
+		// Handled rather than discarded because the discarded-error form
+		// left id at its ZERO value: a perfectly valid canonical ULID that
+		// ValidateSessionID accepts, identical on every occurrence, which
+		// would enter the audit log as a duplicate event identity.
+		id = ulid.MustNew(ms, rand.Reader)
+	}
 	return id.String()
+}
+
+// clampULIDTime converts t to the millisecond count ulid.New takes,
+// clamping it into the range a ULID can represent so ulid.New can never
+// fail with ulid.ErrBigTime.
+//
+// Clamping rather than erroring keeps newULID's signature infallible for
+// its callers, who mint ids inline while building an event and have no
+// sensible recovery from "that timestamp is unrepresentable". Both ends
+// are saturating: a pre-epoch time (notably the zero time.Time, which
+// ulid.Timestamp would otherwise wrap into an enormous uint64) floors to
+// the ULID epoch, and a far-future time saturates at ulid.MaxTime. The
+// resulting id is still unique — entropy, not the timestamp, is what
+// makes it so — which is the property that matters, since sequence and
+// not id ordering is this package's ordering authority.
+func clampULIDTime(t time.Time) uint64 {
+	msi := t.UnixMilli()
+	if msi < 0 {
+		return 0
+	}
+	if uint64(msi) > ulid.MaxTime() {
+		return ulid.MaxTime()
+	}
+	return uint64(msi)
 }
 
 // ValidateSessionID returns an error if id is not a strictly valid canonical ULID.

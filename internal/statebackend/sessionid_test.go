@@ -42,6 +42,50 @@ func TestNewSessionID(t *testing.T) {
 	}
 }
 
+// TestNewULIDOutOfRangeTimeStaysUniqueAndNonZero covers the timestamps
+// ulid.New rejects with ErrBigTime — notably the zero time.Time, whose
+// negative Unix seconds ulid.Timestamp wraps into an enormous uint64.
+//
+// The error used to be discarded, which left the returned ULID at its ZERO
+// value: "00000000000000000000000000". That is a structurally valid
+// canonical ULID, so ValidateSessionID accepts it and the existing format
+// assertions passed — but every call for such a time produced the SAME id,
+// which for an events.id primary key means a silent collision rather than
+// a loud failure. Clamping keeps the ids distinct.
+func TestNewULIDOutOfRangeTimeStaysUniqueAndNonZero(t *testing.T) {
+	t.Parallel()
+
+	const zeroULID = "00000000000000000000000000"
+
+	tests := []struct {
+		name string
+		t    time.Time
+	}{
+		{"zero time", time.Time{}},
+		{"far past", time.Date(-5000, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{"far future", time.Date(400000, 1, 1, 0, 0, 0, 0, time.UTC)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			first := NewSessionID(tt.t)
+			second := NewSessionID(tt.t)
+
+			if first == zeroULID || second == zeroULID {
+				t.Fatalf("NewSessionID(%v) returned the zero ULID; an unrepresentable timestamp must still yield a real id", tt.t)
+			}
+			if first == second {
+				t.Errorf("NewSessionID(%v) returned %q twice; ids for one timestamp must still be unique", tt.t, first)
+			}
+			if err := ValidateSessionID(first); err != nil {
+				t.Errorf("ValidateSessionID(%q): %v", first, err)
+			}
+		})
+	}
+}
+
 func TestNewSessionIDChronologicalOrder(t *testing.T) {
 	t.Parallel()
 
