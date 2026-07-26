@@ -317,10 +317,19 @@ func TestBinaryPath_everyComponentStaysInsideCacheDir(t *testing.T) {
 
 			got := BinaryPath(cacheDir, tt.source, tt.version, tt.platform)
 
-			// filepath.Join already cleans the result, so a successful
-			// escape shows up as a path no longer rooted at cacheDir.
-			if !strings.HasPrefix(got, cacheDir+string(filepath.Separator)) {
-				t.Fatalf("BinaryPath = %q, which escapes cacheDir %q", got, cacheDir)
+			// Containment is checked via filepath.Rel, not a string prefix
+			// against cacheDir: filepath.Join normalizes separators, so on
+			// Windows a "/cache" argument comes back as "\cache\..." and a
+			// literal prefix comparison fails on the separator rather than
+			// on the property under test. Rel is the separator-agnostic
+			// idiom — an escape shows up as a relative path that starts by
+			// walking back out.
+			rel, err := filepath.Rel(cacheDir, got)
+			if err != nil {
+				t.Fatalf("filepath.Rel(%q, %q): %v", cacheDir, got, err)
+			}
+			if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				t.Fatalf("BinaryPath = %q escapes cacheDir %q (relative path %q)", got, cacheDir, rel)
 			}
 			// A ".." SUBSTRING is harmless — ".._.._tmp" is an ordinary
 			// literal directory name. What must not survive is a path
