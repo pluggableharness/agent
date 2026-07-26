@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -66,6 +67,15 @@ func testLogger() *slog.Logger {
 // backed by a fresh fake.Backend for assertions.
 func testAssembler(t *testing.T, events EventSink) (*Assembler, *fake.Backend) {
 	t.Helper()
+	return testAssemblerWithClock(t, events, nil)
+}
+
+// testAssemblerWithClock is testAssembler with an explicit Config.Clock.
+// A nil clock leaves New's own time.Now default in force, which is what
+// testAssembler wants; a test asserting on a persisted event's timestamp
+// pins its own instead.
+func testAssemblerWithClock(t *testing.T, events EventSink, clock func() time.Time) (*Assembler, *fake.Backend) {
+	t.Helper()
 	cfg := telemetry.DefaultConfig
 	cfg.ServiceName = "test"
 	backend := fake.New()
@@ -85,6 +95,7 @@ func testAssembler(t *testing.T, events EventSink) (*Assembler, *fake.Backend) {
 		Events:    events,
 		Telemetry: prov,
 		Logger:    testLogger(),
+		Clock:     clock,
 	}), backend
 }
 

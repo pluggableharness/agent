@@ -53,6 +53,16 @@ type Config struct {
 	Telemetry *telemetry.Provider
 	// Logger receives this package's structured log output. Required.
 	Logger *slog.Logger
+	// Clock supplies the timestamp every persisted context_contribution
+	// event carries — used once per event for both its ULID id and its
+	// Timestamp, so the two can never be adjacent-but-different instants.
+	// Defaults to time.Now.
+	//
+	// Injectable for the same reason internal/modelcall, internal/plangate,
+	// internal/hookdispatch, internal/sessionstate, and internal/tooldispatch
+	// all take one: a test pins it. Never an ordering authority — sequence
+	// is (.claude/rules/determinism.md).
+	Clock func() time.Time
 }
 
 // TurnInputs bundles the ContextRequest fields
@@ -124,15 +134,21 @@ type Assembler struct {
 	events    EventSink
 	telemetry *telemetry.Provider
 	logger    *slog.Logger
+	clock     func() time.Time
 }
 
-// New returns an Assembler backed by cfg.
+// New returns an Assembler backed by cfg. cfg.Clock defaults to time.Now
+// when nil; every other field is the caller's responsibility to supply.
 func New(cfg Config) *Assembler {
+	if cfg.Clock == nil {
+		cfg.Clock = time.Now
+	}
 	return &Assembler{
 		tokens:    cfg.Tokens,
 		events:    cfg.Events,
 		telemetry: cfg.Telemetry,
 		logger:    cfg.Logger,
+		clock:     cfg.Clock,
 	}
 }
 
@@ -313,7 +329,10 @@ func (a *Assembler) persistContribution(ctx context.Context, handle providercata
 		return
 	}
 
-	now := time.Now()
+	// One clock read for both the event's ULID id and its Timestamp, so
+	// the id's embedded instant and the Timestamp column can never
+	// disagree — the same single-read rule internal/tooldispatch follows.
+	now := a.clock()
 	ev := statebackend.Event{
 		ID:            statebackend.NewEventID(now),
 		Timestamp:     now,

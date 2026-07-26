@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/grpc/codes"
@@ -16,6 +17,7 @@ import (
 	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 
 	"github.com/pluggableharness/agent/internal/providercatalog"
+	"github.com/pluggableharness/agent/internal/statebackend"
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
 )
 
@@ -115,6 +117,55 @@ func TestAssemble_multipleProvidersInOrder(t *testing.T) {
 		if ev.Kind != kernelv1.EventKind_EVENT_KIND_CONTEXT_CONTRIBUTION {
 			t.Errorf("event kind = %v, want EVENT_KIND_CONTEXT_CONTRIBUTION", ev.Kind)
 		}
+	}
+}
+
+// TestAssemble_persistedEventUsesTheInjectedClock pins the persisted
+// context_contribution event's timestamp to Config.Clock. This package was
+// the only event-persisting package in the tree reading a bare time.Now()
+// instead of an injected clock, which left its one persisted event's
+// timestamp unpinnable in a test while eight sibling packages could pin
+// theirs.
+//
+// The event id is asserted to agree with the same instant, because
+// persistContribution reads the clock exactly once for both — reading it
+// twice would let a ULID's embedded timestamp and the Timestamp column
+// disagree by however long the marshal between them took.
+func TestAssemble_persistedEventUsesTheInjectedClock(t *testing.T) {
+	t.Parallel()
+
+	pinned := time.Date(2026, 7, 26, 12, 0, 0, 0, time.UTC)
+	sink := &fakeEventSink{}
+	assembler, _ := testAssemblerWithClock(t, sink, func() time.Time { return pinned })
+
+	git := &fakeContextClient{fn: func(_ context.Context, req *contextv1.ContextRequest) (*contextv1.ContextContribution, error) {
+		return &contextv1.ContextContribution{
+			Sections: append(append([]*contentv1.ContextSection{}, req.GetPriorSections()...), section("git", "git status", textBlock("clean"))),
+		}, nil
+	}}
+
+	if _, err := assembler.Assemble(t.Context(), []providercatalog.ContextHandle{
+		contextHandle("git", 0, 1000, false, git),
+	}, nil, TurnInputs{
+		SessionID:   "sess-1",
+		TurnID:      "turn-1",
+		ModelTarget: testModelTarget(),
+	}); err != nil {
+		t.Fatalf("Assemble: %v", err)
+	}
+
+	events := sink.appended()
+	if len(events) != 1 {
+		t.Fatalf("appended events = %d, want 1", len(events))
+	}
+	if !events[0].Timestamp.Equal(pinned) {
+		t.Errorf("event Timestamp = %v, want the injected clock's %v", events[0].Timestamp, pinned)
+	}
+	if want := statebackend.NewEventID(pinned); events[0].ID[:10] != want[:10] {
+		// A ULID's first 10 characters encode its millisecond timestamp;
+		// the remaining 16 are entropy and differ per id by design.
+		t.Errorf("event ID timestamp prefix = %q, want %q (id and Timestamp must come from one clock read)",
+			events[0].ID[:10], want[:10])
 	}
 }
 
