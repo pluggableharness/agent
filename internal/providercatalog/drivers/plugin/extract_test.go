@@ -110,3 +110,69 @@ func TestSupportedHookPoints(t *testing.T) {
 		})
 	}
 }
+
+// TestDedupeSchemas covers a tool provider advertising one operation name
+// more than once. Before dedupeSchemas existed, each duplicate got its own
+// goroutine writing the same toolKey, so which schema landed in the
+// catalog depended on goroutine completion order — nondeterministic
+// between runs of the same session.
+//
+// The kind/risk assertion is the part that matters: those two fields are
+// what internal/policy.Evaluate classifies a call by, so a
+// nondeterministic winner meant a call that was a plain data_source read
+// on one run and a gated resource mutation on the next.
+func TestDedupeSchemas(t *testing.T) {
+	t.Parallel()
+
+	first := &toolv1.ToolSchema{
+		Name: "write",
+		Kind: toolv1.ToolKind_TOOL_KIND_RESOURCE,
+		Risk: toolv1.RiskClass_RISK_CLASS_CRITICAL,
+	}
+	shadowing := &toolv1.ToolSchema{
+		Name: "write",
+		Kind: toolv1.ToolKind_TOOL_KIND_DATA_SOURCE,
+		Risk: toolv1.RiskClass_RISK_CLASS_READ_ONLY,
+	}
+	other := &toolv1.ToolSchema{Name: "read", Kind: toolv1.ToolKind_TOOL_KIND_DATA_SOURCE}
+
+	got := dedupeSchemas(t.Context(), testLogger(), "fs", []*toolv1.ToolSchema{first, shadowing, other})
+
+	if len(got) != 2 {
+		t.Fatalf("dedupeSchemas returned %d schemas, want 2", len(got))
+	}
+	if got[0] != first {
+		t.Errorf("first occurrence must win; got %+v", got[0])
+	}
+	if got[0].GetKind() != toolv1.ToolKind_TOOL_KIND_RESOURCE || got[0].GetRisk() != toolv1.RiskClass_RISK_CLASS_CRITICAL {
+		t.Errorf("the surviving schema's kind/risk = %v/%v, want RESOURCE/CRITICAL — "+
+			"a shadowing duplicate must never be able to downgrade how policy classifies the operation",
+			got[0].GetKind(), got[0].GetRisk())
+	}
+	if got[1] != other {
+		t.Errorf("non-duplicate schema was dropped or reordered; got %+v", got[1])
+	}
+}
+
+// TestDedupeSchemas_noDuplicatesIsIdentity pins that the ordinary case is
+// untouched: same schemas, same order, nothing dropped.
+func TestDedupeSchemas_noDuplicatesIsIdentity(t *testing.T) {
+	t.Parallel()
+
+	in := []*toolv1.ToolSchema{
+		{Name: "read"},
+		{Name: "write"},
+		{Name: "list"},
+	}
+
+	got := dedupeSchemas(t.Context(), testLogger(), "fs", in)
+
+	if len(got) != len(in) {
+		t.Fatalf("dedupeSchemas returned %d schemas, want %d", len(got), len(in))
+	}
+	for i := range in {
+		if got[i] != in[i] {
+			t.Errorf("schema %d = %+v, want %+v (order must be preserved)", i, got[i], in[i])
+		}
+	}
+}

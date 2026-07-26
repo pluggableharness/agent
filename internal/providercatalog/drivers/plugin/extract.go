@@ -82,7 +82,7 @@ func buildTools(ctx context.Context, tel *telemetry.Provider, logger *slog.Logge
 		client, _ := live.ToolClient()
 		producer := live.Producer
 		localName := live.LocalName
-		for _, schema := range resp.GetTools() {
+		for _, schema := range dedupeSchemas(ctx, logger, localName, resp.GetTools()) {
 			wg.Add(1)
 			go func(schema *toolv1.ToolSchema) {
 				defer wg.Done()
@@ -103,6 +103,46 @@ func buildTools(ctx context.Context, tel *telemetry.Provider, logger *slog.Logge
 	}
 	wg.Wait()
 	return tools
+}
+
+// dedupeSchemas returns schemas with any repeated operation name removed,
+// keeping the FIRST occurrence in the provider's own advertised order.
+//
+// Without this, two schemas sharing a name race for the same toolKey from
+// two goroutines. The map write is mutex-guarded so there is no data race,
+// but WHICH of the two lands is decided by goroutine completion order —
+// not deterministic, and not reproducible run to run.
+//
+// That matters well beyond tidiness. A ToolSchema carries the kind and the
+// risk class the plan/apply gate classifies a call by (internal/policy's
+// Evaluate matches on both), so a provider advertising one operation name
+// twice with differing kind/risk would get a policy decision that varied
+// between runs of the same session — a data_source read on one run and a
+// gated resource mutation on the next. Resolving the collision here,
+// before the fan-out, makes the catalog a pure function of the provider's
+// advertised order regardless of scheduling.
+//
+// First-wins rather than an error because this driver's extraction path
+// has no error channel to return one through; a malformed advertisement
+// degrades to a loud WARN naming the provider and the operation, matching
+// how every other unusable capability response in this file is handled.
+// internal/pluginhost's Registry.Add applies the same "reject rather than
+// silently overwrite" posture one level up, for two plugins claiming one
+// {category, name}.
+func dedupeSchemas(ctx context.Context, logger *slog.Logger, provider string, schemas []*toolv1.ToolSchema) []*toolv1.ToolSchema {
+	seen := make(map[string]struct{}, len(schemas))
+	out := make([]*toolv1.ToolSchema, 0, len(schemas))
+	for _, schema := range schemas {
+		name := schema.GetName()
+		if _, dup := seen[name]; dup {
+			logger.WarnContext(ctx, "providercatalog/plugin: tool provider advertised a duplicate operation name; keeping the first occurrence and ignoring the rest",
+				"provider", provider, "tool", name)
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, schema)
+	}
+	return out
 }
 
 // buildContexts extracts every loaded context-category plugin in reg,
