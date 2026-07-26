@@ -12,7 +12,12 @@ import (
 )
 
 // kernelOwnedEventKinds are the EventKinds a plugin-facing Emit call MUST
-// reject outright, before any other validation. state-backend.md's
+// reject outright, ahead of every field-level validation below it — though
+// still AFTER the session-authorization check, which necessarily comes
+// first: an unauthorized caller must not be able to learn anything from
+// the shape of the rejection it gets back (see authorizedSession's own
+// doc comment on why every authorization failure is indistinguishable).
+// state-backend.md's
 // conformance table requires cost_ledger/plan_items populated in the SAME
 // transaction as the message/plan event that produced them
 // (statebackend.Session.AppendMessage/AppendPlan enforce this at the
