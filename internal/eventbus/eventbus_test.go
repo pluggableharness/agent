@@ -109,22 +109,29 @@ func TestBus_publish_onlyMatchingTopic(t *testing.T) {
 	b := New()
 	t.Cleanup(func() { _ = b.Close() })
 
-	got := make(chan Event, 1)
+	got := make(chan Event, 2)
 	sub, err := b.Subscribe(context.Background(), "topic.a", func(_ context.Context, ev Event) { got <- ev })
 	if err != nil {
 		t.Fatalf("Subscribe: %v", err)
 	}
 	t.Cleanup(func() { _ = sub.Close() })
 
+	// The non-matching topic.b must never reach a topic.a subscriber. Prove
+	// it deterministically instead of sleeping: publish topic.b, then a
+	// topic.a sentinel that does match. Delivery is FIFO per subscription, so
+	// if topic.b had leaked it would arrive first — requiring the sentinel to
+	// be the first (and only) delivery rules that out.
 	if err := b.Publish(context.Background(), Event{Topic: "topic.b"}); err != nil {
-		t.Fatalf("Publish: %v", err)
+		t.Fatalf("Publish(topic.b): %v", err)
+	}
+	if err := b.Publish(context.Background(), Event{Topic: "topic.a", Payload: "sentinel"}); err != nil {
+		t.Fatalf("Publish(topic.a): %v", err)
 	}
 
-	select {
-	case ev := <-got:
-		t.Fatalf("subscriber to topic.a received %+v, want nothing", ev)
-	case <-time.After(100 * time.Millisecond):
+	if ev := recvOrTimeout(t, got); ev.Topic != "topic.a" || ev.Payload != "sentinel" {
+		t.Fatalf("first delivery = %+v, want the topic.a sentinel (topic.b must not match)", ev)
 	}
+	assertNoPending(t, got)
 }
 
 func TestBus_publish_noSubscribersIsNotAnError(t *testing.T) {
@@ -183,11 +190,10 @@ func TestBus_unsubscribeDuringPublish(t *testing.T) {
 		t.Fatalf("Publish: %v", err)
 	}
 
-	select {
-	case ev := <-got:
-		t.Fatalf("closed subscriber received %+v, want nothing", ev)
-	case <-time.After(100 * time.Millisecond):
-	}
+	// sub.Close returned before this Publish, so the delivery goroutine is
+	// gone and deregistered — the closed subscriber cannot receive. Assert
+	// instantly rather than sleeping.
+	assertNoPending(t, got)
 
 	b.mu.RLock()
 	_, stillPresent := b.subs["topic"]
@@ -518,7 +524,7 @@ func TestBus_subscribeFilters_wildcardMatch(t *testing.T) {
 	b := New()
 	t.Cleanup(func() { _ = b.Close() })
 
-	got := make(chan Event, 2)
+	got := make(chan Event, 4)
 	sub, err := b.SubscribeFilters(context.Background(), []string{"plugin.tool.github.*"}, func(_ context.Context, ev Event) {
 		got <- ev
 	})
@@ -536,17 +542,20 @@ func TestBus_subscribeFilters_wildcardMatch(t *testing.T) {
 	if err := b.Publish(context.Background(), Event{Topic: "plugin.tool.github.pr_opened", Payload: "c"}); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
+	// A matching sentinel published last must be the third delivery: the
+	// gitlab event (b) must be filtered out, so requiring a, c, z in order
+	// proves it was — no sleep needed to "confirm" b never arrives.
+	if err := b.Publish(context.Background(), Event{Topic: "plugin.tool.github.sentinel", Payload: "z"}); err != nil {
+		t.Fatalf("Publish(sentinel): %v", err)
+	}
 
 	first := recvOrTimeout(t, got)
 	second := recvOrTimeout(t, got)
-	if first.Payload != "a" || second.Payload != "c" {
-		t.Fatalf("got payloads %v, %v; want a, c (gitlab event must not match the github.* filter)", first.Payload, second.Payload)
+	third := recvOrTimeout(t, got)
+	if first.Payload != "a" || second.Payload != "c" || third.Payload != "z" {
+		t.Fatalf("got payloads %v, %v, %v; want a, c, z (gitlab event must not match the github.* filter)", first.Payload, second.Payload, third.Payload)
 	}
-	select {
-	case ev := <-got:
-		t.Fatalf("received unexpected third event %+v", ev)
-	case <-time.After(50 * time.Millisecond):
-	}
+	assertNoPending(t, got)
 }
 
 func TestBus_subscribeFilters_mixedExactAndWildcard(t *testing.T) {
@@ -573,14 +582,21 @@ func TestBus_subscribeFilters_mixedExactAndWildcard(t *testing.T) {
 	if err := b.Publish(context.Background(), Event{Topic: "kernel.event.message"}); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
-
-	recvOrTimeout(t, got)
-	recvOrTimeout(t, got)
-	select {
-	case ev := <-got:
-		t.Fatalf("received unexpected third event %+v (kernel.event.message matches neither filter)", ev)
-	case <-time.After(50 * time.Millisecond):
+	// kernel.event.message matches neither filter. A matching sentinel
+	// published after it must therefore be the third delivery; if message had
+	// leaked it would take that slot instead — caught deterministically
+	// rather than by sleeping.
+	if err := b.Publish(context.Background(), Event{Topic: "plugin.tool.github.sentinel"}); err != nil {
+		t.Fatalf("Publish(sentinel): %v", err)
 	}
+
+	first := recvOrTimeout(t, got)
+	second := recvOrTimeout(t, got)
+	third := recvOrTimeout(t, got)
+	if third.Topic != "plugin.tool.github.sentinel" {
+		t.Fatalf("deliveries were %q, %q, %q; want the sentinel third (kernel.event.message matches neither filter)", first.Topic, second.Topic, third.Topic)
+	}
+	assertNoPending(t, got)
 }
 
 func TestBus_subscribeFilters_overlappingFiltersDeliverOnce(t *testing.T) {
@@ -604,13 +620,20 @@ func TestBus_subscribeFilters_overlappingFiltersDeliverOnce(t *testing.T) {
 	if err := b.Publish(context.Background(), Event{Topic: "kernel.event.tool_call"}); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
-
-	recvOrTimeout(t, got)
-	select {
-	case ev := <-got:
-		t.Fatalf("received a second delivery of the same Publish call: %+v", ev)
-	case <-time.After(50 * time.Millisecond):
+	// kernel.event.sentinel also matches both filters. tool_call must be
+	// delivered exactly once, so the sentinel is the second delivery; a
+	// duplicate would take that slot instead — caught without a sleep.
+	if err := b.Publish(context.Background(), Event{Topic: "kernel.event.sentinel"}); err != nil {
+		t.Fatalf("Publish(sentinel): %v", err)
 	}
+
+	if ev := recvOrTimeout(t, got); ev.Topic != "kernel.event.tool_call" {
+		t.Fatalf("first delivery = %q, want kernel.event.tool_call", ev.Topic)
+	}
+	if ev := recvOrTimeout(t, got); ev.Topic != "kernel.event.sentinel" {
+		t.Fatalf("second delivery = %q, want the sentinel (kernel.event.tool_call was delivered more than once)", ev.Topic)
+	}
+	assertNoPending(t, got)
 }
 
 func TestBus_subscribeFilters_validation(t *testing.T) {

@@ -26,6 +26,25 @@ func recvOrTimeout[T any](t *testing.T, ch <-chan T) T {
 	}
 }
 
+// assertNoPending fails t if ch already holds a value. It checks
+// instantly (a non-blocking receive) instead of sleeping to "wait and see"
+// nothing arrives — and is therefore only sound when the producer goroutine
+// is provably stopped, so no delivery can still be in flight. In this
+// package that holds after Subscription.Close returns or after <-sub.done:
+// deliverLoop removes the Subscription from the Bus and only then closes
+// s.done (subscription.go), so once either has been observed the delivery
+// goroutine has exited and been deregistered. For a still-live subscriber,
+// flush a sentinel Event through it and assert on delivery order instead —
+// never a fixed-duration sleep (see .claude/rules/go-testing.md).
+func assertNoPending[T any](t *testing.T, ch <-chan T) {
+	t.Helper()
+	select {
+	case v := <-ch:
+		t.Fatalf("expected no pending delivery, got %+v", v)
+	default:
+	}
+}
+
 func TestSubscription_deliversInPublishOrder(t *testing.T) {
 	t.Parallel()
 
@@ -76,11 +95,10 @@ func TestSubscription_close_stopsDelivery(t *testing.T) {
 		t.Fatalf("Publish: %v", err)
 	}
 
-	select {
-	case <-got:
-		t.Fatal("handler invoked after Close")
-	case <-time.After(100 * time.Millisecond):
-	}
+	// Close returned, so deliverLoop has exited and deregistered this
+	// Subscription — no goroutine can deliver the Publish above. Assert that
+	// instantly rather than sleeping to watch nothing happen.
+	assertNoPending(t, got)
 }
 
 func TestSubscription_close_idempotent(t *testing.T) {
@@ -146,11 +164,10 @@ func TestSubscription_ctxCancel_stopsDelivery(t *testing.T) {
 	if err := b.Publish(context.Background(), Event{Topic: "topic"}); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
-	select {
-	case <-got:
-		t.Fatal("handler invoked after ctx cancellation")
-	case <-time.After(100 * time.Millisecond):
-	}
+	// <-sub.done above proved deliverLoop exited (and deregistered the
+	// Subscription) after ctx cancellation, so nothing can deliver the
+	// Publish — check instantly instead of sleeping.
+	assertNoPending(t, got)
 }
 
 func TestSubscription_handlerPanic_doesNotKillDelivery(t *testing.T) {
