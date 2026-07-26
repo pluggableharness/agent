@@ -24,9 +24,18 @@ func Platform() string {
 // function only computes the path — it does not check existence.
 //
 // Layout: cacheDir/<sanitized-source>/<version>/<platform>/<binary-name>
-// where each of the three middle components is reduced to a single
-// path-safe directory segment and binary-name is the last path segment of
-// source (e.g. "provider-anthropic").
+// where every component below cacheDir is reduced to a single path-safe
+// segment and binary-name is the last path segment of source (e.g.
+// "provider-anthropic").
+//
+// binary-name goes through the same reduction as the rest, even though
+// filepath.Base already strips separators from it. Base can still yield
+// "." or ".." (for a source of "." or ".."), and while three sanitized
+// segments always precede it — so a single ".." can only pop back to the
+// platform directory and never past cacheDir — that safety is an artifact
+// of how many components the layout happens to have. Sanitizing it makes
+// the containment property true by construction rather than by arithmetic
+// that a future layout change would quietly invalidate.
 //
 // Sanitization is applied to EVERY caller-supplied component, not just the
 // source. A git-forge address obviously contains slashes, but version and
@@ -50,15 +59,31 @@ func BinaryPath(cacheDir, source, version, platform string) string {
 		pathSegment(source),
 		pathSegment(version),
 		pathSegment(platform),
-		binaryName,
+		pathSegment(binaryName),
 	)
 }
 
 // pathSegment reduces s to a single path-safe directory segment: both
 // separators are replaced with "_" (forward slash on every platform,
-// backslash because it separates on Windows too), and a segment that would
-// otherwise be "." or ".." — the two names filepath.Join resolves rather
-// than treats as a literal directory — is escaped the same way.
+// backslash because it separates on Windows too), a colon is replaced for
+// the Windows-specific reasons below, and a segment that would otherwise
+// be "." or ".." — the two names filepath.Join resolves rather than treats
+// as a literal directory — is escaped the same way.
+//
+// The colon does NOT let a component escape cacheDir, and it is worth
+// being precise about that rather than repeating the intuition. Windows'
+// filepath.Join builds its result by appending to the first element and
+// then calling Clean; Clean removes "."/".." and redundant separators but
+// can never strip a leading prefix, so cacheDir — always the first element
+// here — cannot be dropped by any later element, drive-lettered or not.
+//
+// What a colon actually does on Windows is two things, both worth
+// preventing. Join's own `lastChar == ':'` case deliberately omits the
+// separator after an element ending in a colon (so Join(`C:`, `f`) is
+// `C:f`), which silently glues two components into one. And on NTFS a
+// colon inside a component names an Alternate Data Stream, so a path like
+// cache\1.0:linux_amd64 addresses a stream on a file rather than a
+// directory entry — os.Stat would report something no caller means.
 //
 // The replacement is deterministic and injective enough for realistic
 // inputs: two different git-forge addresses, versions, or platforms
@@ -66,6 +91,7 @@ func BinaryPath(cacheDir, source, version, platform string) string {
 func pathSegment(s string) string {
 	out := strings.ReplaceAll(s, "/", "_")
 	out = strings.ReplaceAll(out, `\`, "_")
+	out = strings.ReplaceAll(out, ":", "_")
 	switch out {
 	case ".", "..":
 		return strings.Repeat("_", len(out))

@@ -410,6 +410,43 @@ func TestRunTurn_schedulerCrashTripSurfacesAsTrippedProvider(t *testing.T) {
 	}
 }
 
+// TestRunTurn_breakerTripRequiresTheCrashedCategory pins the category
+// guard on the trip reader. The contract it implements is specifically
+// "a TOOL_ERROR_CATEGORY_PROCESS_CRASHED error whose crash tripped the
+// breaker" (tooldispatch.Outcome.Error's doc comment), so the Details flag
+// alone is not sufficient evidence.
+//
+// internal/tooldispatch cannot currently produce this shape — recordBreaker
+// stamps BreakerTrippedDetail only inside its crashed branch — which is
+// exactly why the guard needs a test: without one, nothing would notice a
+// future writer reusing the key on another category and silently routing
+// ordinary timeouts through the session's limit-reached path.
+func TestRunTurn_breakerTripRequiresTheCrashedCategory(t *testing.T) {
+	t.Parallel()
+
+	tools := map[string]providercatalog.ToolHandle{
+		"fs.read_file": toolHandle("fs", "read_file", toolv1.ToolKind_TOOL_KIND_DATA_SOURCE),
+	}
+	msg := assistantMessage("msg-1", useBlock("call-a", "fs.read_file", map[string]any{"path": "a"}))
+
+	h := newHarness(t, response(msg))
+	h.tools.mislabeledTripCalls = map[string]bool{"call-a": true}
+
+	res, err := h.driver.RunTurn(context.Background(), baseRequest(tools))
+	if err != nil {
+		t.Fatalf("RunTurn: unexpected error: %v", err)
+	}
+	if len(res.TrippedProviders) != 0 {
+		t.Fatalf("TrippedProviders = %v, want empty: the trip signal is only meaningful on a process_crashed outcome", res.TrippedProviders)
+	}
+	// It is still an ordinary failed call — the guard suppresses the trip
+	// routing, never the tool_result the model sees.
+	results := toolResultTexts(res.History[2])
+	if len(results) != 1 || !results[0].IsError {
+		t.Fatalf("tool_result blocks: got %+v, want one error result", results)
+	}
+}
+
 // TestRunTurn_schedulerSuccessLeavesNoTrippedProvider is the negative
 // control: an ordinary successful call must not report a trip, so the
 // check above cannot pass by reporting every provider it schedules.

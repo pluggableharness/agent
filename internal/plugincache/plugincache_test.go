@@ -309,6 +309,18 @@ func TestBinaryPath_everyComponentStaysInsideCacheDir(t *testing.T) {
 		{"bare dotdot version", "github.com/agentco/p", "..", "linux_amd64"},
 		{"bare dot version", "github.com/agentco/p", ".", "linux_amd64"},
 		{"backslash in version", "github.com/agentco/p", `..\..\evil`, "linux_amd64"},
+		// A colon cannot escape cacheDir — Windows' filepath.Join appends
+		// to its first element and Clean never strips a leading prefix —
+		// but it does suppress the separator after the element it ends
+		// (Join(`C:`, `f`) == `C:f`), gluing two components into one, and
+		// on NTFS it names an Alternate Data Stream rather than a
+		// directory entry. Both are covered by neutralizing it.
+		{"drive prefix in version", "github.com/agentco/p", "C:", "linux_amd64"},
+		{"drive prefix in platform", "github.com/agentco/p", "1.2.3", `C:\windows`},
+		{"drive prefix in source", "C:", "1.2.3", "linux_amd64"},
+		{"colon inside version", "github.com/agentco/p", "1.0:stream", "linux_amd64"},
+		{"dotdot source yields dotdot binary name", "..", "1.2.3", "linux_amd64"},
+		{"dot source yields dot binary name", ".", "1.2.3", "linux_amd64"},
 	}
 
 	for _, tt := range tests {

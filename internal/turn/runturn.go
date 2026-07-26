@@ -584,7 +584,14 @@ func (r *run) schedule(ctx context.Context, allowed []*pending, sequential bool)
 // name a caller's limit-reached path will report.
 func (r *run) record(ctx context.Context, p *pending, o tooldispatch.Outcome) {
 	p.result, p.toolErr, p.resolved = o.Result, o.Error, true
-	if o.Error.GetDetails().GetFields()[tooldispatch.BreakerTrippedDetail].GetBoolValue() {
+	// Both halves are required: the category, because the contract this
+	// reads is specifically "a PROCESS_CRASHED error whose crash tripped
+	// the breaker" (tooldispatch.Outcome.Error's doc comment), and the
+	// Details flag, because only the crash that actually crossed a
+	// threshold sets it. Checking the flag alone would silently widen if a
+	// future writer ever reused the key on another category.
+	if o.Error.GetCategory() == toolv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_PROCESS_CRASHED &&
+		o.Error.GetDetails().GetFields()[tooldispatch.BreakerTrippedDetail].GetBoolValue() {
 		r.logger.WarnContext(ctx, "turn: tool provider circuit breaker tripped",
 			slog.String("provider", p.handle.Provider),
 			slog.String("operation", p.handle.Schema.GetName()))
