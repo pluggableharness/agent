@@ -157,5 +157,5 @@ func (s *Service) Render(ctx context.Context, req *contextv1.RenderRequest) (*co
 // s.identity, per configuration/lock-file.md's dev_overrides identity
 // mechanism.
 func (s *Service) Describe(context.Context, *contextv1.DescribeRequest) (*contextv1.DescribeResponse, error) {
-	return &contextv1.DescribeResponse{Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_CONTEXT)}, nil
+	return &contextv1.DescribeResponse{Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_CONTEXT, ProtocolVersion)}, nil
 }

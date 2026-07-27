@@ -70,6 +70,6 @@ func (svc *Service) Configure(ctx context.Context, req *frontendv1.ConfigureRequ
 // from svc.identity rather than a lock-file row — see NewService.
 func (svc *Service) Describe(context.Context, *frontendv1.DescribeRequest) (*frontendv1.DescribeResponse, error) {
 	return &frontendv1.DescribeResponse{
-		Producer: svc.identity.ProducerRef(commonv1.Category_CATEGORY_FRONTEND),
+		Producer: svc.identity.ProducerRef(commonv1.Category_CATEGORY_FRONTEND, ProtocolVersion),
 	}, nil
 }

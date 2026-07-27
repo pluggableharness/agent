@@ -15,10 +15,32 @@ covers RPC shape and `proto.md` covers wire typing.
   magic cookie key/value and a `ProtocolVersion` field. Do not give
   categories different cookies — the uniform handshake is what lets the
   kernel reject a mismatched-protocol plugin before ever calling into it.
-- `ProtocolVersion` is bumped only on a breaking wire change (see `proto.md`'s
-  `buf breaking` rule) — bumping it and shipping a `v1`→`v2` proto package
-  bump happen together, never independently.
-- The kernel-side plugin client always checks the negotiated protocol
+- **Two different versions exist, and they move independently. Do not couple them.**
+  - `pkg/common.ProtocolVersion` is the go-plugin **handshake** version. It
+    versions the *runtime* contract only — the handshake, the fixed callback
+    broker id, and how services are muxed onto one connection. Bump it only
+    when one of those changes.
+  - Each category SDK's own `ProtocolVersion` constant (e.g.
+    `pkg/model.ProtocolVersion`) is that **category's** protocol version —
+    the `v1` in `pluggableharness.model.v1`. It is bumped alongside a
+    `v1`→`v2` proto package bump for that category, and for no other reason.
+
+  The separation is load-bearing. A handshake-version mismatch rejects a
+  plugin *before any category RPC is issued*, so folding category versions
+  into the handshake would mean a breaking change in one category forced
+  every plugin of every other category ever published to rebuild in order
+  to keep working. An earlier revision of `common.v1.ProducerRef`'s comment
+  said a handshake bump "always accompanies a proto package version bump
+  for that category"; that was the coupling, and it is no longer the rule.
+- **A category's version is already part of its gRPC service name**, so
+  correctness does not depend on any negotiation field: a plugin serving
+  `pluggableharness.model.v2.ModelService` and a kernel dispensing `v1`
+  simply do not match. `ProducerRef.protocol_version` exists so that
+  mismatch surfaces as a clear version error at bring-up rather than as an
+  opaque "unimplemented service" on the first real call — and so a lock
+  file recording it lets `preflightVersionCheck` reject a plugin before
+  spawning it at all.
+- The kernel-side plugin client always checks the negotiated handshake
   version before issuing the first category RPC; a mismatch is a startup
   error, not a runtime error discovered on first call.
 

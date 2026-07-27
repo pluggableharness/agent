@@ -30,3 +30,11 @@
 // other package — extend this package instead if their shape ever needs
 // to change, and update every consumer in lockstep.
 package tool
+
+// ProtocolVersion is the version of the tool category's own protocol this
+// SDK implements — the "v1" in pluggableharness.tool.v1.
+//
+// Deliberately NOT pkg/common.ProtocolVersion, which versions the
+// go-plugin runtime contract shared by every category. The two move
+// independently: see that constant's documentation for why.
+const ProtocolVersion uint32 = 1

@@ -226,10 +226,25 @@ type ProducerRef struct {
 	Source string `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
 	// Which of the seven plugin categories this producer implements.
 	Category Category `protobuf:"varint,4,opt,name=category,proto3,enum=pluggableharness.common.v1.Category" json:"category,omitempty"`
-	// The go-plugin handshake protocol version this producer build was
-	// compiled against (.claude/rules/plugin-runtime.md). A version bump
-	// here always accompanies a proto package version bump (v1 -> v2) for
-	// that category — it never happens independently of one.
+	// The version of THIS PRODUCER'S OWN CATEGORY protocol it implements —
+	// the "v1" in pluggableharness.<category>.v1, reported per category
+	// rather than globally.
+	//
+	// Deliberately NOT the go-plugin handshake version, which versions the
+	// runtime contract (handshake, callback broker, service muxing) that
+	// every category shares. The two move independently: coupling them
+	// would mean a breaking change in one category forced every plugin of
+	// every OTHER category to rebuild, because a handshake-version bump
+	// rejects a plugin before any category RPC is issued.
+	//
+	// Correctness does not depend on this field — a category's proto
+	// package version is part of its gRPC service name, so a plugin serving
+	// pluggableharness.model.v2.ModelService and a kernel dispensing v1
+	// simply do not match. It exists so that mismatch is reported as a
+	// clear version error at bring-up rather than as an opaque
+	// "unimplemented service" on the first real call, and so a lock file
+	// recording it lets the kernel reject a plugin before spawning it at
+	// all (.claude/rules/plugin-runtime.md).
 	ProtocolVersion uint32 `protobuf:"varint,5,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache

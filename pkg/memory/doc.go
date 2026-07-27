@@ -56,3 +56,11 @@
 // provider-local heuristic. CountTokens in this package is the obvious,
 // hard-to-avoid call for that.
 package memory
+
+// ProtocolVersion is the version of the memory category's own protocol this
+// SDK implements — the "v1" in pluggableharness.memory.v1.
+//
+// Deliberately NOT pkg/common.ProtocolVersion, which versions the
+// go-plugin runtime contract shared by every category. The two move
+// independently: see that constant's documentation for why.
+const ProtocolVersion uint32 = 1

@@ -162,5 +162,5 @@ func (s *Service) Preview(ctx context.Context, req *slashcommandv1.PreviewReques
 // from s.identity, per
 // docs/specifications/slashcommand/protocol.md#describe.
 func (s *Service) Describe(context.Context, *slashcommandv1.DescribeRequest) (*slashcommandv1.DescribeResponse, error) {
-	return &slashcommandv1.DescribeResponse{Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_SLASHCOMMAND)}, nil
+	return &slashcommandv1.DescribeResponse{Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_SLASHCOMMAND, ProtocolVersion)}, nil
 }

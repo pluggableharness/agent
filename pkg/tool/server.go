@@ -156,5 +156,5 @@ func (s *Service) Preview(ctx context.Context, req *toolv1.PreviewRequest) (*too
 // Describe implements toolv1.ToolServiceServer directly from s.identity,
 // per docs/specifications/tool/protocol.md#describe.
 func (s *Service) Describe(context.Context, *toolv1.DescribeRequest) (*toolv1.DescribeResponse, error) {
-	return &toolv1.DescribeResponse{Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_TOOL)}, nil
+	return &toolv1.DescribeResponse{Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_TOOL, ProtocolVersion)}, nil
 }

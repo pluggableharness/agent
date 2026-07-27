@@ -59,3 +59,11 @@
 // RPC-boundary error in this package's server.go goes through
 // pkg/plugin.StatusError, never a bare gRPC status.
 package model
+
+// ProtocolVersion is the version of the model category's own protocol this
+// SDK implements — the "v1" in pluggableharness.model.v1.
+//
+// Deliberately NOT pkg/common.ProtocolVersion, which versions the
+// go-plugin runtime contract shared by every category. The two move
+// independently: see that constant's documentation for why.
+const ProtocolVersion uint32 = 1

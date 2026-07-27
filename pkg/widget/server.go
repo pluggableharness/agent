@@ -57,7 +57,7 @@ func (s *Service) Register(gs *grpc.Server) {
 // (docs/specifications/frontend/widget-protocol.md#transport).
 func (s *Service) Describe(context.Context, *widgetv1.DescribeRequest) (*widgetv1.DescribeResponse, error) {
 	return &widgetv1.DescribeResponse{
-		Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_WIDGET),
+		Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_WIDGET, ProtocolVersion),
 	}, nil
 }
 

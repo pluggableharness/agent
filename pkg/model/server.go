@@ -61,7 +61,7 @@ func (svc *Service) Register(s *grpc.Server) {
 // from svc.identity — no Provider method is involved.
 func (svc *Service) Describe(_ context.Context, _ *modelv1.DescribeRequest) (*modelv1.DescribeResponse, error) {
 	return &modelv1.DescribeResponse{
-		Producer: svc.identity.ProducerRef(commonv1.Category_CATEGORY_MODEL),
+		Producer: svc.identity.ProducerRef(commonv1.Category_CATEGORY_MODEL, ProtocolVersion),
 	}, nil
 }
 

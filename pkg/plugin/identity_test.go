@@ -3,7 +3,6 @@ package plugin_test
 import (
 	"testing"
 
-	"github.com/pluggableharness/agent/pkg/common"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	"github.com/pluggableharness/agent/pkg/plugin"
 )
@@ -12,9 +11,10 @@ func TestIdentity_ProducerRef(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		id       plugin.Identity
-		category commonv1.Category
+		name            string
+		id              plugin.Identity
+		category        commonv1.Category
+		protocolVersion uint32
 	}{
 		{
 			name: "tool category",
@@ -23,7 +23,8 @@ func TestIdentity_ProducerRef(t *testing.T) {
 				Version: "1.2.3",
 				Source:  "github.com/agentco/filesystem-provider",
 			},
-			category: commonv1.Category_CATEGORY_TOOL,
+			category:        commonv1.Category_CATEGORY_TOOL,
+			protocolVersion: 1,
 		},
 		{
 			name: "model category, empty source",
@@ -32,6 +33,10 @@ func TestIdentity_ProducerRef(t *testing.T) {
 				Version: "0.1.0",
 			},
 			category: commonv1.Category_CATEGORY_MODEL,
+			// A second category on a different protocol version: the field
+			// reports THIS category's protocol, not one global number, so a
+			// model v2 must not imply anything about a tool plugin.
+			protocolVersion: 2,
 		},
 	}
 
@@ -39,7 +44,7 @@ func TestIdentity_ProducerRef(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ref := tt.id.ProducerRef(tt.category)
+			ref := tt.id.ProducerRef(tt.category, tt.protocolVersion)
 
 			if got, want := ref.GetName(), tt.id.Name; got != want {
 				t.Errorf("GetName() = %q, want %q", got, want)
@@ -53,7 +58,7 @@ func TestIdentity_ProducerRef(t *testing.T) {
 			if got, want := ref.GetCategory(), tt.category; got != want {
 				t.Errorf("GetCategory() = %v, want %v", got, want)
 			}
-			if got, want := ref.GetProtocolVersion(), uint32(common.ProtocolVersion); got != want {
+			if got, want := ref.GetProtocolVersion(), tt.protocolVersion; got != want {
 				t.Errorf("GetProtocolVersion() = %d, want %d", got, want)
 			}
 		})

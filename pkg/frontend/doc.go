@@ -121,3 +121,11 @@
 // unchanged as an [ActionTrigger] on activation, never rewritten
 // (render-tree.md#interactive-content-the-action-node).
 package frontend
+
+// ProtocolVersion is the version of the frontend category's own protocol this
+// SDK implements — the "v1" in pluggableharness.frontend.v1.
+//
+// Deliberately NOT pkg/common.ProtocolVersion, which versions the
+// go-plugin runtime contract shared by every category. The two move
+// independently: see that constant's documentation for why.
+const ProtocolVersion uint32 = 1

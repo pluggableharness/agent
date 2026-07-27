@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"github.com/pluggableharness/agent/pkg/common"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 )
 
@@ -28,18 +27,24 @@ type Identity struct {
 }
 
 // ProducerRef builds the common.v1.ProducerRef every category's Describe
-// RPC returns, from this identity plus category (the plugin category this
-// build is serving) and the protocol version this build was compiled
-// against (pkg/common.ProtocolVersion). Category-specific SDKs (pkg/tool,
-// pkg/model, ...) call this from their own Describe implementation — this
+// RPC returns, from this identity plus the category this build serves and
+// the version of THAT CATEGORY's protocol it implements. Category-specific
+// SDKs (pkg/tool, pkg/model, ...) call this from their own Describe
+// implementation, passing their own ProtocolVersion constant — this
 // package does not implement Describe itself, since DescribeResponse is a
 // distinct generated type per category.
-func (id Identity) ProducerRef(category commonv1.Category) *commonv1.ProducerRef {
+//
+// protocolVersion is the category's protocol version, NOT
+// pkg/common.ProtocolVersion. The two version different things and move
+// independently: see that constant's own documentation for why coupling
+// them would force every plugin of every category to rebuild whenever any
+// one category made a breaking change.
+func (id Identity) ProducerRef(category commonv1.Category, protocolVersion uint32) *commonv1.ProducerRef {
 	return &commonv1.ProducerRef{
 		Name:            id.Name,
 		Version:         id.Version,
 		Source:          id.Source,
 		Category:        category,
-		ProtocolVersion: uint32(common.ProtocolVersion),
+		ProtocolVersion: protocolVersion,
 	}
 }

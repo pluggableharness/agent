@@ -45,3 +45,11 @@
 // needs to change shape, and update every consumer (including this
 // package) in lockstep.
 package slashcommand
+
+// ProtocolVersion is the version of the slashcommand category's own protocol this
+// SDK implements — the "v1" in pluggableharness.slashcommand.v1.
+//
+// Deliberately NOT pkg/common.ProtocolVersion, which versions the
+// go-plugin runtime contract shared by every category. The two move
+// independently: see that constant's documentation for why.
+const ProtocolVersion uint32 = 1

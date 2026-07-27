@@ -19,6 +19,18 @@ import (
 // is bumped only together with a breaking proto v1->v2 change
 // (.claude/rules/plugin-runtime.md's "Handshake" section) — never
 // independently.
+// It versions the RUNTIME contract only — the handshake itself, the fixed
+// callback broker id, and how services are muxed onto one connection —
+// never any category's own protocol. Bump it only when one of those
+// changes.
+//
+// This separation is load-bearing rather than tidy. A handshake-version
+// mismatch rejects a plugin before any category RPC is issued, so folding
+// category versions into it would mean a breaking change in, say, the
+// model protocol forced every tool, context, and memory plugin ever
+// published to rebuild in order to keep working. Each category SDK
+// carries its own ProtocolVersion constant instead, reported per plugin
+// through Describe's ProducerRef.
 const ProtocolVersion uint = 1
 
 const (

@@ -60,3 +60,11 @@
 // which matters more here than avoiding "context.Request" reading
 // redundant under an aliased import.
 package context
+
+// ProtocolVersion is the version of the context category's own protocol this
+// SDK implements — the "v1" in pluggableharness.context.v1.
+//
+// Deliberately NOT pkg/common.ProtocolVersion, which versions the
+// go-plugin runtime contract shared by every category. The two move
+// independently: see that constant's documentation for why.
+const ProtocolVersion uint32 = 1

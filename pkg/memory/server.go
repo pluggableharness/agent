@@ -252,7 +252,7 @@ func (s *Service) GetRecord(ctx context.Context, req *memoryv1.GetRecordRequest)
 // s.provider (docs/specifications/memory/protocol.md#describe).
 func (s *Service) Describe(context.Context, *memoryv1.DescribeRequest) (*memoryv1.DescribeResponse, error) {
 	return &memoryv1.DescribeResponse{
-		Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_MEMORY),
+		Producer: s.identity.ProducerRef(commonv1.Category_CATEGORY_MEMORY, ProtocolVersion),
 	}, nil
 }
 
