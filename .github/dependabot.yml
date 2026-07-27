@@ -19,16 +19,13 @@
 version: 2
 updates:
   # Every Go module in the tree needs its own entry — Dependabot resolves a
-  # directory, not a repository. examples/provider is a separate module by
-  # design (it exists to prove pkg/ builds from outside the main one), so a
-  # bump to the root go.mod leaves its pinned versions untouched. That is
-  # not cosmetic: CI runs `go mod tidy` there and fails on any diff, so
-  # omitting it turns every future root-module bump into a red main.
-  # Same failure mode the composite-action note below describes.
+  # directory, not a repository. The root module is currently the only one;
+  # adding a second module anywhere in the tree means adding its directory
+  # here too, or a root-module bump silently leaves its pinned versions
+  # untouched. Same failure mode the composite-action note below describes.
   - package-ecosystem: "gomod"
     directories:
       - "/"
-      - "/examples/provider"
     schedule:
       interval: "weekly"
     cooldown:

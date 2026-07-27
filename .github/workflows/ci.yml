@@ -96,24 +96,6 @@ jobs:
             exit 1
           fi
 
-      # Builds the example provider from its own module, against this
-      # commit via a replace directive. This is the only check that proves
-      # pkg/ is genuinely usable from outside the main module: the
-      # depguard rule on internal/anthropic only simulates that isolation,
-      # and a simulation cannot catch an unexported type leaking through
-      # an exported signature.
-      - name: Build the standalone example provider
-        working-directory: examples/provider
-        run: |
-          go mod tidy
-          git diff --exit-code -- go.mod go.sum
-          go build ./...
-          go vet ./...
-          # Also runs the example's own conformance test, which proves
-          # pkg/model/modeltest is reachable and usable by a third party —
-          # the premise of shipping a conformance suite in pkg/ at all.
-          go test ./...
-
   # ---------------------------------------------------------------------------
   # test — race-enabled tests on every platform we release for.
   #

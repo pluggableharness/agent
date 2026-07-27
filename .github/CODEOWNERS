@@ -20,7 +20,6 @@
 # --- Tier 1: top-level surfaces ---------------------------------------------
 /api/                               @pluggableharness/protocol-maintainers
 /pkg/                               @pluggableharness/sdk-maintainers
-/examples/                          @pluggableharness/sdk-maintainers
 /internal/                          @pluggableharness/kernel-maintainers
 /cmd/                               @pluggableharness/kernel-maintainers
 /docs/                              @pluggableharness/docs-maintainers
