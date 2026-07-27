@@ -1,5 +1,71 @@
-/.github/ @pluggableharness/core-maintainers
-/api/ @pluggableharness/core-maintainers @pluggableharness/plugin-maintainers @pluggableharness/sdk-maintainers
-/docs/ @pluggableharness/core-maintainers @pluggableharness/documentation-team
-/pkg/ @pluggableharness/core-maintainers @pluggableharness/plugin-maintainers @pluggableharness/sdk-maintainers
-* @pluggableharness/core-maintainers
+# =============================================================================
+# CODEOWNERS
+#
+# GitHub applies the LAST matching pattern, not the most specific one. This
+# file is therefore ordered broadest -> narrowest, and grouping by team is a
+# mistake: a top-level pattern written below a nested one silently overrides
+# it. Add new entries at the bottom of their tier, never at the end of file.
+#
+# A team is only a valid owner if it exists, is visible to org members, and
+# has write access or better to this repository. Check with:
+#   gh api repos/pluggableharness/agent/codeowners/errors
+#
+# Ownership is enforced only while the protect-main ruleset sets
+# require_code_owner_review. Without it this file is notification only.
+# =============================================================================
+
+# Default owner for anything not claimed below.
+*                                   @pluggableharness/maintainers
+
+# --- Tier 1: top-level surfaces ---------------------------------------------
+/api/                               @pluggableharness/protocol-maintainers
+/pkg/                               @pluggableharness/sdk-maintainers
+/examples/                          @pluggableharness/sdk-maintainers
+/internal/                          @pluggableharness/kernel-maintainers
+/cmd/                               @pluggableharness/kernel-maintainers
+/docs/                              @pluggableharness/docs-maintainers
+/.github/                           @pluggableharness/build-infrastructure
+/.claude/                           @pluggableharness/maintainers
+
+# --- Tier 2: narrower than Tier 1, so it must follow it ---------------------
+# The wire contract. Frozen at the first v* tag and permanent thereafter for
+# every out-of-tree plugin; buf breaking is the machine half of this gate.
+/docs/specifications/               @pluggableharness/protocol-maintainers
+
+# The plugin-author surface. Third parties compile against it.
+/docs/first-party/                  @pluggableharness/sdk-maintainers
+
+# The terminal shell: different skill set, and the TTY-ownership constraint
+# that follows from a frontend being a go-plugin subprocess.
+/docs/first-party/frontends/        @pluggableharness/frontend-maintainers
+/pkg/frontend/                      @pluggableharness/frontend-maintainers @pluggableharness/sdk-maintainers
+/pkg/widget/                        @pluggableharness/frontend-maintainers @pluggableharness/sdk-maintainers
+/pkg/render/                        @pluggableharness/frontend-maintainers @pluggableharness/sdk-maintainers
+/internal/tui/                      @pluggableharness/frontend-maintainers
+/cmd/tui/                           @pluggableharness/frontend-maintainers
+
+# release.yml hands whatever a v* tag points at to GoReleaser.
+/.github/workflows/release.yml      @pluggableharness/release-engineering
+/.github/workflows/codeql.yml       @pluggableharness/security-response
+/.github/workflows/security.yml     @pluggableharness/security-response
+/.github/workflows/scorecard.yml    @pluggableharness/security-response
+
+# --- Root files -------------------------------------------------------------
+# Each is anchored with a leading slash: a bare filename pattern would match
+# that name at any depth in the tree.
+/buf.yaml                           @pluggableharness/protocol-maintainers
+/buf.gen.yaml                       @pluggableharness/protocol-maintainers
+/go.mod                             @pluggableharness/kernel-maintainers @pluggableharness/build-infrastructure
+/go.sum                             @pluggableharness/kernel-maintainers @pluggableharness/build-infrastructure
+/.golangci.yml                      @pluggableharness/build-infrastructure
+/.goreleaser.yaml                   @pluggableharness/release-engineering
+/SECURITY.md                        @pluggableharness/security-response
+/mkdocs.yml                         @pluggableharness/docs-maintainers
+/pyproject.toml                     @pluggableharness/docs-maintainers
+/uv.lock                            @pluggableharness/docs-maintainers
+/.python-version                    @pluggableharness/docs-maintainers
+/README.md                          @pluggableharness/docs-maintainers
+/SUPPORT.md                         @pluggableharness/docs-maintainers
+/CLAUDE.md                          @pluggableharness/maintainers
+/CONTRIBUTING.md                    @pluggableharness/maintainers
+/LICENSE.md                         @pluggableharness/admins
