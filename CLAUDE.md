@@ -19,7 +19,9 @@ An AI coding harness built as a Go microkernel: the kernel owns plugin lifecycle
 
 ## Current state
 
-Kernel-side packages in `internal/` and the `pkg/` SDK are real, tested Go. There is no `cmd/` binary yet, and most plugin categories exist only as spec. Implementation is spec-first: before writing code, confirm the relevant spec exists and is settled; if it has open questions bearing on the task, raise them instead of coding against an assumption. Don't start new implementation work without being asked.
+Kernel-side packages in `internal/` and the `pkg/` SDK are real, tested Go. Three `cmd/` binaries exist: `agent` (the kernel, currently non-interactive — no REPL), `anthropic` (the reference model-provider plugin, and the template for any new plugin binary), and `tui` (the reference terminal shell, currently driven by a scripted demo source because no kernel-side frontend-attach path exists yet). Most other plugin categories exist only as spec. Implementation is spec-first: before writing code, confirm the relevant spec exists and is settled; if it has open questions bearing on the task, raise them instead of coding against an assumption. Don't start new implementation work without being asked.
+
+The terminal shell's design — region layout, focus model, keymap layers, and the TTY-ownership constraint that follows from a frontend being a go-plugin subprocess — is [`docs/first-party/frontends/tui.md`](docs/first-party/frontends/tui.md). It is descriptive, not normative: the protocol deliberately leaves focus, keybindings, resize, and scrollback to each frontend.
 
 ## Toolchain, testing, and CI
 

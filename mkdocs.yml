@@ -145,6 +145,7 @@ plugins:
         First-party catalog:
           - first-party/*.md
           - first-party/providers/*.md
+          - first-party/frontends/*.md
           - first-party/tools/*.md
 
 nav:
@@ -223,6 +224,9 @@ nav:
           - OpenAI: first-party/providers/openai.md
           - Google: first-party/providers/google.md
           - xAI: first-party/providers/xai.md
+      - Frontends:
+          - first-party/frontends/README.md
+          - Reference TUI shell: first-party/frontends/tui.md
       - Tools:
           - first-party/tools/README.md
           - File read: first-party/tools/file-read.md
