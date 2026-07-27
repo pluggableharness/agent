@@ -55,12 +55,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # gosec runs as an installed binary rather than via securego/gosec,
+      # which is a Docker action. A container cannot see the runner's GOCACHE
+      # or GOMODCACHE, so that action re-downloaded the whole module graph and
+      # recompiled it on every run — 2m27s, the slowest job outside the test
+      # matrix, essentially all of it work the cache already holds. gosec type-
+      # checks the program through go/packages, so it benefits from the same
+      # compiled export data every other Go job here does.
+      - name: Set up Go
+        uses: ./.github/actions/setup-go-cached
+        with:
+          job: gosec
+
+      # Version-pinned to match what the action ran. Installed into bin/ per
+      # the repo's build-output rule; Dependabot does not track this pin, so
+      # bump it deliberately.
+      - name: Install gosec
+        run: GOBIN="$GITHUB_WORKSPACE/bin" go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+
       # -exclude-generated: pkg/*/proto/v1 is 100% buf-generated output;
       # findings there are upstream-generator noise, not actionable here.
       - name: Run gosec
-        uses: securego/gosec@9e75c0576c9878035d4221392108d458abe10fc3 # v2.28.0
-        with:
-          args: -no-fail -exclude-generated -fmt sarif -out results.sarif ./...
+        run: bin/gosec -no-fail -exclude-generated -fmt sarif -out results.sarif ./...
 
       - name: Upload SARIF to GitHub code scanning
         uses: github/codeql-action/upload-sarif@e0647621c2984b5ed2f768cb892365bf2a616ad1 # v4.37.2
