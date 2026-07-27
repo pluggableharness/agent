@@ -241,6 +241,13 @@ type Config struct {
 	// DecodeProviderConfig once that provider's ConfigSchema is known.
 	ProviderBodies map[string]hcl.Body
 
+	// ProviderEnv holds each provider{} block's environment{} entries,
+	// keyed by local name — the environment variables that provider's
+	// subprocess is launched with, on top of the launcher's own minimal
+	// allowlist. Absent for a provider that declared none, which is the
+	// ordinary case.
+	ProviderEnv map[string]map[string]string
+
 	// ProviderRanges holds each provider{} block's source position,
 	// keyed the same way as ProviderBodies — for hook-ordering resolution
 	// (configuration.md §8.6), which this package does not itself perform.

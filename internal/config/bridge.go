@@ -126,12 +126,22 @@ func validateSensitiveAttrs(body hcl.Body, sensitiveAttrs map[string]bool) error
 	if len(sensitiveAttrs) == 0 {
 		return nil
 	}
-	attrs, diags := body.JustAttributes()
+	// PartialContent naming exactly the sensitive attributes, rather than
+	// JustAttributes: a provider{} body may legitimately contain the
+	// kernel-owned environment{} block, and JustAttributes rejects ANY
+	// block outright — including one already consumed by an earlier
+	// PartialContent, since HCL's remain body does not hide it. Asking for
+	// the specific attributes sidesteps that entirely.
+	schema := &hcl.BodySchema{Attributes: make([]hcl.AttributeSchema, 0, len(sensitiveAttrs))}
+	for name := range sensitiveAttrs {
+		schema.Attributes = append(schema.Attributes, hcl.AttributeSchema{Name: name})
+	}
+	content, _, diags := body.PartialContent(schema)
 	if diags.HasErrors() {
 		return fmt.Errorf("config: %w", diags)
 	}
 	for name := range sensitiveAttrs {
-		attr, ok := attrs[name]
+		attr, ok := content.Attributes[name]
 		if !ok {
 			continue // absent optional sensitive attribute — nothing to validate
 		}

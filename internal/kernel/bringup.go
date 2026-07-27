@@ -251,6 +251,7 @@ func (k *kernel) startPlugins(ctx context.Context) error {
 		Sessions:               k.sessions,
 		Tokens:                 k.tokens,
 		ProviderBodies:         k.cfg.ProviderBodies,
+		ProviderEnv:            k.cfg.ProviderEnv,
 		BusSubscribeQueueBound: k.cfg.Settings.EventBus.SubscribeQueueBound,
 		Logger:                 k.logger,
 	})

@@ -53,6 +53,30 @@ provider "claude-md-reader" {
 - **Reserved convention name:** `token_budget` (integer). A context or memory provider's token cap is not a separate mechanism — it's this ordinary, reserved-by-convention field in the provider's own config, decoded the same way as any other attribute. See [`context/data-types.md#budget-mechanics`](../context/data-types.md#budget-mechanics). A provider outside those categories simply doesn't declare `token_budget` in its schema, and the field is absent for it.
 - `Configure` MUST reject with a structured error on missing required fields or an unresolvable `env(...)`, rather than deferring failure to first use.
 
+### `environment { ... }` — the one kernel-owned block inside `provider{}`
+
+```hcl
+provider "anthropic" {
+  api_key = env("ANTHROPIC_API_KEY")
+
+  environment {
+    HTTPS_PROXY = env("HTTPS_PROXY")
+    NO_PROXY    = "localhost,127.0.0.1"
+  }
+}
+```
+
+`environment{}` declares environment variables the kernel passes to **that one plugin's** subprocess, on top of the launcher's own minimal allowlist. Every value MUST be a string; `env(...)` is available, since the value an operator wants to forward is usually already in their own environment and naming it beats copying it into a config file.
+
+This exists because the launcher deliberately never inherits the kernel's environment — ambient inheritance would leak every variable the kernel process holds, including secrets meant for other plugins, into every subprocess. That default is right, and it is also why a plugin behind a corporate proxy, or one resolving an ambient cloud credential chain, has no way to see `HTTPS_PROXY` or its SDK's own variables without a declared passthrough. Declaring it per provider rather than globally keeps one plugin's variables invisible to every other, which is the property the allowlist was protecting in the first place.
+
+Rules:
+
+- The kernel MUST lift this block out of the body **before** decoding the rest against the provider's `ConfigSchema`. It is the one name in a `provider{}` body the kernel owns, so leaving it in would collide with any provider that declares an attribute of the same name.
+- A name that is not a usable POSIX environment variable — empty, or containing `=` (which would let one entry smuggle in a second) — MUST be rejected at config-load time.
+- Entries MUST be assembled in a deterministic order. Go map iteration is randomized, and a subprocess whose environment differs run to run is the kind of nondeterminism [`.claude/rules/determinism.md`](../../../.claude/rules/determinism.md) exists to prevent.
+- This is a passthrough, not a secret channel. A credential belongs in the provider's own `sensitive`-marked attribute, which the kernel resolves and delivers through `Configure`; a secret placed here is visible to anything that can read the process table on some platforms, and bypasses the secret-handling rules below.
+
 A `provider{}` block's body is not decoded when `agent.hcl` is first loaded. A `ConfigSchema` only exists once the named plugin's subprocess is running and has answered `GetCapabilities`/`GetSchema`, so there is nothing to decode against at load time — a genuine chicken-and-egg constraint. The body is decoded later, once a schema is available — see the schema-to-`cty` bridge below.
 
 ### HCL single-line blocks take only one argument

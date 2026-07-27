@@ -115,6 +115,19 @@ type Config struct {
 	// ordinary case for a provider that takes no config.
 	ProviderBodies map[string]hcl.Body
 
+	// ProviderEnv is config.Config.ProviderEnv — each provider{} block's
+	// environment{} entries, keyed by local name. These are appended to
+	// the launcher's own minimal allowlist for that one subprocess.
+	//
+	// This is what makes a provider behind a corporate proxy, or one
+	// resolving an ambient cloud credential chain, configurable at all:
+	// internal/pluginruntime deliberately never inherits the kernel's
+	// environment, so without a declared passthrough such a plugin has no
+	// way to see HTTPS_PROXY or an SDK's own variables. Declared per
+	// provider rather than globally, so one plugin's variables are not
+	// visible to every other.
+	ProviderEnv map[string]map[string]string
+
 	// BusSubscribeQueueBound is the per-Subscribe-stream backpressure
 	// bound passed through to every plugin's kernel-callback server
 	// (configuration/blocks-reference.md#event_bus). A value <= 0 leaves
@@ -389,6 +402,7 @@ func (s *Supervisor) launchConfig(resolved providerresolve.Resolved, category co
 		Callback:   slot,
 		Telemetry:  s.cfg.Telemetry,
 		Logger:     s.logger,
+		ExtraEnv:   config.EnvEntries(s.cfg.ProviderEnv[resolved.LocalName]),
 	}
 }
 

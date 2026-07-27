@@ -59,6 +59,7 @@ func decode(body hcl.Body) (*Config, error) {
 	cfg := &Config{
 		RequiredProviders: map[string]RequiredProvider{},
 		ProviderBodies:    map[string]hcl.Body{},
+		ProviderEnv:       map[string]map[string]string{},
 		ProviderRanges:    map[string]hcl.Range{},
 		AgentProfiles:     map[string]agentprofile.AgentProfile{},
 		// A config with no settings{} block at all never reaches
@@ -87,7 +88,19 @@ func decode(body hcl.Body) (*Config, error) {
 			if _, exists := cfg.ProviderBodies[name]; exists {
 				return nil, fmt.Errorf("config: provider %q: %w", name, ErrDuplicateBlock)
 			}
-			cfg.ProviderBodies[name] = block.Body
+			// The environment{} block is kernel-owned, so it is lifted out
+			// here and the REMAINING body is what later gets decoded against
+			// the provider's own ConfigSchema. Leaving it in would make it
+			// collide with any provider that declares an attribute of the
+			// same name.
+			env, remain, err := extractProviderEnv(block.Body)
+			if err != nil {
+				return nil, fmt.Errorf("config: provider %q: %w", name, err)
+			}
+			if len(env) > 0 {
+				cfg.ProviderEnv[name] = env
+			}
+			cfg.ProviderBodies[name] = remain
 			cfg.ProviderRanges[name] = block.DefRange
 
 		case "policy":

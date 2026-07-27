@@ -18,3 +18,21 @@ var ErrInvalidValue = errors.New("config: invalid attribute value")
 // AttrType this package doesn't recognize (configuration.md §4's fixed
 // 7-value subset).
 var ErrInvalidAttrType = errors.New("config: invalid ConfigAttribute type")
+
+// ErrEnvNameEmpty reports an environment{} entry with an empty name,
+// which would produce a malformed entry a subprocess silently ignores.
+var ErrEnvNameEmpty = errors.New("config: environment variable name is empty")
+
+// ErrEnvNameInvalid reports an environment{} name that cannot be a POSIX
+// environment variable — notably one containing "=", which would let a
+// single entry smuggle in a second.
+var ErrEnvNameInvalid = errors.New("config: invalid environment variable name")
+
+// ErrEnvValueNotString reports an environment{} value that is not a
+// string. A subprocess environment carries only strings, and silently
+// stringifying a number would hide the config error rather than fix it.
+var ErrEnvValueNotString = errors.New("config: environment variable value must be a string")
+
+// ErrEnvValueUnusable reports an environment{} value that is null or not
+// knowable at load time.
+var ErrEnvValueUnusable = errors.New("config: environment variable value is null or unknown")
