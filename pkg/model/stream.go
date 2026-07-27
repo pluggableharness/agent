@@ -63,6 +63,23 @@ func (s *Sink) send(ev *modelv1.StreamEvent, terminal bool) error {
 	return s.stream.Send(ev)
 }
 
+// StreamStart sends the vendor's own identifier for this request, so a
+// later failure can be correlated with the vendor's logs.
+//
+// SHOULD be called as soon as the id is known — normally from response
+// headers, before any content streams — and before any other event. An id
+// that only arrives on successful completion is absent in exactly the case
+// it is needed, which is why this is a separate early event rather than a
+// field on Stop. A Provider whose vendor publishes no such id simply never
+// calls this.
+func (s *Sink) StreamStart(providerRequestID string) error {
+	return s.send(&modelv1.StreamEvent{
+		Event: &modelv1.StreamEvent_StreamStart_{
+			StreamStart: &modelv1.StreamEvent_StreamStart{ProviderRequestId: providerRequestID},
+		},
+	}, false)
+}
+
 // TextDelta sends an incremental fragment of assistant text output. MUST
 // be supported by every plugin.
 func (s *Sink) TextDelta(text string) error {

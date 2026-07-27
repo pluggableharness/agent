@@ -119,6 +119,7 @@ type StreamEvent struct {
 	//	*StreamEvent_Stop_
 	//	*StreamEvent_Error_
 	//	*StreamEvent_RedactedThinking_
+	//	*StreamEvent_StreamStart_
 	Event         isStreamEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -251,6 +252,15 @@ func (x *StreamEvent) GetRedactedThinking() *StreamEvent_RedactedThinking {
 	return nil
 }
 
+func (x *StreamEvent) GetStreamStart() *StreamEvent_StreamStart {
+	if x != nil {
+		if x, ok := x.Event.(*StreamEvent_StreamStart_); ok {
+			return x.StreamStart
+		}
+	}
+	return nil
+}
+
 type isStreamEvent_Event interface {
 	isStreamEvent_Event()
 }
@@ -306,6 +316,11 @@ type StreamEvent_RedactedThinking_ struct {
 	RedactedThinking *StreamEvent_RedactedThinking `protobuf:"bytes,10,opt,name=redacted_thinking,json=redactedThinking,proto3,oneof"`
 }
 
+type StreamEvent_StreamStart_ struct {
+	// The vendor has accepted the request and named it.
+	StreamStart *StreamEvent_StreamStart `protobuf:"bytes,11,opt,name=stream_start,json=streamStart,proto3,oneof"`
+}
+
 func (*StreamEvent_TextDelta_) isStreamEvent_Event() {}
 
 func (*StreamEvent_ThinkingDelta_) isStreamEvent_Event() {}
@@ -326,6 +341,64 @@ func (*StreamEvent_Error_) isStreamEvent_Event() {}
 
 func (*StreamEvent_RedactedThinking_) isStreamEvent_Event() {}
 
+func (*StreamEvent_StreamStart_) isStreamEvent_Event() {}
+
+// StreamStart carries the vendor's own identifier for this request, as
+// soon as the adapter learns it — normally from response headers,
+// before any content streams.
+//
+// It exists so a failure can be correlated with the vendor's own logs
+// when asking them what went wrong. That is why it is a separate event
+// emitted early rather than a field on Stop: an id that only arrives on
+// successful completion is absent in exactly the case it is needed.
+// MAY be omitted entirely by a vendor that publishes no such id.
+type StreamEvent_StreamStart struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The vendor's request identifier, verbatim (an Anthropic
+	// `request-id` header, an OpenAI `x-request-id`). Opaque to the
+	// kernel: logged and surfaced, never parsed.
+	ProviderRequestId string `protobuf:"bytes,1,opt,name=provider_request_id,json=providerRequestId,proto3" json:"provider_request_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *StreamEvent_StreamStart) Reset() {
+	*x = StreamEvent_StreamStart{}
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StreamEvent_StreamStart) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StreamEvent_StreamStart) ProtoMessage() {}
+
+func (x *StreamEvent_StreamStart) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StreamEvent_StreamStart.ProtoReflect.Descriptor instead.
+func (*StreamEvent_StreamStart) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 0}
+}
+
+func (x *StreamEvent_StreamStart) GetProviderRequestId() string {
+	if x != nil {
+		return x.ProviderRequestId
+	}
+	return ""
+}
+
 // TextDelta carries one incremental fragment of assistant text output.
 // MUST be supported by every plugin, both directions (model.md §5).
 type StreamEvent_TextDelta struct {
@@ -338,7 +411,7 @@ type StreamEvent_TextDelta struct {
 
 func (x *StreamEvent_TextDelta) Reset() {
 	*x = StreamEvent_TextDelta{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[1]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -350,7 +423,7 @@ func (x *StreamEvent_TextDelta) String() string {
 func (*StreamEvent_TextDelta) ProtoMessage() {}
 
 func (x *StreamEvent_TextDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[1]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -363,7 +436,7 @@ func (x *StreamEvent_TextDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_TextDelta.ProtoReflect.Descriptor instead.
 func (*StreamEvent_TextDelta) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 0}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 1}
 }
 
 func (x *StreamEvent_TextDelta) GetText() string {
@@ -386,7 +459,7 @@ type StreamEvent_ThinkingDelta struct {
 
 func (x *StreamEvent_ThinkingDelta) Reset() {
 	*x = StreamEvent_ThinkingDelta{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[2]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -398,7 +471,7 @@ func (x *StreamEvent_ThinkingDelta) String() string {
 func (*StreamEvent_ThinkingDelta) ProtoMessage() {}
 
 func (x *StreamEvent_ThinkingDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[2]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -411,7 +484,7 @@ func (x *StreamEvent_ThinkingDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ThinkingDelta.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ThinkingDelta) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 1}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 2}
 }
 
 func (x *StreamEvent_ThinkingDelta) GetText() string {
@@ -436,7 +509,7 @@ type StreamEvent_ThinkingSignature struct {
 
 func (x *StreamEvent_ThinkingSignature) Reset() {
 	*x = StreamEvent_ThinkingSignature{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[3]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -448,7 +521,7 @@ func (x *StreamEvent_ThinkingSignature) String() string {
 func (*StreamEvent_ThinkingSignature) ProtoMessage() {}
 
 func (x *StreamEvent_ThinkingSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[3]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -461,7 +534,7 @@ func (x *StreamEvent_ThinkingSignature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ThinkingSignature.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ThinkingSignature) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 2}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 3}
 }
 
 func (x *StreamEvent_ThinkingSignature) GetSignature() []byte {
@@ -486,7 +559,7 @@ type StreamEvent_ToolCallStart struct {
 
 func (x *StreamEvent_ToolCallStart) Reset() {
 	*x = StreamEvent_ToolCallStart{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[4]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -498,7 +571,7 @@ func (x *StreamEvent_ToolCallStart) String() string {
 func (*StreamEvent_ToolCallStart) ProtoMessage() {}
 
 func (x *StreamEvent_ToolCallStart) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[4]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -511,7 +584,7 @@ func (x *StreamEvent_ToolCallStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ToolCallStart.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ToolCallStart) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 3}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 4}
 }
 
 func (x *StreamEvent_ToolCallStart) GetId() string {
@@ -543,7 +616,7 @@ type StreamEvent_ToolCallDelta struct {
 
 func (x *StreamEvent_ToolCallDelta) Reset() {
 	*x = StreamEvent_ToolCallDelta{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -555,7 +628,7 @@ func (x *StreamEvent_ToolCallDelta) String() string {
 func (*StreamEvent_ToolCallDelta) ProtoMessage() {}
 
 func (x *StreamEvent_ToolCallDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -568,7 +641,7 @@ func (x *StreamEvent_ToolCallDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ToolCallDelta.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ToolCallDelta) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 4}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 5}
 }
 
 func (x *StreamEvent_ToolCallDelta) GetId() string {
@@ -597,7 +670,7 @@ type StreamEvent_ToolCallDone struct {
 
 func (x *StreamEvent_ToolCallDone) Reset() {
 	*x = StreamEvent_ToolCallDone{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -609,7 +682,7 @@ func (x *StreamEvent_ToolCallDone) String() string {
 func (*StreamEvent_ToolCallDone) ProtoMessage() {}
 
 func (x *StreamEvent_ToolCallDone) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -622,7 +695,7 @@ func (x *StreamEvent_ToolCallDone) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ToolCallDone.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ToolCallDone) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 5}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 6}
 }
 
 func (x *StreamEvent_ToolCallDone) GetId() string {
@@ -647,7 +720,7 @@ type StreamEvent_Stop struct {
 
 func (x *StreamEvent_Stop) Reset() {
 	*x = StreamEvent_Stop{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -659,7 +732,7 @@ func (x *StreamEvent_Stop) String() string {
 func (*StreamEvent_Stop) ProtoMessage() {}
 
 func (x *StreamEvent_Stop) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -672,7 +745,7 @@ func (x *StreamEvent_Stop) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_Stop.ProtoReflect.Descriptor instead.
 func (*StreamEvent_Stop) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 6}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 7}
 }
 
 func (x *StreamEvent_Stop) GetReason() StopReason {
@@ -700,7 +773,7 @@ type StreamEvent_Error struct {
 
 func (x *StreamEvent_Error) Reset() {
 	*x = StreamEvent_Error{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -712,7 +785,7 @@ func (x *StreamEvent_Error) String() string {
 func (*StreamEvent_Error) ProtoMessage() {}
 
 func (x *StreamEvent_Error) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -725,7 +798,7 @@ func (x *StreamEvent_Error) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_Error.ProtoReflect.Descriptor instead.
 func (*StreamEvent_Error) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 7}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 8}
 }
 
 func (x *StreamEvent_Error) GetError() *ModelError {
@@ -754,7 +827,7 @@ type StreamEvent_RedactedThinking struct {
 
 func (x *StreamEvent_RedactedThinking) Reset() {
 	*x = StreamEvent_RedactedThinking{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -766,7 +839,7 @@ func (x *StreamEvent_RedactedThinking) String() string {
 func (*StreamEvent_RedactedThinking) ProtoMessage() {}
 
 func (x *StreamEvent_RedactedThinking) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -779,7 +852,7 @@ func (x *StreamEvent_RedactedThinking) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_RedactedThinking.ProtoReflect.Descriptor instead.
 func (*StreamEvent_RedactedThinking) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 8}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 9}
 }
 
 func (x *StreamEvent_RedactedThinking) GetData() []byte {
@@ -793,7 +866,7 @@ var File_pluggableharness_model_v1_events_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_model_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"&pluggableharness/model/v1/events.proto\x12\x19pluggableharness.model.v1\x1a&pluggableharness/model/v1/errors.proto\x1a%pluggableharness/model/v1/types.proto\"\xa2\v\n" +
+	"&pluggableharness/model/v1/events.proto\x12\x19pluggableharness.model.v1\x1a&pluggableharness/model/v1/errors.proto\x1a%pluggableharness/model/v1/types.proto\"\xba\f\n" +
 	"\vStreamEvent\x12Q\n" +
 	"\n" +
 	"text_delta\x18\x01 \x01(\v20.pluggableharness.model.v1.StreamEvent.TextDeltaH\x00R\ttextDelta\x12]\n" +
@@ -806,7 +879,10 @@ const file_pluggableharness_model_v1_events_proto_rawDesc = "" +
 	"\x04stop\x18\b \x01(\v2+.pluggableharness.model.v1.StreamEvent.StopH\x00R\x04stop\x12D\n" +
 	"\x05error\x18\t \x01(\v2,.pluggableharness.model.v1.StreamEvent.ErrorH\x00R\x05error\x12f\n" +
 	"\x11redacted_thinking\x18\n" +
-	" \x01(\v27.pluggableharness.model.v1.StreamEvent.RedactedThinkingH\x00R\x10redactedThinking\x1a\x1f\n" +
+	" \x01(\v27.pluggableharness.model.v1.StreamEvent.RedactedThinkingH\x00R\x10redactedThinking\x12W\n" +
+	"\fstream_start\x18\v \x01(\v22.pluggableharness.model.v1.StreamEvent.StreamStartH\x00R\vstreamStart\x1a=\n" +
+	"\vStreamStart\x12.\n" +
+	"\x13provider_request_id\x18\x01 \x01(\tR\x11providerRequestId\x1a\x1f\n" +
 	"\tTextDelta\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x1a#\n" +
 	"\rThinkingDelta\x12\x12\n" +
@@ -854,40 +930,42 @@ func file_pluggableharness_model_v1_events_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_model_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_model_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_pluggableharness_model_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_pluggableharness_model_v1_events_proto_goTypes = []any{
 	(StopReason)(0),                       // 0: pluggableharness.model.v1.StopReason
 	(*StreamEvent)(nil),                   // 1: pluggableharness.model.v1.StreamEvent
-	(*StreamEvent_TextDelta)(nil),         // 2: pluggableharness.model.v1.StreamEvent.TextDelta
-	(*StreamEvent_ThinkingDelta)(nil),     // 3: pluggableharness.model.v1.StreamEvent.ThinkingDelta
-	(*StreamEvent_ThinkingSignature)(nil), // 4: pluggableharness.model.v1.StreamEvent.ThinkingSignature
-	(*StreamEvent_ToolCallStart)(nil),     // 5: pluggableharness.model.v1.StreamEvent.ToolCallStart
-	(*StreamEvent_ToolCallDelta)(nil),     // 6: pluggableharness.model.v1.StreamEvent.ToolCallDelta
-	(*StreamEvent_ToolCallDone)(nil),      // 7: pluggableharness.model.v1.StreamEvent.ToolCallDone
-	(*StreamEvent_Stop)(nil),              // 8: pluggableharness.model.v1.StreamEvent.Stop
-	(*StreamEvent_Error)(nil),             // 9: pluggableharness.model.v1.StreamEvent.Error
-	(*StreamEvent_RedactedThinking)(nil),  // 10: pluggableharness.model.v1.StreamEvent.RedactedThinking
-	(*Usage)(nil),                         // 11: pluggableharness.model.v1.Usage
-	(*ModelError)(nil),                    // 12: pluggableharness.model.v1.ModelError
+	(*StreamEvent_StreamStart)(nil),       // 2: pluggableharness.model.v1.StreamEvent.StreamStart
+	(*StreamEvent_TextDelta)(nil),         // 3: pluggableharness.model.v1.StreamEvent.TextDelta
+	(*StreamEvent_ThinkingDelta)(nil),     // 4: pluggableharness.model.v1.StreamEvent.ThinkingDelta
+	(*StreamEvent_ThinkingSignature)(nil), // 5: pluggableharness.model.v1.StreamEvent.ThinkingSignature
+	(*StreamEvent_ToolCallStart)(nil),     // 6: pluggableharness.model.v1.StreamEvent.ToolCallStart
+	(*StreamEvent_ToolCallDelta)(nil),     // 7: pluggableharness.model.v1.StreamEvent.ToolCallDelta
+	(*StreamEvent_ToolCallDone)(nil),      // 8: pluggableharness.model.v1.StreamEvent.ToolCallDone
+	(*StreamEvent_Stop)(nil),              // 9: pluggableharness.model.v1.StreamEvent.Stop
+	(*StreamEvent_Error)(nil),             // 10: pluggableharness.model.v1.StreamEvent.Error
+	(*StreamEvent_RedactedThinking)(nil),  // 11: pluggableharness.model.v1.StreamEvent.RedactedThinking
+	(*Usage)(nil),                         // 12: pluggableharness.model.v1.Usage
+	(*ModelError)(nil),                    // 13: pluggableharness.model.v1.ModelError
 }
 var file_pluggableharness_model_v1_events_proto_depIdxs = []int32{
-	2,  // 0: pluggableharness.model.v1.StreamEvent.text_delta:type_name -> pluggableharness.model.v1.StreamEvent.TextDelta
-	3,  // 1: pluggableharness.model.v1.StreamEvent.thinking_delta:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingDelta
-	4,  // 2: pluggableharness.model.v1.StreamEvent.thinking_signature:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingSignature
-	5,  // 3: pluggableharness.model.v1.StreamEvent.tool_call_start:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallStart
-	6,  // 4: pluggableharness.model.v1.StreamEvent.tool_call_delta:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDelta
-	7,  // 5: pluggableharness.model.v1.StreamEvent.tool_call_done:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDone
-	11, // 6: pluggableharness.model.v1.StreamEvent.usage:type_name -> pluggableharness.model.v1.Usage
-	8,  // 7: pluggableharness.model.v1.StreamEvent.stop:type_name -> pluggableharness.model.v1.StreamEvent.Stop
-	9,  // 8: pluggableharness.model.v1.StreamEvent.error:type_name -> pluggableharness.model.v1.StreamEvent.Error
-	10, // 9: pluggableharness.model.v1.StreamEvent.redacted_thinking:type_name -> pluggableharness.model.v1.StreamEvent.RedactedThinking
-	0,  // 10: pluggableharness.model.v1.StreamEvent.Stop.reason:type_name -> pluggableharness.model.v1.StopReason
-	12, // 11: pluggableharness.model.v1.StreamEvent.Error.error:type_name -> pluggableharness.model.v1.ModelError
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	3,  // 0: pluggableharness.model.v1.StreamEvent.text_delta:type_name -> pluggableharness.model.v1.StreamEvent.TextDelta
+	4,  // 1: pluggableharness.model.v1.StreamEvent.thinking_delta:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingDelta
+	5,  // 2: pluggableharness.model.v1.StreamEvent.thinking_signature:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingSignature
+	6,  // 3: pluggableharness.model.v1.StreamEvent.tool_call_start:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallStart
+	7,  // 4: pluggableharness.model.v1.StreamEvent.tool_call_delta:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDelta
+	8,  // 5: pluggableharness.model.v1.StreamEvent.tool_call_done:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDone
+	12, // 6: pluggableharness.model.v1.StreamEvent.usage:type_name -> pluggableharness.model.v1.Usage
+	9,  // 7: pluggableharness.model.v1.StreamEvent.stop:type_name -> pluggableharness.model.v1.StreamEvent.Stop
+	10, // 8: pluggableharness.model.v1.StreamEvent.error:type_name -> pluggableharness.model.v1.StreamEvent.Error
+	11, // 9: pluggableharness.model.v1.StreamEvent.redacted_thinking:type_name -> pluggableharness.model.v1.StreamEvent.RedactedThinking
+	2,  // 10: pluggableharness.model.v1.StreamEvent.stream_start:type_name -> pluggableharness.model.v1.StreamEvent.StreamStart
+	0,  // 11: pluggableharness.model.v1.StreamEvent.Stop.reason:type_name -> pluggableharness.model.v1.StopReason
+	13, // 12: pluggableharness.model.v1.StreamEvent.Error.error:type_name -> pluggableharness.model.v1.ModelError
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_events_proto_init() }
@@ -908,15 +986,16 @@ func file_pluggableharness_model_v1_events_proto_init() {
 		(*StreamEvent_Stop_)(nil),
 		(*StreamEvent_Error_)(nil),
 		(*StreamEvent_RedactedThinking_)(nil),
+		(*StreamEvent_StreamStart_)(nil),
 	}
-	file_pluggableharness_model_v1_events_proto_msgTypes[7].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_events_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_events_proto_rawDesc), len(file_pluggableharness_model_v1_events_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

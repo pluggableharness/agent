@@ -45,6 +45,8 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 | `Pricing.tiers`, time-bounded/tiered/input-size-bounded rates | MUST | [`data-types.md`](data-types.md#pricing) — exactly one tier MUST match any given `(timestamp, input_token_count)` pair |
 | `Pricing` on every `ModelSpec` | MUST | required even for `free: true` models |
 | Kernel computes + persists `cost_usd` at usage-event time, not lazily at query time | MUST | [`protocol.md`](protocol.md#cost-computation) — includes `reasoning_tokens` billed at the output rate |
+| `StreamEvent.stream_start` | SHOULD, when the vendor publishes a request id | [`data-types.md#stream_start-and-vendor-request-correlation`](data-types.md#stream_start-and-vendor-request-correlation) — emitted early, so a failed stream is still correlatable to the vendor's logs |
+| `Usage.rate_limits` | SHOULD, when the vendor publishes rate-limit state | [`data-types.md#usagerate_limits`](data-types.md#usagerate_limits) — MUST NOT be synthesized from the adapter's own bookkeeping |
 | `Usage.reasoning_tokens` | SHOULD, when the vendor reports it distinctly | [`data-types.md#streamevent`](data-types.md#streamevent) — never double-counted in `output_tokens` |
 | `supported_hook_points` | MUST (field, MAY be empty) | [`data-types.md#capabilitiessupported_hook_points`](data-types.md#capabilitiessupported_hook_points) — kernel rejects an unsupported `hook{}` block at config-load time |
 | Realtime/voice (WebSocket-style APIs) | MUST NOT — out of scope for v1 | likely a distinct wire protocol per vendor; treat as a future, separate plugin surface, not a mode of this one |

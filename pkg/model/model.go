@@ -335,4 +335,25 @@ type Usage struct {
 	// reports them as a distinct count. Never also counted in
 	// OutputTokens; billed at PricingTier.OutputPerMtok.
 	ReasoningTokens *int64
+	// RateLimits is the vendor's own rate-limit state as of this
+	// completion. MAY be empty; a Provider MUST NOT synthesize a snapshot
+	// from its own bookkeeping — only report what the vendor published.
+	RateLimits []RateLimitSnapshot
+}
+
+// RateLimitSnapshot is one of the vendor's rate-limit budgets as of one
+// completion, per docs/specifications/model/data-types.md#usagerate_limits.
+//
+// Every field but Kind is a pointer because vendors publish different
+// subsets, and "the vendor did not say" is meaningfully different from
+// "the vendor said zero" — the second means the budget is exhausted.
+type RateLimitSnapshot struct {
+	// Kind names which budget this describes. MUST be set.
+	Kind modelv1.RateLimitKind
+	// Remaining is how much of this budget is left.
+	Remaining *int64
+	// Limit is this budget's ceiling for the current window.
+	Limit *int64
+	// ResetAt is when this budget next resets.
+	ResetAt *time.Time
 }

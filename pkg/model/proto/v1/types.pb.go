@@ -160,6 +160,68 @@ func (ToolChoiceMode) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
+// RateLimitKind names which vendor budget a RateLimitSnapshot describes.
+type RateLimitKind int32
+
+const (
+	// Zero value. Never valid on a real snapshot; its presence on the wire
+	// means an adapter forgot to set the field.
+	RateLimitKind_RATE_LIMIT_KIND_UNSPECIFIED RateLimitKind = 0
+	// Requests per window.
+	RateLimitKind_RATE_LIMIT_KIND_REQUESTS RateLimitKind = 1
+	// Tokens per window, undifferentiated by direction.
+	RateLimitKind_RATE_LIMIT_KIND_TOKENS RateLimitKind = 2
+	// Input tokens per window, where the vendor meters them separately.
+	RateLimitKind_RATE_LIMIT_KIND_INPUT_TOKENS RateLimitKind = 3
+	// Output tokens per window, where the vendor meters them separately.
+	RateLimitKind_RATE_LIMIT_KIND_OUTPUT_TOKENS RateLimitKind = 4
+)
+
+// Enum value maps for RateLimitKind.
+var (
+	RateLimitKind_name = map[int32]string{
+		0: "RATE_LIMIT_KIND_UNSPECIFIED",
+		1: "RATE_LIMIT_KIND_REQUESTS",
+		2: "RATE_LIMIT_KIND_TOKENS",
+		3: "RATE_LIMIT_KIND_INPUT_TOKENS",
+		4: "RATE_LIMIT_KIND_OUTPUT_TOKENS",
+	}
+	RateLimitKind_value = map[string]int32{
+		"RATE_LIMIT_KIND_UNSPECIFIED":   0,
+		"RATE_LIMIT_KIND_REQUESTS":      1,
+		"RATE_LIMIT_KIND_TOKENS":        2,
+		"RATE_LIMIT_KIND_INPUT_TOKENS":  3,
+		"RATE_LIMIT_KIND_OUTPUT_TOKENS": 4,
+	}
+)
+
+func (x RateLimitKind) Enum() *RateLimitKind {
+	p := new(RateLimitKind)
+	*p = x
+	return p
+}
+
+func (x RateLimitKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RateLimitKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_model_v1_types_proto_enumTypes[2].Descriptor()
+}
+
+func (RateLimitKind) Type() protoreflect.EnumType {
+	return &file_pluggableharness_model_v1_types_proto_enumTypes[2]
+}
+
+func (x RateLimitKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RateLimitKind.Descriptor instead.
+func (RateLimitKind) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{2}
+}
+
 // Capabilities is GetCapabilities' response payload: every model this
 // plugin can serve, plus provider-wide declarations that apply once, not
 // per model.
@@ -1414,8 +1476,18 @@ type Usage struct {
 	// future Pricing revision declares a distinct reasoning rate — there is
 	// none as of this revision.
 	ReasoningTokens *int64 `protobuf:"varint,5,opt,name=reasoning_tokens,json=reasoningTokens,proto3,oneof" json:"reasoning_tokens,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// The vendor's own rate-limit state as of this completion, when it
+	// reports any. MAY be empty — a vendor that publishes nothing has
+	// nothing to declare, and an adapter MUST NOT synthesize a snapshot.
+	//
+	// Repeated because vendors publish several budgets at once and they
+	// exhaust independently: OpenAI and xAI return separate request and
+	// token headers, Anthropic reports input and output separately. Naming
+	// which budget is close to empty is the whole point — "you have 2%
+	// left" is unactionable without saying 2% of what.
+	RateLimits    []*RateLimitSnapshot `protobuf:"bytes,6,rep,name=rate_limits,json=rateLimits,proto3" json:"rate_limits,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Usage) Reset() {
@@ -1483,6 +1555,92 @@ func (x *Usage) GetReasoningTokens() int64 {
 	return 0
 }
 
+func (x *Usage) GetRateLimits() []*RateLimitSnapshot {
+	if x != nil {
+		return x.RateLimits
+	}
+	return nil
+}
+
+// RateLimitSnapshot is one of the vendor's rate-limit budgets as of one
+// completion, per model/data-types.md#streamevent.
+//
+// Every numeric field is optional because vendors publish different
+// subsets: an adapter reports what its vendor actually returned and omits
+// the rest rather than inventing a value. A snapshot with only `kind` set
+// is still useful — it says the budget exists.
+type RateLimitSnapshot struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which budget this describes. MUST be set.
+	Kind RateLimitKind `protobuf:"varint,1,opt,name=kind,proto3,enum=pluggableharness.model.v1.RateLimitKind" json:"kind,omitempty"`
+	// How much of this budget remains.
+	Remaining *int64 `protobuf:"varint,2,opt,name=remaining,proto3,oneof" json:"remaining,omitempty"`
+	// This budget's ceiling for the current window.
+	Limit *int64 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	// When this budget next resets.
+	ResetAt       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=reset_at,json=resetAt,proto3,oneof" json:"reset_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RateLimitSnapshot) Reset() {
+	*x = RateLimitSnapshot{}
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RateLimitSnapshot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RateLimitSnapshot) ProtoMessage() {}
+
+func (x *RateLimitSnapshot) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RateLimitSnapshot.ProtoReflect.Descriptor instead.
+func (*RateLimitSnapshot) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *RateLimitSnapshot) GetKind() RateLimitKind {
+	if x != nil {
+		return x.Kind
+	}
+	return RateLimitKind_RATE_LIMIT_KIND_UNSPECIFIED
+}
+
+func (x *RateLimitSnapshot) GetRemaining() int64 {
+	if x != nil && x.Remaining != nil {
+		return *x.Remaining
+	}
+	return 0
+}
+
+func (x *RateLimitSnapshot) GetLimit() int64 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+func (x *RateLimitSnapshot) GetResetAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ResetAt
+	}
+	return nil
+}
+
 // ModelTarget describes the model a context or memory contribution is
 // being assembled for, derived from that model's ModelSpec
 // (model.md §2). Carried on context.md's ContextRequest and memory.md's
@@ -1508,7 +1666,7 @@ type ModelTarget struct {
 
 func (x *ModelTarget) Reset() {
 	*x = ModelTarget{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1520,7 +1678,7 @@ func (x *ModelTarget) String() string {
 func (*ModelTarget) ProtoMessage() {}
 
 func (x *ModelTarget) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1533,7 +1691,7 @@ func (x *ModelTarget) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelTarget.ProtoReflect.Descriptor instead.
 func (*ModelTarget) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{14}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ModelTarget) GetId() string {
@@ -1574,7 +1732,7 @@ type ModelRef struct {
 
 func (x *ModelRef) Reset() {
 	*x = ModelRef{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1586,7 +1744,7 @@ func (x *ModelRef) String() string {
 func (*ModelRef) ProtoMessage() {}
 
 func (x *ModelRef) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1599,7 +1757,7 @@ func (x *ModelRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelRef.ProtoReflect.Descriptor instead.
 func (*ModelRef) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{15}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ModelRef) GetProvider() string {
@@ -1626,7 +1784,7 @@ type CacheBreakpoint_AfterAssembledContext struct {
 
 func (x *CacheBreakpoint_AfterAssembledContext) Reset() {
 	*x = CacheBreakpoint_AfterAssembledContext{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1638,7 +1796,7 @@ func (x *CacheBreakpoint_AfterAssembledContext) String() string {
 func (*CacheBreakpoint_AfterAssembledContext) ProtoMessage() {}
 
 func (x *CacheBreakpoint_AfterAssembledContext) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1664,7 +1822,7 @@ type CacheBreakpoint_AfterTools struct {
 
 func (x *CacheBreakpoint_AfterTools) Reset() {
 	*x = CacheBreakpoint_AfterTools{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1676,7 +1834,7 @@ func (x *CacheBreakpoint_AfterTools) String() string {
 func (*CacheBreakpoint_AfterTools) ProtoMessage() {}
 
 func (x *CacheBreakpoint_AfterTools) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1801,16 +1959,27 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\x04mode\x18\x01 \x01(\x0e2).pluggableharness.model.v1.ToolChoiceModeR\x04mode\x12 \n" +
 	"\ttool_name\x18\x02 \x01(\tH\x00R\btoolName\x88\x01\x01B\f\n" +
 	"\n" +
-	"_tool_name\"\xa5\x02\n" +
+	"_tool_name\"\xf4\x02\n" +
 	"\x05Usage\x12!\n" +
 	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
 	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12/\n" +
 	"\x11cache_read_tokens\x18\x03 \x01(\x03H\x00R\x0fcacheReadTokens\x88\x01\x01\x121\n" +
 	"\x12cache_write_tokens\x18\x04 \x01(\x03H\x01R\x10cacheWriteTokens\x88\x01\x01\x12.\n" +
-	"\x10reasoning_tokens\x18\x05 \x01(\x03H\x02R\x0freasoningTokens\x88\x01\x01B\x14\n" +
+	"\x10reasoning_tokens\x18\x05 \x01(\x03H\x02R\x0freasoningTokens\x88\x01\x01\x12M\n" +
+	"\vrate_limits\x18\x06 \x03(\v2,.pluggableharness.model.v1.RateLimitSnapshotR\n" +
+	"rateLimitsB\x14\n" +
 	"\x12_cache_read_tokensB\x15\n" +
 	"\x13_cache_write_tokensB\x13\n" +
-	"\x11_reasoning_tokens\"q\n" +
+	"\x11_reasoning_tokens\"\xf0\x01\n" +
+	"\x11RateLimitSnapshot\x12<\n" +
+	"\x04kind\x18\x01 \x01(\x0e2(.pluggableharness.model.v1.RateLimitKindR\x04kind\x12!\n" +
+	"\tremaining\x18\x02 \x01(\x03H\x00R\tremaining\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12:\n" +
+	"\breset_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampH\x02R\aresetAt\x88\x01\x01B\f\n" +
+	"\n" +
+	"_remainingB\b\n" +
+	"\x06_limitB\v\n" +
+	"\t_reset_at\"q\n" +
 	"\vModelTarget\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12%\n" +
 	"\x0econtext_window\x18\x02 \x01(\x03R\rcontextWindow\x12+\n" +
@@ -1828,7 +1997,13 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\x15TOOL_CHOICE_MODE_AUTO\x10\x01\x12\x18\n" +
 	"\x14TOOL_CHOICE_MODE_ANY\x10\x02\x12\x19\n" +
 	"\x15TOOL_CHOICE_MODE_NONE\x10\x03\x12\x1d\n" +
-	"\x19TOOL_CHOICE_MODE_SPECIFIC\x10\x04B>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
+	"\x19TOOL_CHOICE_MODE_SPECIFIC\x10\x04*\xaf\x01\n" +
+	"\rRateLimitKind\x12\x1f\n" +
+	"\x1bRATE_LIMIT_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18RATE_LIMIT_KIND_REQUESTS\x10\x01\x12\x1a\n" +
+	"\x16RATE_LIMIT_KIND_TOKENS\x10\x02\x12 \n" +
+	"\x1cRATE_LIMIT_KIND_INPUT_TOKENS\x10\x03\x12!\n" +
+	"\x1dRATE_LIMIT_KIND_OUTPUT_TOKENS\x10\x04B>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
 
 var (
 	file_pluggableharness_model_v1_types_proto_rawDescOnce sync.Once
@@ -1842,61 +2017,66 @@ func file_pluggableharness_model_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_model_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_model_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pluggableharness_model_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_pluggableharness_model_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_pluggableharness_model_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_pluggableharness_model_v1_types_proto_goTypes = []any{
 	(ThinkingDisableSupport)(0),                   // 0: pluggableharness.model.v1.ThinkingDisableSupport
 	(ToolChoiceMode)(0),                           // 1: pluggableharness.model.v1.ToolChoiceMode
-	(*Capabilities)(nil),                          // 2: pluggableharness.model.v1.Capabilities
-	(*ModelSpec)(nil),                             // 3: pluggableharness.model.v1.ModelSpec
-	(*ThinkingBudgetRange)(nil),                   // 4: pluggableharness.model.v1.ThinkingBudgetRange
-	(*EffortControl)(nil),                         // 5: pluggableharness.model.v1.EffortControl
-	(*BudgetControl)(nil),                         // 6: pluggableharness.model.v1.BudgetControl
-	(*ThinkingSpec)(nil),                          // 7: pluggableharness.model.v1.ThinkingSpec
-	(*CachingSpec)(nil),                           // 8: pluggableharness.model.v1.CachingSpec
-	(*PricingTier)(nil),                           // 9: pluggableharness.model.v1.PricingTier
-	(*Pricing)(nil),                               // 10: pluggableharness.model.v1.Pricing
-	(*CacheBreakpoint)(nil),                       // 11: pluggableharness.model.v1.CacheBreakpoint
-	(*ToolDeclaration)(nil),                       // 12: pluggableharness.model.v1.ToolDeclaration
-	(*GenerationParams)(nil),                      // 13: pluggableharness.model.v1.GenerationParams
-	(*ToolChoice)(nil),                            // 14: pluggableharness.model.v1.ToolChoice
-	(*Usage)(nil),                                 // 15: pluggableharness.model.v1.Usage
-	(*ModelTarget)(nil),                           // 16: pluggableharness.model.v1.ModelTarget
-	(*ModelRef)(nil),                              // 17: pluggableharness.model.v1.ModelRef
-	(*CacheBreakpoint_AfterAssembledContext)(nil), // 18: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	(*CacheBreakpoint_AfterTools)(nil),            // 19: pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	(*v1.PromptExpansionSpec)(nil),                // 20: pluggableharness.common.v1.PromptExpansionSpec
-	(*v11.ConfigSchema)(nil),                      // 21: pluggableharness.config.v1.ConfigSchema
-	(v1.HookPoint)(0),                             // 22: pluggableharness.common.v1.HookPoint
-	(*timestamppb.Timestamp)(nil),                 // 23: google.protobuf.Timestamp
-	(*v12.Schema)(nil),                            // 24: pluggableharness.schema.v1.Schema
+	(RateLimitKind)(0),                            // 2: pluggableharness.model.v1.RateLimitKind
+	(*Capabilities)(nil),                          // 3: pluggableharness.model.v1.Capabilities
+	(*ModelSpec)(nil),                             // 4: pluggableharness.model.v1.ModelSpec
+	(*ThinkingBudgetRange)(nil),                   // 5: pluggableharness.model.v1.ThinkingBudgetRange
+	(*EffortControl)(nil),                         // 6: pluggableharness.model.v1.EffortControl
+	(*BudgetControl)(nil),                         // 7: pluggableharness.model.v1.BudgetControl
+	(*ThinkingSpec)(nil),                          // 8: pluggableharness.model.v1.ThinkingSpec
+	(*CachingSpec)(nil),                           // 9: pluggableharness.model.v1.CachingSpec
+	(*PricingTier)(nil),                           // 10: pluggableharness.model.v1.PricingTier
+	(*Pricing)(nil),                               // 11: pluggableharness.model.v1.Pricing
+	(*CacheBreakpoint)(nil),                       // 12: pluggableharness.model.v1.CacheBreakpoint
+	(*ToolDeclaration)(nil),                       // 13: pluggableharness.model.v1.ToolDeclaration
+	(*GenerationParams)(nil),                      // 14: pluggableharness.model.v1.GenerationParams
+	(*ToolChoice)(nil),                            // 15: pluggableharness.model.v1.ToolChoice
+	(*Usage)(nil),                                 // 16: pluggableharness.model.v1.Usage
+	(*RateLimitSnapshot)(nil),                     // 17: pluggableharness.model.v1.RateLimitSnapshot
+	(*ModelTarget)(nil),                           // 18: pluggableharness.model.v1.ModelTarget
+	(*ModelRef)(nil),                              // 19: pluggableharness.model.v1.ModelRef
+	(*CacheBreakpoint_AfterAssembledContext)(nil), // 20: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	(*CacheBreakpoint_AfterTools)(nil),            // 21: pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	(*v1.PromptExpansionSpec)(nil),                // 22: pluggableharness.common.v1.PromptExpansionSpec
+	(*v11.ConfigSchema)(nil),                      // 23: pluggableharness.config.v1.ConfigSchema
+	(v1.HookPoint)(0),                             // 24: pluggableharness.common.v1.HookPoint
+	(*timestamppb.Timestamp)(nil),                 // 25: google.protobuf.Timestamp
+	(*v12.Schema)(nil),                            // 26: pluggableharness.schema.v1.Schema
 }
 var file_pluggableharness_model_v1_types_proto_depIdxs = []int32{
-	3,  // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
-	20, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
-	21, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
-	22, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
-	7,  // 4: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
-	8,  // 5: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
-	10, // 6: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
+	4,  // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
+	22, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
+	23, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
+	24, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	8,  // 4: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
+	9,  // 5: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
+	11, // 6: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
 	1,  // 7: pluggableharness.model.v1.ModelSpec.supported_tool_choice_modes:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	4,  // 8: pluggableharness.model.v1.BudgetControl.range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
-	5,  // 9: pluggableharness.model.v1.ThinkingSpec.effort:type_name -> pluggableharness.model.v1.EffortControl
-	6,  // 10: pluggableharness.model.v1.ThinkingSpec.budget:type_name -> pluggableharness.model.v1.BudgetControl
+	5,  // 8: pluggableharness.model.v1.BudgetControl.range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
+	6,  // 9: pluggableharness.model.v1.ThinkingSpec.effort:type_name -> pluggableharness.model.v1.EffortControl
+	7,  // 10: pluggableharness.model.v1.ThinkingSpec.budget:type_name -> pluggableharness.model.v1.BudgetControl
 	0,  // 11: pluggableharness.model.v1.ThinkingSpec.disable:type_name -> pluggableharness.model.v1.ThinkingDisableSupport
-	23, // 12: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
-	23, // 13: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
-	9,  // 14: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
-	18, // 15: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	19, // 16: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	24, // 17: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
-	14, // 18: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
+	25, // 12: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
+	25, // 13: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
+	10, // 14: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
+	20, // 15: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	21, // 16: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	26, // 17: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
+	15, // 18: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
 	1,  // 19: pluggableharness.model.v1.ToolChoice.mode:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	17, // 20: pluggableharness.model.v1.Usage.rate_limits:type_name -> pluggableharness.model.v1.RateLimitSnapshot
+	2,  // 21: pluggableharness.model.v1.RateLimitSnapshot.kind:type_name -> pluggableharness.model.v1.RateLimitKind
+	25, // 22: pluggableharness.model.v1.RateLimitSnapshot.reset_at:type_name -> google.protobuf.Timestamp
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_types_proto_init() }
@@ -1916,13 +2096,14 @@ func file_pluggableharness_model_v1_types_proto_init() {
 	file_pluggableharness_model_v1_types_proto_msgTypes[11].OneofWrappers = []any{}
 	file_pluggableharness_model_v1_types_proto_msgTypes[12].OneofWrappers = []any{}
 	file_pluggableharness_model_v1_types_proto_msgTypes[13].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_types_proto_msgTypes[14].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_types_proto_rawDesc), len(file_pluggableharness_model_v1_types_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   18,
+			NumEnums:      3,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -251,7 +251,49 @@ func usageToProto(u Usage) *modelv1.Usage {
 		CacheReadTokens:  u.CacheReadTokens,
 		CacheWriteTokens: u.CacheWriteTokens,
 		ReasoningTokens:  u.ReasoningTokens,
+		RateLimits:       rateLimitsToProto(u.RateLimits),
 	}
+}
+
+// rateLimitsToProto converts each snapshot into the generated wire type.
+func rateLimitsToProto(in []RateLimitSnapshot) []*modelv1.RateLimitSnapshot {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*modelv1.RateLimitSnapshot, len(in))
+	for i, r := range in {
+		snap := &modelv1.RateLimitSnapshot{
+			Kind:      r.Kind,
+			Remaining: r.Remaining,
+			Limit:     r.Limit,
+		}
+		if r.ResetAt != nil {
+			snap.ResetAt = timestamppb.New(*r.ResetAt)
+		}
+		out[i] = snap
+	}
+	return out
+}
+
+// rateLimitsFromProto is rateLimitsToProto's inverse.
+func rateLimitsFromProto(in []*modelv1.RateLimitSnapshot) []RateLimitSnapshot {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]RateLimitSnapshot, len(in))
+	for i, r := range in {
+		snap := RateLimitSnapshot{
+			Kind:      r.GetKind(),
+			Remaining: r.Remaining,
+			Limit:     r.Limit,
+		}
+		if ts := r.GetResetAt(); ts != nil {
+			at := ts.AsTime()
+			snap.ResetAt = &at
+		}
+		out[i] = snap
+	}
+	return out
 }
 
 // usageFromProto is usageToProto's inverse.
@@ -265,5 +307,6 @@ func usageFromProto(in *modelv1.Usage) Usage {
 		CacheReadTokens:  in.CacheReadTokens,
 		CacheWriteTokens: in.CacheWriteTokens,
 		ReasoningTokens:  in.ReasoningTokens,
+		RateLimits:       rateLimitsFromProto(in.GetRateLimits()),
 	}
 }

@@ -43,6 +43,10 @@ func (f *fakeSink) record(method string, args ...any) error {
 	return f.failAt[method]
 }
 
+func (f *fakeSink) StreamStart(providerRequestID string) error {
+	return f.record("StreamStart", providerRequestID)
+}
+
 func (f *fakeSink) TextDelta(text string) error { return f.record("TextDelta", text) }
 
 func (f *fakeSink) ThinkingDelta(text string) error { return f.record("ThinkingDelta", text) }

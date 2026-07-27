@@ -399,3 +399,67 @@ func TestConvert_ModelErrorFromProtoNil(t *testing.T) {
 		t.Errorf("ModelErrorFromProtoForTest(nil) = %+v, want nil", got)
 	}
 }
+
+func TestConvert_UsageRateLimitsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	reset := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
+	remaining := int64(2)
+	limit := int64(1000)
+
+	// Two budgets at once, which is the normal case rather than an edge:
+	// vendors meter requests and tokens separately and they exhaust
+	// independently, so a single snapshot could not say which one stopped
+	// a session.
+	in := model.Usage{
+		InputTokens:  10,
+		OutputTokens: 5,
+		RateLimits: []model.RateLimitSnapshot{
+			{
+				Kind:      modelv1.RateLimitKind_RATE_LIMIT_KIND_REQUESTS,
+				Remaining: &remaining,
+				Limit:     &limit,
+				ResetAt:   &reset,
+			},
+			// Only Kind set: a vendor that publishes the budget's existence
+			// but no numbers still produces a useful snapshot, and the
+			// adapter must not invent the missing values.
+			{Kind: modelv1.RateLimitKind_RATE_LIMIT_KIND_OUTPUT_TOKENS},
+		},
+	}
+
+	back := model.UsageFromProtoForTest(model.UsageToProtoForTest(in))
+
+	if len(back.RateLimits) != 2 {
+		t.Fatalf("len(RateLimits) = %d, want 2", len(back.RateLimits))
+	}
+	first := back.RateLimits[0]
+	if first.Kind != modelv1.RateLimitKind_RATE_LIMIT_KIND_REQUESTS {
+		t.Errorf("RateLimits[0].Kind = %v, want REQUESTS", first.Kind)
+	}
+	if first.Remaining == nil || *first.Remaining != remaining {
+		t.Errorf("RateLimits[0].Remaining = %v, want %d", first.Remaining, remaining)
+	}
+	if first.ResetAt == nil || !first.ResetAt.Equal(reset) {
+		t.Errorf("RateLimits[0].ResetAt = %v, want %v", first.ResetAt, reset)
+	}
+
+	second := back.RateLimits[1]
+	if second.Kind != modelv1.RateLimitKind_RATE_LIMIT_KIND_OUTPUT_TOKENS {
+		t.Errorf("RateLimits[1].Kind = %v, want OUTPUT_TOKENS", second.Kind)
+	}
+	if second.Remaining != nil || second.Limit != nil || second.ResetAt != nil {
+		t.Errorf("RateLimits[1] = %+v, want every numeric field absent", second)
+	}
+}
+
+func TestConvert_UsageWithoutRateLimitsStaysNil(t *testing.T) {
+	t.Parallel()
+
+	// A vendor publishing nothing must produce no snapshots at all, rather
+	// than an empty-but-present one that would read as "the budget exists".
+	back := model.UsageFromProtoForTest(model.UsageToProtoForTest(model.Usage{InputTokens: 1}))
+	if back.RateLimits != nil {
+		t.Errorf("RateLimits = %+v, want nil", back.RateLimits)
+	}
+}

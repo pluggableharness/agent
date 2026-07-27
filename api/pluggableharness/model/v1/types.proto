@@ -489,9 +489,57 @@ message Usage {
   // future Pricing revision declares a distinct reasoning rate — there is
   // none as of this revision.
   optional int64 reasoning_tokens = 5;
+
+  // The vendor's own rate-limit state as of this completion, when it
+  // reports any. MAY be empty — a vendor that publishes nothing has
+  // nothing to declare, and an adapter MUST NOT synthesize a snapshot.
+  //
+  // Repeated because vendors publish several budgets at once and they
+  // exhaust independently: OpenAI and xAI return separate request and
+  // token headers, Anthropic reports input and output separately. Naming
+  // which budget is close to empty is the whole point — "you have 2%
+  // left" is unactionable without saying 2% of what.
+  repeated RateLimitSnapshot rate_limits = 6;
+
   // Deliberately no cost field: the kernel computes and persists
   // cost_usd from these token counts plus the matching PricingTier, per
   // model.md §4.1 — the provider never computes cost itself.
+}
+
+// RateLimitKind names which vendor budget a RateLimitSnapshot describes.
+enum RateLimitKind {
+  // Zero value. Never valid on a real snapshot; its presence on the wire
+  // means an adapter forgot to set the field.
+  RATE_LIMIT_KIND_UNSPECIFIED = 0;
+  // Requests per window.
+  RATE_LIMIT_KIND_REQUESTS = 1;
+  // Tokens per window, undifferentiated by direction.
+  RATE_LIMIT_KIND_TOKENS = 2;
+  // Input tokens per window, where the vendor meters them separately.
+  RATE_LIMIT_KIND_INPUT_TOKENS = 3;
+  // Output tokens per window, where the vendor meters them separately.
+  RATE_LIMIT_KIND_OUTPUT_TOKENS = 4;
+}
+
+// RateLimitSnapshot is one of the vendor's rate-limit budgets as of one
+// completion, per model/data-types.md#streamevent.
+//
+// Every numeric field is optional because vendors publish different
+// subsets: an adapter reports what its vendor actually returned and omits
+// the rest rather than inventing a value. A snapshot with only `kind` set
+// is still useful — it says the budget exists.
+message RateLimitSnapshot {
+  // Which budget this describes. MUST be set.
+  RateLimitKind kind = 1;
+
+  // How much of this budget remains.
+  optional int64 remaining = 2;
+
+  // This budget's ceiling for the current window.
+  optional int64 limit = 3;
+
+  // When this budget next resets.
+  optional google.protobuf.Timestamp reset_at = 4;
 }
 
 // ModelTarget describes the model a context or memory contribution is

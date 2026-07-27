@@ -130,6 +130,12 @@ func TestLive_streamCompletion(t *testing.T) {
 	if err := sink.streamError(); err != nil {
 		t.Errorf("the live stream reported an in-band error: %v", err)
 	}
+	// Only the live tier can prove the vendor actually publishes the
+	// header stream_start is built on — a recorded transcript would only
+	// confirm we agree with our own past reading of the docs.
+	if sink.providerRequestID() == "" {
+		t.Error("the live stream produced no provider request id — nothing to correlate a failure against")
+	}
 }
 
 // TestLive_countTokens proves the tokenizer endpoint still answers in the
@@ -142,7 +148,19 @@ func TestLive_countTokens(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	count, err := client.CountTokens(ctx, "The quick brown fox jumps over the lazy dog.", liveModelID)
+	req := &modelv1.CountTokensRequest{
+		ModelId: liveModelID,
+		Messages: []*contentv1.Message{{
+			Role: contentv1.Role_ROLE_USER,
+			Content: []*contentv1.ContentBlock{{
+				Block: &contentv1.ContentBlock_Text{
+					Text: &contentv1.TextBlock{Text: "The quick brown fox jumps over the lazy dog."},
+				},
+			}},
+		}},
+	}
+
+	count, err := client.CountTokens(ctx, req, liveSpec(t))
 	if err != nil {
 		t.Fatalf("CountTokens against the live API: %v", err)
 	}
@@ -155,14 +173,24 @@ func TestLive_countTokens(t *testing.T) {
 // than generated, and mutex-guarded because nothing promises the client
 // drives it from the calling goroutine.
 type liveSink struct {
-	mu      sync.Mutex
-	textBuf strings.Builder
-	usage   *model.Usage
-	stop    bool
-	err     *model.Error
+	mu        sync.Mutex
+	textBuf   strings.Builder
+	usage     *model.Usage
+	stop      bool
+	err       *model.Error
+	requestID string
 }
 
 var _ messages.EventSink = (*liveSink)(nil)
+
+// StreamStart records the vendor's request id, which a live-run failure
+// report can quote when asking Anthropic about a specific request.
+func (s *liveSink) StreamStart(providerRequestID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.requestID = providerRequestID
+	return nil
+}
 
 func (s *liveSink) TextDelta(text string) error {
 	s.mu.Lock()
@@ -197,6 +225,12 @@ func (s *liveSink) Error(modelErr *model.Error) error {
 	defer s.mu.Unlock()
 	s.err = modelErr
 	return nil
+}
+
+func (s *liveSink) providerRequestID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.requestID
 }
 
 func (s *liveSink) text() string {

@@ -9,6 +9,8 @@ import (
 // so Translator can be tested against a recording fake without a live gRPC
 // stream; *model.Sink satisfies it structurally.
 type EventSink interface {
+	// StreamStart sends the vendor's own identifier for this request.
+	StreamStart(providerRequestID string) error
 	// TextDelta sends an incremental fragment of assistant text output.
 	TextDelta(text string) error
 	// ThinkingDelta sends an incremental fragment of the model's reasoning

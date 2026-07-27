@@ -140,6 +140,7 @@ The full shape of what `StreamCompletion` streams back — see [`protocol.md#str
 
 ```protobuf
 StreamEvent = oneof {
+  stream_start         { provider_request_id: string }  // MAY — see below
   text_delta          { text: string }
   thinking_delta       { text: string }                    // only when ThinkingSpec.supported
   thinking_signature   { signature: bytes }                // see "Canonical message" below —
@@ -152,7 +153,7 @@ StreamEvent = oneof {
   tool_call_start      { id: string, name: string }
   tool_call_delta       { id: string, arguments_fragment: string }  // partial-JSON accumulation
   tool_call_done        { id: string }
-  usage                 { input_tokens, output_tokens, cache_read_tokens?, cache_write_tokens?, reasoning_tokens? }
+  usage                 { input_tokens, output_tokens, cache_read_tokens?, cache_write_tokens?, reasoning_tokens?, rate_limits[] }
   stop                   { reason: StopReason, matched_stop_sequence?: string }
   error                  ModelError                        // see conformance.md#error-taxonomy
 }
@@ -176,6 +177,18 @@ StopReason = enum {
 ```
 
 `usage.reasoning_tokens` is set only when the vendor reports thinking/reasoning tokens as a distinct count (`ThinkingSpec.supported` models only) and is never also counted in `output_tokens` — a vendor that folds reasoning tokens into its reported `output_tokens` has no separate figure to report, so this stays unset rather than being derived or subtracted. It's billed at `PricingTier.output_per_mtok` unless a future `Pricing` revision declares a distinct reasoning rate; there is none as of this revision.
+
+### `stream_start` and vendor request correlation
+
+`stream_start` carries the vendor's own identifier for this request — an Anthropic `request-id` header, an OpenAI `x-request-id` — as soon as the adapter learns it, normally from response headers before any content streams. It exists so a failure can be correlated with the vendor's own logs when asking them what went wrong. A plugin whose vendor publishes no such id MAY omit the event entirely.
+
+It is a separate early event rather than a field on `stop` deliberately: an id that arrives only on successful completion is absent in exactly the case it is needed. The kernel treats the value as opaque — logged and surfaced, never parsed.
+
+### `usage.rate_limits`
+
+`rate_limits` reports the vendor's own rate-limit budgets as of this completion. It MAY be empty; a vendor that publishes nothing has nothing to declare, and an adapter MUST NOT synthesize a snapshot from its own bookkeeping.
+
+It is repeated because vendors publish several budgets at once and they exhaust independently — OpenAI and xAI return separate request and token headers, Anthropic reports input and output separately. Naming *which* budget is close to empty is the entire value: "you have 2% left" is unactionable without saying 2% of what, and a user whose session stops mid-task without being told which ceiling they hit cannot act on it. Every numeric field on a snapshot is optional, so an adapter reports the subset its vendor actually returned rather than inventing the rest.
 
 A plugin MUST classify every terminal failure via a `stop` event's `content_filtered` reason or an `error` event carrying a `ModelError` ([`conformance.md#error-taxonomy`](conformance.md#error-taxonomy)) — the in-band `error` variant is how a plugin reports a classified failure *within* an otherwise-open stream, distinct from the stream simply being torn down at the transport level (a gRPC-level status, or the kernel closing the stream on cancellation). A plugin whose backend fails outright before producing any events MAY end the stream with just an `error` event and no preceding `stop`.
 

@@ -34,6 +34,24 @@ message StreamEvent {
     // A complete, vendor-encrypted reasoning block the kernel cannot
     // interpret.
     RedactedThinking redacted_thinking = 10;
+    // The vendor has accepted the request and named it.
+    StreamStart stream_start = 11;
+  }
+
+  // StreamStart carries the vendor's own identifier for this request, as
+  // soon as the adapter learns it — normally from response headers,
+  // before any content streams.
+  //
+  // It exists so a failure can be correlated with the vendor's own logs
+  // when asking them what went wrong. That is why it is a separate event
+  // emitted early rather than a field on Stop: an id that only arrives on
+  // successful completion is absent in exactly the case it is needed.
+  // MAY be omitted entirely by a vendor that publishes no such id.
+  message StreamStart {
+    // The vendor's request identifier, verbatim (an Anthropic
+    // `request-id` header, an OpenAI `x-request-id`). Opaque to the
+    // kernel: logged and surfaced, never parsed.
+    string provider_request_id = 1;
   }
 
   // TextDelta carries one incremental fragment of assistant text output.
