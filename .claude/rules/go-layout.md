@@ -39,6 +39,12 @@ pkg/                     first-class, third-party-consumable Go integration —
                          the tool/model JSON-Schema subset, ContentBlock)
                          that every category SDK composes rather than
                          reimplementing per category.
+  sse/                    shared vendor-neutral plumbing: SSE frame
+                         decoding, which every model provider needs and
+                         none of them should rewrite. Not a builder and
+                         not tied to one category — the test for belonging
+                         here is that a third-party plugin author would
+                         otherwise copy it out of another provider.
 docs/specifications/    protocol contracts (already exists, authoritative)
 ```
 

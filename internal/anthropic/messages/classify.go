@@ -52,41 +52,20 @@ var errorTypeTable = map[string]errorClassification{
 	errOverloaded:      {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_OVERLOADED, true},
 }
 
-// httpStatusTable is the fallback used when the response body is missing
-// or unparseable (e.g. an HTML proxy error page carries no error.type at
-// all) — keyed by the HTTP status each error.type row above documents.
-var httpStatusTable = map[int]errorClassification{
-	400: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_INVALID_REQUEST, false},
-	401: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_AUTH_ERROR, false},
-	402: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_AUTH_ERROR, false},
-	403: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_AUTH_ERROR, false},
-	404: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_INVALID_REQUEST, false},
-	409: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_INVALID_REQUEST, false},
-	413: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_CONTEXT_LENGTH_EXCEEDED, false},
-	429: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_RATE_LIMITED, true},
-	500: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_OVERLOADED, true},
-	504: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_OVERLOADED, true},
-	529: {modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_OVERLOADED, true},
-}
-
 // classify resolves a category and retryability from errType first,
-// falling back to status when errType is empty or unrecognized (an
-// unparseable body). A 5xx status with no table entry of its own (502,
-// 503, ...) still reads as OVERLOADED/retryable: any 5xx-equivalent
-// response is, by definition, the vendor's own transient failure rather
-// than an unclassifiable one, even though Anthropic's error.type
-// vocabulary doesn't name it individually.
+// falling back to the HTTP status when errType is empty or unrecognized
+// (an unparseable body — an HTML proxy error page carries no error.type at
+// all).
+//
+// The status fallback is model.ClassifyHTTPStatus, shared with every other
+// provider: those are HTTP semantics rather than Anthropic's, and its 5xx
+// rule is what makes Anthropic's own 529 overload code classify correctly
+// without an entry anywhere. Only errorTypeTable above is vendor-specific.
 func classify(errType string, status int) (modelv1.ModelErrorCategory, bool) {
 	if c, ok := errorTypeTable[errType]; ok {
 		return c.category, c.retryable
 	}
-	if c, ok := httpStatusTable[status]; ok {
-		return c.category, c.retryable
-	}
-	if status >= 500 {
-		return modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_OVERLOADED, true
-	}
-	return modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_UNKNOWN, false
+	return model.ClassifyHTTPStatus(status)
 }
 
 // looksLikeContextLength reports whether message reads as Anthropic's
