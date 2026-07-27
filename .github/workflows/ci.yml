@@ -202,12 +202,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Scoped separately from `build`: this job compiles the protoc plugins
-      # named by go.mod's tool directives, which no other job builds.
+      # No cache, measured rather than assumed: this job only compiles the
+      # protoc plugins named by go.mod's tool directives, which is about eight
+      # seconds of work. Restoring the 26 MB that produces costs more than it
+      # saves — the job ran 15s uncached against 20s cached. A job has to be
+      # big enough to profit from a cache, and this one is not.
       - name: Set up Go
-        uses: ./.github/actions/setup-go-cached
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          job: proto
+          go-version-file: go.mod
+          cache: false
 
       # setup_only: we drive buf explicitly below rather than using the
       # action's opinionated defaults. Version pinned for reproducibility;
