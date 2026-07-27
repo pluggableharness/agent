@@ -4,8 +4,9 @@
 // integration tier (launch_integration_test.go) builds and launches as a
 // real subprocess, to exercise a genuine hashicorp/go-plugin round-trip:
 // one canned ToolService.GetSchema RPC, plus one callback into
-// KernelCallbackService.Log over the fixed callback broker ID
-// (pkg/common.CallbackBrokerID), proving the reverse channel.
+// KernelCallbackService.Log — issued from its Configure handler, the
+// nearest RPC with a context to call back on — over the fixed callback
+// broker ID (pkg/common.CallbackBrokerID), proving the reverse channel.
 //
 // Built on pkg/plugin and pkg/tool — the plugin-author SDK a real
 // third-party plugin also imports — rather than hand-rolling the
@@ -29,6 +30,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"os"
 
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	"github.com/pluggableharness/agent/pkg/hook"
@@ -70,44 +72,54 @@ var (
 	_ hook.Observer = (*fixtureProvider)(nil)
 )
 
-// Schema returns a single, fixed tool.Schema — the "one canned RPC" this
-// fixture exists to round-trip — and, on its way out, calls back into
-// KernelCallbackService.Log via the SDK's own NewSlogHandler. This is the
-// sanctioned call site for callback.Client per pkg/plugin's "callback-
-// timing trap" doc comment: an RPC handler, invoked only once go-plugin
-// has already begun dispensing this process's client to the kernel, never
-// eagerly from a background goroutine at process start.
-func (p *fixtureProvider) Schema(ctx context.Context) ([]*tool.Schema, error) {
+// Tools returns the single fixed operation this fixture exposes — the "one
+// canned RPC" it exists to round-trip.
+func (p *fixtureProvider) Tools() []tool.Tool {
+	return []tool.Tool{&echoTool{}}
+}
+
+// Configure accepts any config; this fixture takes none. On its way out it
+// calls back into KernelCallbackService.Log via the SDK's own
+// NewSlogHandler. This is the sanctioned call site for callback.Client per
+// pkg/plugin's "callback-timing trap" doc comment: an RPC handler, invoked
+// only once go-plugin has already begun dispensing this process's client to
+// the kernel, never eagerly from a background goroutine at process start.
+// It sits on Configure rather than on the schema path because a Tool's
+// Schema is a static declaration with no context to call back on — the
+// point of that signature.
+func (p *fixtureProvider) Configure(ctx context.Context, _ map[string]any) error {
 	if client, err := p.callback.Client(ctx); err == nil {
 		slog.New(client.NewSlogHandler()).Info("fixture plugin started")
 	}
+	return nil
+}
 
+// echoTool is the single operation this fixture exposes: it echoes its
+// arguments straight back.
+type echoTool struct{}
+
+var _ tool.Tool = (*echoTool)(nil)
+
+func (*echoTool) Schema() (*tool.Schema, error) {
 	empty, err := schema.Object(nil)
 	if err != nil {
 		return nil, err
 	}
-	return []*tool.Schema{
-		{
-			Name:         fixtureToolName,
-			Kind:         tool.KindResource,
-			Risk:         tool.RiskClassLow,
-			Description:  "internal/pluginruntime integration fixture",
-			InputSchema:  empty,
-			OutputSchema: empty,
-			Concurrency:  &tool.ConcurrencySpec{Safe: true},
-			Idempotent:   true,
-		},
+	return &tool.Schema{
+		Name:         fixtureToolName,
+		Kind:         tool.KindResource,
+		Risk:         tool.RiskClassLow,
+		Description:  "internal/pluginruntime integration fixture",
+		InputSchema:  empty,
+		OutputSchema: empty,
+		Concurrency:  &tool.ConcurrencySpec{Safe: true},
+		Idempotent:   true,
 	}, nil
 }
 
-// Configure accepts any config; this fixture takes none.
-func (p *fixtureProvider) Configure(context.Context, map[string]any) error {
-	return nil
-}
-
 // Invoke is never called by this fixture's test but must exist to satisfy
-// tool.Provider.
-func (p *fixtureProvider) Invoke(_ context.Context, call *tool.Call, stream *tool.Stream) error {
+// tool.Tool.
+func (*echoTool) Invoke(_ context.Context, call *tool.Call, stream *tool.Stream) error {
 	return stream.Send(tool.NewResultEvent(map[string]any{"echo": call.Arguments}))
 }
 
@@ -128,12 +140,18 @@ func main() {
 	callback := plugin.NewCallback()
 	provider := &fixtureProvider{callback: callback}
 
+	toolSvc, err := tool.NewService(provider, fixtureIdentity, callback)
+	if err != nil {
+		slog.Error("fixture: tool.NewService", "err", err)
+		os.Exit(1)
+	}
+
 	plugin.Serve(plugin.Config{
 		Identity: fixtureIdentity,
 		Category: commonv1.Category_CATEGORY_TOOL,
 		Callback: callback,
 		Services: []plugin.Service{
-			tool.NewService(provider, fixtureIdentity, callback),
+			toolSvc,
 			hook.NewService(provider),
 		},
 	})

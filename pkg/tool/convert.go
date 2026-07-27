@@ -29,6 +29,18 @@ var (
 
 	// ErrEmptyName is returned when a Schema's Name is empty.
 	ErrEmptyName = errors.New("tool: name must not be empty")
+	// ErrNilTool is returned by NewService and BuildGetSchemaResponse
+	// when Provider.Tools yields a nil Tool.
+	ErrNilTool = errors.New("tool: tool must not be nil")
+	// ErrDuplicateToolName is returned by NewService when two Tools from
+	// the same Provider declare the same Schema.Name. ToolSchema.name
+	// MUST be unique within a provider's namespace
+	// (docs/specifications/tool/protocol.md#getschema), and a duplicate
+	// would make Invoke dispatch ambiguous.
+	ErrDuplicateToolName = errors.New("tool: tool names must be unique within a provider")
+	// ErrUnknownTool is returned by Invoke and Preview when a Call names
+	// a tool this provider does not expose.
+	ErrUnknownTool = errors.New("tool: no such tool in this provider")
 	// ErrUnspecifiedKind is returned when a Schema's Kind is
 	// KindUnspecified.
 	ErrUnspecifiedKind = errors.New("tool: kind must not be unspecified")

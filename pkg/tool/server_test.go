@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -20,12 +21,7 @@ import (
 func TestServiceGetSchema(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
-			return []*tool.Schema{validSchema("read_file")}, nil
-		},
-	}
-	client := newTestClient(t, p)
+	client := newTestClient(t, newFakeProvider(newFakeTool("read_file")))
 
 	resp, err := client.GetSchema(t.Context(), &toolv1.GetSchemaRequest{})
 	if err != nil {
@@ -36,21 +32,87 @@ func TestServiceGetSchema(t *testing.T) {
 	}
 }
 
-func TestServiceGetSchemaError(t *testing.T) {
+func TestServiceGetSchemaListsEveryTool(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.Schema, error) { return nil, errors.New("boom") },
-	}
+	p := newFakeProvider(newFakeTool("file_read"), newFakeTool("file_write"), newFakeTool("file_delete"))
 	client := newTestClient(t, p)
 
-	_, err := client.GetSchema(t.Context(), &toolv1.GetSchemaRequest{})
-	st, ok := status.FromError(err)
-	if !ok {
-		t.Fatalf("GetSchema error is not a *status.Status: %v", err)
+	resp, err := client.GetSchema(t.Context(), &toolv1.GetSchemaRequest{})
+	if err != nil {
+		t.Fatalf("GetSchema: %v", err)
 	}
-	if st.Code() != codes.Internal {
-		t.Errorf("code = %v, want %v", st.Code(), codes.Internal)
+
+	got := make([]string, 0, len(resp.GetTools()))
+	for _, s := range resp.GetTools() {
+		got = append(got, s.GetName())
+	}
+	want := []string{"file_read", "file_write", "file_delete"}
+	if !slices.Equal(got, want) {
+		t.Errorf("tool names = %v, want %v (declaration order preserved)", got, want)
+	}
+}
+
+// TestNewServiceRejectsMalformedToolSets covers the construction-time
+// validation NewService performs: every one of these would otherwise become
+// a malformed advertisement the kernel only discovers on its first
+// GetSchema, or an ambiguous dispatch it discovers mid-turn.
+func TestNewServiceRejectsMalformedToolSets(t *testing.T) {
+	t.Parallel()
+
+	schemaErr := errors.New("boom")
+
+	tests := []struct {
+		name    string
+		tools   []tool.Tool
+		wantErr error
+	}{
+		{
+			name:    "nil tool",
+			tools:   []tool.Tool{nil},
+			wantErr: tool.ErrNilTool,
+		},
+		{
+			name:    "schema error",
+			tools:   []tool.Tool{&fakeTool{schemaErr: schemaErr}},
+			wantErr: schemaErr,
+		},
+		{
+			name:    "nil schema",
+			tools:   []tool.Tool{&fakeTool{}},
+			wantErr: tool.ErrNilSchema,
+		},
+		{
+			name:    "empty name",
+			tools:   []tool.Tool{newFakeTool("")},
+			wantErr: tool.ErrEmptyName,
+		},
+		{
+			name:    "duplicate name",
+			tools:   []tool.Tool{newFakeTool("file_read"), newFakeTool("file_read")},
+			wantErr: tool.ErrDuplicateToolName,
+		},
+		{
+			name: "invalid schema",
+			tools: []tool.Tool{&fakeTool{schema: &tool.Schema{
+				Name:        "file_read",
+				Kind:        tool.KindDataSource,
+				Risk:        tool.RiskClassReadOnly,
+				Description: "missing both I/O schemas",
+			}}},
+			wantErr: tool.ErrNilInputSchema,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := tool.NewService(newFakeProvider(tt.tools...), plugin.Identity{Name: "fake-tool"}, plugin.NewCallback())
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("NewService() error = %v, want wrapping %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
@@ -122,17 +184,15 @@ func TestServiceConfigureGenericErrorDefaultsInvalidArgument(t *testing.T) {
 func TestServiceInvokeStreamsEvents(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		invokeFunc: func(_ context.Context, call *tool.Call, stream *tool.Stream) error {
-			if call.ToolName != "read_file" {
-				t.Errorf("call.ToolName = %q, want %q", call.ToolName, "read_file")
-			}
-			if err := stream.Send(tool.NewOutputChunkEvent(tool.OutputStreamStdout, []byte("hello"))); err != nil {
-				return err
-			}
-			return stream.Send(tool.NewResultEvent(map[string]any{"ok": true}))
-		},
-	}
+	p := newFakeProvider(invokingTool("read_file", func(_ context.Context, call *tool.Call, stream *tool.Stream) error {
+		if call.ToolName != "read_file" {
+			t.Errorf("call.ToolName = %q, want %q", call.ToolName, "read_file")
+		}
+		if err := stream.Send(tool.NewOutputChunkEvent(tool.OutputStreamStdout, []byte("hello"))); err != nil {
+			return err
+		}
+		return stream.Send(tool.NewResultEvent(map[string]any{"ok": true}))
+	}))
 	client := newTestClient(t, p)
 
 	args, err := structpb.NewStruct(map[string]any{"path": "a.go"})
@@ -175,16 +235,13 @@ func TestServiceInvokeStreamsEvents(t *testing.T) {
 func TestServiceInvokeCancellationIsNotSurfacedAsError(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		invokeFunc: func(context.Context, *tool.Call, *tool.Stream) error {
-			// Simulate a Provider that detects cancellation itself and
-			// returns context.Canceled rather than sending a terminal
-			// event — README.md#transport--lifecycle: cancellation is
-			// normal control flow, never surfaced as an application
-			// error.
-			return context.Canceled
-		},
-	}
+	p := newFakeProvider(invokingTool("op", func(context.Context, *tool.Call, *tool.Stream) error {
+		// Simulate a Tool that detects cancellation itself and returns
+		// context.Canceled rather than sending a terminal event —
+		// README.md#transport--lifecycle: cancellation is normal control
+		// flow, never surfaced as an application error.
+		return context.Canceled
+	}))
 	client := newTestClient(t, p)
 
 	stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "op"}})
@@ -200,11 +257,9 @@ func TestServiceInvokeCancellationIsNotSurfacedAsError(t *testing.T) {
 func TestServiceInvokeGenericErrorMapsToUnknown(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		invokeFunc: func(context.Context, *tool.Call, *tool.Stream) error {
-			return errors.New("provider panic recovered")
-		},
-	}
+	p := newFakeProvider(invokingTool("op", func(context.Context, *tool.Call, *tool.Stream) error {
+		return errors.New("tool panic recovered")
+	}))
 	client := newTestClient(t, p)
 
 	stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "op"}})
@@ -224,7 +279,7 @@ func TestServiceInvokeGenericErrorMapsToUnknown(t *testing.T) {
 func TestServiceInvokeInvalidCallRejected(t *testing.T) {
 	t.Parallel()
 
-	client := newTestClient(t, &fakeProvider{})
+	client := newTestClient(t, newFakeProvider(newFakeTool("op")))
 
 	stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: nil})
 	if err != nil {
@@ -239,9 +294,7 @@ func TestServiceInvokeInvalidCallRejected(t *testing.T) {
 func TestServiceInvokeWithoutTerminalEventFails(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		invokeFunc: func(context.Context, *tool.Call, *tool.Stream) error { return nil },
-	}
+	p := newFakeProvider(invokingTool("op", func(context.Context, *tool.Call, *tool.Stream) error { return nil }))
 	client := newTestClient(t, p)
 
 	stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "op"}})
@@ -257,15 +310,13 @@ func TestServiceInvokeWithoutTerminalEventFails(t *testing.T) {
 func TestServiceInvokeErrorEventTerminates(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		invokeFunc: func(_ context.Context, _ *tool.Call, stream *tool.Stream) error {
-			te, err := tool.NewError(tool.ErrorCategoryNotFound, "no such file", false, nil)
-			if err != nil {
-				return err
-			}
-			return stream.Send(tool.NewErrorEvent(te))
-		},
-	}
+	p := newFakeProvider(invokingTool("op", func(_ context.Context, _ *tool.Call, stream *tool.Stream) error {
+		te, err := tool.NewError(tool.ErrorCategoryNotFound, "no such file", false, nil)
+		if err != nil {
+			return err
+		}
+		return stream.Send(tool.NewErrorEvent(te))
+	}))
 	client := newTestClient(t, p)
 
 	stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "op"}})
@@ -287,7 +338,7 @@ func TestServiceInvokeErrorEventTerminates(t *testing.T) {
 func TestServiceDescribe(t *testing.T) {
 	t.Parallel()
 
-	client := newTestClient(t, &fakeProvider{})
+	client := newTestClient(t, newFakeProvider())
 
 	resp, err := client.Describe(t.Context(), &toolv1.DescribeRequest{})
 	if err != nil {
@@ -305,7 +356,7 @@ func TestServiceDescribe(t *testing.T) {
 func TestServiceRenderUnimplementedWithoutRenderer(t *testing.T) {
 	t.Parallel()
 
-	client := newTestClient(t, &fakeProvider{})
+	client := newTestClient(t, newFakeProvider())
 
 	_, err := client.Render(t.Context(), &toolv1.RenderRequest{})
 	if status.Code(err) != codes.Unimplemented {
@@ -313,32 +364,38 @@ func TestServiceRenderUnimplementedWithoutRenderer(t *testing.T) {
 	}
 }
 
-func TestServicePreviewUnimplementedWithoutPreviewer(t *testing.T) {
+// TestServicePreviewIsPerTool exercises protocol.md#preview's MAY at the
+// granularity it is actually written: one operation previewing while its
+// sibling in the same plugin does not.
+func TestServicePreviewIsPerTool(t *testing.T) {
 	t.Parallel()
 
-	client := newTestClient(t, &fakeProvider{})
+	previewed := previewingTool("edit_file", func(_ context.Context, call *tool.Call) (*renderv1.RenderTree, error) {
+		if call.ToolName != "edit_file" {
+			t.Errorf("Preview call.ToolName = %q, want %q", call.ToolName, "edit_file")
+		}
+		return &renderv1.RenderTree{Root: &renderv1.RenderNode{}}, nil
+	})
+	client := newTestClient(t, newFakeProvider(previewed, newFakeTool("read_file")))
 
-	_, err := client.Preview(t.Context(), &toolv1.PreviewRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "op"}})
+	if _, err := client.Preview(t.Context(), &toolv1.PreviewRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "edit_file"}}); err != nil {
+		t.Fatalf("Preview(edit_file): %v", err)
+	}
+
+	_, err := client.Preview(t.Context(), &toolv1.PreviewRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "read_file"}})
 	if status.Code(err) != codes.Unimplemented {
-		t.Fatalf("Preview() code = %v, want %v", status.Code(err), codes.Unimplemented)
+		t.Fatalf("Preview(read_file) code = %v, want %v (that tool does not implement Previewer)", status.Code(err), codes.Unimplemented)
 	}
 }
 
-func TestServiceRenderAndPreview(t *testing.T) {
+func TestServiceRender(t *testing.T) {
 	t.Parallel()
 
-	base := &fakeProvider{}
 	p := &fakeFullProvider{
-		fakeProvider: base,
+		fakeProvider: newFakeProvider(newFakeTool("edit_file")),
 		renderFunc: func(_ context.Context, payload []byte, schemaVersion string) (*renderv1.RenderTree, error) {
 			if string(payload) != "raw" || schemaVersion != "v1" {
 				t.Errorf("Render(%q, %q)", payload, schemaVersion)
-			}
-			return &renderv1.RenderTree{Root: &renderv1.RenderNode{}}, nil
-		},
-		previewFunc: func(_ context.Context, call *tool.Call) (*renderv1.RenderTree, error) {
-			if call.ToolName != "edit_file" {
-				t.Errorf("Preview call.ToolName = %q, want %q", call.ToolName, "edit_file")
 			}
 			return &renderv1.RenderTree{Root: &renderv1.RenderNode{}}, nil
 		},
@@ -348,8 +405,73 @@ func TestServiceRenderAndPreview(t *testing.T) {
 	if _, err := client.Render(t.Context(), &toolv1.RenderRequest{Payload: []byte("raw"), SchemaVersion: "v1"}); err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if _, err := client.Preview(t.Context(), &toolv1.PreviewRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "edit_file"}}); err != nil {
-		t.Fatalf("Preview: %v", err)
+}
+
+// TestServiceDispatchesToNamedTool is the whole point of the Tool-shaped
+// SDK: three tools in one provider, each reached by name, with none of them
+// switching on Call.ToolName themselves.
+func TestServiceDispatchesToNamedTool(t *testing.T) {
+	t.Parallel()
+
+	invoked := make(chan string, 3)
+	record := func(name string) *fakeTool {
+		return invokingTool(name, func(_ context.Context, _ *tool.Call, stream *tool.Stream) error {
+			invoked <- name
+			return stream.Send(tool.NewResultEvent(map[string]any{"tool": name}))
+		})
+	}
+	client := newTestClient(t, newFakeProvider(record("file_read"), record("file_write"), record("file_delete")))
+
+	for _, want := range []string{"file_delete", "file_read", "file_write"} {
+		t.Run(want, func(t *testing.T) {
+			stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: want}})
+			if err != nil {
+				t.Fatalf("Invoke: %v", err)
+			}
+			resp, err := stream.Recv()
+			if err != nil {
+				t.Fatalf("stream.Recv: %v", err)
+			}
+			if got := resp.GetEvent().GetResult().GetPayload().AsMap()["tool"]; got != want {
+				t.Errorf("result payload tool = %v, want %q", got, want)
+			}
+			if got := <-invoked; got != want {
+				t.Errorf("Invoke reached tool %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestServiceInvokeUnknownToolRejected(t *testing.T) {
+	t.Parallel()
+
+	reached := false
+	p := newFakeProvider(invokingTool("file_read", func(_ context.Context, _ *tool.Call, stream *tool.Stream) error {
+		reached = true
+		return stream.Send(tool.NewResultEvent(nil))
+	}))
+	client := newTestClient(t, p)
+
+	stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "file_teleport"}})
+	if err != nil {
+		t.Fatalf("Invoke: %v", err)
+	}
+	if _, err = stream.Recv(); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("stream.Recv() code = %v, want %v", status.Code(err), codes.InvalidArgument)
+	}
+	if reached {
+		t.Error("a call naming an unknown tool reached a Tool implementation")
+	}
+}
+
+func TestServicePreviewUnknownToolRejected(t *testing.T) {
+	t.Parallel()
+
+	client := newTestClient(t, newFakeProvider(newFakeTool("file_read")))
+
+	_, err := client.Preview(t.Context(), &toolv1.PreviewRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "file_teleport"}})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("Preview() code = %v, want %v", status.Code(err), codes.InvalidArgument)
 	}
 }
 
@@ -373,12 +495,10 @@ func TestServiceInvokeSeesCallback(t *testing.T) {
 	t.Parallel()
 
 	var sawCallback bool
-	p := &fakeProvider{
-		invokeFunc: func(ctx context.Context, _ *tool.Call, stream *tool.Stream) error {
-			_, sawCallback = tool.CallbackFromContext(ctx)
-			return stream.Send(tool.NewResultEvent(nil))
-		},
-	}
+	p := newFakeProvider(invokingTool("op", func(ctx context.Context, _ *tool.Call, stream *tool.Stream) error {
+		_, sawCallback = tool.CallbackFromContext(ctx)
+		return stream.Send(tool.NewResultEvent(nil))
+	}))
 	client := newTestClient(t, p)
 
 	stream, err := client.Invoke(t.Context(), &toolv1.InvokeRequest{Call: &toolv1.ToolCall{Id: "c", ToolName: "op"}})

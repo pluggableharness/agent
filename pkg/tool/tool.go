@@ -310,13 +310,59 @@ func NewErrorEvent(err *Error) *Event {
 	return &Event{Error: err}
 }
 
-// Provider is the interface a tool plugin author implements; NewService
-// adapts it onto the generated toolv1.ToolServiceServer.
+// Tool is one operation a plugin exposes — the unit a plugin author
+// implements. A single Provider serves as many Tools as it likes (a
+// filesystem plugin's read, write, and delete are three Tools in one
+// process), which is exactly what the wire contract describes:
+// GetSchemaResponse.tools is repeated, and every ToolCall names which of
+// them to run. Service builds a name-keyed dispatch table from
+// Provider.Tools and routes each Invoke to the right one, so no
+// implementation ever switches on Call.ToolName itself.
+type Tool interface {
+	// Schema declares this operation, per
+	// docs/specifications/tool/protocol.md#getschema: its name, kind,
+	// risk, description, and input/output schemas. Deliberately takes no
+	// context — the spec's "MUST NOT require a network call" is a
+	// structural property of a declaration, not a promise to keep by
+	// hand. The error return is for the fallible pkg/schema builders
+	// alone, so a Tool need not have a fallible constructor.
+	Schema() (*Schema, error)
+	// Invoke executes call, sending zero or more non-terminal events and
+	// exactly one terminal event (built with NewResultEvent or
+	// NewErrorEvent) via stream before returning. Returning a nil error
+	// without having sent a terminal event is a Tool bug the adapter
+	// surfaces as a failed RPC. See stream.go for the full contract.
+	Invoke(ctx context.Context, call *Call, stream *Stream) error
+}
+
+// Previewer is an optional interface a Tool MAY additionally implement to
+// describe, without executing, what Invoke(call) would do, per
+// docs/specifications/tool/protocol.md#preview. Producing a preview MUST
+// NOT mutate anything and MUST be side-effect-free; a Tool unable to
+// satisfy that MUST NOT implement Previewer. Implemented per Tool rather
+// than per Provider because PreviewRequest carries a full ToolCall, so
+// Service can dispatch on Call.ToolName exactly as it does for Invoke. If
+// the addressed Tool does not implement Previewer, a kernel falls back to
+// showing the call's raw arguments in the plan/apply gate's permission UI.
+type Previewer interface {
+	Preview(ctx context.Context, call *Call) (*renderv1.RenderTree, error)
+}
+
+// Provider is the plugin-level interface a tool plugin author implements:
+// the set of Tools this process serves, plus the configuration they share.
+// NewService adapts it onto the generated toolv1.ToolServiceServer.
 type Provider interface {
-	// Schema returns the Schema for every operation this plugin
-	// exposes, per docs/specifications/tool/protocol.md#getschema. MUST
-	// be cheaply re-queryable and MUST NOT make a network call.
-	Schema(ctx context.Context) ([]*Schema, error)
+	// Tools returns every operation this plugin exposes, per
+	// docs/specifications/tool/protocol.md#getschema. Deliberately
+	// static — no context, no error — because the tool set is fixed
+	// before Configure ever runs: internal/pluginhost brings a plugin up
+	// as Describe, GetSchema, decode config, then Configure, so the
+	// kernel has already learned and cached this set by the time a
+	// provider knows its own configuration. Config-dependent *behavior*
+	// belongs inside a Tool's Invoke, reading provider state Configure
+	// set; a config-dependent tool *set* is not expressible and would
+	// misreport this plugin's capabilities to the kernel.
+	Tools() []Tool
 	// Configure decodes and validates this provider's agent.hcl block,
 	// already decoded from JSON into config. MUST reject with an error
 	// on a missing required field rather than deferring failure to the
@@ -324,12 +370,6 @@ type Provider interface {
 	// category/message; any other error defaults to
 	// ErrorCategoryInvalidArguments.
 	Configure(ctx context.Context, config map[string]any) error
-	// Invoke executes call, sending zero or more non-terminal events and
-	// exactly one terminal event (built with NewResultEvent or
-	// NewErrorEvent) via stream before returning. Returning a nil error
-	// without having sent a terminal event is a Provider bug the adapter
-	// surfaces as a failed RPC. See stream.go for the full contract.
-	Invoke(ctx context.Context, call *Call, stream *Stream) error
 }
 
 // Renderer is an optional interface a Provider MAY additionally implement
@@ -337,19 +377,15 @@ type Provider interface {
 // docs/specifications/tool/protocol.md#render. If a Provider does not
 // implement Renderer, the kernel falls back to its generic default
 // (pretty-printed JSON payload).
+//
+// Deliberately plugin-level, unlike Previewer: RenderRequest carries only
+// the opaque payload and its schema version, with no tool name for Service
+// to dispatch on, so a per-Tool Render is not implementable without a wire
+// change. A multi-Tool plugin discriminates on its own payload — legitimate,
+// since that payload's format is the plugin's alone (grpc.md's
+// Emit->Render->Paint carve-out) and SchemaVersion already versions it.
 type Renderer interface {
 	Render(ctx context.Context, payload []byte, schemaVersion string) (*renderv1.RenderTree, error)
-}
-
-// Previewer is an optional interface a Provider MAY additionally implement
-// to describe, without executing, what Invoke(call) would do, per
-// docs/specifications/tool/protocol.md#preview. Producing a preview MUST
-// NOT mutate anything and MUST be side-effect-free; a Provider unable to
-// satisfy that for a given operation MUST NOT implement Previewer for it.
-// If a Provider does not implement Previewer, a kernel falls back to
-// showing the call's raw arguments in the plan/apply gate's permission UI.
-type Previewer interface {
-	Preview(ctx context.Context, call *Call) (*renderv1.RenderTree, error)
 }
 
 // ConfigSchemaProvider is an optional interface a Provider MAY implement

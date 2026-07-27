@@ -1,7 +1,6 @@
 package tool_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -13,13 +12,9 @@ import (
 func TestBuildGetSchemaResponseBasic(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
-			return []*tool.Schema{validSchema("read_file"), validSchema("glob")}, nil
-		},
-	}
+	p := newFakeProvider(newFakeTool("read_file"), newFakeTool("glob"))
 
-	resp, err := tool.BuildGetSchemaResponse(t.Context(), p)
+	resp, err := tool.BuildGetSchemaResponse(p)
 	if err != nil {
 		t.Fatalf("BuildGetSchemaResponse: %v", err)
 	}
@@ -41,26 +36,31 @@ func TestBuildGetSchemaResponseSchemaError(t *testing.T) {
 	t.Parallel()
 
 	wantErr := errors.New("boom")
-	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.Schema, error) { return nil, wantErr },
-	}
+	p := newFakeProvider(&fakeTool{schemaErr: wantErr})
 
-	_, err := tool.BuildGetSchemaResponse(t.Context(), p)
+	_, err := tool.BuildGetSchemaResponse(p)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("BuildGetSchemaResponse() error = %v, want wrapping %v", err, wantErr)
+	}
+}
+
+func TestBuildGetSchemaResponseNilTool(t *testing.T) {
+	t.Parallel()
+
+	p := newFakeProvider(newFakeTool("read_file"), nil)
+
+	_, err := tool.BuildGetSchemaResponse(p)
+	if !errors.Is(err, tool.ErrNilTool) {
+		t.Fatalf("BuildGetSchemaResponse() error = %v, want wrapping %v", err, tool.ErrNilTool)
 	}
 }
 
 func TestBuildGetSchemaResponseInvalidSchema(t *testing.T) {
 	t.Parallel()
 
-	p := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
-			return []*tool.Schema{{Name: ""}}, nil // missing everything
-		},
-	}
+	p := newFakeProvider(&fakeTool{schema: &tool.Schema{Name: ""}}) // missing everything
 
-	_, err := tool.BuildGetSchemaResponse(t.Context(), p)
+	_, err := tool.BuildGetSchemaResponse(p)
 	if err == nil {
 		t.Fatal("BuildGetSchemaResponse() with an invalid Schema: want error, got nil")
 	}
@@ -69,11 +69,7 @@ func TestBuildGetSchemaResponseInvalidSchema(t *testing.T) {
 func TestBuildGetSchemaResponseOptionalCapabilities(t *testing.T) {
 	t.Parallel()
 
-	base := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.Schema, error) {
-			return []*tool.Schema{validSchema("op")}, nil
-		},
-	}
+	base := newFakeProvider(newFakeTool("op"))
 	wantSchema := &configv1.ConfigSchema{}
 	wantSlash := []*commonv1.PromptExpansionSpec{{Name: "foo", Template: "do foo"}}
 	wantHooks := []commonv1.HookPoint{commonv1.HookPoint_HOOK_POINT_PRE_TOOL_CALL}
@@ -85,7 +81,7 @@ func TestBuildGetSchemaResponseOptionalCapabilities(t *testing.T) {
 		hookPoints:       wantHooks,
 	}
 
-	resp, err := tool.BuildGetSchemaResponse(t.Context(), p)
+	resp, err := tool.BuildGetSchemaResponse(p)
 	if err != nil {
 		t.Fatalf("BuildGetSchemaResponse: %v", err)
 	}
@@ -104,15 +100,12 @@ func TestBuildGetSchemaResponseConfigSchemaError(t *testing.T) {
 	t.Parallel()
 
 	wantErr := errors.New("bad config schema")
-	base := &fakeProvider{
-		schemaFunc: func(context.Context) ([]*tool.Schema, error) { return nil, nil },
-	}
 	p := &fakeFullProvider{
-		fakeProvider:     base,
+		fakeProvider:     newFakeProvider(),
 		configSchemaFunc: func() (*configv1.ConfigSchema, error) { return nil, wantErr },
 	}
 
-	_, err := tool.BuildGetSchemaResponse(t.Context(), p)
+	_, err := tool.BuildGetSchemaResponse(p)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("BuildGetSchemaResponse() error = %v, want wrapping %v", err, wantErr)
 	}

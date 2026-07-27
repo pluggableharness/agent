@@ -3,9 +3,36 @@
 // access, task tracking, and sub-agent spawning
 // (docs/specifications/tool/README.md). It sits directly on top of the
 // generated pkg/tool/proto/v1 stubs (toolv1) and the shared foundation
-// packages (pkg/plugin, pkg/config, pkg/schema, pkg/render): a plugin
-// author implements Provider, builds a *Service with NewService, and
-// passes it to plugin.Config.Services before calling plugin.Serve.
+// packages (pkg/plugin, pkg/config, pkg/schema, pkg/render).
+//
+// # The unit of implementation is one Tool
+//
+// One plugin process serves as many operations as it likes — this is what
+// the wire contract already describes, with GetSchemaResponse.tools
+// repeated and every ToolCall naming which of them to run. This package
+// mirrors that directly: a plugin author writes one Tool per operation,
+// each owning its own Schema and Invoke, and a Provider that returns them:
+//
+//	type FileRead struct{ root string }
+//
+//	func (t *FileRead) Schema() (*tool.Schema, error) { ... }
+//	func (t *FileRead) Invoke(ctx context.Context, c *tool.Call, s *tool.Stream) error { ... }
+//
+//	func (p *fsProvider) Tools() []tool.Tool {
+//		return []tool.Tool{&FileRead{p.root}, &FileWrite{p.root}, &FileDelete{p.root}}
+//	}
+//
+// The author then builds a *Service with NewService and passes it to
+// plugin.Config.Services before calling plugin.Serve. Service owns the
+// name-keyed dispatch from an incoming Call to the Tool that serves it, so
+// no implementation in this package's care ever switches on Call.ToolName,
+// and a tool's declared schema cannot drift from the code behind it.
+//
+// Provider keeps only what is genuinely plugin-wide: the tool set,
+// Configure, and the optional ConfigSchemaProvider, SlashCommandProvider,
+// HookPointProvider, and Renderer. Previewer, by contrast, is per Tool —
+// see its documentation in tool.go, and Renderer's, for why the two
+// optional render-side interfaces sit at different levels.
 //
 // See docs/specifications/tool/protocol.md for the six RPCs this package
 // wires up (GetSchema, Configure, Invoke, Render, Preview, Describe — the

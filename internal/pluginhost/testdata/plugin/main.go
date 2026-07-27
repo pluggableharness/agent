@@ -28,6 +28,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	"github.com/pluggableharness/agent/pkg/config"
@@ -116,13 +117,23 @@ func (p *fixtureProvider) Configure(ctx context.Context, cfg map[string]any) err
 	return nil
 }
 
-// Schema satisfies tool.Provider with one trivial operation.
-func (p *fixtureProvider) Schema(context.Context) ([]*tool.Schema, error) {
+// Tools satisfies tool.Provider with one trivial operation.
+func (p *fixtureProvider) Tools() []tool.Tool {
+	return []tool.Tool{&echoTool{}}
+}
+
+// echoTool is the single operation this fixture exposes: it echoes its
+// arguments straight back.
+type echoTool struct{}
+
+var _ tool.Tool = (*echoTool)(nil)
+
+func (*echoTool) Schema() (*tool.Schema, error) {
 	empty, err := schema.Object(nil)
 	if err != nil {
 		return nil, err
 	}
-	return []*tool.Schema{{
+	return &tool.Schema{
 		Name:         "fixture_echo",
 		Kind:         tool.KindResource,
 		Risk:         tool.RiskClassLow,
@@ -131,12 +142,12 @@ func (p *fixtureProvider) Schema(context.Context) ([]*tool.Schema, error) {
 		OutputSchema: empty,
 		Concurrency:  &tool.ConcurrencySpec{Safe: true},
 		Idempotent:   true,
-	}}, nil
+	}, nil
 }
 
 // Invoke is never called by this fixture's tests but must exist to
-// satisfy tool.Provider.
-func (p *fixtureProvider) Invoke(_ context.Context, call *tool.Call, stream *tool.Stream) error {
+// satisfy tool.Tool.
+func (*echoTool) Invoke(_ context.Context, call *tool.Call, stream *tool.Stream) error {
 	return stream.Send(tool.NewResultEvent(map[string]any{"echo": call.Arguments}))
 }
 
@@ -149,10 +160,16 @@ func main() {
 		Source:  fixtureSource,
 	}
 
+	svc, err := tool.NewService(provider, id, callback)
+	if err != nil {
+		slog.Error("fixture: tool.NewService", "err", err)
+		os.Exit(1)
+	}
+
 	plugin.Serve(plugin.Config{
 		Identity: id,
 		Category: commonv1.Category_CATEGORY_TOOL,
 		Callback: callback,
-		Services: []plugin.Service{tool.NewService(provider, id, callback)},
+		Services: []plugin.Service{svc},
 	})
 }

@@ -190,10 +190,16 @@ func TestLaunch_realSubprocess(t *testing.T) {
 		t.Fatalf("GetSchema: tools = %v, want exactly one fixture_echo", tools)
 	}
 
-	// The fixture's Log callback fires from a background goroutine on its
-	// side (see testdata/plugin/main.go's GRPCServer) — poll for it
-	// rather than assuming synchronous delivery, bounded well inside the
-	// 5s integration-test budget.
+	// The fixture logs back through the kernel callback from inside its
+	// Configure handler — the schema path can't, because tool.Tool.Schema
+	// is a static declaration with no context to call back on.
+	if _, err := client.Configure(ctx, &toolv1.ConfigureRequest{}); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+
+	// That Log callback is delivered from a background goroutine on the
+	// fixture's side — poll for it rather than assuming synchronous
+	// delivery, bounded well inside the 5s integration-test budget.
 	deadline := time.Now().Add(3 * time.Second)
 	for !h.hasFixtureLog(producer) {
 		if time.Now().After(deadline) {
