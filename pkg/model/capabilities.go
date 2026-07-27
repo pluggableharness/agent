@@ -87,8 +87,33 @@ func validateModelSpec(m Spec) error {
 	if err := validateThinkingSpec(m.Thinking); err != nil {
 		return err
 	}
+	if err := validateCachingSpec(m.Caching); err != nil {
+		return err
+	}
 	if err := validatePricing(m.Pricing, m.Caching.Supported); err != nil {
 		return err
+	}
+	return nil
+}
+
+// validateCachingSpec checks c against
+// docs/specifications/model/data-types.md#cachingspec.
+//
+// The two axes are independent, so a model may declare either or both —
+// the only rules are that declaring caching requires naming at least one
+// mechanism, and that a non-caching model names none. A model caching by
+// some mechanism this protocol cannot express is not declarable, and
+// leaving both axes false would read as "no caching" to every caller,
+// which is why the positive case is checked rather than assumed.
+func validateCachingSpec(c CachingSpec) error {
+	if !c.Supported {
+		if c.ExplicitMarkers || c.ImplicitAutomatic {
+			return fmt.Errorf("%w: caching mechanism declared on a model with caching unsupported", ErrInvalidCapabilities)
+		}
+		return nil
+	}
+	if !c.ExplicitMarkers && !c.ImplicitAutomatic {
+		return fmt.Errorf("%w: caching supported but neither explicit_markers nor implicit_automatic declared", ErrInvalidCapabilities)
 	}
 	return nil
 }

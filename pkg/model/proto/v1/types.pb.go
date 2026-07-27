@@ -94,68 +94,6 @@ func (ThinkingDisableSupport) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
-// CachingMode enumerates the prompt-caching mechanics found across
-// researched vendors (model.md §2).
-type CachingMode int32
-
-const (
-	// Zero value. Never valid when CachingSpec.supported is true; its
-	// presence on the wire means a caller forgot to set the field.
-	CachingMode_CACHING_MODE_UNSPECIFIED CachingMode = 0
-	// The model has no prompt-caching capability. Pairs with
-	// CachingSpec.supported == false.
-	CachingMode_CACHING_MODE_NONE CachingMode = 1
-	// The caller must place cache breakpoints on content blocks explicitly
-	// (Anthropic/Mistral-style).
-	CachingMode_CACHING_MODE_EXPLICIT_MARKERS CachingMode = 2
-	// The vendor applies caching transparently above a token threshold, no
-	// caller action required.
-	CachingMode_CACHING_MODE_IMPLICIT_AUTOMATIC CachingMode = 3
-)
-
-// Enum value maps for CachingMode.
-var (
-	CachingMode_name = map[int32]string{
-		0: "CACHING_MODE_UNSPECIFIED",
-		1: "CACHING_MODE_NONE",
-		2: "CACHING_MODE_EXPLICIT_MARKERS",
-		3: "CACHING_MODE_IMPLICIT_AUTOMATIC",
-	}
-	CachingMode_value = map[string]int32{
-		"CACHING_MODE_UNSPECIFIED":        0,
-		"CACHING_MODE_NONE":               1,
-		"CACHING_MODE_EXPLICIT_MARKERS":   2,
-		"CACHING_MODE_IMPLICIT_AUTOMATIC": 3,
-	}
-)
-
-func (x CachingMode) Enum() *CachingMode {
-	p := new(CachingMode)
-	*p = x
-	return p
-}
-
-func (x CachingMode) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (CachingMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_model_v1_types_proto_enumTypes[1].Descriptor()
-}
-
-func (CachingMode) Type() protoreflect.EnumType {
-	return &file_pluggableharness_model_v1_types_proto_enumTypes[1]
-}
-
-func (x CachingMode) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use CachingMode.Descriptor instead.
-func (CachingMode) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{1}
-}
-
 // ToolChoiceMode enumerates the tool-invocation constraint shapes found
 // across researched vendors, per the same "declare precisely, don't
 // collapse to a bool" reasoning as ThinkingMode/CachingMode above.
@@ -206,11 +144,11 @@ func (x ToolChoiceMode) String() string {
 }
 
 func (ToolChoiceMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_model_v1_types_proto_enumTypes[2].Descriptor()
+	return file_pluggableharness_model_v1_types_proto_enumTypes[1].Descriptor()
 }
 
 func (ToolChoiceMode) Type() protoreflect.EnumType {
-	return &file_pluggableharness_model_v1_types_proto_enumTypes[2]
+	return &file_pluggableharness_model_v1_types_proto_enumTypes[1]
 }
 
 func (x ToolChoiceMode) Number() protoreflect.EnumNumber {
@@ -219,7 +157,7 @@ func (x ToolChoiceMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ToolChoiceMode.Descriptor instead.
 func (ToolChoiceMode) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 // Capabilities is GetCapabilities' response payload: every model this
@@ -778,24 +716,46 @@ func (x *ThinkingSpec) GetDisable() ThinkingDisableSupport {
 }
 
 // CachingSpec describes one model's prompt-caching capability, per
-// model.md §2.
+// model/data-types.md#cachingspec.
+//
+// These are independent axes, not one-of-N modes, for the same reason
+// ThinkingSpec's are: Google's Gemini 2.5 and later run implicit automatic
+// caching by default AND offer explicit manual declaration concurrently at
+// a deeper discount. An earlier revision modeled this as a single
+// mutually-exclusive enum, which forced such a model to under-declare
+// itself — and, because cache_breakpoints were gated on that enum naming
+// EXPLICIT_MARKERS, required it to discard breakpoints it could in fact
+// have honored.
 type CachingSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether this model has any prompt-caching capability at all.
+	// Whether this model has any prompt-caching capability at all. When
+	// false, explicit_markers and implicit_automatic MUST both be false;
+	// when true, at least one of them MUST be true — a model caching by a
+	// mechanism this protocol cannot name is not declarable, and declaring
+	// neither reads as "no caching" to every caller.
 	Supported bool `protobuf:"varint,1,opt,name=supported,proto3" json:"supported,omitempty"`
-	// Which caching mechanic this model uses. MUST be CACHING_MODE_NONE
-	// when supported == false.
-	Mode CachingMode `protobuf:"varint,2,opt,name=mode,proto3,enum=pluggableharness.model.v1.CachingMode" json:"mode,omitempty"`
 	// Whether this provider runs its own cache-keepalive loop (e.g. a
 	// background goroutine re-pinging before a cache TTL expires, so a long
 	// tool-execution gap doesn't let the cache go cold). MUST be set,
 	// default false. Cache TTL mechanics are vendor-specific, so per
 	// operator decision this is a provider-owned behavior the kernel never
 	// drives — this field only tells the kernel/operator whether a given
-	// provider implements the optimization (model.md §2).
+	// provider implements the optimization.
 	KeepaliveSupported bool `protobuf:"varint,3,opt,name=keepalive_supported,json=keepaliveSupported,proto3" json:"keepalive_supported,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Whether the caller may place cache breakpoints on content blocks and
+	// have the adapter translate them into vendor-native markers (an
+	// Anthropic cache_control block, a Mistral prompt_cache_key). This is
+	// the axis StreamCompletionRequest.cache_breakpoints is gated on: an
+	// adapter for a model that does not declare it MUST ignore that field
+	// rather than error on it.
+	ExplicitMarkers bool `protobuf:"varint,4,opt,name=explicit_markers,json=explicitMarkers,proto3" json:"explicit_markers,omitempty"`
+	// Whether the vendor caches transparently above some token threshold
+	// with no caller action. Declaring this requires nothing of the kernel;
+	// it exists so cache-hit and cost behavior are explicable rather than
+	// surprising.
+	ImplicitAutomatic bool `protobuf:"varint,5,opt,name=implicit_automatic,json=implicitAutomatic,proto3" json:"implicit_automatic,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *CachingSpec) Reset() {
@@ -835,16 +795,23 @@ func (x *CachingSpec) GetSupported() bool {
 	return false
 }
 
-func (x *CachingSpec) GetMode() CachingMode {
-	if x != nil {
-		return x.Mode
-	}
-	return CachingMode_CACHING_MODE_UNSPECIFIED
-}
-
 func (x *CachingSpec) GetKeepaliveSupported() bool {
 	if x != nil {
 		return x.KeepaliveSupported
+	}
+	return false
+}
+
+func (x *CachingSpec) GetExplicitMarkers() bool {
+	if x != nil {
+		return x.ExplicitMarkers
+	}
+	return false
+}
+
+func (x *CachingSpec) GetImplicitAutomatic() bool {
+	if x != nil {
+		return x.ImplicitAutomatic
 	}
 	return false
 }
@@ -1772,11 +1739,12 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\adisable\x18\n" +
 	" \x01(\x0e21.pluggableharness.model.v1.ThinkingDisableSupportR\adisableB\t\n" +
 	"\a_effortB\t\n" +
-	"\a_budgetJ\x04\b\x02\x10\aR\fbudget_rangeR\vcan_disableR\adefaultR\reffort_levelsR\x04mode\"\x98\x01\n" +
+	"\a_budgetJ\x04\b\x02\x10\aR\fbudget_rangeR\vcan_disableR\adefaultR\reffort_levelsR\x04mode\"\xc2\x01\n" +
 	"\vCachingSpec\x12\x1c\n" +
-	"\tsupported\x18\x01 \x01(\bR\tsupported\x12:\n" +
-	"\x04mode\x18\x02 \x01(\x0e2&.pluggableharness.model.v1.CachingModeR\x04mode\x12/\n" +
-	"\x13keepalive_supported\x18\x03 \x01(\bR\x12keepaliveSupported\"\xe1\x05\n" +
+	"\tsupported\x18\x01 \x01(\bR\tsupported\x12/\n" +
+	"\x13keepalive_supported\x18\x03 \x01(\bR\x12keepaliveSupported\x12)\n" +
+	"\x10explicit_markers\x18\x04 \x01(\bR\x0fexplicitMarkers\x12-\n" +
+	"\x12implicit_automatic\x18\x05 \x01(\bR\x11implicitAutomaticJ\x04\b\x02\x10\x03R\x04mode\"\xe1\x05\n" +
 	"\vPricingTier\x12F\n" +
 	"\x0eeffective_from\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\reffectiveFrom\x88\x01\x01\x12H\n" +
 	"\x0feffective_until\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x0eeffectiveUntil\x88\x01\x01\x12$\n" +
@@ -1854,12 +1822,7 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"$THINKING_DISABLE_SUPPORT_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eTHINKING_DISABLE_SUPPORT_NEVER\x10\x01\x12#\n" +
 	"\x1fTHINKING_DISABLE_SUPPORT_ALWAYS\x10\x02\x12(\n" +
-	"$THINKING_DISABLE_SUPPORT_CONDITIONAL\x10\x03*\x8a\x01\n" +
-	"\vCachingMode\x12\x1c\n" +
-	"\x18CACHING_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11CACHING_MODE_NONE\x10\x01\x12!\n" +
-	"\x1dCACHING_MODE_EXPLICIT_MARKERS\x10\x02\x12#\n" +
-	"\x1fCACHING_MODE_IMPLICIT_AUTOMATIC\x10\x03*\xa1\x01\n" +
+	"$THINKING_DISABLE_SUPPORT_CONDITIONAL\x10\x03*\xa1\x01\n" +
 	"\x0eToolChoiceMode\x12 \n" +
 	"\x1cTOOL_CHOICE_MODE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TOOL_CHOICE_MODE_AUTO\x10\x01\x12\x18\n" +
@@ -1879,63 +1842,61 @@ func file_pluggableharness_model_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_model_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_model_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_pluggableharness_model_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_pluggableharness_model_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_pluggableharness_model_v1_types_proto_goTypes = []any{
 	(ThinkingDisableSupport)(0),                   // 0: pluggableharness.model.v1.ThinkingDisableSupport
-	(CachingMode)(0),                              // 1: pluggableharness.model.v1.CachingMode
-	(ToolChoiceMode)(0),                           // 2: pluggableharness.model.v1.ToolChoiceMode
-	(*Capabilities)(nil),                          // 3: pluggableharness.model.v1.Capabilities
-	(*ModelSpec)(nil),                             // 4: pluggableharness.model.v1.ModelSpec
-	(*ThinkingBudgetRange)(nil),                   // 5: pluggableharness.model.v1.ThinkingBudgetRange
-	(*EffortControl)(nil),                         // 6: pluggableharness.model.v1.EffortControl
-	(*BudgetControl)(nil),                         // 7: pluggableharness.model.v1.BudgetControl
-	(*ThinkingSpec)(nil),                          // 8: pluggableharness.model.v1.ThinkingSpec
-	(*CachingSpec)(nil),                           // 9: pluggableharness.model.v1.CachingSpec
-	(*PricingTier)(nil),                           // 10: pluggableharness.model.v1.PricingTier
-	(*Pricing)(nil),                               // 11: pluggableharness.model.v1.Pricing
-	(*CacheBreakpoint)(nil),                       // 12: pluggableharness.model.v1.CacheBreakpoint
-	(*ToolDeclaration)(nil),                       // 13: pluggableharness.model.v1.ToolDeclaration
-	(*GenerationParams)(nil),                      // 14: pluggableharness.model.v1.GenerationParams
-	(*ToolChoice)(nil),                            // 15: pluggableharness.model.v1.ToolChoice
-	(*Usage)(nil),                                 // 16: pluggableharness.model.v1.Usage
-	(*ModelTarget)(nil),                           // 17: pluggableharness.model.v1.ModelTarget
-	(*ModelRef)(nil),                              // 18: pluggableharness.model.v1.ModelRef
-	(*CacheBreakpoint_AfterAssembledContext)(nil), // 19: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	(*CacheBreakpoint_AfterTools)(nil),            // 20: pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	(*v1.PromptExpansionSpec)(nil),                // 21: pluggableharness.common.v1.PromptExpansionSpec
-	(*v11.ConfigSchema)(nil),                      // 22: pluggableharness.config.v1.ConfigSchema
-	(v1.HookPoint)(0),                             // 23: pluggableharness.common.v1.HookPoint
-	(*timestamppb.Timestamp)(nil),                 // 24: google.protobuf.Timestamp
-	(*v12.Schema)(nil),                            // 25: pluggableharness.schema.v1.Schema
+	(ToolChoiceMode)(0),                           // 1: pluggableharness.model.v1.ToolChoiceMode
+	(*Capabilities)(nil),                          // 2: pluggableharness.model.v1.Capabilities
+	(*ModelSpec)(nil),                             // 3: pluggableharness.model.v1.ModelSpec
+	(*ThinkingBudgetRange)(nil),                   // 4: pluggableharness.model.v1.ThinkingBudgetRange
+	(*EffortControl)(nil),                         // 5: pluggableharness.model.v1.EffortControl
+	(*BudgetControl)(nil),                         // 6: pluggableharness.model.v1.BudgetControl
+	(*ThinkingSpec)(nil),                          // 7: pluggableharness.model.v1.ThinkingSpec
+	(*CachingSpec)(nil),                           // 8: pluggableharness.model.v1.CachingSpec
+	(*PricingTier)(nil),                           // 9: pluggableharness.model.v1.PricingTier
+	(*Pricing)(nil),                               // 10: pluggableharness.model.v1.Pricing
+	(*CacheBreakpoint)(nil),                       // 11: pluggableharness.model.v1.CacheBreakpoint
+	(*ToolDeclaration)(nil),                       // 12: pluggableharness.model.v1.ToolDeclaration
+	(*GenerationParams)(nil),                      // 13: pluggableharness.model.v1.GenerationParams
+	(*ToolChoice)(nil),                            // 14: pluggableharness.model.v1.ToolChoice
+	(*Usage)(nil),                                 // 15: pluggableharness.model.v1.Usage
+	(*ModelTarget)(nil),                           // 16: pluggableharness.model.v1.ModelTarget
+	(*ModelRef)(nil),                              // 17: pluggableharness.model.v1.ModelRef
+	(*CacheBreakpoint_AfterAssembledContext)(nil), // 18: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	(*CacheBreakpoint_AfterTools)(nil),            // 19: pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	(*v1.PromptExpansionSpec)(nil),                // 20: pluggableharness.common.v1.PromptExpansionSpec
+	(*v11.ConfigSchema)(nil),                      // 21: pluggableharness.config.v1.ConfigSchema
+	(v1.HookPoint)(0),                             // 22: pluggableharness.common.v1.HookPoint
+	(*timestamppb.Timestamp)(nil),                 // 23: google.protobuf.Timestamp
+	(*v12.Schema)(nil),                            // 24: pluggableharness.schema.v1.Schema
 }
 var file_pluggableharness_model_v1_types_proto_depIdxs = []int32{
-	4,  // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
-	21, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
-	22, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
-	23, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
-	8,  // 4: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
-	9,  // 5: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
-	11, // 6: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
-	2,  // 7: pluggableharness.model.v1.ModelSpec.supported_tool_choice_modes:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	5,  // 8: pluggableharness.model.v1.BudgetControl.range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
-	6,  // 9: pluggableharness.model.v1.ThinkingSpec.effort:type_name -> pluggableharness.model.v1.EffortControl
-	7,  // 10: pluggableharness.model.v1.ThinkingSpec.budget:type_name -> pluggableharness.model.v1.BudgetControl
+	3,  // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
+	20, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
+	21, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
+	22, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	7,  // 4: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
+	8,  // 5: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
+	10, // 6: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
+	1,  // 7: pluggableharness.model.v1.ModelSpec.supported_tool_choice_modes:type_name -> pluggableharness.model.v1.ToolChoiceMode
+	4,  // 8: pluggableharness.model.v1.BudgetControl.range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
+	5,  // 9: pluggableharness.model.v1.ThinkingSpec.effort:type_name -> pluggableharness.model.v1.EffortControl
+	6,  // 10: pluggableharness.model.v1.ThinkingSpec.budget:type_name -> pluggableharness.model.v1.BudgetControl
 	0,  // 11: pluggableharness.model.v1.ThinkingSpec.disable:type_name -> pluggableharness.model.v1.ThinkingDisableSupport
-	1,  // 12: pluggableharness.model.v1.CachingSpec.mode:type_name -> pluggableharness.model.v1.CachingMode
-	24, // 13: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
-	24, // 14: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
-	10, // 15: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
-	19, // 16: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	20, // 17: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	25, // 18: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
-	15, // 19: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
-	2,  // 20: pluggableharness.model.v1.ToolChoice.mode:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	23, // 12: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
+	23, // 13: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
+	9,  // 14: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
+	18, // 15: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	19, // 16: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	24, // 17: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
+	14, // 18: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
+	1,  // 19: pluggableharness.model.v1.ToolChoice.mode:type_name -> pluggableharness.model.v1.ToolChoiceMode
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_types_proto_init() }
@@ -1960,7 +1921,7 @@ func file_pluggableharness_model_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_types_proto_rawDesc), len(file_pluggableharness_model_v1_types_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      2,
 			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,

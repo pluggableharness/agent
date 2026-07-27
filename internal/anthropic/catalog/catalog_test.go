@@ -247,8 +247,8 @@ func TestCaching_everyModelDeclaresExplicitMarkers(t *testing.T) {
 		if !m.Caching.Supported {
 			t.Errorf("%s: caching is not declared supported", m.ID)
 		}
-		if m.Caching.Mode != modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS {
-			t.Errorf("%s: caching mode = %v, want CACHING_MODE_EXPLICIT_MARKERS", m.ID, m.Caching.Mode)
+		if !m.Caching.ExplicitMarkers {
+			t.Errorf("%s: ExplicitMarkers = false, want true", m.ID)
 		}
 		if m.Caching.KeepaliveSupported {
 			t.Errorf("%s: this plugin runs no keepalive loop, so the flag must be false", m.ID)

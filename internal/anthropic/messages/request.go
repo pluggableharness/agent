@@ -267,7 +267,7 @@ func buildThinking(params *modelv1.GenerationParams, spec model.Spec) (*Thinking
 // breakpoints beforehand is what keeps a breakpoint's placement correct
 // regardless of how the messages are later merged.
 func applyCacheBreakpoints(breakpoints []*modelv1.CacheBreakpoint, spec model.Spec, system []TextBlock, tools []Tool, origMessages []Message) error {
-	if spec.Caching.Mode != modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS {
+	if !spec.Caching.ExplicitMarkers {
 		// MUST ignore per StreamCompletionRequest.cache_breakpoints: this
 		// field is meaningful only under explicit-marker caching, and
 		// placement is a kernel decision this adapter only executes.

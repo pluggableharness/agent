@@ -220,13 +220,27 @@ type ThinkingBudgetRange struct {
 
 // CachingSpec describes one model's prompt-caching capability, per
 // docs/specifications/model/data-types.md#cachingspec.
+//
+// ExplicitMarkers and ImplicitAutomatic are independent axes, not
+// alternatives: a model may run automatic caching by default and still
+// accept explicit breakpoints at a deeper discount. Declare both when
+// both are true.
 type CachingSpec struct {
 	// Supported reports whether this model has any prompt-caching
-	// capability at all.
+	// capability at all. When false, both axes below MUST be false; when
+	// true, at least one MUST be true.
 	Supported bool
-	// Mode is which caching mechanic this model uses. MUST be
-	// CACHING_MODE_NONE when Supported is false.
-	Mode modelv1.CachingMode
+	// ExplicitMarkers reports whether the caller may place cache
+	// breakpoints that this adapter translates into vendor-native markers.
+	// This is the axis StreamCompletionRequest.cache_breakpoints is gated
+	// on — an adapter for a model without it MUST ignore that field rather
+	// than error on it.
+	ExplicitMarkers bool
+	// ImplicitAutomatic reports whether the vendor caches transparently
+	// above some token threshold with no caller action. Declaring it
+	// requires nothing of the kernel; it exists so cache-hit and cost
+	// behavior are explicable.
+	ImplicitAutomatic bool
 	// KeepaliveSupported reports whether this provider runs its own
 	// cache-keepalive loop. MUST be set (default false); cache TTL
 	// mechanics are vendor-specific and provider-owned, never a kernel

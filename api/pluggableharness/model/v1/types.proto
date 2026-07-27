@@ -221,32 +221,28 @@ message ThinkingSpec {
   ThinkingDisableSupport disable = 10;
 }
 
-// CachingMode enumerates the prompt-caching mechanics found across
-// researched vendors (model.md §2).
-enum CachingMode {
-  // Zero value. Never valid when CachingSpec.supported is true; its
-  // presence on the wire means a caller forgot to set the field.
-  CACHING_MODE_UNSPECIFIED = 0;
-  // The model has no prompt-caching capability. Pairs with
-  // CachingSpec.supported == false.
-  CACHING_MODE_NONE = 1;
-  // The caller must place cache breakpoints on content blocks explicitly
-  // (Anthropic/Mistral-style).
-  CACHING_MODE_EXPLICIT_MARKERS = 2;
-  // The vendor applies caching transparently above a token threshold, no
-  // caller action required.
-  CACHING_MODE_IMPLICIT_AUTOMATIC = 3;
-}
-
 // CachingSpec describes one model's prompt-caching capability, per
-// model.md §2.
+// model/data-types.md#cachingspec.
+//
+// These are independent axes, not one-of-N modes, for the same reason
+// ThinkingSpec's are: Google's Gemini 2.5 and later run implicit automatic
+// caching by default AND offer explicit manual declaration concurrently at
+// a deeper discount. An earlier revision modeled this as a single
+// mutually-exclusive enum, which forced such a model to under-declare
+// itself — and, because cache_breakpoints were gated on that enum naming
+// EXPLICIT_MARKERS, required it to discard breakpoints it could in fact
+// have honored.
 message CachingSpec {
-  // Whether this model has any prompt-caching capability at all.
-  bool supported = 1;
+  reserved 2;
 
-  // Which caching mechanic this model uses. MUST be CACHING_MODE_NONE
-  // when supported == false.
-  CachingMode mode = 2;
+  reserved "mode";
+
+  // Whether this model has any prompt-caching capability at all. When
+  // false, explicit_markers and implicit_automatic MUST both be false;
+  // when true, at least one of them MUST be true — a model caching by a
+  // mechanism this protocol cannot name is not declarable, and declaring
+  // neither reads as "no caching" to every caller.
+  bool supported = 1;
 
   // Whether this provider runs its own cache-keepalive loop (e.g. a
   // background goroutine re-pinging before a cache TTL expires, so a long
@@ -254,8 +250,22 @@ message CachingSpec {
   // default false. Cache TTL mechanics are vendor-specific, so per
   // operator decision this is a provider-owned behavior the kernel never
   // drives — this field only tells the kernel/operator whether a given
-  // provider implements the optimization (model.md §2).
+  // provider implements the optimization.
   bool keepalive_supported = 3;
+
+  // Whether the caller may place cache breakpoints on content blocks and
+  // have the adapter translate them into vendor-native markers (an
+  // Anthropic cache_control block, a Mistral prompt_cache_key). This is
+  // the axis StreamCompletionRequest.cache_breakpoints is gated on: an
+  // adapter for a model that does not declare it MUST ignore that field
+  // rather than error on it.
+  bool explicit_markers = 4;
+
+  // Whether the vendor caches transparently above some token threshold
+  // with no caller action. Declaring this requires nothing of the kernel;
+  // it exists so cache-hit and cost behavior are explicable rather than
+  // surprising.
+  bool implicit_automatic = 5;
 }
 
 // PricingTier is one time-bounded, input-size-bounded rate within a

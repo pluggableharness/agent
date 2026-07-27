@@ -75,13 +75,21 @@ BudgetControl {
 
 ```protobuf
 CachingSpec {
-  supported bool
-  mode      enum { none, explicit_markers, implicit_automatic }
-  // explicit_markers: caller must place cache breakpoints on content blocks (Anthropic/Mistral-style)
-  // implicit_automatic: vendor applies caching transparently above a token threshold, no caller action
-  keepalive_supported  bool  // MUST, default false — see the keepalive note below
+  supported            bool   // MUST — whether this model caches prompts at all
+  explicit_markers     bool   // MUST — the caller MAY place cache breakpoints on content blocks
+  implicit_automatic   bool   // MUST — the vendor caches transparently above a token threshold
+  keepalive_supported  bool   // MUST, default false — see the keepalive note below
 }
 ```
+
+Like [`ThinkingSpec`](#thinkingspec), these are independent axes rather than one-of-N modes, and for the same reason: a real model occupies both positions at once. Google's Gemini 2.5 and later run implicit automatic caching by default *and* offer explicit manual declaration concurrently, at a deeper discount. An enum could name only one, which forced an adapter either to under-declare the model or to route the second mechanism outside this protocol entirely.
+
+`supported == false` means the model does not cache: `explicit_markers` and `implicit_automatic` MUST both be false. `supported == true` requires at least one of them to be true — a model that caches by some mechanism the protocol cannot name is not declarable, and silently declaring neither would read as "no caching" to every caller.
+
+| Axis | Meaning when true |
+|---|---|
+| `explicit_markers` | The caller places cache breakpoints and the adapter translates them into vendor-native markers (Anthropic's `cache_control`, Mistral's `prompt_cache_key`). This is the axis [`cache_breakpoints`](#cache_breakpoints-and-cache-breakpoint-placement-policy) is gated on. |
+| `implicit_automatic` | The vendor caches transparently above some token threshold with no caller action. Declaring this does not require the kernel to do anything; it exists so cost and cache-hit behavior are explicable rather than surprising. |
 
 **Cache keepalive is a provider-owned behavior, not a kernel mechanism.** A dedicated keepalive daemon — re-pinging every 5 minutes so a long tool-execution gap doesn't let a prompt-cache TTL expire — is a real-world pattern (as used, for example, by Aider) and a real cost concern given `cache_read_per_mtok` (below) is typically far cheaper than `input_per_mtok`. This is deliberately **not** a kernel-loop responsibility: cache TTL mechanics are vendor-specific (5m/1h TTLs differ per vendor), and the adapter that already understands its own vendor's `CachingSpec.mode` is the natural owner of keeping that cache warm — not a kernel that would need to learn every vendor's TTL semantics to orchestrate a generic loop. A model provider MAY implement its own internal keepalive (e.g. a background goroutine within the plugin subprocess watching elapsed time since the last real call) and declares this via `keepalive_supported` so the kernel/operator can tell whether a given provider implements the optimization, without the kernel ever driving the loop itself.
 
@@ -245,7 +253,9 @@ CacheBreakpoint {
 }
 ```
 
-`cache_breakpoints` is meaningful only when the target model's `CachingSpec.mode == CACHING_MODE_EXPLICIT_MARKERS`; a model-provider adapter targeting a model whose `CachingSpec.mode` is `CACHING_MODE_IMPLICIT_AUTOMATIC` or `CACHING_MODE_NONE` MUST ignore this field rather than error on it. The adapter maps each breakpoint to its vendor's own cache-control mechanism (e.g. an Anthropic `cache_control` block on the targeted content).
+`cache_breakpoints` is meaningful only when the target model declares `CachingSpec.explicit_markers`; an adapter targeting a model that does not MUST ignore this field rather than error on it. The adapter maps each breakpoint to its vendor's own cache-control mechanism (e.g. an Anthropic `cache_control` block on the targeted content).
+
+Gating on `explicit_markers` alone — rather than on a mode that could name only one mechanism — is what lets a model declaring *both* caching axes still honor breakpoints. Under the earlier enum, a model like Gemini 2.5 that declared implicit caching (the accurate description of its default behavior) was thereby required to discard breakpoints it could in fact have honored through its explicit pathway.
 
 **Breakpoint placement is a kernel decision, not the plugin's.** The kernel knows each `assembled_context` section's `Stability` (`content/v1/types.proto`'s `Stability` enum: `STABILITY_STATIC` vs. `STABILITY_DYNAMIC`) and each message's position in the conversation, so it places breakpoints at natural stable-prefix boundaries — the same tools → system → static-project-context → conversation-tail ordering that governs `assembled_context`'s own chain order. In practice this means: a breakpoint after `after_tools` when the tool declaration list is stable turn to turn, and a breakpoint after `after_assembled_context` when the whole chain's leading sections are `STABILITY_STATIC` — since that's usually the longest stable prefix a vendor's prompt cache can actually reuse. A plugin never invents its own placement; it only translates the breakpoints the kernel already decided into vendor-native markers.
 

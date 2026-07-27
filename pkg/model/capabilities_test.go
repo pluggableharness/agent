@@ -24,7 +24,7 @@ func validModelSpec() model.Spec {
 		SupportsVision:    true,
 		SupportsStreaming: true,
 		Thinking:          model.ThinkingSpec{},
-		Caching:           model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
+		Caching:           model.CachingSpec{},
 		Pricing: model.Pricing{
 			Currency: "USD",
 			Tiers: []model.PricingTier{
@@ -193,6 +193,29 @@ func TestNewCapabilities_Invalid(t *testing.T) {
 			wantErr: model.ErrInvalidCapabilities,
 		},
 		{
+			// Declaring caching without naming a mechanism would read as
+			// "no caching" to every caller, so it is rejected rather than
+			// silently degraded.
+			name: "caching supported but neither mechanism declared",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				m.Caching = model.CachingSpec{Supported: true}
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
+			name: "caching mechanism declared on a model with caching unsupported",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				m.Caching = model.CachingSpec{Supported: false, ImplicitAutomatic: true}
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
 			name: "pricing missing currency",
 			models: func() []model.Spec {
 				m := validModelSpec()
@@ -216,7 +239,7 @@ func TestNewCapabilities_Invalid(t *testing.T) {
 			name: "caching supported but tier missing cache pricing",
 			models: func() []model.Spec {
 				m := validModelSpec()
-				m.Caching = model.CachingSpec{Supported: true, Mode: modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS}
+				m.Caching = model.CachingSpec{Supported: true, ExplicitMarkers: true}
 				return []model.Spec{m}
 			}(),
 			schema:  &configv1.ConfigSchema{},
@@ -253,7 +276,7 @@ func TestNewCapabilities_CachingSatisfiedTiersAreValid(t *testing.T) {
 	t.Parallel()
 
 	m := validModelSpec()
-	m.Caching = model.CachingSpec{Supported: true, Mode: modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS}
+	m.Caching = model.CachingSpec{Supported: true, ExplicitMarkers: true}
 	m.Pricing.Tiers = []model.PricingTier{
 		{InputPerMtok: 3, OutputPerMtok: 15, CacheWritePerMtok: mustFloat64(3.75), CacheReadPerMtok: mustFloat64(0.3)},
 	}

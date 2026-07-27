@@ -36,8 +36,8 @@ func fullSpec() model.Spec {
 			Disable:           modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_NEVER,
 		},
 		Caching: model.CachingSpec{
-			Supported: true,
-			Mode:      modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS,
+			Supported:       true,
+			ExplicitMarkers: true,
 		},
 	}
 }
@@ -61,7 +61,7 @@ func budgetSpec(canDisable bool) model.Spec {
 			},
 			Disable: disable,
 		},
-		Caching: model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
+		Caching: model.CachingSpec{},
 	}
 }
 
@@ -73,7 +73,7 @@ func minimalSpec() model.Spec {
 		ID:              "claude-minimal",
 		MaxOutputTokens: 2048,
 		Thinking:        model.ThinkingSpec{},
-		Caching:         model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
+		Caching:         model.CachingSpec{},
 	}
 }
 

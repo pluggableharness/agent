@@ -8,7 +8,7 @@ import (
 )
 
 func explicitMarkersSpec() *modelv1.ModelSpec {
-	return &modelv1.ModelSpec{Caching: &modelv1.CachingSpec{Supported: true, Mode: modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS}}
+	return &modelv1.ModelSpec{Caching: &modelv1.CachingSpec{Supported: true, ExplicitMarkers: true}}
 }
 
 func staticSection() *contentv1.ContextSection {
@@ -48,27 +48,46 @@ func TestPlaceCacheBreakpointsWorkedExample(t *testing.T) {
 	wantAfterAssembledContext(t, got)
 }
 
-func TestPlaceCacheBreakpointsNonExplicitMarkersModes(t *testing.T) {
+func TestPlaceCacheBreakpointsWithoutExplicitMarkers(t *testing.T) {
 	t.Parallel()
 
 	sections := []*contentv1.ContextSection{staticSection()}
 
-	modes := []modelv1.CachingMode{
-		modelv1.CachingMode_CACHING_MODE_NONE,
-		modelv1.CachingMode_CACHING_MODE_IMPLICIT_AUTOMATIC,
-		modelv1.CachingMode_CACHING_MODE_UNSPECIFIED,
+	specs := map[string]*modelv1.CachingSpec{
+		"no caching at all":  {},
+		"implicit only":      {Supported: true, ImplicitAutomatic: true},
+		"supported but bare": {Supported: true},
 	}
-	for _, mode := range modes {
-		t.Run(mode.String(), func(t *testing.T) {
+	for name, caching := range specs {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			spec := &modelv1.ModelSpec{Caching: &modelv1.CachingSpec{Mode: mode}}
+			spec := &modelv1.ModelSpec{Caching: caching}
 			got := PlaceCacheBreakpoints(sections, nil, spec)
 			if got != nil {
-				t.Fatalf("got %+v, want nil for caching mode %v", got, mode)
+				t.Fatalf("got %+v, want nil when explicit_markers is false", got)
 			}
 		})
 	}
+}
+
+func TestPlaceCacheBreakpointsBothCachingAxesStillPlacesBreakpoints(t *testing.T) {
+	t.Parallel()
+
+	// A model running implicit caching by default AND accepting explicit
+	// markers must still get breakpoints. Under the earlier single-mode
+	// enum this model could only declare IMPLICIT_AUTOMATIC, which gated
+	// breakpoints off entirely and silently discarded a cache discount it
+	// was eligible for.
+	sections := []*contentv1.ContextSection{staticSection()}
+	spec := &modelv1.ModelSpec{Caching: &modelv1.CachingSpec{
+		Supported:         true,
+		ExplicitMarkers:   true,
+		ImplicitAutomatic: true,
+	}}
+
+	got := PlaceCacheBreakpoints(sections, nil, spec)
+	wantAfterAssembledContext(t, got)
 }
 
 func TestPlaceCacheBreakpointsNoStaticLeadingSection(t *testing.T) {

@@ -63,7 +63,7 @@ type CacheBreakpoint = modelv1.CacheBreakpoint
 // Stability, which messages carries no equivalent of (content.v1.Message
 // has no Stability field), so it is currently unused.
 func PlaceCacheBreakpoints(sections []*contentv1.ContextSection, messages []*contentv1.Message, spec *modelv1.ModelSpec) []*CacheBreakpoint { //nolint:revive // messages reserved for future message-position-aware placement, see doc comment above
-	if spec.GetCaching().GetMode() != modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS {
+	if !spec.GetCaching().GetExplicitMarkers() {
 		return nil
 	}
 

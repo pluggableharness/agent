@@ -147,7 +147,8 @@ func thinkingSpecFromProto(in *modelv1.ThinkingSpec) ThinkingSpec {
 func cachingSpecToProto(c CachingSpec) *modelv1.CachingSpec {
 	return &modelv1.CachingSpec{
 		Supported:          c.Supported,
-		Mode:               c.Mode,
+		ExplicitMarkers:    c.ExplicitMarkers,
+		ImplicitAutomatic:  c.ImplicitAutomatic,
 		KeepaliveSupported: c.KeepaliveSupported,
 	}
 }
@@ -159,7 +160,8 @@ func cachingSpecFromProto(in *modelv1.CachingSpec) CachingSpec {
 	}
 	return CachingSpec{
 		Supported:          in.GetSupported(),
-		Mode:               in.GetMode(),
+		ExplicitMarkers:    in.GetExplicitMarkers(),
+		ImplicitAutomatic:  in.GetImplicitAutomatic(),
 		KeepaliveSupported: in.GetKeepaliveSupported(),
 	}
 }

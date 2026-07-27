@@ -38,7 +38,8 @@ func TestConvert_ModelSpecRoundTrip(t *testing.T) {
 		},
 		Caching: model.CachingSpec{
 			Supported:          true,
-			Mode:               modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS,
+			ExplicitMarkers:    true,
+			ImplicitAutomatic:  true,
 			KeepaliveSupported: true,
 		},
 		Pricing: model.Pricing{
@@ -93,8 +94,10 @@ func TestConvert_ModelSpecRoundTrip(t *testing.T) {
 	if back.Thinking.Disable != modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_CONDITIONAL {
 		t.Errorf("Thinking.Disable = %v, want CONDITIONAL", back.Thinking.Disable)
 	}
-	if !back.Caching.Supported || back.Caching.Mode != modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS {
-		t.Errorf("Caching = %+v, want supported explicit_markers", back.Caching)
+	// A model declaring BOTH caching axes must round-trip both — the pair
+	// the earlier single-mode enum could not carry.
+	if !back.Caching.Supported || !back.Caching.ExplicitMarkers || !back.Caching.ImplicitAutomatic {
+		t.Errorf("Caching = %+v, want supported with both axes true", back.Caching)
 	}
 	if len(back.Pricing.Tiers) != 1 {
 		t.Fatalf("len(Pricing.Tiers) = %d, want 1", len(back.Pricing.Tiers))
@@ -313,7 +316,7 @@ func TestConvert_CapabilitiesRoundTrip(t *testing.T) {
 		Models: []model.Spec{{
 			ID:       "claude-test",
 			Thinking: model.ThinkingSpec{},
-			Caching:  model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
+			Caching:  model.CachingSpec{},
 			Pricing:  model.Pricing{Currency: "USD", Free: true},
 		}},
 		ConfigSchema: &configv1.ConfigSchema{},

@@ -99,8 +99,8 @@ func base(id string, contextWindow, maxOutput int64) model.Spec {
 		SupportsParallelToolCalls: true,
 		SupportsDocuments:         true,
 		Caching: model.CachingSpec{
-			Supported: true,
-			Mode:      modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS,
+			Supported:       true,
+			ExplicitMarkers: true,
 			// The plugin runs no background cache-keepalive loop. A
 			// keepalive would mean issuing extra billed requests on the
 			// operator's behalf without them asking, which is not a
