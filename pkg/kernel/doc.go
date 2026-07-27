@@ -17,6 +17,12 @@
 //     that relays completed spans via ExportSpans — a plugin author wires
 //     an ordinary OTel SDK TracerProvider and writes normal
 //     tracer.Start(...) code; the relay transport is invisible.
+//   - Client.Metrics builds a recorder that relays observations via
+//     RecordMetrics — the metrics counterpart to NewSpanExporter, and the
+//     only route a plugin has to a metric at all. The kernel owns the
+//     instruments and bounds their attribute cardinality, neither of
+//     which a plugin can do for itself; that is why this relays rather
+//     than exporting off-process.
 //   - LoadTelemetryConfig/TracingEnabled/MetricsEnabled/LogsEnabled/LogLevel/
 //     SamplingRatio cache GetTelemetryConfig's result once at startup
 //     (specifications/observability.md#gettelemetryconfig-caching) —

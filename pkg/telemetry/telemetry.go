@@ -33,10 +33,18 @@ const otlpHTTPProtocol = "http/protobuf"
 // internal/telemetry was needed for Bootstrap's new return type to compile.
 //
 // Instruments() and Config() are deliberately not part of this interface:
-// both return internal/telemetry-only types (*Instruments, Config), and
-// re-exporting either is a metrics-API redesign larger than this fix's
-// scope — a plugin author has no path to either through this package
-// today. That's a known, tracked gap, not an oversight.
+// both return internal/telemetry-only types (*Instruments, Config), which
+// an out-of-tree plugin cannot name at all.
+//
+// That is no longer a gap, because it is no longer the only route.
+// pkg/kernel.Client.Metrics records observations through the kernel's
+// RecordMetrics relay, which is how a plugin's metrics were always meant
+// to reach an exporter (observability.md's relay model) — the kernel
+// bounds their attribute cardinality and owns the instruments, neither of
+// which a plugin can do for itself. Re-exporting internal/telemetry's own
+// instrument API here would be a second, competing path to the same
+// place, and the wrong one: it would export off-process directly, which
+// the relay model exists to prevent.
 type Provider interface {
 	// Shutdown flushes and closes the underlying tracer/meter/logger
 	// providers. Idempotent — safe to call more than once, returning the

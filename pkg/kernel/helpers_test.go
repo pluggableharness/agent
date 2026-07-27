@@ -3,6 +3,7 @@ package kernel_test
 import (
 	"context"
 	"net"
+	"sync"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -56,6 +57,31 @@ type fakeServer struct {
 	emitFunc               func(*kernelv1.EmitRequest) (*kernelv1.EmitResult, error)
 	getSessionFunc         func(*kernelv1.GetSessionRequest) (*kernelv1.GetSessionResult, error)
 	readEventsFunc         func(*kernelv1.ReadEventsRequest, kernelv1.KernelCallbackService_ReadEventsServer) error
+	recordMetricsFunc      func(*kernelv1.RecordMetricsRequest) (*kernelv1.RecordMetricsResult, error)
+
+	// mu guards recordMetricsSeen, which RecordMetrics appends to from
+	// whichever goroutine gRPC serves the call on.
+	mu                sync.Mutex
+	recordMetricsSeen []*kernelv1.RecordMetricsRequest
+}
+
+func (f *fakeServer) RecordMetrics(_ context.Context, req *kernelv1.RecordMetricsRequest) (*kernelv1.RecordMetricsResult, error) {
+	f.mu.Lock()
+	f.recordMetricsSeen = append(f.recordMetricsSeen, req)
+	f.mu.Unlock()
+
+	if f.recordMetricsFunc != nil {
+		return f.recordMetricsFunc(req)
+	}
+	return &kernelv1.RecordMetricsResult{}, nil
+}
+
+// recordMetricsRequests returns every RecordMetrics call this server saw,
+// in order.
+func (f *fakeServer) recordMetricsRequests() []*kernelv1.RecordMetricsRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]*kernelv1.RecordMetricsRequest(nil), f.recordMetricsSeen...)
 }
 
 func (f *fakeServer) Log(ctx context.Context, req *kernelv1.LogRequest) (*kernelv1.LogResult, error) {
