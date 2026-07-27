@@ -80,6 +80,36 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      # pkg/ is the third-party plugin-author surface, consumed from
+      # outside this module where internal/ is unreachable by definition.
+      # An internal/ import there compiles fine here and fails for every
+      # downstream author, so it has to be caught on this side.
+      #
+      # pkg/telemetry is the one sanctioned exception, documented in its
+      # own source: it wraps internal/telemetry but keeps its exported
+      # surface expressible outside this module.
+      - name: Verify pkg/ does not import internal/
+        run: |
+          if grep -rn --include='*.go' 'pluggableharness/agent/internal' pkg/ \
+              | grep -v '^pkg/telemetry/'; then
+            echo "::error::pkg/ must not import internal/ — see the exception note in pkg/telemetry"
+            exit 1
+          fi
+
+      # Builds the example provider from its own module, against this
+      # commit via a replace directive. This is the only check that proves
+      # pkg/ is genuinely usable from outside the main module: the
+      # depguard rule on internal/anthropic only simulates that isolation,
+      # and a simulation cannot catch an unexported type leaking through
+      # an exported signature.
+      - name: Build the standalone example provider
+        working-directory: examples/provider
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go build ./...
+          go vet ./...
+
   # ---------------------------------------------------------------------------
   # test — race-enabled tests on every platform we release for.
   #
