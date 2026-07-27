@@ -74,7 +74,7 @@ Rules:
 
 - The kernel MUST lift this block out of the body **before** decoding the rest against the provider's `ConfigSchema`. It is the one name in a `provider{}` body the kernel owns, so leaving it in would collide with any provider that declares an attribute of the same name.
 - A name that is not a usable POSIX environment variable — empty, or containing `=` (which would let one entry smuggle in a second) — MUST be rejected at config-load time.
-- Entries MUST be assembled in a deterministic order. Go map iteration is randomized, and a subprocess whose environment differs run to run is the kind of nondeterminism [`.claude/rules/determinism.md`](../../../.claude/rules/determinism.md) exists to prevent.
+- Entries MUST be assembled in a deterministic order. Go map iteration is randomized, and a subprocess whose environment differs run to run is the kind of nondeterminism the repository's replay-determinism rule (`.claude/rules/determinism.md`) exists to prevent.
 - This is a passthrough, not a secret channel. A credential belongs in the provider's own `sensitive`-marked attribute, which the kernel resolves and delivers through `Configure`; a secret placed here is visible to anything that can read the process table on some platforms, and bypasses the secret-handling rules below.
 
 A `provider{}` block's body is not decoded when `agent.hcl` is first loaded. A `ConfigSchema` only exists once the named plugin's subprocess is running and has answered `GetCapabilities`/`GetSchema`, so there is nothing to decode against at load time — a genuine chicken-and-egg constraint. The body is decoded later, once a schema is available — see the schema-to-`cty` bridge below.
