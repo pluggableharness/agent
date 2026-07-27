@@ -8,18 +8,16 @@ Without a layer like this, every pane picks its own padding, its own border colo
 
 - **Values come from a scale, never a literal.** Padding is `theme.Space1`..`Space4`; colors are `theme.Tokens` fields. A pane that wants more padding picks the next step; it does not invent `3`.
 - **Utilities compose.** `Style` is a chainable builder where each method sets exactly one property, so a pane's appearance reads as a sentence where it is used rather than hiding in a named style somewhere else.
-- **Components are compositions of utilities, not escapes from them.** `Panel` and `Bar` are built from the same builder any caller uses.
+- **Components are compositions of utilities, not escapes from them.** `Panel` and `StatusLine` are built from the same builder any caller uses.
 
 ## What lives here
 
 | Symbol | Role |
 |---|---|
 | `Style` | The chainable utility builder: `Fg`, `Bg`, `P`/`Px`/`Py`, `W`/`H`/`MaxW`, `Bold`, `Italic`, `Underline`, `Align` |
-| `Panel` | A titled, bordered surface. Returns exactly `Height` lines of exactly `Width` cells |
-| `Bar` | A full-width single-line strip with left and right ends pushed to the edges |
+| `Panel` | A titled, bordered surface — content panes, header and footer alike. Returns exactly `Height` lines of exactly `Width` cells, with an optional `Caption` in the bottom border |
 | `Badge` | A small filled label for status pills |
 | `StatusLine` | A full-width row of labelled segments, one of which absorbs the slack |
-| `Panel` | A titled, bordered box — used for content panes and for the header and footer alike |
 | `Meter` | An inline fill bar, heavy against light stroke |
 | `GradientMeter` | A fill bar whose color runs across a ramp along its length |
 | `Fields` | A label/value list with values aligned into a column |
@@ -30,7 +28,7 @@ Without a layer like this, every pane picks its own padding, its own border colo
 
 ## Two cell-accuracy rules worth knowing
 
-**Every component covers every cell it claims.** An uncovered cell shows the terminal's own background and breaks the illusion of a full-screen application, so `Panel` and `Bar` pad out to their full size rather than returning ragged lines.
+**Every component covers every cell it claims.** An uncovered cell shows the terminal's own background and breaks the illusion of a full-screen application, so `Panel` and `StatusLine` pad out to their full size rather than returning ragged lines.
 
 **Tabs are expanded on the way in.** A tab measures as zero cells but a terminal advances to the next tab stop when it draws one, so unexpanded tabs paint wider than they measure — overflowing the pane and corrupting every row to the right. Producer content routinely contains tabs (Go source, diffs).
 

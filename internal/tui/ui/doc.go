@@ -14,7 +14,7 @@
 //     exactly one property, so a pane's appearance reads as a sentence at the
 //     point of use rather than hiding in a named style elsewhere.
 //   - Components are compositions of utilities, not escapes from them.
-//     Panel and Bar are built from the same Style builder any caller uses.
+//     Panel and StatusLine are built from the same Style builder any caller uses.
 //
 // Everything here is pure: it takes tokens and strings and returns strings.
 // No terminal, no I/O, no global state.

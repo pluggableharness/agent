@@ -6,7 +6,7 @@ The point of this package is that padding comes from `theme.Space*` and colors f
 
 ## Components must return exact dimensions
 
-`Panel.Render` returns exactly `Height` lines of exactly `Width` cells, and `Bar.Render` exactly one line of `Width` cells. Callers stack them without measuring, so a component that returns a ragged block silently shifts everything below it. Tests assert this across a range of sizes including degenerate ones.
+`Panel.Render` returns exactly `Height` lines of exactly `Width` cells, and `StatusLine.Render` exactly one line of `Width` cells. Callers stack them without measuring, so a component that returns a ragged block silently shifts everything below it. Tests assert this across a range of sizes including degenerate ones.
 
 The subtle case: `strings.Split("", "\n")` returns one empty element, not zero. A panel with no interior (`Height == 2`) must skip its body loop outright rather than trusting an empty `FitBlock` to produce no rows.
 

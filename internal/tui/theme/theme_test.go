@@ -202,7 +202,12 @@ func TestToneResolvesToDistinctColors(t *testing.T) {
 	t.Parallel()
 
 	th := theme.Dark()
-	seen := map[uint32]string{}
+	// Keyed on the channels themselves rather than a packed integer. RGBA
+	// returns 16-bit channels, so packing them as r<<16|g<<8|b overlaps green
+	// into red's bits and blue into green's — two distinct tones could collide
+	// on one key and this test would report a duplicate that does not exist,
+	// or miss one that does.
+	seen := map[[3]uint32]string{}
 
 	tones := map[theme.Tone]string{
 		theme.TonePrimary: "primary",
@@ -215,7 +220,7 @@ func TestToneResolvesToDistinctColors(t *testing.T) {
 
 	for tone, name := range tones {
 		r, g, b, _ := th.Tone(tone).RGBA()
-		key := r<<16 | g<<8 | b
+		key := [3]uint32{r, g, b}
 
 		if other, dup := seen[key]; dup {
 			t.Errorf("tones %s and %s resolve to the same color", name, other)

@@ -88,7 +88,7 @@ ESC[m
 
 Filling broad regions is therefore unreliable in a way no amount of care at the call site fixes, and the visible result is a patchwork of bands at differing widths across every pane. `BackgroundPanel` and `BackgroundElement` remain in the token set, but they are for genuinely filled, self-contained controls — a status badge, a focused button — where the run opens and closes its own fill and cannot bleed. A test asserts that no content style sets a background.
 
-**Utilities and components.** `internal/tui/ui` is the terminal analogue of utility classes: `Style` is a chainable builder where each method sets exactly one property, so a pane's appearance reads as a sentence where it is used — `ui.New().Bg(t.C.BackgroundPanel).Fg(t.C.TextMuted).Px(theme.Space1)`. `Panel`, `Bar`, and `Badge` are compositions of those utilities, not escapes from them.
+**Utilities and components.** `internal/tui/ui` is the terminal analogue of utility classes: `Style` is a chainable builder where each method sets exactly one property, so a pane's appearance reads as a sentence where it is used — `ui.New().Bg(t.C.BackgroundPanel).Fg(t.C.TextMuted).Px(theme.Space1)`. `Panel`, `StatusLine`, and `Badge` are compositions of those utilities, not escapes from them.
 
 Two cell-accuracy rules fall out of this and are load-bearing rather than cosmetic. Every component covers **every cell it claims**, because an uncovered cell shows the terminal's own background and breaks the illusion of a full-screen application. And **tabs are expanded to spaces on the way in**: a tab measures as zero cells but a terminal advances to the next tab stop when it draws one, so an unexpanded tab in producer content paints wider than it measures, overflows its pane, and corrupts every row to its right.
 
@@ -372,7 +372,7 @@ cmd/tui/                 thin entrypoint: flag parsing, TTY open, program wiring
 internal/tui/theme/      the design tokens: palette -> semantic Tokens, the
                          spacing scale, and the border presets
 internal/tui/ui/         the utility layer: the chainable Style builder plus
-                         Panel, Bar, and Badge built from it
+                         Panel, StatusLine, and Badge built from it
 internal/tui/paint/      RenderTree -> styled string (pure, headless-testable)
 internal/tui/region/     the placement store, ordering, streaming buffers
 internal/tui/shell/      the Bubble Tea model: layout, focus, keymap, compose,
