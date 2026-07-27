@@ -143,6 +143,23 @@ func (p *echoProvider) StreamCompletion(ctx context.Context, req *modelv1.Stream
 		}
 	}
 
+	// Content this model does not declare support for MUST be rejected,
+	// never silently dropped: a dropped image means the model answers a
+	// question about a picture it was never shown, and nothing upstream
+	// can tell that happened.
+	for _, m := range req.GetMessages() {
+		for _, b := range m.GetContent() {
+			switch b.GetBlock().(type) {
+			case *contentv1.ContentBlock_Image, *contentv1.ContentBlock_Document:
+				return &model.Error{
+					Category:  modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_INVALID_REQUEST,
+					Message:   "example: this model accepts text only",
+					Retryable: false,
+				}
+			}
+		}
+	}
+
 	// provider_options is pass-through: the kernel never reads a key, so a
 	// vendor knob lives here rather than needing a protocol change. This
 	// example uses it to let an operator override the greeting per request.

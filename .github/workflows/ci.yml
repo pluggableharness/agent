@@ -109,6 +109,10 @@ jobs:
           git diff --exit-code -- go.mod go.sum
           go build ./...
           go vet ./...
+          # Also runs the example's own conformance test, which proves
+          # pkg/model/modeltest is reachable and usable by a third party —
+          # the premise of shipping a conformance suite in pkg/ at all.
+          go test ./...
 
   # ---------------------------------------------------------------------------
   # test — race-enabled tests on every platform we release for.
