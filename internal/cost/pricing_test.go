@@ -356,7 +356,7 @@ func TestGapDetectionCatchesWhatPkgModelMisses(t *testing.T) {
 	}
 	spec := model.Spec{
 		ID:       "gap-fixture-model",
-		Thinking: model.ThinkingSpec{Mode: modelv1.ThinkingMode_THINKING_MODE_NONE},
+		Thinking: model.ThinkingSpec{},
 		Pricing:  sdkSide,
 	}
 	if _, err := model.NewCapabilities([]model.Spec{spec}, &configv1.ConfigSchema{}); err != nil {

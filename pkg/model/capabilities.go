@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
@@ -93,24 +94,79 @@ func validateModelSpec(m Spec) error {
 }
 
 // validateThinkingSpec checks t against
-// docs/specifications/model/data-types.md#thinkingspec: effort_levels
-// required for THINKING_MODE_DISCRETE_EFFORT, budget_range required for
-// THINKING_MODE_CONTINUOUS_BUDGET, and default required whenever mode is
-// not THINKING_MODE_NONE
-// (docs/specifications/model/conformance.md's "ThinkingSpec.default MUST
-// be set when mode != none" row).
+// docs/specifications/model/data-types.md#thinkingspec.
+//
+// The axes are independent, so this validates each control that is present
+// on its own terms rather than deriving requirements from one mode value.
+// The one cross-axis rule is the unsupported case: a model that cannot
+// reason at all MUST NOT declare a control for reasoning it does not do.
 func validateThinkingSpec(t ThinkingSpec) error {
-	if t.Mode == modelv1.ThinkingMode_THINKING_MODE_NONE {
+	if !t.Supported {
+		switch {
+		case t.Effort != nil:
+			return fmt.Errorf("%w: effort control declared on a model with thinking unsupported", ErrInvalidCapabilities)
+		case t.Budget != nil:
+			return fmt.Errorf("%w: budget control declared on a model with thinking unsupported", ErrInvalidCapabilities)
+		case t.AdaptiveByDefault:
+			return fmt.Errorf("%w: adaptive_by_default set on a model with thinking unsupported", ErrInvalidCapabilities)
+		// UNSPECIFIED and NEVER are both accepted here, and that is
+		// deliberate: the zero ThinkingSpec{} must be a valid declaration
+		// for "this model does not reason", which is the most common case
+		// by far and the one an author writes without thinking about it.
+		// Only a positive claim that reasoning CAN be disabled is a real
+		// contradiction worth rejecting.
+		case t.Disable == modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
+			t.Disable == modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_CONDITIONAL:
+			return fmt.Errorf("%w: disable claims reasoning can be turned off on a model with thinking unsupported", ErrInvalidCapabilities)
+		}
 		return nil
 	}
-	if t.Mode == modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT && len(t.EffortLevels) == 0 {
-		return fmt.Errorf("%w: effort_levels required for THINKING_MODE_DISCRETE_EFFORT", ErrInvalidCapabilities)
+
+	if t.Disable == modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_UNSPECIFIED {
+		return fmt.Errorf("%w: disable required when thinking is supported", ErrInvalidCapabilities)
 	}
-	if t.Mode == modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET && t.BudgetRange == nil {
-		return fmt.Errorf("%w: budget_range required for THINKING_MODE_CONTINUOUS_BUDGET", ErrInvalidCapabilities)
+	if err := validateEffortControl(t.Effort); err != nil {
+		return err
 	}
-	if t.Default == "" {
-		return fmt.Errorf("%w: default required when mode is not THINKING_MODE_NONE", ErrInvalidCapabilities)
+	return validateBudgetControl(t.Budget)
+}
+
+// validateEffortControl checks a declared effort ladder. A nil control is
+// valid — it means the model has no effort ladder, which is a normal
+// position, not an omission.
+func validateEffortControl(e *EffortControl) error {
+	if e == nil {
+		return nil
+	}
+	if len(e.Levels) == 0 {
+		return fmt.Errorf("%w: effort control declared with no levels", ErrInvalidCapabilities)
+	}
+	if e.Default == "" {
+		return fmt.Errorf("%w: effort control declared with no default level", ErrInvalidCapabilities)
+	}
+	// The default must name a real level, or a kernel sending it back as an
+	// explicit override — the whole reason the field exists — would send a
+	// value the vendor rejects.
+	if !slices.Contains(e.Levels, e.Default) {
+		return fmt.Errorf("%w: effort default %q is not one of the declared levels %v",
+			ErrInvalidCapabilities, e.Default, e.Levels)
+	}
+	return nil
+}
+
+// validateBudgetControl checks a declared token-budget control. A nil
+// control is valid, for the same reason a nil effort control is.
+func validateBudgetControl(b *BudgetControl) error {
+	if b == nil {
+		return nil
+	}
+	if b.Range.Min > b.Range.Max {
+		return fmt.Errorf("%w: budget range min %d exceeds max %d",
+			ErrInvalidCapabilities, b.Range.Min, b.Range.Max)
+	}
+	if b.Default != nil && (*b.Default < b.Range.Min || *b.Default > b.Range.Max) {
+		return fmt.Errorf("%w: budget default %d is outside the declared range [%d, %d]",
+			ErrInvalidCapabilities, *b.Default, b.Range.Min, b.Range.Max)
 	}
 	return nil
 }

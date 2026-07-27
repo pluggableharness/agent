@@ -19,14 +19,16 @@
   remove the special case to "simplify" it into a single `slices.Contains`
   call, or a model declaring an empty `supported_tool_choice_modes` would
   incorrectly reject an explicit `AUTO` request.
-- **Thinking validation is mode-gated, not just range-gated.** A
-  `thinking_budget_tokens` value can sit numerically inside some
-  `ThinkingBudgetRange` and still be invalid, if the resolved model's
-  `ThinkingSpec.mode` isn't `THINKING_MODE_CONTINUOUS_BUDGET` (same for
-  `thinking_effort` against `THINKING_MODE_DISCRETE_EFFORT`). Check the
-  mode first in `budgetInRange`/the effort branch of `ValidateParams`,
-  not just the numeric/list membership — `TestValidateParamsThinkingEffort`'s
-  "mode mismatch" case is the regression guard for this.
+- **Thinking validation is control-gated, and the two controls are
+  independent.** `ThinkingSpec` declares an optional `effort` control and
+  an optional `budget` control as separate axes — a model may declare
+  either, both, or neither — so each param is validated against the
+  control that governs it, never against a single mode standing in for
+  the whole model. `budgetInRange` checks `GetBudget() == nil` *before*
+  reading the range: a nil control's zero-valued range would otherwise
+  coincidentally accept a budget of exactly 0. The effort branch needs no
+  such guard only because `GetEffort().GetLevels()` on a nil control is an
+  empty slice, which fails membership for every value.
 - **`ValidateContent` returns the *first* violation, in message-then-block
   order.** It does not collect every unsupported block in one request —
   matching the brief's "returns `ErrUnsupportedContent` naming the first

@@ -28,11 +28,13 @@ func TestConvert_ModelSpecRoundTrip(t *testing.T) {
 		SupportsStreaming:         true,
 		SupportsParallelToolCalls: true,
 		Thinking: model.ThinkingSpec{
-			Supported:    true,
-			Mode:         modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT,
-			EffortLevels: []string{"low", "medium", "high"},
-			CanDisable:   true,
-			Default:      "medium",
+			Supported: true,
+			Effort: &model.EffortControl{
+				Levels:  []string{"low", "medium", "high"},
+				Default: "medium",
+			},
+			AdaptiveByDefault: true,
+			Disable:           modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_CONDITIONAL,
 		},
 		Caching: model.CachingSpec{
 			Supported:          true,
@@ -73,11 +75,23 @@ func TestConvert_ModelSpecRoundTrip(t *testing.T) {
 	if !back.SupportsParallelToolCalls {
 		t.Errorf("SupportsParallelToolCalls = false, want true")
 	}
-	if back.Thinking.Default != "medium" {
-		t.Errorf("Thinking.Default = %q, want %q", back.Thinking.Default, "medium")
+	if back.Thinking.Effort == nil {
+		t.Fatal("Thinking.Effort = nil, want the declared effort control")
 	}
-	if len(back.Thinking.EffortLevels) != 3 {
-		t.Errorf("len(Thinking.EffortLevels) = %d, want 3", len(back.Thinking.EffortLevels))
+	if back.Thinking.Effort.Default != "medium" {
+		t.Errorf("Thinking.Effort.Default = %q, want %q", back.Thinking.Effort.Default, "medium")
+	}
+	if len(back.Thinking.Effort.Levels) != 3 {
+		t.Errorf("len(Thinking.Effort.Levels) = %d, want 3", len(back.Thinking.Effort.Levels))
+	}
+	// The two axes are independent, so a spec declaring an effort ladder
+	// AND adaptive-by-default must round-trip both — the exact pair the
+	// earlier single-mode shape could not carry.
+	if !back.Thinking.AdaptiveByDefault {
+		t.Error("Thinking.AdaptiveByDefault = false, want true")
+	}
+	if back.Thinking.Disable != modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_CONDITIONAL {
+		t.Errorf("Thinking.Disable = %v, want CONDITIONAL", back.Thinking.Disable)
 	}
 	if !back.Caching.Supported || back.Caching.Mode != modelv1.CachingMode_CACHING_MODE_EXPLICIT_MARKERS {
 		t.Errorf("Caching = %+v, want supported explicit_markers", back.Caching)
@@ -115,32 +129,94 @@ func TestConvert_ModelSpecFromProtoNil(t *testing.T) {
 	}
 }
 
-func TestConvert_ThinkingSpecNoBudgetRange(t *testing.T) {
+func TestConvert_ThinkingSpecBudgetControl(t *testing.T) {
 	t.Parallel()
 
-	in := model.ThinkingSpec{Mode: modelv1.ThinkingMode_THINKING_MODE_NONE}
-	wire := model.ThinkingSpecToProtoForTest(in)
-	if wire.GetBudgetRange() != nil {
-		t.Errorf("BudgetRange = %v, want nil", wire.GetBudgetRange())
+	// A model with no thinking at all carries neither control.
+	wire := model.ThinkingSpecToProtoForTest(model.ThinkingSpec{})
+	if wire.GetBudget() != nil {
+		t.Errorf("Budget = %v, want nil", wire.GetBudget())
 	}
-	back := model.ThinkingSpecFromProtoForTest(wire)
-	if back.BudgetRange != nil {
-		t.Errorf("round-tripped BudgetRange = %v, want nil", back.BudgetRange)
+	if wire.GetEffort() != nil {
+		t.Errorf("Effort = %v, want nil", wire.GetEffort())
+	}
+	if back := model.ThinkingSpecFromProtoForTest(wire); back.Budget != nil || back.Effort != nil {
+		t.Errorf("round-tripped controls = (%v, %v), want both nil", back.Effort, back.Budget)
 	}
 
+	def := int64(4096)
 	inBudget := model.ThinkingSpec{
-		Supported:   true,
-		Mode:        modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET,
-		BudgetRange: &model.ThinkingBudgetRange{Min: 1024, Max: 32000},
-		Default:     "4096",
+		Supported: true,
+		Budget: &model.BudgetControl{
+			Range:      model.ThinkingBudgetRange{Min: 1024, Max: 32000},
+			Default:    &def,
+			Deprecated: true,
+		},
+		Disable: modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
 	}
 	wireBudget := model.ThinkingSpecToProtoForTest(inBudget)
-	if wireBudget.GetBudgetRange().GetMin() != 1024 || wireBudget.GetBudgetRange().GetMax() != 32000 {
-		t.Errorf("BudgetRange = %+v, want {1024 32000}", wireBudget.GetBudgetRange())
+	if got := wireBudget.GetBudget().GetRange(); got.GetMin() != 1024 || got.GetMax() != 32000 {
+		t.Errorf("Budget.Range = %+v, want {1024 32000}", got)
 	}
+	if !wireBudget.GetBudget().GetDeprecated() {
+		t.Error("Budget.Deprecated = false, want true")
+	}
+
 	backBudget := model.ThinkingSpecFromProtoForTest(wireBudget)
-	if backBudget.BudgetRange == nil || backBudget.BudgetRange.Min != 1024 || backBudget.BudgetRange.Max != 32000 {
-		t.Errorf("round-tripped BudgetRange = %+v, want {1024 32000}", backBudget.BudgetRange)
+	if backBudget.Budget == nil {
+		t.Fatal("round-tripped Budget = nil, want the declared control")
+	}
+	if backBudget.Budget.Range.Min != 1024 || backBudget.Budget.Range.Max != 32000 {
+		t.Errorf("round-tripped Budget.Range = %+v, want {1024 32000}", backBudget.Budget.Range)
+	}
+	if backBudget.Budget.Default == nil || *backBudget.Budget.Default != def {
+		t.Errorf("round-tripped Budget.Default = %v, want %d", backBudget.Budget.Default, def)
+	}
+	if !backBudget.Budget.Deprecated {
+		t.Error("round-tripped Budget.Deprecated = false, want true")
+	}
+}
+
+func TestConvert_ThinkingSpecBudgetDefaultAbsentIsNotZero(t *testing.T) {
+	t.Parallel()
+
+	// An omitted default means "the vendor reasons zero tokens by
+	// default", which is a different statement from "the vendor's default
+	// budget is the number 0" — collapsing the two would lose the
+	// distinction the pointer exists to carry.
+	in := model.ThinkingSpec{
+		Supported: true,
+		Budget: &model.BudgetControl{
+			Range: model.ThinkingBudgetRange{Min: 1024, Max: 32000},
+		},
+		Disable: modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
+	}
+	wire := model.ThinkingSpecToProtoForTest(in)
+	if wire.GetBudget().Default != nil {
+		t.Errorf("Budget.Default = %v, want nil", wire.GetBudget().Default)
+	}
+	if back := model.ThinkingSpecFromProtoForTest(wire); back.Budget.Default != nil {
+		t.Errorf("round-tripped Budget.Default = %v, want nil", back.Budget.Default)
+	}
+}
+
+func TestConvert_ThinkingSpecEffortLevelsAreCopied(t *testing.T) {
+	t.Parallel()
+
+	// A roster typically shares one levels slice across several models, so
+	// aliasing it into the wire type would let a mutation through one
+	// model's spec reach every other model that shares it.
+	levels := []string{"low", "high"}
+	in := model.ThinkingSpec{
+		Supported: true,
+		Effort:    &model.EffortControl{Levels: levels, Default: "low"},
+		Disable:   modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
+	}
+	wire := model.ThinkingSpecToProtoForTest(in)
+	levels[0] = "mutated"
+
+	if got := wire.GetEffort().GetLevels()[0]; got != "low" {
+		t.Errorf("wire levels[0] = %q after mutating the source slice, want %q", got, "low")
 	}
 }
 
@@ -236,7 +312,7 @@ func TestConvert_CapabilitiesRoundTrip(t *testing.T) {
 	caps := &model.Capabilities{
 		Models: []model.Spec{{
 			ID:       "claude-test",
-			Thinking: model.ThinkingSpec{Mode: modelv1.ThinkingMode_THINKING_MODE_NONE},
+			Thinking: model.ThinkingSpec{},
 			Caching:  model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
 			Pricing:  model.Pricing{Currency: "USD", Free: true},
 		}},

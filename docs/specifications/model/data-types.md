@@ -23,28 +23,53 @@ ModelSpec {
 }
 ```
 
-Rationale for the sum-type shape of `ThinkingSpec`/`CachingSpec` below: all three thinking modes and both caching modes are in active use across real vendors, sometimes multiple modes on different models *from the same vendor* (Anthropic's newer models use adaptive thinking; Haiku 4.5 only supports the older discrete `budget_tokens` style). A boolean `supports_thinking` flag would lose information the kernel actually needs to build a correct request.
+Rationale for the shape of `ThinkingSpec`/`CachingSpec` below: a boolean `supports_thinking`/`supports_caching` flag would lose information the kernel actually needs to build a correct request, because real vendors differ in *how* the capability is controlled, not only in whether it exists — sometimes across models from the same vendor.
+
+**Both are sets of independent axes, not one-of-N modes.** This is the correction to an earlier design that modeled each as a single mutually-exclusive enum. Real models occupy more than one position at once, and a single-valued enum forces a provider to declare a half-truth:
+
+- A model MAY reason adaptively *and* expose a named effort ladder simultaneously. Anthropic's Opus 4.8 and Sonnet 5 are exactly this — omitting thinking config runs adaptive reasoning, and `output_config.effort` selects a level on top of it. An adapter for such a model sends both controls in one request.
+- A model MAY accept a named effort level *and* an explicit token budget, with the budget deprecated but still functional. Anthropic's Opus 4.6 and Sonnet 4.6 are this; Haiku 4.5 accepts only the budget and errors on effort; Opus 4.7 and later reject the budget with a 400. The status is per-model, never per-vendor, and a spec shape that cannot say so pushes the distinction into adapter code where no caller can see it.
+- Whether reasoning can be turned off is not always a yes or no. Anthropic's Opus 5 accepts an explicit disable at effort `high` or below and rejects it at `xhigh` or `max` — so both `true` and `false` are wrong, and the honest answer needs a third value.
+
+Each axis below is therefore declared on its own. A model declares every control it actually accepts, and the kernel validates a requested parameter against the specific control that governs it rather than against a mode that stands in for a whole model family.
 
 ### `ThinkingSpec`
 
 ```protobuf
 ThinkingSpec {
-  supported bool
-  mode      enum { none, always_on_adaptive, discrete_effort, continuous_budget }
-  effort_levels   []string   // required if mode == discrete_effort, e.g. ["low","medium","high","xhigh","max"]
-  budget_range    {min, max} // required if mode == continuous_budget (token count range)
-  can_disable     bool       // MUST — some vendors' reasoning cannot be turned off (e.g. a
-                              // Grok model defaulting reasoning on with no off switch)
-  default         string?    // MUST when mode != none — the effort level (discrete_effort)
-                              // or budget-token value (continuous_budget, as a string) the
-                              // vendor applies when a request omits thinking config entirely.
-                              // Makes the actual default behavior visible/auditable in
-                              // GetCapabilities instead of hidden in adapter code — a kernel
-                              // wanting deterministic behavior can read this and always send
-                              // an explicit override rather than guessing what "unspecified"
-                              // means for a given model.
+  supported bool                    // MUST — whether this model reasons at all
+  effort    EffortControl?          // present iff the model accepts a named effort level
+  budget    BudgetControl?          // present iff the model accepts an explicit token budget
+  adaptive_by_default bool          // MUST — whether omitting every thinking control still reasons
+  disable   enum { unspecified, never, always, conditional }  // MUST when supported
+}
+
+EffortControl {
+  levels  []string   // MUST be non-empty, e.g. ["low","medium","high","xhigh","max"]
+  default string     // MUST — the level the vendor applies when a request omits effort
+}
+
+BudgetControl {
+  range      {min, max}  // MUST — the accepted token-budget range, inclusive
+  default    int64?      // MAY — the budget the vendor applies when a request omits one;
+                          // omitted means the vendor reasons zero tokens by default
+  deprecated bool        // MUST — the vendor still honors this control but steers callers
+                          // to effort/adaptive instead, and MAY remove it in a later model
 }
 ```
+
+`supported == false` means the model has no reasoning capability: `effort` and `budget` MUST both be absent and `adaptive_by_default` MUST be false. `disable` is meaningless in that case — there is nothing to disable — so both `unspecified` and `never` are accepted and mean the same thing, and a reader MUST treat them identically. This keeps the all-zero `ThinkingSpec` a valid declaration for a model that does not reason, which is the common case; only a positive claim that reasoning *can* be turned off (`always` or `conditional`) contradicts `supported == false` and MUST be rejected. Every other combination is a real, declarable position:
+
+| Axis | Meaning when present/true |
+|---|---|
+| `effort` | The caller MAY select one of `levels`. Absent means this model has no effort ladder — sending an effort level is a kernel-level reject, not something forwarded. |
+| `budget` | The caller MAY select a token budget inside `range`. Absent means this model has no budget control; a model that once had one and had it removed declares it absent, not `deprecated`. |
+| `adaptive_by_default` | Omitting both controls still produces reasoning. False means an unconfigured request reasons zero tokens. This is what makes the vendor's actual default behavior auditable through `GetCapabilities` rather than hidden in adapter code — a kernel wanting deterministic behavior reads it and sends an explicit override instead of guessing what "unspecified" means. |
+| `disable = never` | Reasoning cannot be turned off at all (a Grok model defaulting reasoning on with no off switch; Anthropic's Fable 5, where an explicit disable is a 400). |
+| `disable = always` | An explicit disable is accepted in every configuration. |
+| `disable = conditional` | An explicit disable is accepted in some configurations and rejected in others — Anthropic's Opus 5 accepts it at effort `high` or below and returns a 400 at `xhigh` or `max`. The protocol deliberately does not model *which* configurations: the condition is vendor-specific and would need a general constraint language to express. What `conditional` buys the kernel is the knowledge that a disable attempt MAY legitimately fail, so such a failure is a vendor policy response and not an adapter bug. |
+
+`EffortControl.default` and `BudgetControl.default` replace a single `default` string that had to encode either kind of value. Each now sits on the control it belongs to, in that control's own type, which also settles the question of what a per-model budget default means separately from the range's bounds.
 
 ### `CachingSpec`
 
@@ -240,8 +265,8 @@ This is a `Struct` for the same reason `ConfigureRequest.config` is one — the 
 
 ```protobuf
 GenerationParams {
-  thinking_effort          string?          // one of ThinkingSpec.effort_levels; THINKING_MODE_DISCRETE_EFFORT only
-  thinking_budget_tokens    int64?           // within ThinkingSpec.budget_range; THINKING_MODE_CONTINUOUS_BUDGET only
+  thinking_effort          string?          // one of ThinkingSpec.effort.levels; requires effort to be present
+  thinking_budget_tokens    int64?           // within ThinkingSpec.budget.range; requires budget to be present
   max_output_tokens         int64?           // per-request override of ModelSpec.max_output_tokens
   temperature                double?          // sampling temperature; vendor-specific range/semantics, passed through as-is
   stop_sequences            []string          // sequences that MUST stop generation before they're produced

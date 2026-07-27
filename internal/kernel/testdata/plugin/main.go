@@ -80,10 +80,13 @@ func (*fixtureProvider) Capabilities(context.Context) (*model.Capabilities, erro
 		MaxOutputTokens:   8192,
 		SupportsToolUse:   true,
 		SupportsStreaming: true,
-		// Both capability sub-specs must name an explicit NONE mode: the
-		// zero value is THINKING_MODE_UNSPECIFIED/CACHING_MODE_UNSPECIFIED,
-		// which NewCapabilities rejects rather than guessing at.
-		Thinking: model.ThinkingSpec{Mode: modelv1.ThinkingMode_THINKING_MODE_NONE},
+		// A model with no thinking capability leaves ThinkingSpec at its
+		// zero value: Supported false, no effort or budget control, and
+		// disable NEVER — there is nothing to disable. CachingSpec must
+		// still name an explicit NONE mode, whose zero value is
+		// CACHING_MODE_UNSPECIFIED and which NewCapabilities rejects rather
+		// than guessing at.
+		Thinking: model.ThinkingSpec{},
 		Caching:  model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
 		Pricing:  model.Pricing{Currency: "USD", Free: true},
 		SupportedToolChoiceModes: []modelv1.ToolChoiceMode{

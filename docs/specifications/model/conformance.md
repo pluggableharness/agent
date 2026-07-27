@@ -30,7 +30,9 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 | `tool_use` / `tool_result` | MUST, if any served model has `supports_tool_use = true` | |
 | `image` (vision) | MUST support where `supports_vision = true`; MUST reject cleanly where `false` | |
 | `document` | MUST support where `supports_documents = true`; MUST reject cleanly where `false` | [`data-types.md#canonical-message--content-block-schema`](data-types.md#canonical-message--content-block-schema) — mirrors `image`/`supports_vision`'s rule |
-| Extended thinking/reasoning | MAY, capability-gated via `ThinkingSpec` | declare `mode` precisely, don't collapse to a bool |
+| Extended thinking/reasoning | MAY, capability-gated via `ThinkingSpec` | declare each axis it actually accepts, don't collapse to a bool or to one mutually-exclusive mode |
+| `ThinkingSpec.effort.default` / `budget.default` | MUST when that control is present | [`data-types.md#thinkingspec`](data-types.md#thinkingspec) — `effort.default` names a level; `budget.default` MAY be omitted, meaning zero reasoning tokens by default |
+| `ThinkingSpec.adaptive_by_default` / `disable` | MUST | [`data-types.md#thinkingspec`](data-types.md#thinkingspec) — `disable = conditional` tells the kernel a disable attempt MAY legitimately fail, so such a failure is vendor policy, not an adapter bug |
 | `StreamEvent.redacted_thinking` | MUST, for a vendor that emits vendor-encrypted reasoning blocks | [`data-types.md#streamevent`](data-types.md#streamevent) — a whole block, never fragmented; stored and echoed back verbatim or the vendor rejects the whole conversation on a later turn |
 | Prompt caching | MAY, capability-gated via `CachingSpec` | declare `mode` (explicit vs. implicit) |
 | Cache breakpoints (`StreamCompletionRequest.cache_breakpoints`) | MUST honor where `CachingSpec.mode = CACHING_MODE_EXPLICIT_MARKERS`; MUST ignore otherwise | [`protocol.md#cache-breakpoint-placement-policy`](protocol.md#cache-breakpoint-placement-policy) — placement is a kernel decision, never the plugin's |
@@ -39,7 +41,6 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 | Tool-choice constraint (`GenerationParams.tool_choice`) | MAY, capability-gated via `ModelSpec.supported_tool_choice_modes` | kernel MUST NOT send a mode absent from the declared list, mirroring `ThinkingSpec` validation |
 | `Render` | MAY | generic fallback exists; `RenderRequest.schema_version` MUST be set when implemented |
 | `CountTokens` | SHOULD | kernel falls back to [`kernel-callbacks.md`](../kernel-callbacks.md#the-fallback-heuristic)'s heuristic when absent, treated as a last resort; `CountTokensRequest.model_id` MUST be set |
-| `ThinkingSpec.default` | MUST when `mode != none` | [`data-types.md`](data-types.md#thinkingspec) |
 | `CachingSpec.keepalive_supported` | MUST (field); actual keepalive loop MAY | [`data-types.md`](data-types.md#cachingspec) |
 | `Pricing.tiers`, time-bounded/tiered/input-size-bounded rates | MUST | [`data-types.md`](data-types.md#pricing) — exactly one tier MUST match any given `(timestamp, input_token_count)` pair |
 | `Pricing` on every `ModelSpec` | MUST | required even for `free: true` models |
@@ -52,7 +53,7 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 ## Open questions
 
 - Whether `supports_parallel_tool_calls` needs a per-request override (some vendors may allow disabling parallel calls per-call even when generally supported).
-- Whether `ThinkingSpec.budget_range` needs a per-model default separate from the overall min/max (several vendors default to a specific level like `medium`/`HIGH` rather than "off").
+- Whether a model needs to declare that it rejects `GenerationParams.temperature`. Several vendors' reasoning models reject non-default sampling parameters outright (Anthropic's effort-ladder models return a 400; other vendors' reasoning models ignore the value silently). There is no field for this, so an adapter facing such a model can only drop the operator's `temperature` on the floor — which is the right behavior, but it happens invisibly, and the kernel cannot tell a dropped parameter from an honored one. Today adapters infer it from the thinking shape, which is a proxy that will be wrong for the first model that has an effort ladder *and* accepts temperature. The same question applies to `top_p` and any other sampling parameter added later, so the fix is probably a general "declared sampling parameters" list rather than a per-parameter bool.
 - Retry/backoff policy specifics (exponential backoff parameters) — likely belongs in the kernel's routing logic rather than this protocol, but needs to be decided somewhere; see [`configuration/blocks-reference.md`](../configuration/blocks-reference.md)'s `settings{}` retry defaults for the current kernel-side values.
 - Whether `content_filtered` needs sub-categories (input filtered vs. output filtered) — there isn't enough vendor detail yet to decide.
 - `Pricing.currency` is declared as a string but v1 only ever acts on `"USD"` — no conversion mechanism, no mixed-currency cost aggregation across providers with different currencies. Fine while vendors generally price in USD; would need real design work the moment that stops being true.

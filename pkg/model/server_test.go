@@ -40,7 +40,7 @@ func (f *fakeProvider) Capabilities(ctx context.Context) (*model.Capabilities, e
 	}
 	return model.NewCapabilities([]model.Spec{{
 		ID:       "fake-model",
-		Thinking: model.ThinkingSpec{Mode: modelv1.ThinkingMode_THINKING_MODE_NONE},
+		Thinking: model.ThinkingSpec{},
 		Caching:  model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
 		Pricing:  model.Pricing{Currency: "USD", Free: true},
 	}}, &configv1.ConfigSchema{})

@@ -116,23 +116,39 @@ func base(id string, contextWindow, maxOutput int64) model.Spec {
 	}
 }
 
-// effortThinking builds the ThinkingSpec for a model whose reasoning is
-// controlled by a named effort level (output_config.effort) rather than a
-// token budget. canDisable reports whether thinking can be turned off at
-// all — see fable5 and opus5 for the two models where that answer is not
-// a plain yes.
+// effortThinking builds the ThinkingSpec for a model that reasons
+// adaptively and exposes a named effort ladder (output_config.effort) on
+// top of it. disable says whether, and when, that reasoning can be turned
+// off — see fable5 and opus5 for the two models where the answer is not a
+// plain yes.
+//
+// AdaptiveByDefault is true for every model built here: omitting thinking
+// config entirely still reasons, and the adapter sends
+// thinking:{type:"adaptive"} alongside the effort level rather than
+// instead of it. Both facts are declarable now that ThinkingSpec's axes
+// are independent; the earlier single-mode shape could only say one, and
+// said the effort half.
+//
+// None of these models declares a BudgetControl. Anthropic removed
+// budget_tokens outright on Opus 4.7 and later, and while the 4.6
+// generation reportedly still honors it transitionally, this roster has
+// never claimed that and adding the claim needs its own pass against the
+// live docs — see this package's CLAUDE.md on never writing a capability
+// here from memory.
 //
 // levels is copied rather than aliased: effortLevels4/effortLevels5 are
 // package-level slices shared by several models, so handing one straight
 // to a caller would let that caller's mutation reach every later Models()
 // call, defeating the whole point of rebuilding the roster per call.
-func effortThinking(levels []string, canDisable bool) model.ThinkingSpec {
+func effortThinking(levels []string, disable modelv1.ThinkingDisableSupport) model.ThinkingSpec {
 	return model.ThinkingSpec{
-		Supported:    true,
-		Mode:         modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT,
-		EffortLevels: append([]string(nil), levels...),
-		CanDisable:   canDisable,
-		Default:      defaultEffort,
+		Supported: true,
+		Effort: &model.EffortControl{
+			Levels:  append([]string(nil), levels...),
+			Default: defaultEffort,
+		},
+		AdaptiveByDefault: true,
+		Disable:           disable,
 	}
 }
 
@@ -190,7 +206,7 @@ func opusPricing() model.Pricing {
 // make it a routing candidate that fails at request time.
 func fable5() model.Spec {
 	s := base("claude-fable-5", contextWindow1M, maxOutput128K)
-	s.Thinking = effortThinking(effortLevels5, false)
+	s.Thinking = effortThinking(effortLevels5, modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_NEVER)
 	s.Pricing = flatPricing(10.00, 50.00, 12.50, 1.00, 5.00, 25.00)
 	return s
 }
@@ -208,7 +224,7 @@ func fable5() model.Spec {
 // kernel explicitly asks for both.
 func opus5() model.Spec {
 	s := base("claude-opus-5", contextWindow1M, maxOutput128K)
-	s.Thinking = effortThinking(effortLevels5, true)
+	s.Thinking = effortThinking(effortLevels5, modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_CONDITIONAL)
 	s.Pricing = opusPricing()
 	return s
 }
@@ -217,7 +233,7 @@ func opus5() model.Spec {
 // current and the recommended fallback target for an Opus 5 refusal.
 func opus48() model.Spec {
 	s := base("claude-opus-4-8", contextWindow1M, maxOutput128K)
-	s.Thinking = effortThinking(effortLevels5, true)
+	s.Thinking = effortThinking(effortLevels5, modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS)
 	s.Pricing = opusPricing()
 	return s
 }
@@ -225,7 +241,7 @@ func opus48() model.Spec {
 // opus47 is Claude Opus 4.7.
 func opus47() model.Spec {
 	s := base("claude-opus-4-7", contextWindow1M, maxOutput128K)
-	s.Thinking = effortThinking(effortLevels5, true)
+	s.Thinking = effortThinking(effortLevels5, modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS)
 	s.Pricing = opusPricing()
 	return s
 }
@@ -234,7 +250,7 @@ func opus47() model.Spec {
 // level existed — hence effortLevels4 rather than effortLevels5.
 func opus46() model.Spec {
 	s := base("claude-opus-4-6", contextWindow1M, maxOutput128K)
-	s.Thinking = effortThinking(effortLevels4, true)
+	s.Thinking = effortThinking(effortLevels4, modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS)
 	s.Pricing = opusPricing()
 	return s
 }
@@ -250,7 +266,7 @@ func opus46() model.Spec {
 // model.NewCapabilities checks for overlap.
 func sonnet5() model.Spec {
 	s := base("claude-sonnet-5", contextWindow1M, maxOutput128K)
-	s.Thinking = effortThinking(effortLevels5, true)
+	s.Thinking = effortThinking(effortLevels5, modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS)
 
 	introEnd := sonnet5IntroEnd
 	standardStart := sonnet5IntroEnd
@@ -292,7 +308,7 @@ func sonnet5() model.Spec {
 // sonnet46 is Claude Sonnet 4.6.
 func sonnet46() model.Spec {
 	s := base("claude-sonnet-4-6", contextWindow1M, maxOutput128K)
-	s.Thinking = effortThinking(effortLevels4, true)
+	s.Thinking = effortThinking(effortLevels4, modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS)
 	s.Pricing = flatPricing(3.00, 15.00, 3.75, 0.30, 1.50, 7.50)
 	return s
 }
@@ -303,22 +319,28 @@ func sonnet46() model.Spec {
 //
 // The budget range's upper bound is one token below MaxOutputTokens
 // because Anthropic requires budget_tokens < max_tokens; the lower bound
-// is Anthropic's documented 1024 minimum. Default is "0" rather than an
-// effort name because omitting the thinking parameter on this model means
-// no thinking at all — ThinkingSpec.default documents what the vendor
-// actually does with an unconfigured request, and for Haiku 4.5 that is
-// zero reasoning tokens.
+// is Anthropic's documented 1024 minimum.
+//
+// It declares no EffortControl — output_config.effort errors on this
+// model — and AdaptiveByDefault is false, because omitting the thinking
+// parameter here means no thinking at all rather than adaptive reasoning.
+// That pair is the exact opposite of every other model in this roster, and
+// it is the case the older single-mode ThinkingSpec handled worst: a
+// nil BudgetControl.Default now says "zero reasoning tokens by default"
+// directly, where before it had to be smuggled through a Default field
+// typed as a string holding "0".
 func haiku45() model.Spec {
 	s := base("claude-haiku-4-5", contextWindow200K, maxOutput64K)
 	s.Thinking = model.ThinkingSpec{
 		Supported: true,
-		Mode:      modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET,
-		BudgetRange: &model.ThinkingBudgetRange{
-			Min: 1024,
-			Max: maxOutput64K - 1,
+		Budget: &model.BudgetControl{
+			Range: model.ThinkingBudgetRange{
+				Min: 1024,
+				Max: maxOutput64K - 1,
+			},
 		},
-		CanDisable: true,
-		Default:    "0",
+		AdaptiveByDefault: false,
+		Disable:           modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
 	}
 	s.Pricing = flatPricing(1.00, 5.00, 1.25, 0.10, 0.50, 2.50)
 	return s

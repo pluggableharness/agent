@@ -58,7 +58,7 @@ func TestModels_returnsAFreshCopy(t *testing.T) {
 	first := Models()
 	first[0].ID = "mutated"
 	first[0].Pricing.Tiers[0].InputPerMtok = 999
-	first[0].Thinking.EffortLevels[0] = "mutated"
+	first[0].Thinking.Effort.Levels[0] = "mutated"
 
 	second := Models()
 	if second[0].ID == "mutated" {
@@ -67,8 +67,8 @@ func TestModels_returnsAFreshCopy(t *testing.T) {
 	if second[0].Pricing.Tiers[0].InputPerMtok == 999 {
 		t.Error("mutating a returned PricingTier changed the next call's roster")
 	}
-	if second[0].Thinking.EffortLevels[0] == "mutated" {
-		t.Error("mutating a returned EffortLevels changed the next call's roster")
+	if second[0].Thinking.Effort.Levels[0] == "mutated" {
+		t.Error("mutating a returned effort Levels slice changed the next call's roster")
 	}
 }
 
@@ -184,7 +184,7 @@ func tierCovers(tier model.PricingTier, at time.Time) bool {
 // already enforces — specifically that an effort-controlled model quotes a
 // ladder containing its own declared default, and that a budget-controlled
 // model's range is ordered and fits inside its output ceiling.
-func TestThinking_modeMatchesTheDeclaredControls(t *testing.T) {
+func TestThinking_declaredControlsAreInternallyConsistent(t *testing.T) {
 	t.Parallel()
 
 	for _, m := range Models() {
@@ -192,14 +192,17 @@ func TestThinking_modeMatchesTheDeclaredControls(t *testing.T) {
 			t.Errorf("%s: every model in this roster reasons; Supported is false", m.ID)
 			continue
 		}
-		switch m.Thinking.Mode {
-		case modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT:
-			if !contains(m.Thinking.EffortLevels, m.Thinking.Default) {
-				t.Errorf("%s: default effort %q is absent from %v",
-					m.ID, m.Thinking.Default, m.Thinking.EffortLevels)
+		if m.Thinking.Effort == nil && m.Thinking.Budget == nil {
+			t.Errorf("%s: reasoning declared with neither an effort nor a budget control", m.ID)
+			continue
+		}
+		if e := m.Thinking.Effort; e != nil {
+			if !contains(e.Levels, e.Default) {
+				t.Errorf("%s: default effort %q is absent from %v", m.ID, e.Default, e.Levels)
 			}
-		case modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET:
-			r := m.Thinking.BudgetRange
+		}
+		if b := m.Thinking.Budget; b != nil {
+			r := b.Range
 			if r.Min <= 0 || r.Min >= r.Max {
 				t.Errorf("%s: budget range [%d,%d] is not an ordered positive range", m.ID, r.Min, r.Max)
 			}
@@ -207,8 +210,27 @@ func TestThinking_modeMatchesTheDeclaredControls(t *testing.T) {
 				t.Errorf("%s: budget max %d is not below max output %d, which the vendor rejects",
 					m.ID, r.Max, m.MaxOutputTokens)
 			}
-		default:
-			t.Errorf("%s: unexpected thinking mode %v", m.ID, m.Thinking.Mode)
+		}
+		if m.Thinking.Disable == modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_UNSPECIFIED {
+			t.Errorf("%s: reasoning declared without a disable value", m.ID)
+		}
+	}
+}
+
+// TestThinking_effortModelsAreAdaptiveByDefault pins the pairing the older
+// single-mode ThinkingSpec could not express and that
+// internal/anthropic/messages relies on: Anthropic's effort ladder rides
+// on top of adaptive reasoning rather than replacing it, so buildThinking
+// emits thinking:{type:"adaptive"} AND output_config.effort together.
+func TestThinking_effortModelsAreAdaptiveByDefault(t *testing.T) {
+	t.Parallel()
+
+	for _, m := range Models() {
+		if m.Thinking.Effort == nil {
+			continue
+		}
+		if !m.Thinking.AdaptiveByDefault {
+			t.Errorf("%s: declares an effort ladder but not AdaptiveByDefault", m.ID)
 		}
 	}
 }

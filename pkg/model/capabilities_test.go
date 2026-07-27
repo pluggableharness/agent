@@ -23,7 +23,7 @@ func validModelSpec() model.Spec {
 		SupportsToolUse:   true,
 		SupportsVision:    true,
 		SupportsStreaming: true,
-		Thinking:          model.ThinkingSpec{Mode: modelv1.ThinkingMode_THINKING_MODE_NONE},
+		Thinking:          model.ThinkingSpec{},
 		Caching:           model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
 		Pricing: model.Pricing{
 			Currency: "USD",
@@ -31,6 +31,19 @@ func validModelSpec() model.Spec {
 				{InputPerMtok: 3, OutputPerMtok: 15},
 			},
 		},
+	}
+}
+
+// thinkingWith returns a thinking-supported ThinkingSpec carrying the
+// given controls, with the fields that are not under test set to values
+// that satisfy their own invariants — so a failing case fails on the
+// control it names, never on an unrelated omission.
+func thinkingWith(effort *model.EffortControl, budget *model.BudgetControl) model.ThinkingSpec {
+	return model.ThinkingSpec{
+		Supported: true,
+		Effort:    effort,
+		Budget:    budget,
+		Disable:   modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
 	}
 }
 
@@ -83,13 +96,86 @@ func TestNewCapabilities_Invalid(t *testing.T) {
 			wantErr: model.ErrInvalidCapabilities,
 		},
 		{
-			name: "discrete effort without effort levels",
+			name: "effort control with no levels",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				m.Thinking = thinkingWith(&model.EffortControl{Default: "medium"}, nil)
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
+			name: "effort control with no default",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				m.Thinking = thinkingWith(&model.EffortControl{Levels: []string{"low", "high"}}, nil)
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
+			// The default exists so a kernel can send it back as an explicit
+			// override; naming a level the vendor does not accept would make
+			// that override a guaranteed 400.
+			name: "effort default is not one of the declared levels",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				m.Thinking = thinkingWith(&model.EffortControl{
+					Levels:  []string{"low", "high"},
+					Default: "medium",
+				}, nil)
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
+			name: "budget range inverted",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				m.Thinking = thinkingWith(nil, &model.BudgetControl{
+					Range: model.ThinkingBudgetRange{Min: 32000, Max: 1024},
+				})
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
+			name: "budget default outside the declared range",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				def := int64(64000)
+				m.Thinking = thinkingWith(nil, &model.BudgetControl{
+					Range:   model.ThinkingBudgetRange{Min: 1024, Max: 32000},
+					Default: &def,
+				})
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
+			name: "thinking supported without a disable value",
+			models: func() []model.Spec {
+				m := validModelSpec()
+				m.Thinking = model.ThinkingSpec{Supported: true}
+				return []model.Spec{m}
+			}(),
+			schema:  &configv1.ConfigSchema{},
+			wantErr: model.ErrInvalidCapabilities,
+		},
+		{
+			// A model that cannot reason must not declare controls for
+			// reasoning it does not do — the one cross-axis rule.
+			name: "control declared on a model with thinking unsupported",
 			models: func() []model.Spec {
 				m := validModelSpec()
 				m.Thinking = model.ThinkingSpec{
-					Supported: true,
-					Mode:      modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT,
-					Default:   "medium",
+					Supported: false,
+					Effort:    &model.EffortControl{Levels: []string{"low"}, Default: "low"},
 				}
 				return []model.Spec{m}
 			}(),
@@ -97,27 +183,10 @@ func TestNewCapabilities_Invalid(t *testing.T) {
 			wantErr: model.ErrInvalidCapabilities,
 		},
 		{
-			name: "continuous budget without budget range",
+			name: "adaptive_by_default set on a model with thinking unsupported",
 			models: func() []model.Spec {
 				m := validModelSpec()
-				m.Thinking = model.ThinkingSpec{
-					Supported: true,
-					Mode:      modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET,
-					Default:   "1024",
-				}
-				return []model.Spec{m}
-			}(),
-			schema:  &configv1.ConfigSchema{},
-			wantErr: model.ErrInvalidCapabilities,
-		},
-		{
-			name: "thinking mode set without default",
-			models: func() []model.Spec {
-				m := validModelSpec()
-				m.Thinking = model.ThinkingSpec{
-					Supported: true,
-					Mode:      modelv1.ThinkingMode_THINKING_MODE_ALWAYS_ON_ADAPTIVE,
-				}
+				m.Thinking = model.ThinkingSpec{Supported: false, AdaptiveByDefault: true}
 				return []model.Spec{m}
 			}(),
 			schema:  &configv1.ConfigSchema{},

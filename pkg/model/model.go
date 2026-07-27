@@ -131,8 +131,8 @@ type Spec struct {
 	// accurately; false means the kernel serializes tool calls for this
 	// model.
 	SupportsParallelToolCalls bool
-	// Thinking is this model's extended-reasoning capability. Use
-	// ThinkingSpec{} (Mode left at THINKING_MODE_NONE) when unsupported.
+	// Thinking is this model's extended-reasoning capability. Use the zero
+	// ThinkingSpec{} when unsupported.
 	Thinking ThinkingSpec
 	// Caching is this model's prompt-caching capability. Use
 	// CachingSpec{} (Mode left at CACHING_MODE_NONE) when unsupported.
@@ -151,32 +151,66 @@ type Spec struct {
 
 // ThinkingSpec describes one model's extended-reasoning capability, per
 // docs/specifications/model/data-types.md#thinkingspec.
+//
+// These are independent axes, not one-of-N modes. A model may reason
+// adaptively AND expose an effort ladder, or accept an effort level AND a
+// deprecated token budget. Declare every control the model actually
+// accepts; the kernel validates each requested parameter against the
+// specific control that governs it.
 type ThinkingSpec struct {
 	// Supported reports whether this model has any extended-reasoning
-	// capability at all.
+	// capability at all. When false, Effort and Budget MUST both be nil,
+	// AdaptiveByDefault MUST be false, and Disable MUST be
+	// THINKING_DISABLE_SUPPORT_NEVER.
 	Supported bool
-	// Mode is which reasoning-control shape this model uses. MUST be
-	// THINKING_MODE_NONE when Supported is false.
-	Mode modelv1.ThinkingMode
-	// EffortLevels are the selectable effort levels, e.g. ["low","medium",
-	// "high","xhigh","max"]. MUST be non-empty when
-	// Mode == THINKING_MODE_DISCRETE_EFFORT.
-	EffortLevels []string
-	// BudgetRange is the selectable token-budget range. MUST be present
-	// when Mode == THINKING_MODE_CONTINUOUS_BUDGET.
-	BudgetRange *ThinkingBudgetRange
-	// CanDisable reports whether reasoning can be turned off once
-	// enabled. Some vendors' reasoning cannot be disabled.
-	CanDisable bool
-	// Default is the effort level (discrete_effort) or budget-token value
-	// (continuous_budget), as a string, the vendor applies when a request
-	// omits thinking config entirely. MUST be non-empty when
-	// Mode != THINKING_MODE_NONE.
+	// Effort is the named-effort-level control, non-nil iff this model
+	// accepts one. Nil means sending a thinking effort to this model is a
+	// kernel-level reject rather than something forwarded to the vendor.
+	Effort *EffortControl
+	// Budget is the explicit-token-budget control, non-nil iff this model
+	// accepts one. A model that never had one, and a model whose vendor
+	// removed it, both leave this nil.
+	Budget *BudgetControl
+	// AdaptiveByDefault reports whether omitting every thinking control
+	// still produces reasoning. False means an unconfigured request
+	// reasons zero tokens.
+	AdaptiveByDefault bool
+	// Disable reports whether, and when, reasoning can be turned off. MUST
+	// be set when Supported is true.
+	Disable modelv1.ThinkingDisableSupport
+}
+
+// EffortControl declares that a model accepts a named reasoning-effort
+// level, and which levels.
+type EffortControl struct {
+	// Levels are the selectable effort levels, e.g. ["low","medium",
+	// "high","xhigh","max"]. MUST be non-empty — a model with no
+	// selectable levels leaves ThinkingSpec.Effort nil instead.
+	Levels []string
+	// Default is the level the vendor applies when a request omits effort
+	// entirely. MUST be non-empty and MUST appear in Levels.
 	Default string
 }
 
-// ThinkingBudgetRange bounds the token budget a caller may request when
-// ThinkingSpec.Mode is THINKING_MODE_CONTINUOUS_BUDGET.
+// BudgetControl declares that a model accepts an explicit reasoning-token
+// budget, and its bounds.
+type BudgetControl struct {
+	// Range is the accepted token-budget range, inclusive on both bounds.
+	Range ThinkingBudgetRange
+	// Default is the budget the vendor applies when a request omits one.
+	// Nil means the vendor reasons zero tokens by default — a pointer
+	// because a declared budget of 0 and an undeclared default are
+	// different statements.
+	Default *int64
+	// Deprecated reports that the vendor still honors this control but
+	// steers callers to effort/adaptive instead, and may remove it in a
+	// later model. A vendor that has already removed it is declared by
+	// leaving ThinkingSpec.Budget nil, not by setting this.
+	Deprecated bool
+}
+
+// ThinkingBudgetRange bounds the token budget a caller may request on a
+// model declaring a BudgetControl. Both bounds are inclusive.
 type ThinkingBudgetRange struct {
 	// Min is the smallest thinking-token budget this model accepts.
 	Min int64

@@ -110,30 +110,33 @@ message ModelSpec {
   bool supports_documents = 12;
 }
 
-// ThinkingMode enumerates the shapes of extended-reasoning control found
-// across researched vendors (model.md §2) — a plain supports_thinking
-// bool would lose information the kernel needs to build a correct
-// request, since some vendors (e.g. Anthropic) expose more than one mode
-// across their own model lineup.
-enum ThinkingMode {
+// ThinkingDisableSupport describes whether a model's reasoning can be
+// turned off, per model/data-types.md#thinkingspec. A plain bool cannot
+// express the real answer for every model: Anthropic's Opus 5 accepts an
+// explicit disable at effort "high" or below and returns a 400 at "xhigh"
+// or "max", so both true and false are wrong for it.
+enum ThinkingDisableSupport {
   // Zero value. Never valid when ThinkingSpec.supported is true; its
   // presence on the wire means a caller forgot to set the field.
-  THINKING_MODE_UNSPECIFIED = 0;
-  // The model has no extended-reasoning capability. Pairs with
-  // ThinkingSpec.supported == false.
-  THINKING_MODE_NONE = 1;
-  // The model always reasons, adaptively, with no caller-selectable
-  // effort level or budget.
-  THINKING_MODE_ALWAYS_ON_ADAPTIVE = 2;
-  // The caller selects one of a fixed set of named effort levels
-  // (ThinkingSpec.effort_levels).
-  THINKING_MODE_DISCRETE_EFFORT = 3;
-  // The caller selects a token budget within ThinkingSpec.budget_range.
-  THINKING_MODE_CONTINUOUS_BUDGET = 4;
+  THINKING_DISABLE_SUPPORT_UNSPECIFIED = 0;
+  // Reasoning cannot be turned off in any configuration — a researched
+  // Grok model defaults reasoning on with no off switch, and Anthropic's
+  // Fable 5 returns a 400 for an explicit disable. Also the correct value
+  // when ThinkingSpec.supported is false: there is nothing to disable.
+  THINKING_DISABLE_SUPPORT_NEVER = 1;
+  // An explicit disable is accepted in every configuration.
+  THINKING_DISABLE_SUPPORT_ALWAYS = 2;
+  // An explicit disable is accepted in some configurations and rejected in
+  // others. This protocol deliberately does not model WHICH: the condition
+  // is vendor-specific and expressing it would need a general constraint
+  // language. What this value buys the kernel is knowing that a failed
+  // disable attempt is a vendor policy response, not an adapter bug.
+  THINKING_DISABLE_SUPPORT_CONDITIONAL = 3;
 }
 
-// ThinkingBudgetRange bounds the token budget a caller may request when
-// ThinkingMode is THINKING_MODE_CONTINUOUS_BUDGET.
+// ThinkingBudgetRange bounds the token budget a caller may request on a
+// model whose ThinkingSpec declares a BudgetControl. Both bounds are
+// inclusive.
 message ThinkingBudgetRange {
   // The smallest thinking-token budget this model accepts.
   int64 min = 1;
@@ -141,38 +144,81 @@ message ThinkingBudgetRange {
   int64 max = 2;
 }
 
+// EffortControl declares that a model accepts a named reasoning-effort
+// level, and which levels, per model/data-types.md#thinkingspec.
+message EffortControl {
+  // The selectable effort levels, e.g. ["low","medium","high","xhigh",
+  // "max"]. MUST be non-empty — a model with no selectable levels omits
+  // the whole EffortControl instead.
+  repeated string levels = 1;
+
+  // The level the vendor applies when a request omits effort entirely.
+  // MUST be set, and MUST be one of `levels` — makes the vendor's actual
+  // default behavior visible/auditable via GetCapabilities rather than
+  // hidden in adapter code, so a kernel wanting deterministic behavior can
+  // always send an explicit override.
+  string default = 2;
+}
+
+// BudgetControl declares that a model accepts an explicit reasoning-token
+// budget, and its bounds, per model/data-types.md#thinkingspec.
+message BudgetControl {
+  // The accepted token-budget range. MUST be present.
+  ThinkingBudgetRange range = 1;
+
+  // The budget the vendor applies when a request omits one. MAY be
+  // omitted, which means the vendor reasons zero tokens by default.
+  optional int64 default = 2;
+
+  // Whether the vendor still honors this control but steers callers to
+  // effort/adaptive instead, and MAY remove it in a later model. This
+  // status is per-model, never per-vendor: Anthropic's Opus 4.6 and
+  // Sonnet 4.6 accept a deprecated budget, Haiku 4.5 accepts ONLY the
+  // budget, and Opus 4.7 onward reject it with a 400 (declared by omitting
+  // BudgetControl entirely, not by setting this flag).
+  bool deprecated = 3;
+}
+
 // ThinkingSpec describes one model's extended-reasoning capability, per
-// model.md §2.
+// model/data-types.md#thinkingspec.
+//
+// These are independent axes, not one-of-N modes. A model MAY reason
+// adaptively AND expose an effort ladder (Anthropic Opus 4.8, Sonnet 5),
+// or accept an effort level AND a deprecated token budget (Opus 4.6,
+// Sonnet 4.6). An earlier revision modeled this as a single mutually-
+// exclusive enum, which forced every such model to declare a half-truth.
 message ThinkingSpec {
-  // Whether this model has any extended-reasoning capability at all.
+  reserved 2 to 6;
+
+  reserved "budget_range", "can_disable", "default", "effort_levels", "mode";
+
+  // Whether this model has any extended-reasoning capability at all. When
+  // false, effort and budget MUST both be absent and adaptive_by_default
+  // MUST be false; `disable` is meaningless (there is nothing to disable),
+  // so UNSPECIFIED and NEVER are equivalent and a reader MUST treat them
+  // identically. That equivalence is what keeps an all-zero ThinkingSpec a
+  // valid declaration for a model that does not reason — the common case.
+  // Only a positive claim that reasoning CAN be turned off (ALWAYS or
+  // CONDITIONAL) contradicts supported == false.
   bool supported = 1;
 
-  // Which reasoning-control shape this model uses. MUST be
-  // THINKING_MODE_NONE when supported == false.
-  ThinkingMode mode = 2;
+  // The named-effort-level control, present iff this model accepts one.
+  // Absent means sending GenerationParams.thinking_effort to this model is
+  // a kernel-level reject, not something forwarded to the vendor.
+  optional EffortControl effort = 7;
 
-  // The selectable effort levels, e.g. ["low","medium","high","xhigh",
-  // "max"]. MUST be non-empty when mode == THINKING_MODE_DISCRETE_EFFORT;
-  // meaningless otherwise.
-  repeated string effort_levels = 3;
+  // The explicit-token-budget control, present iff this model accepts one.
+  // A model that never had one, and a model whose vendor removed it,
+  // both declare it absent.
+  optional BudgetControl budget = 8;
 
-  // The selectable token-budget range. MUST be present when mode ==
-  // THINKING_MODE_CONTINUOUS_BUDGET; meaningless otherwise.
-  optional ThinkingBudgetRange budget_range = 4;
+  // Whether omitting every thinking control still produces reasoning.
+  // False means an unconfigured request reasons zero tokens.
+  bool adaptive_by_default = 9;
 
-  // Whether reasoning can be turned off once enabled. MUST be set
-  // accurately — some vendors' reasoning cannot be disabled (e.g. a
-  // researched Grok model defaults reasoning on with no off switch).
-  bool can_disable = 5;
-
-  // The effort level (discrete_effort) or budget-token value
-  // (continuous_budget), as a string, the vendor applies when a request
-  // omits thinking config entirely. MUST be set when mode !=
-  // THINKING_MODE_NONE — makes the vendor's actual default behavior
-  // visible/auditable via GetCapabilities rather than hidden in adapter
-  // code, so a kernel wanting deterministic behavior can always send an
-  // explicit override.
-  optional string default = 6;
+  // Whether, and when, reasoning can be turned off. MUST be set when
+  // supported is true.
+  ThinkingDisableSupport disable = 10;
 }
 
 // CachingMode enumerates the prompt-caching mechanics found across

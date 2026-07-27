@@ -39,13 +39,16 @@ type Params struct {
 // protocol.md#generation-parameter-validation-and-capability-aware-routing's
 // fallback rules:
 //
-//   - Resolved.thinking_effort is cleared unless spec's ThinkingSpec.mode
-//     is THINKING_MODE_DISCRETE_EFFORT and the requested value appears in
-//     ThinkingSpec.effort_levels.
-//   - Resolved.thinking_budget_tokens is cleared unless spec's
-//     ThinkingSpec.mode is THINKING_MODE_CONTINUOUS_BUDGET and the
-//     requested value falls within ThinkingSpec.budget_range (inclusive of
-//     both bounds).
+//   - Resolved.thinking_effort is cleared unless spec declares a
+//     ThinkingSpec.effort control and the requested value appears in its
+//     levels.
+//   - Resolved.thinking_budget_tokens is cleared unless spec declares a
+//     ThinkingSpec.budget control and the requested value falls within its
+//     range (inclusive of both bounds).
+//
+// The two thinking controls are independent axes, so each is validated
+// against the control that governs it. A model declaring both is legal and
+// both params survive; a model declaring neither falls back on both.
 //   - Resolved.tool_choice is cleared (equivalent to
 //     TOOL_CHOICE_MODE_AUTO, i.e. omitting tool_choice entirely) unless
 //     its mode is TOOL_CHOICE_MODE_AUTO — which never needs a capability
@@ -86,8 +89,11 @@ func ValidateParams(req *modelv1.GenerationParams, spec *modelv1.ModelSpec) Para
 	thinking := spec.GetThinking()
 
 	if resolved.ThinkingEffort != nil {
-		if thinking.GetMode() != modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT ||
-			!slices.Contains(thinking.GetEffortLevels(), resolved.GetThinkingEffort()) {
+		// GetEffort() is nil for a model with no effort ladder, and
+		// GetLevels() on a nil control is an empty slice — so a model that
+		// declares no effort control fails the membership check and falls
+		// back, which is the intended outcome.
+		if !slices.Contains(thinking.GetEffort().GetLevels(), resolved.GetThinkingEffort()) {
 			resolved.ThinkingEffort = nil
 			fellBackThinking = true
 		}
@@ -113,18 +119,20 @@ func ValidateParams(req *modelv1.GenerationParams, spec *modelv1.ModelSpec) Para
 	}
 }
 
-// budgetInRange reports whether budget falls within thinking's
-// budget_range, inclusive of both bounds, and thinking's mode actually
-// governs a token budget at all. A thinking with mode !=
-// THINKING_MODE_CONTINUOUS_BUDGET has no meaningful budget_range per
-// data-types.md's ThinkingSpec doc ("required if mode ==
-// continuous_budget"), so any explicit budget request against such a
-// model is out of range regardless of the numeric value.
+// budgetInRange reports whether budget falls within thinking's declared
+// budget control, inclusive of both bounds.
+//
+// A model declaring no budget control has no meaningful range, so any
+// explicit budget request against it is out of range regardless of the
+// numeric value — the nil control is checked first rather than relying on
+// a nil range's zero bounds, which would coincidentally accept a budget of
+// exactly 0.
 func budgetInRange(budget int64, thinking *modelv1.ThinkingSpec) bool {
-	if thinking.GetMode() != modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET {
+	b := thinking.GetBudget()
+	if b == nil {
 		return false
 	}
-	r := thinking.GetBudgetRange()
+	r := b.GetRange()
 	if r == nil {
 		return false
 	}

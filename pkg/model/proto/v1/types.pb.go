@@ -25,72 +25,72 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ThinkingMode enumerates the shapes of extended-reasoning control found
-// across researched vendors (model.md §2) — a plain supports_thinking
-// bool would lose information the kernel needs to build a correct
-// request, since some vendors (e.g. Anthropic) expose more than one mode
-// across their own model lineup.
-type ThinkingMode int32
+// ThinkingDisableSupport describes whether a model's reasoning can be
+// turned off, per model/data-types.md#thinkingspec. A plain bool cannot
+// express the real answer for every model: Anthropic's Opus 5 accepts an
+// explicit disable at effort "high" or below and returns a 400 at "xhigh"
+// or "max", so both true and false are wrong for it.
+type ThinkingDisableSupport int32
 
 const (
 	// Zero value. Never valid when ThinkingSpec.supported is true; its
 	// presence on the wire means a caller forgot to set the field.
-	ThinkingMode_THINKING_MODE_UNSPECIFIED ThinkingMode = 0
-	// The model has no extended-reasoning capability. Pairs with
-	// ThinkingSpec.supported == false.
-	ThinkingMode_THINKING_MODE_NONE ThinkingMode = 1
-	// The model always reasons, adaptively, with no caller-selectable
-	// effort level or budget.
-	ThinkingMode_THINKING_MODE_ALWAYS_ON_ADAPTIVE ThinkingMode = 2
-	// The caller selects one of a fixed set of named effort levels
-	// (ThinkingSpec.effort_levels).
-	ThinkingMode_THINKING_MODE_DISCRETE_EFFORT ThinkingMode = 3
-	// The caller selects a token budget within ThinkingSpec.budget_range.
-	ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET ThinkingMode = 4
+	ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_UNSPECIFIED ThinkingDisableSupport = 0
+	// Reasoning cannot be turned off in any configuration — a researched
+	// Grok model defaults reasoning on with no off switch, and Anthropic's
+	// Fable 5 returns a 400 for an explicit disable. Also the correct value
+	// when ThinkingSpec.supported is false: there is nothing to disable.
+	ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_NEVER ThinkingDisableSupport = 1
+	// An explicit disable is accepted in every configuration.
+	ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS ThinkingDisableSupport = 2
+	// An explicit disable is accepted in some configurations and rejected in
+	// others. This protocol deliberately does not model WHICH: the condition
+	// is vendor-specific and expressing it would need a general constraint
+	// language. What this value buys the kernel is knowing that a failed
+	// disable attempt is a vendor policy response, not an adapter bug.
+	ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_CONDITIONAL ThinkingDisableSupport = 3
 )
 
-// Enum value maps for ThinkingMode.
+// Enum value maps for ThinkingDisableSupport.
 var (
-	ThinkingMode_name = map[int32]string{
-		0: "THINKING_MODE_UNSPECIFIED",
-		1: "THINKING_MODE_NONE",
-		2: "THINKING_MODE_ALWAYS_ON_ADAPTIVE",
-		3: "THINKING_MODE_DISCRETE_EFFORT",
-		4: "THINKING_MODE_CONTINUOUS_BUDGET",
+	ThinkingDisableSupport_name = map[int32]string{
+		0: "THINKING_DISABLE_SUPPORT_UNSPECIFIED",
+		1: "THINKING_DISABLE_SUPPORT_NEVER",
+		2: "THINKING_DISABLE_SUPPORT_ALWAYS",
+		3: "THINKING_DISABLE_SUPPORT_CONDITIONAL",
 	}
-	ThinkingMode_value = map[string]int32{
-		"THINKING_MODE_UNSPECIFIED":        0,
-		"THINKING_MODE_NONE":               1,
-		"THINKING_MODE_ALWAYS_ON_ADAPTIVE": 2,
-		"THINKING_MODE_DISCRETE_EFFORT":    3,
-		"THINKING_MODE_CONTINUOUS_BUDGET":  4,
+	ThinkingDisableSupport_value = map[string]int32{
+		"THINKING_DISABLE_SUPPORT_UNSPECIFIED": 0,
+		"THINKING_DISABLE_SUPPORT_NEVER":       1,
+		"THINKING_DISABLE_SUPPORT_ALWAYS":      2,
+		"THINKING_DISABLE_SUPPORT_CONDITIONAL": 3,
 	}
 )
 
-func (x ThinkingMode) Enum() *ThinkingMode {
-	p := new(ThinkingMode)
+func (x ThinkingDisableSupport) Enum() *ThinkingDisableSupport {
+	p := new(ThinkingDisableSupport)
 	*p = x
 	return p
 }
 
-func (x ThinkingMode) String() string {
+func (x ThinkingDisableSupport) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ThinkingMode) Descriptor() protoreflect.EnumDescriptor {
+func (ThinkingDisableSupport) Descriptor() protoreflect.EnumDescriptor {
 	return file_pluggableharness_model_v1_types_proto_enumTypes[0].Descriptor()
 }
 
-func (ThinkingMode) Type() protoreflect.EnumType {
+func (ThinkingDisableSupport) Type() protoreflect.EnumType {
 	return &file_pluggableharness_model_v1_types_proto_enumTypes[0]
 }
 
-func (x ThinkingMode) Number() protoreflect.EnumNumber {
+func (x ThinkingDisableSupport) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ThinkingMode.Descriptor instead.
-func (ThinkingMode) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use ThinkingDisableSupport.Descriptor instead.
+func (ThinkingDisableSupport) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
@@ -485,8 +485,9 @@ func (x *ModelSpec) GetSupportsDocuments() bool {
 	return false
 }
 
-// ThinkingBudgetRange bounds the token budget a caller may request when
-// ThinkingMode is THINKING_MODE_CONTINUOUS_BUDGET.
+// ThinkingBudgetRange bounds the token budget a caller may request on a
+// model whose ThinkingSpec declares a BudgetControl. Both bounds are
+// inclusive.
 type ThinkingBudgetRange struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The smallest thinking-token budget this model accepts.
@@ -541,41 +542,179 @@ func (x *ThinkingBudgetRange) GetMax() int64 {
 	return 0
 }
 
+// EffortControl declares that a model accepts a named reasoning-effort
+// level, and which levels, per model/data-types.md#thinkingspec.
+type EffortControl struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The selectable effort levels, e.g. ["low","medium","high","xhigh",
+	// "max"]. MUST be non-empty — a model with no selectable levels omits
+	// the whole EffortControl instead.
+	Levels []string `protobuf:"bytes,1,rep,name=levels,proto3" json:"levels,omitempty"`
+	// The level the vendor applies when a request omits effort entirely.
+	// MUST be set, and MUST be one of `levels` — makes the vendor's actual
+	// default behavior visible/auditable via GetCapabilities rather than
+	// hidden in adapter code, so a kernel wanting deterministic behavior can
+	// always send an explicit override.
+	Default       string `protobuf:"bytes,2,opt,name=default,proto3" json:"default,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EffortControl) Reset() {
+	*x = EffortControl{}
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EffortControl) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EffortControl) ProtoMessage() {}
+
+func (x *EffortControl) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EffortControl.ProtoReflect.Descriptor instead.
+func (*EffortControl) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *EffortControl) GetLevels() []string {
+	if x != nil {
+		return x.Levels
+	}
+	return nil
+}
+
+func (x *EffortControl) GetDefault() string {
+	if x != nil {
+		return x.Default
+	}
+	return ""
+}
+
+// BudgetControl declares that a model accepts an explicit reasoning-token
+// budget, and its bounds, per model/data-types.md#thinkingspec.
+type BudgetControl struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The accepted token-budget range. MUST be present.
+	Range *ThinkingBudgetRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	// The budget the vendor applies when a request omits one. MAY be
+	// omitted, which means the vendor reasons zero tokens by default.
+	Default *int64 `protobuf:"varint,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	// Whether the vendor still honors this control but steers callers to
+	// effort/adaptive instead, and MAY remove it in a later model. This
+	// status is per-model, never per-vendor: Anthropic's Opus 4.6 and
+	// Sonnet 4.6 accept a deprecated budget, Haiku 4.5 accepts ONLY the
+	// budget, and Opus 4.7 onward reject it with a 400 (declared by omitting
+	// BudgetControl entirely, not by setting this flag).
+	Deprecated    bool `protobuf:"varint,3,opt,name=deprecated,proto3" json:"deprecated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BudgetControl) Reset() {
+	*x = BudgetControl{}
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BudgetControl) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BudgetControl) ProtoMessage() {}
+
+func (x *BudgetControl) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BudgetControl.ProtoReflect.Descriptor instead.
+func (*BudgetControl) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *BudgetControl) GetRange() *ThinkingBudgetRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+func (x *BudgetControl) GetDefault() int64 {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return 0
+}
+
+func (x *BudgetControl) GetDeprecated() bool {
+	if x != nil {
+		return x.Deprecated
+	}
+	return false
+}
+
 // ThinkingSpec describes one model's extended-reasoning capability, per
-// model.md §2.
+// model/data-types.md#thinkingspec.
+//
+// These are independent axes, not one-of-N modes. A model MAY reason
+// adaptively AND expose an effort ladder (Anthropic Opus 4.8, Sonnet 5),
+// or accept an effort level AND a deprecated token budget (Opus 4.6,
+// Sonnet 4.6). An earlier revision modeled this as a single mutually-
+// exclusive enum, which forced every such model to declare a half-truth.
 type ThinkingSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether this model has any extended-reasoning capability at all.
+	// Whether this model has any extended-reasoning capability at all. When
+	// false, effort and budget MUST both be absent and adaptive_by_default
+	// MUST be false; `disable` is meaningless (there is nothing to disable),
+	// so UNSPECIFIED and NEVER are equivalent and a reader MUST treat them
+	// identically. That equivalence is what keeps an all-zero ThinkingSpec a
+	// valid declaration for a model that does not reason — the common case.
+	// Only a positive claim that reasoning CAN be turned off (ALWAYS or
+	// CONDITIONAL) contradicts supported == false.
 	Supported bool `protobuf:"varint,1,opt,name=supported,proto3" json:"supported,omitempty"`
-	// Which reasoning-control shape this model uses. MUST be
-	// THINKING_MODE_NONE when supported == false.
-	Mode ThinkingMode `protobuf:"varint,2,opt,name=mode,proto3,enum=pluggableharness.model.v1.ThinkingMode" json:"mode,omitempty"`
-	// The selectable effort levels, e.g. ["low","medium","high","xhigh",
-	// "max"]. MUST be non-empty when mode == THINKING_MODE_DISCRETE_EFFORT;
-	// meaningless otherwise.
-	EffortLevels []string `protobuf:"bytes,3,rep,name=effort_levels,json=effortLevels,proto3" json:"effort_levels,omitempty"`
-	// The selectable token-budget range. MUST be present when mode ==
-	// THINKING_MODE_CONTINUOUS_BUDGET; meaningless otherwise.
-	BudgetRange *ThinkingBudgetRange `protobuf:"bytes,4,opt,name=budget_range,json=budgetRange,proto3,oneof" json:"budget_range,omitempty"`
-	// Whether reasoning can be turned off once enabled. MUST be set
-	// accurately — some vendors' reasoning cannot be disabled (e.g. a
-	// researched Grok model defaults reasoning on with no off switch).
-	CanDisable bool `protobuf:"varint,5,opt,name=can_disable,json=canDisable,proto3" json:"can_disable,omitempty"`
-	// The effort level (discrete_effort) or budget-token value
-	// (continuous_budget), as a string, the vendor applies when a request
-	// omits thinking config entirely. MUST be set when mode !=
-	// THINKING_MODE_NONE — makes the vendor's actual default behavior
-	// visible/auditable via GetCapabilities rather than hidden in adapter
-	// code, so a kernel wanting deterministic behavior can always send an
-	// explicit override.
-	Default       *string `protobuf:"bytes,6,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	// The named-effort-level control, present iff this model accepts one.
+	// Absent means sending GenerationParams.thinking_effort to this model is
+	// a kernel-level reject, not something forwarded to the vendor.
+	Effort *EffortControl `protobuf:"bytes,7,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
+	// The explicit-token-budget control, present iff this model accepts one.
+	// A model that never had one, and a model whose vendor removed it,
+	// both declare it absent.
+	Budget *BudgetControl `protobuf:"bytes,8,opt,name=budget,proto3,oneof" json:"budget,omitempty"`
+	// Whether omitting every thinking control still produces reasoning.
+	// False means an unconfigured request reasons zero tokens.
+	AdaptiveByDefault bool `protobuf:"varint,9,opt,name=adaptive_by_default,json=adaptiveByDefault,proto3" json:"adaptive_by_default,omitempty"`
+	// Whether, and when, reasoning can be turned off. MUST be set when
+	// supported is true.
+	Disable       ThinkingDisableSupport `protobuf:"varint,10,opt,name=disable,proto3,enum=pluggableharness.model.v1.ThinkingDisableSupport" json:"disable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ThinkingSpec) Reset() {
 	*x = ThinkingSpec{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[3]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -587,7 +726,7 @@ func (x *ThinkingSpec) String() string {
 func (*ThinkingSpec) ProtoMessage() {}
 
 func (x *ThinkingSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[3]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -600,7 +739,7 @@ func (x *ThinkingSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ThinkingSpec.ProtoReflect.Descriptor instead.
 func (*ThinkingSpec) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ThinkingSpec) GetSupported() bool {
@@ -610,39 +749,32 @@ func (x *ThinkingSpec) GetSupported() bool {
 	return false
 }
 
-func (x *ThinkingSpec) GetMode() ThinkingMode {
+func (x *ThinkingSpec) GetEffort() *EffortControl {
 	if x != nil {
-		return x.Mode
-	}
-	return ThinkingMode_THINKING_MODE_UNSPECIFIED
-}
-
-func (x *ThinkingSpec) GetEffortLevels() []string {
-	if x != nil {
-		return x.EffortLevels
+		return x.Effort
 	}
 	return nil
 }
 
-func (x *ThinkingSpec) GetBudgetRange() *ThinkingBudgetRange {
+func (x *ThinkingSpec) GetBudget() *BudgetControl {
 	if x != nil {
-		return x.BudgetRange
+		return x.Budget
 	}
 	return nil
 }
 
-func (x *ThinkingSpec) GetCanDisable() bool {
+func (x *ThinkingSpec) GetAdaptiveByDefault() bool {
 	if x != nil {
-		return x.CanDisable
+		return x.AdaptiveByDefault
 	}
 	return false
 }
 
-func (x *ThinkingSpec) GetDefault() string {
-	if x != nil && x.Default != nil {
-		return *x.Default
+func (x *ThinkingSpec) GetDisable() ThinkingDisableSupport {
+	if x != nil {
+		return x.Disable
 	}
-	return ""
+	return ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_UNSPECIFIED
 }
 
 // CachingSpec describes one model's prompt-caching capability, per
@@ -668,7 +800,7 @@ type CachingSpec struct {
 
 func (x *CachingSpec) Reset() {
 	*x = CachingSpec{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[4]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -680,7 +812,7 @@ func (x *CachingSpec) String() string {
 func (*CachingSpec) ProtoMessage() {}
 
 func (x *CachingSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[4]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -693,7 +825,7 @@ func (x *CachingSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CachingSpec.ProtoReflect.Descriptor instead.
 func (*CachingSpec) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CachingSpec) GetSupported() bool {
@@ -772,7 +904,7 @@ type PricingTier struct {
 
 func (x *PricingTier) Reset() {
 	*x = PricingTier{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[5]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -784,7 +916,7 @@ func (x *PricingTier) String() string {
 func (*PricingTier) ProtoMessage() {}
 
 func (x *PricingTier) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[5]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -797,7 +929,7 @@ func (x *PricingTier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PricingTier.ProtoReflect.Descriptor instead.
 func (*PricingTier) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PricingTier) GetEffectiveFrom() *timestamppb.Timestamp {
@@ -892,7 +1024,7 @@ type Pricing struct {
 
 func (x *Pricing) Reset() {
 	*x = Pricing{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[6]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -904,7 +1036,7 @@ func (x *Pricing) String() string {
 func (*Pricing) ProtoMessage() {}
 
 func (x *Pricing) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[6]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -917,7 +1049,7 @@ func (x *Pricing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pricing.ProtoReflect.Descriptor instead.
 func (*Pricing) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Pricing) GetCurrency() string {
@@ -960,7 +1092,7 @@ type CacheBreakpoint struct {
 
 func (x *CacheBreakpoint) Reset() {
 	*x = CacheBreakpoint{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[7]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -972,7 +1104,7 @@ func (x *CacheBreakpoint) String() string {
 func (*CacheBreakpoint) ProtoMessage() {}
 
 func (x *CacheBreakpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[7]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -985,7 +1117,7 @@ func (x *CacheBreakpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CacheBreakpoint.ProtoReflect.Descriptor instead.
 func (*CacheBreakpoint) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CacheBreakpoint) GetPosition() isCacheBreakpoint_Position {
@@ -1070,7 +1202,7 @@ type ToolDeclaration struct {
 
 func (x *ToolDeclaration) Reset() {
 	*x = ToolDeclaration{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[8]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1082,7 +1214,7 @@ func (x *ToolDeclaration) String() string {
 func (*ToolDeclaration) ProtoMessage() {}
 
 func (x *ToolDeclaration) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[8]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1095,7 +1227,7 @@ func (x *ToolDeclaration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolDeclaration.ProtoReflect.Descriptor instead.
 func (*ToolDeclaration) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ToolDeclaration) GetName() string {
@@ -1159,7 +1291,7 @@ type GenerationParams struct {
 
 func (x *GenerationParams) Reset() {
 	*x = GenerationParams{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[9]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1171,7 +1303,7 @@ func (x *GenerationParams) String() string {
 func (*GenerationParams) ProtoMessage() {}
 
 func (x *GenerationParams) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[9]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1184,7 +1316,7 @@ func (x *GenerationParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerationParams.ProtoReflect.Descriptor instead.
 func (*GenerationParams) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GenerationParams) GetThinkingEffort() string {
@@ -1246,7 +1378,7 @@ type ToolChoice struct {
 
 func (x *ToolChoice) Reset() {
 	*x = ToolChoice{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[10]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1258,7 +1390,7 @@ func (x *ToolChoice) String() string {
 func (*ToolChoice) ProtoMessage() {}
 
 func (x *ToolChoice) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[10]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1271,7 +1403,7 @@ func (x *ToolChoice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolChoice.ProtoReflect.Descriptor instead.
 func (*ToolChoice) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{10}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ToolChoice) GetMode() ToolChoiceMode {
@@ -1321,7 +1453,7 @@ type Usage struct {
 
 func (x *Usage) Reset() {
 	*x = Usage{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[11]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1333,7 +1465,7 @@ func (x *Usage) String() string {
 func (*Usage) ProtoMessage() {}
 
 func (x *Usage) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[11]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1346,7 +1478,7 @@ func (x *Usage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Usage.ProtoReflect.Descriptor instead.
 func (*Usage) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{11}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Usage) GetInputTokens() int64 {
@@ -1409,7 +1541,7 @@ type ModelTarget struct {
 
 func (x *ModelTarget) Reset() {
 	*x = ModelTarget{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[12]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1421,7 +1553,7 @@ func (x *ModelTarget) String() string {
 func (*ModelTarget) ProtoMessage() {}
 
 func (x *ModelTarget) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[12]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1434,7 +1566,7 @@ func (x *ModelTarget) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelTarget.ProtoReflect.Descriptor instead.
 func (*ModelTarget) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{12}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ModelTarget) GetId() string {
@@ -1475,7 +1607,7 @@ type ModelRef struct {
 
 func (x *ModelRef) Reset() {
 	*x = ModelRef{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[13]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1487,7 +1619,7 @@ func (x *ModelRef) String() string {
 func (*ModelRef) ProtoMessage() {}
 
 func (x *ModelRef) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[13]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1500,7 +1632,7 @@ func (x *ModelRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelRef.ProtoReflect.Descriptor instead.
 func (*ModelRef) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{13}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ModelRef) GetProvider() string {
@@ -1527,7 +1659,7 @@ type CacheBreakpoint_AfterAssembledContext struct {
 
 func (x *CacheBreakpoint_AfterAssembledContext) Reset() {
 	*x = CacheBreakpoint_AfterAssembledContext{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1539,7 +1671,7 @@ func (x *CacheBreakpoint_AfterAssembledContext) String() string {
 func (*CacheBreakpoint_AfterAssembledContext) ProtoMessage() {}
 
 func (x *CacheBreakpoint_AfterAssembledContext) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[14]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1552,7 +1684,7 @@ func (x *CacheBreakpoint_AfterAssembledContext) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use CacheBreakpoint_AfterAssembledContext.ProtoReflect.Descriptor instead.
 func (*CacheBreakpoint_AfterAssembledContext) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{7, 0}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{9, 0}
 }
 
 // AfterTools is an empty marker message: its presence as the set oneof
@@ -1565,7 +1697,7 @@ type CacheBreakpoint_AfterTools struct {
 
 func (x *CacheBreakpoint_AfterTools) Reset() {
 	*x = CacheBreakpoint_AfterTools{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1577,7 +1709,7 @@ func (x *CacheBreakpoint_AfterTools) String() string {
 func (*CacheBreakpoint_AfterTools) ProtoMessage() {}
 
 func (x *CacheBreakpoint_AfterTools) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[15]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1590,7 +1722,7 @@ func (x *CacheBreakpoint_AfterTools) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CacheBreakpoint_AfterTools.ProtoReflect.Descriptor instead.
 func (*CacheBreakpoint_AfterTools) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{7, 1}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{9, 1}
 }
 
 var File_pluggableharness_model_v1_types_proto protoreflect.FileDescriptor
@@ -1620,18 +1752,27 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\x1d_supports_parallel_tool_calls\"9\n" +
 	"\x13ThinkingBudgetRange\x12\x10\n" +
 	"\x03min\x18\x01 \x01(\x03R\x03min\x12\x10\n" +
-	"\x03max\x18\x02 \x01(\x03R\x03max\"\xc3\x02\n" +
-	"\fThinkingSpec\x12\x1c\n" +
-	"\tsupported\x18\x01 \x01(\bR\tsupported\x12;\n" +
-	"\x04mode\x18\x02 \x01(\x0e2'.pluggableharness.model.v1.ThinkingModeR\x04mode\x12#\n" +
-	"\reffort_levels\x18\x03 \x03(\tR\feffortLevels\x12V\n" +
-	"\fbudget_range\x18\x04 \x01(\v2..pluggableharness.model.v1.ThinkingBudgetRangeH\x00R\vbudgetRange\x88\x01\x01\x12\x1f\n" +
-	"\vcan_disable\x18\x05 \x01(\bR\n" +
-	"canDisable\x12\x1d\n" +
-	"\adefault\x18\x06 \x01(\tH\x01R\adefault\x88\x01\x01B\x0f\n" +
-	"\r_budget_rangeB\n" +
+	"\x03max\x18\x02 \x01(\x03R\x03max\"A\n" +
+	"\rEffortControl\x12\x16\n" +
+	"\x06levels\x18\x01 \x03(\tR\x06levels\x12\x18\n" +
+	"\adefault\x18\x02 \x01(\tR\adefault\"\xa0\x01\n" +
+	"\rBudgetControl\x12D\n" +
+	"\x05range\x18\x01 \x01(\v2..pluggableharness.model.v1.ThinkingBudgetRangeR\x05range\x12\x1d\n" +
+	"\adefault\x18\x02 \x01(\x03H\x00R\adefault\x88\x01\x01\x12\x1e\n" +
 	"\n" +
-	"\b_default\"\x98\x01\n" +
+	"deprecated\x18\x03 \x01(\bR\n" +
+	"deprecatedB\n" +
+	"\n" +
+	"\b_default\"\x8c\x03\n" +
+	"\fThinkingSpec\x12\x1c\n" +
+	"\tsupported\x18\x01 \x01(\bR\tsupported\x12E\n" +
+	"\x06effort\x18\a \x01(\v2(.pluggableharness.model.v1.EffortControlH\x00R\x06effort\x88\x01\x01\x12E\n" +
+	"\x06budget\x18\b \x01(\v2(.pluggableharness.model.v1.BudgetControlH\x01R\x06budget\x88\x01\x01\x12.\n" +
+	"\x13adaptive_by_default\x18\t \x01(\bR\x11adaptiveByDefault\x12K\n" +
+	"\adisable\x18\n" +
+	" \x01(\x0e21.pluggableharness.model.v1.ThinkingDisableSupportR\adisableB\t\n" +
+	"\a_effortB\t\n" +
+	"\a_budgetJ\x04\b\x02\x10\aR\fbudget_rangeR\vcan_disableR\adefaultR\reffort_levelsR\x04mode\"\x98\x01\n" +
 	"\vCachingSpec\x12\x1c\n" +
 	"\tsupported\x18\x01 \x01(\bR\tsupported\x12:\n" +
 	"\x04mode\x18\x02 \x01(\x0e2&.pluggableharness.model.v1.CachingModeR\x04mode\x12/\n" +
@@ -1708,13 +1849,12 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\x11effective_ceiling\x18\x03 \x01(\x03R\x10effectiveCeiling\"6\n" +
 	"\bModelRef\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id*\xb3\x01\n" +
-	"\fThinkingMode\x12\x1d\n" +
-	"\x19THINKING_MODE_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12THINKING_MODE_NONE\x10\x01\x12$\n" +
-	" THINKING_MODE_ALWAYS_ON_ADAPTIVE\x10\x02\x12!\n" +
-	"\x1dTHINKING_MODE_DISCRETE_EFFORT\x10\x03\x12#\n" +
-	"\x1fTHINKING_MODE_CONTINUOUS_BUDGET\x10\x04*\x8a\x01\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id*\xb5\x01\n" +
+	"\x16ThinkingDisableSupport\x12(\n" +
+	"$THINKING_DISABLE_SUPPORT_UNSPECIFIED\x10\x00\x12\"\n" +
+	"\x1eTHINKING_DISABLE_SUPPORT_NEVER\x10\x01\x12#\n" +
+	"\x1fTHINKING_DISABLE_SUPPORT_ALWAYS\x10\x02\x12(\n" +
+	"$THINKING_DISABLE_SUPPORT_CONDITIONAL\x10\x03*\x8a\x01\n" +
 	"\vCachingMode\x12\x1c\n" +
 	"\x18CACHING_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11CACHING_MODE_NONE\x10\x01\x12!\n" +
@@ -1740,58 +1880,62 @@ func file_pluggableharness_model_v1_types_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_model_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_pluggableharness_model_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_pluggableharness_model_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_pluggableharness_model_v1_types_proto_goTypes = []any{
-	(ThinkingMode)(0),                             // 0: pluggableharness.model.v1.ThinkingMode
+	(ThinkingDisableSupport)(0),                   // 0: pluggableharness.model.v1.ThinkingDisableSupport
 	(CachingMode)(0),                              // 1: pluggableharness.model.v1.CachingMode
 	(ToolChoiceMode)(0),                           // 2: pluggableharness.model.v1.ToolChoiceMode
 	(*Capabilities)(nil),                          // 3: pluggableharness.model.v1.Capabilities
 	(*ModelSpec)(nil),                             // 4: pluggableharness.model.v1.ModelSpec
 	(*ThinkingBudgetRange)(nil),                   // 5: pluggableharness.model.v1.ThinkingBudgetRange
-	(*ThinkingSpec)(nil),                          // 6: pluggableharness.model.v1.ThinkingSpec
-	(*CachingSpec)(nil),                           // 7: pluggableharness.model.v1.CachingSpec
-	(*PricingTier)(nil),                           // 8: pluggableharness.model.v1.PricingTier
-	(*Pricing)(nil),                               // 9: pluggableharness.model.v1.Pricing
-	(*CacheBreakpoint)(nil),                       // 10: pluggableharness.model.v1.CacheBreakpoint
-	(*ToolDeclaration)(nil),                       // 11: pluggableharness.model.v1.ToolDeclaration
-	(*GenerationParams)(nil),                      // 12: pluggableharness.model.v1.GenerationParams
-	(*ToolChoice)(nil),                            // 13: pluggableharness.model.v1.ToolChoice
-	(*Usage)(nil),                                 // 14: pluggableharness.model.v1.Usage
-	(*ModelTarget)(nil),                           // 15: pluggableharness.model.v1.ModelTarget
-	(*ModelRef)(nil),                              // 16: pluggableharness.model.v1.ModelRef
-	(*CacheBreakpoint_AfterAssembledContext)(nil), // 17: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	(*CacheBreakpoint_AfterTools)(nil),            // 18: pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	(*v1.PromptExpansionSpec)(nil),                // 19: pluggableharness.common.v1.PromptExpansionSpec
-	(*v11.ConfigSchema)(nil),                      // 20: pluggableharness.config.v1.ConfigSchema
-	(v1.HookPoint)(0),                             // 21: pluggableharness.common.v1.HookPoint
-	(*timestamppb.Timestamp)(nil),                 // 22: google.protobuf.Timestamp
-	(*v12.Schema)(nil),                            // 23: pluggableharness.schema.v1.Schema
+	(*EffortControl)(nil),                         // 6: pluggableharness.model.v1.EffortControl
+	(*BudgetControl)(nil),                         // 7: pluggableharness.model.v1.BudgetControl
+	(*ThinkingSpec)(nil),                          // 8: pluggableharness.model.v1.ThinkingSpec
+	(*CachingSpec)(nil),                           // 9: pluggableharness.model.v1.CachingSpec
+	(*PricingTier)(nil),                           // 10: pluggableharness.model.v1.PricingTier
+	(*Pricing)(nil),                               // 11: pluggableharness.model.v1.Pricing
+	(*CacheBreakpoint)(nil),                       // 12: pluggableharness.model.v1.CacheBreakpoint
+	(*ToolDeclaration)(nil),                       // 13: pluggableharness.model.v1.ToolDeclaration
+	(*GenerationParams)(nil),                      // 14: pluggableharness.model.v1.GenerationParams
+	(*ToolChoice)(nil),                            // 15: pluggableharness.model.v1.ToolChoice
+	(*Usage)(nil),                                 // 16: pluggableharness.model.v1.Usage
+	(*ModelTarget)(nil),                           // 17: pluggableharness.model.v1.ModelTarget
+	(*ModelRef)(nil),                              // 18: pluggableharness.model.v1.ModelRef
+	(*CacheBreakpoint_AfterAssembledContext)(nil), // 19: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	(*CacheBreakpoint_AfterTools)(nil),            // 20: pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	(*v1.PromptExpansionSpec)(nil),                // 21: pluggableharness.common.v1.PromptExpansionSpec
+	(*v11.ConfigSchema)(nil),                      // 22: pluggableharness.config.v1.ConfigSchema
+	(v1.HookPoint)(0),                             // 23: pluggableharness.common.v1.HookPoint
+	(*timestamppb.Timestamp)(nil),                 // 24: google.protobuf.Timestamp
+	(*v12.Schema)(nil),                            // 25: pluggableharness.schema.v1.Schema
 }
 var file_pluggableharness_model_v1_types_proto_depIdxs = []int32{
 	4,  // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
-	19, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
-	20, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
-	21, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
-	6,  // 4: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
-	7,  // 5: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
-	9,  // 6: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
+	21, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
+	22, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
+	23, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	8,  // 4: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
+	9,  // 5: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
+	11, // 6: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
 	2,  // 7: pluggableharness.model.v1.ModelSpec.supported_tool_choice_modes:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	0,  // 8: pluggableharness.model.v1.ThinkingSpec.mode:type_name -> pluggableharness.model.v1.ThinkingMode
-	5,  // 9: pluggableharness.model.v1.ThinkingSpec.budget_range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
-	1,  // 10: pluggableharness.model.v1.CachingSpec.mode:type_name -> pluggableharness.model.v1.CachingMode
-	22, // 11: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
-	22, // 12: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
-	8,  // 13: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
-	17, // 14: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	18, // 15: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	23, // 16: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
-	13, // 17: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
-	2,  // 18: pluggableharness.model.v1.ToolChoice.mode:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	5,  // 8: pluggableharness.model.v1.BudgetControl.range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
+	6,  // 9: pluggableharness.model.v1.ThinkingSpec.effort:type_name -> pluggableharness.model.v1.EffortControl
+	7,  // 10: pluggableharness.model.v1.ThinkingSpec.budget:type_name -> pluggableharness.model.v1.BudgetControl
+	0,  // 11: pluggableharness.model.v1.ThinkingSpec.disable:type_name -> pluggableharness.model.v1.ThinkingDisableSupport
+	1,  // 12: pluggableharness.model.v1.CachingSpec.mode:type_name -> pluggableharness.model.v1.CachingMode
+	24, // 13: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
+	24, // 14: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
+	10, // 15: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
+	19, // 16: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	20, // 17: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	25, // 18: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
+	15, // 19: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
+	2,  // 20: pluggableharness.model.v1.ToolChoice.mode:type_name -> pluggableharness.model.v1.ToolChoiceMode
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_types_proto_init() }
@@ -1800,23 +1944,24 @@ func file_pluggableharness_model_v1_types_proto_init() {
 		return
 	}
 	file_pluggableharness_model_v1_types_proto_msgTypes[1].OneofWrappers = []any{}
-	file_pluggableharness_model_v1_types_proto_msgTypes[3].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_types_proto_msgTypes[4].OneofWrappers = []any{}
 	file_pluggableharness_model_v1_types_proto_msgTypes[5].OneofWrappers = []any{}
-	file_pluggableharness_model_v1_types_proto_msgTypes[7].OneofWrappers = []any{
+	file_pluggableharness_model_v1_types_proto_msgTypes[7].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_types_proto_msgTypes[9].OneofWrappers = []any{
 		(*CacheBreakpoint_AfterAssembledContext_)(nil),
 		(*CacheBreakpoint_AfterTools_)(nil),
 		(*CacheBreakpoint_AfterMessageIndex)(nil),
 	}
-	file_pluggableharness_model_v1_types_proto_msgTypes[9].OneofWrappers = []any{}
-	file_pluggableharness_model_v1_types_proto_msgTypes[10].OneofWrappers = []any{}
 	file_pluggableharness_model_v1_types_proto_msgTypes[11].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_types_proto_msgTypes[12].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_types_proto_msgTypes[13].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_types_proto_rawDesc), len(file_pluggableharness_model_v1_types_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

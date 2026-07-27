@@ -27,11 +27,13 @@ func fullSpec() model.Spec {
 		SupportsVision:    true,
 		SupportsDocuments: true,
 		Thinking: model.ThinkingSpec{
-			Supported:    true,
-			Mode:         modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT,
-			EffortLevels: []string{"low", "medium", "high"},
-			CanDisable:   false,
-			Default:      "medium",
+			Supported: true,
+			Effort: &model.EffortControl{
+				Levels:  []string{"low", "medium", "high"},
+				Default: "medium",
+			},
+			AdaptiveByDefault: true,
+			Disable:           modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_NEVER,
 		},
 		Caching: model.CachingSpec{
 			Supported: true,
@@ -44,16 +46,20 @@ func fullSpec() model.Spec {
 // discrete effort, used to exercise the budget-token path and the
 // temperature-inclusion rule (only the effort ladder rejects temperature).
 func budgetSpec(canDisable bool) model.Spec {
+	disable := modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_NEVER
+	if canDisable {
+		disable = modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS
+	}
 	return model.Spec{
 		ID:              "claude-legacy",
 		MaxOutputTokens: 4096,
 		SupportsToolUse: true,
 		Thinking: model.ThinkingSpec{
-			Supported:   true,
-			Mode:        modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET,
-			BudgetRange: &model.ThinkingBudgetRange{Min: 1024, Max: 32000},
-			CanDisable:  canDisable,
-			Default:     "4096",
+			Supported: true,
+			Budget: &model.BudgetControl{
+				Range: model.ThinkingBudgetRange{Min: 1024, Max: 32000},
+			},
+			Disable: disable,
 		},
 		Caching: model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
 	}
@@ -66,7 +72,7 @@ func minimalSpec() model.Spec {
 	return model.Spec{
 		ID:              "claude-minimal",
 		MaxOutputTokens: 2048,
-		Thinking:        model.ThinkingSpec{Mode: modelv1.ThinkingMode_THINKING_MODE_NONE},
+		Thinking:        model.ThinkingSpec{},
 		Caching:         model.CachingSpec{Mode: modelv1.CachingMode_CACHING_MODE_NONE},
 	}
 }

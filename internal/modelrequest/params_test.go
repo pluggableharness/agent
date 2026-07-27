@@ -9,22 +9,50 @@ import (
 func strPtr(s string) *string { return &s }
 func i64Ptr(v int64) *int64   { return &v }
 
+// discreteEffortSpec declares a model with an effort ladder and no budget
+// control.
 func discreteEffortSpec(levels ...string) *modelv1.ModelSpec {
+	def := ""
+	if len(levels) > 0 {
+		def = levels[0]
+	}
 	return &modelv1.ModelSpec{
 		Thinking: &modelv1.ThinkingSpec{
-			Supported:    true,
-			Mode:         modelv1.ThinkingMode_THINKING_MODE_DISCRETE_EFFORT,
-			EffortLevels: levels,
+			Supported: true,
+			Effort:    &modelv1.EffortControl{Levels: levels, Default: def},
+			Disable:   modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
 		},
 	}
 }
 
+// continuousBudgetSpec declares a model with a budget control and no
+// effort ladder.
 func continuousBudgetSpec(lo, hi int64) *modelv1.ModelSpec {
 	return &modelv1.ModelSpec{
 		Thinking: &modelv1.ThinkingSpec{
-			Supported:   true,
-			Mode:        modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET,
-			BudgetRange: &modelv1.ThinkingBudgetRange{Min: lo, Max: hi},
+			Supported: true,
+			Budget: &modelv1.BudgetControl{
+				Range: &modelv1.ThinkingBudgetRange{Min: lo, Max: hi},
+			},
+			Disable: modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
+		},
+	}
+}
+
+// bothControlsSpec declares a model carrying an effort ladder AND a budget
+// control at once — the position the earlier single-mode ThinkingSpec
+// could not express, and the reason this package validates each param
+// against its own control instead of switching on one mode.
+func bothControlsSpec(levels []string, lo, hi int64) *modelv1.ModelSpec {
+	return &modelv1.ModelSpec{
+		Thinking: &modelv1.ThinkingSpec{
+			Supported: true,
+			Effort:    &modelv1.EffortControl{Levels: levels, Default: levels[0]},
+			Budget: &modelv1.BudgetControl{
+				Range:      &modelv1.ThinkingBudgetRange{Min: lo, Max: hi},
+				Deprecated: true,
+			},
+			Disable: modelv1.ThinkingDisableSupport_THINKING_DISABLE_SUPPORT_ALWAYS,
 		},
 	}
 }
@@ -70,7 +98,7 @@ func TestValidateParamsThinkingEffort(t *testing.T) {
 			wantFallen: true,
 		},
 		{
-			name:       "mode mismatch falls back even for a plausible-looking value",
+			name:       "effort against a budget-only model falls back even for a plausible-looking value",
 			spec:       continuousBudgetSpec(1024, 32000),
 			effort:     "high",
 			wantEffort: "",
@@ -78,7 +106,7 @@ func TestValidateParamsThinkingEffort(t *testing.T) {
 		},
 		{
 			name:       "thinking unsupported at all falls back",
-			spec:       &modelv1.ModelSpec{Thinking: &modelv1.ThinkingSpec{Supported: false, Mode: modelv1.ThinkingMode_THINKING_MODE_NONE}},
+			spec:       &modelv1.ModelSpec{Thinking: &modelv1.ThinkingSpec{Supported: false}},
 			effort:     "low",
 			wantEffort: "",
 			wantFallen: true,
@@ -144,14 +172,60 @@ func TestValidateParamsThinkingBudget(t *testing.T) {
 	}
 }
 
-func TestValidateParamsThinkingBudgetModeMismatch(t *testing.T) {
+func TestValidateParamsThinkingBudgetAgainstEffortOnlyModel(t *testing.T) {
 	t.Parallel()
 
 	// A numerically plausible budget still falls back when the resolved
-	// model's ThinkingSpec.mode isn't THINKING_MODE_CONTINUOUS_BUDGET —
-	// mirrors the effort-side "mode mismatch" case above.
+	// model declares no budget control — mirrors the effort-side case
+	// above. Each param is checked against the control that governs it,
+	// so declaring one control never implies the other.
 	spec := discreteEffortSpec("low", "high")
 	req := &modelv1.GenerationParams{ThinkingBudgetTokens: i64Ptr(5000)}
+
+	got := ValidateParams(req, spec)
+
+	if !got.FellBackThinking {
+		t.Fatalf("FellBackThinking = false, want true")
+	}
+	if got.Resolved.ThinkingBudgetTokens != nil {
+		t.Fatalf("ThinkingBudgetTokens = %v, want cleared", got.Resolved.GetThinkingBudgetTokens())
+	}
+}
+
+func TestValidateParamsBothControlsDeclaredKeepsBothParams(t *testing.T) {
+	t.Parallel()
+
+	// The two axes are independent, so a model declaring both controls
+	// accepts both params in one request and neither falls back. Under the
+	// earlier single-mode ThinkingSpec this model was inexpressible, and
+	// whichever mode it picked would have silently dropped the other param.
+	spec := bothControlsSpec([]string{"low", "high"}, 1024, 32000)
+	req := &modelv1.GenerationParams{
+		ThinkingEffort:       strPtr("high"),
+		ThinkingBudgetTokens: i64Ptr(5000),
+	}
+
+	got := ValidateParams(req, spec)
+
+	if got.FellBackThinking {
+		t.Fatalf("FellBackThinking = true, want false")
+	}
+	if got.Resolved.GetThinkingEffort() != "high" {
+		t.Errorf("ThinkingEffort = %q, want %q", got.Resolved.GetThinkingEffort(), "high")
+	}
+	if got.Resolved.GetThinkingBudgetTokens() != 5000 {
+		t.Errorf("ThinkingBudgetTokens = %v, want 5000", got.Resolved.GetThinkingBudgetTokens())
+	}
+}
+
+func TestValidateParamsBudgetZeroAgainstNilControlFallsBack(t *testing.T) {
+	t.Parallel()
+
+	// Regression guard: a nil BudgetControl's zero-valued range would
+	// accept a budget of exactly 0 if the nil check were skipped, which is
+	// the one value where "no control declared" and "in range" collide.
+	spec := &modelv1.ModelSpec{Thinking: &modelv1.ThinkingSpec{Supported: false}}
+	req := &modelv1.GenerationParams{ThinkingBudgetTokens: i64Ptr(0)}
 
 	got := ValidateParams(req, spec)
 
@@ -166,11 +240,10 @@ func TestValidateParamsThinkingBudgetModeMismatch(t *testing.T) {
 func TestValidateParamsThinkingBudgetMissingRange(t *testing.T) {
 	t.Parallel()
 
-	// A ThinkingSpec claiming CONTINUOUS_BUDGET mode but omitting
-	// BudgetRange (a malformed capability declaration) must still fall
-	// back rather than panic.
+	// A BudgetControl declared with no Range (a malformed capability
+	// declaration) must still fall back rather than panic.
 	spec := &modelv1.ModelSpec{
-		Thinking: &modelv1.ThinkingSpec{Supported: true, Mode: modelv1.ThinkingMode_THINKING_MODE_CONTINUOUS_BUDGET},
+		Thinking: &modelv1.ThinkingSpec{Supported: true, Budget: &modelv1.BudgetControl{}},
 	}
 	req := &modelv1.GenerationParams{ThinkingBudgetTokens: i64Ptr(5000)}
 	got := ValidateParams(req, spec)

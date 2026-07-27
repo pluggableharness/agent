@@ -46,7 +46,12 @@ A plugin whose backend does not natively stream (batch-only) MUST still implemen
 
 ### Generation-parameter validation and capability-aware routing
 
-`GenerationParams.thinking_effort`/`thinking_budget_tokens` MUST be validated against the resolved model's declared [`ThinkingSpec`](data-types.md#thinkingspec) before the request is dispatched to the plugin — an effort level outside `ThinkingSpec.effort_levels`, or a budget outside `ThinkingSpec.budget_range`, is a kernel-level reject-or-fallback, not something sent to the vendor and left to surface as a raw API error three layers up the stack. A caller (the turn loop, a sub-agent spawn) that needs a parameter the resolved model doesn't support MUST either drop back to that model's default behavior or fail the selection, never forward an invalid combination.
+`GenerationParams.thinking_effort`/`thinking_budget_tokens` MUST be validated against the resolved model's declared [`ThinkingSpec`](data-types.md#thinkingspec) before the request is dispatched to the plugin — each against the specific control that governs it, since the two are independent axes and a model MAY declare either, both, or neither:
+
+- `thinking_effort` requires `ThinkingSpec.effort` to be present, and MUST be one of its `levels`.
+- `thinking_budget_tokens` requires `ThinkingSpec.budget` to be present, and MUST fall inside its `range`.
+
+A parameter naming a control the resolved model does not declare, or a value outside that control's declared domain, is a kernel-level reject-or-fallback — not something sent to the vendor and left to surface as a raw API error three layers up the stack. A caller (the turn loop, a sub-agent spawn) that needs a parameter the resolved model doesn't support MUST either drop back to that model's default behavior or fail the selection, never forward an invalid combination. Sending both parameters to a model declaring both controls is legal; how the vendor reconciles them is that adapter's concern.
 
 `GenerationParams.tool_choice.mode` follows the identical rule against `ModelSpec.supported_tool_choice_modes`: a mode the resolved model doesn't declare support for MUST NOT be forwarded to the vendor — reject or fall back to `TOOL_CHOICE_MODE_AUTO` (equivalent to omitting `tool_choice`) at the kernel level, same as an out-of-range thinking param. See [`data-types.md#generationparams`](data-types.md#generationparams).
 

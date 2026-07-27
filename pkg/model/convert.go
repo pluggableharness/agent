@@ -82,20 +82,33 @@ func modelSpecFromProto(in *modelv1.ModelSpec) Spec {
 // thinkingSpecToProto converts t into the generated wire type.
 func thinkingSpecToProto(t ThinkingSpec) *modelv1.ThinkingSpec {
 	out := &modelv1.ThinkingSpec{
-		Supported:    t.Supported,
-		Mode:         t.Mode,
-		EffortLevels: t.EffortLevels,
-		CanDisable:   t.CanDisable,
+		Supported:         t.Supported,
+		AdaptiveByDefault: t.AdaptiveByDefault,
+		Disable:           t.Disable,
 	}
-	if t.BudgetRange != nil {
-		out.BudgetRange = &modelv1.ThinkingBudgetRange{
-			Min: t.BudgetRange.Min,
-			Max: t.BudgetRange.Max,
+	if t.Effort != nil {
+		out.Effort = &modelv1.EffortControl{
+			// Copied rather than aliased: a Spec's Levels slice is
+			// typically a package-level roster value shared across models,
+			// and handing it to the wire type would let a later mutation
+			// reach every model that shares it.
+			Levels:  append([]string(nil), t.Effort.Levels...),
+			Default: t.Effort.Default,
 		}
 	}
-	if t.Default != "" {
-		def := t.Default
-		out.Default = &def
+	if t.Budget != nil {
+		budget := &modelv1.BudgetControl{
+			Range: &modelv1.ThinkingBudgetRange{
+				Min: t.Budget.Range.Min,
+				Max: t.Budget.Range.Max,
+			},
+			Deprecated: t.Budget.Deprecated,
+		}
+		if t.Budget.Default != nil {
+			def := *t.Budget.Default
+			budget.Default = &def
+		}
+		out.Budget = budget
 	}
 	return out
 }
@@ -106,14 +119,26 @@ func thinkingSpecFromProto(in *modelv1.ThinkingSpec) ThinkingSpec {
 		return ThinkingSpec{}
 	}
 	out := ThinkingSpec{
-		Supported:    in.GetSupported(),
-		Mode:         in.GetMode(),
-		EffortLevels: in.GetEffortLevels(),
-		CanDisable:   in.GetCanDisable(),
-		Default:      in.GetDefault(),
+		Supported:         in.GetSupported(),
+		AdaptiveByDefault: in.GetAdaptiveByDefault(),
+		Disable:           in.GetDisable(),
 	}
-	if br := in.GetBudgetRange(); br != nil {
-		out.BudgetRange = &ThinkingBudgetRange{Min: br.GetMin(), Max: br.GetMax()}
+	if e := in.GetEffort(); e != nil {
+		out.Effort = &EffortControl{
+			Levels:  append([]string(nil), e.GetLevels()...),
+			Default: e.GetDefault(),
+		}
+	}
+	if b := in.GetBudget(); b != nil {
+		budget := &BudgetControl{
+			Range:      ThinkingBudgetRange{Min: b.GetRange().GetMin(), Max: b.GetRange().GetMax()},
+			Deprecated: b.GetDeprecated(),
+		}
+		if b.Default != nil {
+			def := b.GetDefault()
+			budget.Default = &def
+		}
+		out.Budget = budget
 	}
 	return out
 }
