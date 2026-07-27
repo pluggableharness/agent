@@ -27,6 +27,16 @@
 *.test
 __debug_bin*
 
+# A bare `go build ./...` names its output after the package and drops it in
+# the working directory, which the extension patterns above do not catch on
+# Linux or macOS. These are the ones this repo can actually produce, listed
+# by name because a broad pattern here would ignore real source files.
+/agent
+/anthropic
+/tui
+/providerconform
+examples/*/agent-example-provider
+
 # --- Go: test, coverage & profiling artifacts --------------------------------
 *.out
 coverage.txt
