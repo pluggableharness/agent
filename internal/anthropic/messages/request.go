@@ -137,6 +137,55 @@ func BuildRequest(in *modelv1.StreamCompletionRequest, spec model.Spec) (*Reques
 	}, nil
 }
 
+// CountTokensRequest is the POST /v1/messages/count_tokens body.
+//
+// It is deliberately a narrower struct than Request rather than a reuse of
+// it: the endpoint accepts only the fields that affect the input-token
+// total, and sending generation params it does not expect risks a 400 for
+// no benefit.
+type CountTokensRequest struct {
+	Model    string      `json:"model"`
+	Messages []Message   `json:"messages"`
+	System   []TextBlock `json:"system,omitempty"`
+	Tools    []Tool      `json:"tools,omitempty"`
+}
+
+// BuildCountTokensRequest translates in into the Anthropic count-tokens
+// body for the model described by spec.
+//
+// It runs the same buildSystem/buildTools/translateMessage path
+// BuildRequest does, so a count is computed over exactly the content a
+// completion would have carried. Any divergence between the two would
+// make the count silently unrepresentative of the request it is meant to
+// size.
+func BuildCountTokensRequest(in *modelv1.CountTokensRequest, spec model.Spec) (*CountTokensRequest, error) {
+	system, err := buildSystem(in.GetAssembledContext())
+	if err != nil {
+		return nil, err
+	}
+
+	tools, err := buildTools(in.GetTools())
+	if err != nil {
+		return nil, err
+	}
+
+	messages := make([]Message, len(in.GetMessages()))
+	for i, m := range in.GetMessages() {
+		msg, err := translateMessage(m, spec)
+		if err != nil {
+			return nil, err
+		}
+		messages[i] = msg
+	}
+
+	return &CountTokensRequest{
+		Model:    in.GetModelId(),
+		Messages: coalesceMessages(messages),
+		System:   system,
+		Tools:    tools,
+	}, nil
+}
+
 // buildSystem translates the kernel-assembled context chain into
 // Anthropic's top-level `system` array, one TextBlock per section. Each
 // section's concatenated text is wrapped in a delimiter line built from its

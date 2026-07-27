@@ -71,14 +71,16 @@ var _ model.Provider = (*fakeProvider)(nil)
 // unrelated fake types.
 type fakeTokenCounterProvider struct {
 	fakeProvider
-	countTokensFunc func(ctx context.Context, text, modelID string) (int64, error)
+	countTokensFunc func(ctx context.Context, req *modelv1.CountTokensRequest) (int64, error)
 }
 
-func (f *fakeTokenCounterProvider) CountTokens(ctx context.Context, text, modelID string) (int64, error) {
+func (f *fakeTokenCounterProvider) CountTokens(ctx context.Context, req *modelv1.CountTokensRequest) (int64, error) {
 	if f.countTokensFunc != nil {
-		return f.countTokensFunc(ctx, text, modelID)
+		return f.countTokensFunc(ctx, req)
 	}
-	return int64(len(text)), nil
+	// A stand-in count that varies with the request, so a test asserting a
+	// number is asserting the request actually reached the provider.
+	return int64(len(req.GetMessages()) + len(req.GetTools())), nil
 }
 
 var _ model.TokenCounter = (*fakeTokenCounterProvider)(nil)
@@ -405,12 +407,25 @@ func TestService_CountTokens_Implemented(t *testing.T) {
 	t.Parallel()
 
 	client := newTestClient(t, &fakeTokenCounterProvider{})
-	resp, err := client.CountTokens(t.Context(), &modelv1.CountTokensRequest{Text: "hello world", ModelId: "fake-model"})
+
+	// Two messages and one tool: the fake counts both, so a wrong answer
+	// means the request's content did not survive the round trip. Counting
+	// tools at all is the point of the request-shaped RPC — the earlier
+	// text-only shape could not carry them.
+	req := &modelv1.CountTokensRequest{
+		ModelId: "fake-model",
+		Messages: []*contentv1.Message{
+			{Role: contentv1.Role_ROLE_USER},
+			{Role: contentv1.Role_ROLE_ASSISTANT},
+		},
+		Tools: []*modelv1.ToolDeclaration{{Name: "read"}},
+	}
+	resp, err := client.CountTokens(t.Context(), req)
 	if err != nil {
 		t.Fatalf("CountTokens() = %v, want nil error", err)
 	}
-	if resp.GetCount() != int64(len("hello world")) {
-		t.Errorf("Count = %d, want %d", resp.GetCount(), len("hello world"))
+	if resp.GetCount() != 3 {
+		t.Errorf("Count = %d, want 3 (2 messages + 1 tool)", resp.GetCount())
 	}
 }
 
@@ -418,7 +433,7 @@ func TestService_CountTokens_NotImplemented(t *testing.T) {
 	t.Parallel()
 
 	client := newTestClient(t, &fakeProvider{})
-	_, err := client.CountTokens(t.Context(), &modelv1.CountTokensRequest{Text: "hi", ModelId: "fake-model"})
+	_, err := client.CountTokens(t.Context(), &modelv1.CountTokensRequest{ModelId: "fake-model"})
 	if grpcstatus.Code(err) != codes.Unimplemented {
 		t.Errorf("code = %v, want codes.Unimplemented", grpcstatus.Code(err))
 	}
@@ -428,12 +443,12 @@ func TestService_CountTokens_ProviderError(t *testing.T) {
 	t.Parallel()
 
 	p := &fakeTokenCounterProvider{
-		countTokensFunc: func(context.Context, string, string) (int64, error) {
+		countTokensFunc: func(context.Context, *modelv1.CountTokensRequest) (int64, error) {
 			return 0, &model.Error{Category: modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_INVALID_REQUEST, Message: "unknown model"}
 		},
 	}
 	client := newTestClient(t, p)
-	_, err := client.CountTokens(t.Context(), &modelv1.CountTokensRequest{Text: "hi", ModelId: "nope"})
+	_, err := client.CountTokens(t.Context(), &modelv1.CountTokensRequest{ModelId: "nope"})
 	if grpcstatus.Code(err) != codes.InvalidArgument {
 		t.Errorf("code = %v, want codes.InvalidArgument", grpcstatus.Code(err))
 	}

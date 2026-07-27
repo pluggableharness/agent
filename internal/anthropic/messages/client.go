@@ -199,22 +199,26 @@ func (c *Client) drive(ctx context.Context, body io.Reader, sink EventSink) erro
 	return sink.Error(truncated)
 }
 
-// CountTokens returns an exact count for text against modelID via
+// CountTokens returns an exact input-token count for req against
 // POST /v1/messages/count_tokens.
-func (c *Client) CountTokens(ctx context.Context, text, modelID string) (int64, error) {
+//
+// The endpoint takes the same messages/system/tools triple the completion
+// endpoint does, so this translates req through the same builders
+// BuildRequest uses rather than flattening it to a string — tool schemas
+// in particular are frequently the largest single contributor to a
+// request's input tokens, and dropping them was the main way the earlier
+// text-only shape produced a badly wrong number.
+func (c *Client) CountTokens(ctx context.Context, req *modelv1.CountTokensRequest, spec model.Spec) (int64, error) {
 	// Same pre-flight cancellation check as Stream, for the same reason.
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
 
-	reqBody := struct {
-		Model    string    `json:"model"`
-		Messages []Message `json:"messages"`
-	}{
-		Model:    modelID,
-		Messages: []Message{{Role: roleUser, Content: []Block{{Type: blockText, Text: text}}}},
+	countReq, err := BuildCountTokensRequest(req, spec)
+	if err != nil {
+		return 0, err
 	}
-	body, err := json.Marshal(reqBody)
+	body, err := json.Marshal(countReq)
 	if err != nil {
 		return 0, fmt.Errorf("anthropic: count tokens: encode request: %w", err)
 	}
@@ -225,7 +229,8 @@ func (c *Client) CountTokens(ctx context.Context, text, modelID string) (int64, 
 	}
 	c.setHeaders(httpReq)
 
-	c.logger.DebugContext(ctx, "anthropic: count tokens: request", "method", httpReq.Method, "path", countTokensPath, "model", modelID)
+	c.logger.DebugContext(ctx, "anthropic: count tokens: request", "method", httpReq.Method, "path", countTokensPath, "model", countReq.Model,
+		"messages", len(countReq.Messages), "tools", len(countReq.Tools))
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {

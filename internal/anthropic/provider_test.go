@@ -9,9 +9,25 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
+	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	"github.com/pluggableharness/agent/pkg/model"
 	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 )
+
+// countReq builds the CountTokensRequest shape the provider's CountTokens
+// RPC now takes: a whole request, with loose text carried as one user
+// message (model/protocol.md#counttokens).
+func countReq(text, modelID string) *modelv1.CountTokensRequest {
+	return &modelv1.CountTokensRequest{
+		ModelId: modelID,
+		Messages: []*contentv1.Message{{
+			Role: contentv1.Role_ROLE_USER,
+			Content: []*contentv1.ContentBlock{{
+				Block: &contentv1.ContentBlock_Text{Text: &contentv1.TextBlock{Text: text}},
+			}},
+		}},
+	}
+}
 
 // TestCapabilities_servesTheRosterAndSchema checks the one RPC the kernel
 // calls before every routing decision. It must not touch the network and
@@ -84,7 +100,7 @@ func TestRPCs_beforeConfigureAreRejected(t *testing.T) {
 		&modelv1.StreamCompletionRequest{ModelId: "claude-opus-5"}, nil)
 	assertInvalidRequest(t, streamErr, "not configured")
 
-	_, countErr := p.CountTokens(context.Background(), "hello", "claude-opus-5")
+	_, countErr := p.CountTokens(context.Background(), countReq("hello", "claude-opus-5"))
 	assertInvalidRequest(t, countErr, "not configured")
 }
 
@@ -121,7 +137,7 @@ func TestStreamCompletion_rejectsAnUnknownModel(t *testing.T) {
 		&modelv1.StreamCompletionRequest{ModelId: "claude-does-not-exist"}, nil)
 	assertInvalidRequest(t, err, "unknown model")
 
-	_, countErr := p.CountTokens(context.Background(), "hello", "claude-does-not-exist")
+	_, countErr := p.CountTokens(context.Background(), countReq("hello", "claude-does-not-exist"))
 	assertInvalidRequest(t, countErr, "unknown model")
 }
 
@@ -145,7 +161,7 @@ func TestConfigure_neverLeaksTheKey(t *testing.T) {
 
 	// Force a transport-level failure and confirm the key is absent from
 	// whatever comes back.
-	_, countErr := p.CountTokens(context.Background(), "hello", "claude-opus-5")
+	_, countErr := p.CountTokens(context.Background(), countReq("hello", "claude-opus-5"))
 	if countErr == nil {
 		t.Fatal("expected the failing transport to produce an error")
 	}

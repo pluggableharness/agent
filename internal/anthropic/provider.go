@@ -161,15 +161,16 @@ func (p *Provider) StreamCompletion(ctx context.Context, req *modelv1.StreamComp
 // this is implemented even though it is only a SHOULD: Anthropic exposes
 // exact counting over a cheap endpoint, so declining to use it would be
 // choosing a worse number for no reason.
-func (p *Provider) CountTokens(ctx context.Context, text, modelID string) (int64, error) {
+func (p *Provider) CountTokens(ctx context.Context, req *modelv1.CountTokensRequest) (int64, error) {
 	client, err := p.readyClient("count tokens")
 	if err != nil {
 		return 0, err
 	}
-	if _, err := specByID(modelID); err != nil {
+	spec, err := specByID(req.GetModelId())
+	if err != nil {
 		return 0, err
 	}
-	return client.CountTokens(ctx, text, modelID)
+	return client.CountTokens(ctx, req, spec)
 }
 
 // readyClient returns the configured vendor client, or the structured

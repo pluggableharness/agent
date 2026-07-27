@@ -116,16 +116,44 @@ message StreamCompletionRequest {
   optional google.protobuf.Struct provider_options = 8;
 }
 
-// CountTokensRequest is CountTokens' request: the raw text to count, per
-// model.md §2.1.
+// CountTokensRequest is CountTokens' request: the request whose input
+// tokens are being counted, per model/protocol.md#counttokens.
+//
+// This mirrors StreamCompletionRequest's content-bearing fields, minus
+// everything that only affects generation, because every vendor exposing
+// exact counting counts a whole request rather than a string — Anthropic's
+// /v1/messages/count_tokens takes messages plus system plus tools. An
+// earlier revision carried a flat `text` field; concatenating text and
+// discarding the rest undercounts by the entire tool-schema and
+// system-preamble weight, which is exactly the weight that decides whether
+// a turn fits in the context window.
 message CountTokensRequest {
-  // The text to count tokens for.
-  string text = 1;
+  reserved 1;
+
+  reserved "text";
 
   // Selects which of this provider's ModelSpec.id to count against — a
   // provider serving several models MAY have distinct tokenizers per
   // model. MUST be set.
   string model_id = 2;
+
+  // The conversation to count, in emission order. MAY be empty. A caller
+  // with only loose content to measure (a context provider sizing its own
+  // contribution, kernel-callbacks.md#counttokens) passes it as a single
+  // user message — which is what the adapter would have had to construct
+  // anyway.
+  repeated pluggableharness.content.v1.Message messages = 3;
+
+  // The kernel-assembled context chain that would accompany these
+  // messages, counted against the same vendor mechanism
+  // StreamCompletionRequest.assembled_context maps to. MAY be empty.
+  repeated pluggableharness.content.v1.ContextSection assembled_context = 4;
+
+  // The tool declarations that would accompany these messages. MAY be
+  // empty. Tool schemas are frequently the largest single contributor to
+  // a request's input tokens, so omitting them is the main way a count
+  // goes badly wrong.
+  repeated ToolDeclaration tools = 5;
 }
 
 // RenderRequest carries the opaque payload to render, per model.md §7.

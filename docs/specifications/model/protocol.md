@@ -13,8 +13,16 @@ The response also carries `supported_hook_points: []common.v1.HookPoint` ([`data
 ### `CountTokens`
 
 ```text
-CountTokens(text: string, model_id: string) -> { count: int }
+CountTokens(CountTokensRequest{
+  model_id, messages, assembled_context, tools
+}) -> { count: int }
 ```
+
+`CountTokens` counts **a request**, not a string. Its request mirrors [`StreamCompletionRequest`](data-types.md#streamcompletionrequest)'s content-bearing fields — `messages`, `assembled_context`, and `tools` — minus everything that only affects generation (`params`, `cache_breakpoints`, `call_context`).
+
+This shape is what the question actually requires. Every vendor that exposes exact counting counts a whole request: Anthropic's `/v1/messages/count_tokens` takes `messages` plus `system` plus `tools` and returns the input-token total for that request. A flat string cannot express the question "how many tokens is this conversation", and answering it by concatenating text and discarding the rest undercounts by the entire tool-schema and system-preamble weight — which is precisely the weight that decides whether a turn fits in the context window. A caller with only loose content to measure (a context provider sizing its own contribution via [`kernel-callbacks.md#counttokens`](../kernel-callbacks.md#counttokens)) passes it as a single user message; that is what the adapter would have had to construct anyway.
+
+Every field except `model_id` MAY be empty, and an empty request MUST count as whatever that vendor charges for an empty request — usually not zero, since most vendors bill some fixed request overhead.
 
 `model_id` MUST be set on every `CountTokensRequest` — it selects which of this provider's `ModelSpec.id` to count against, since a provider serving several models MAY use a distinct tokenizer per model.
 

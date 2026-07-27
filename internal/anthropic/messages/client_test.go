@@ -12,9 +12,30 @@ import (
 	"testing"
 	"time"
 
+	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	"github.com/pluggableharness/agent/pkg/model"
 	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 )
+
+// countReq builds the request-shaped CountTokensRequest the RPC now takes,
+// carrying loose text as one user message.
+func countReq(text, modelID string) *modelv1.CountTokensRequest {
+	return &modelv1.CountTokensRequest{
+		ModelId: modelID,
+		Messages: []*contentv1.Message{{
+			Role: contentv1.Role_ROLE_USER,
+			Content: []*contentv1.ContentBlock{{
+				Block: &contentv1.ContentBlock_Text{Text: &contentv1.TextBlock{Text: text}},
+			}},
+		}},
+	}
+}
+
+// specFor is the minimal model.Spec CountTokens needs to translate a
+// request: enough to accept text blocks, nothing more.
+func specFor(id string) model.Spec {
+	return model.Spec{ID: id, MaxOutputTokens: 4096}
+}
 
 // roundTripFunc adapts a function to http.RoundTripper, the standard
 // fake-transport seam for testing an *http.Client without a real network
@@ -382,7 +403,7 @@ func TestClient_CountTokens_success(t *testing.T) {
 	})
 
 	client := newTestClient(transport)
-	got, err := client.CountTokens(context.Background(), "hello world", "claude-opus-5")
+	got, err := client.CountTokens(context.Background(), countReq("hello world", "claude-opus-5"), specFor("claude-opus-5"))
 	if err != nil {
 		t.Fatalf("CountTokens: %v", err)
 	}
@@ -404,7 +425,7 @@ func TestClient_CountTokens_malformedResponseBody(t *testing.T) {
 	})
 	client := newTestClient(transport)
 
-	got, err := client.CountTokens(context.Background(), "hi", "claude-opus-5")
+	got, err := client.CountTokens(context.Background(), countReq("hi", "claude-opus-5"), specFor("claude-opus-5"))
 	if err == nil {
 		t.Fatalf("expected a decode error")
 	}
@@ -425,7 +446,7 @@ func TestClient_CountTokens_nonRetryableClassification(t *testing.T) {
 	})
 
 	client := newTestClient(transport)
-	got, err := client.CountTokens(context.Background(), "hi", "unknown-model")
+	got, err := client.CountTokens(context.Background(), countReq("hi", "unknown-model"), specFor("unknown-model"))
 	if got != 0 {
 		t.Errorf("got %d, want 0 on error", got)
 	}
@@ -455,7 +476,7 @@ func TestClient_CountTokens_cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := client.CountTokens(ctx, "hi", "claude-opus-5")
+	_, err := client.CountTokens(ctx, countReq("hi", "claude-opus-5"), specFor("claude-opus-5"))
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}

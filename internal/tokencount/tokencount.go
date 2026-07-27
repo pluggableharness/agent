@@ -3,7 +3,6 @@ package tokencount
 import (
 	"context"
 	"log/slog"
-	"strings"
 	"sync"
 
 	"google.golang.org/grpc/codes"
@@ -38,20 +37,34 @@ func Fallback(blocks []*contentv1.ContentBlock) int64 {
 	return (totalBytes + 3) / 4
 }
 
-// joinedText concatenates every text block's content, in order, into the
-// single string a model provider's own CountTokensRequest.Text expects —
-// the same "text_of(content)" Fallback sums the byte length of, so the two
-// counts (exact vendor tokenizer vs. fallback heuristic) are always
-// computed over identical text. Non-text blocks contribute nothing, same
-// as Fallback.
-func joinedText(blocks []*contentv1.ContentBlock) string {
-	var sb strings.Builder
-	for _, block := range blocks {
-		if text := block.GetText(); text != nil {
-			sb.WriteString(text.GetText())
-		}
+// countingMessages wraps blocks into the single user message a model
+// provider's CountTokensRequest expects, per
+// docs/specifications/model/protocol.md#counttokens: that RPC counts a
+// request, and a caller holding only loose content passes it as one
+// message — which is what every vendor's counting endpoint would have
+// required the adapter to construct anyway.
+//
+// Every block is forwarded, not just the text ones. That is deliberate and
+// is where the exact path now diverges from Fallback: the vendor charges
+// for an image or a document, so including it makes the exact count more
+// accurate, while Fallback still sums text bytes only and therefore
+// under-estimates any non-text content. The two were never equal — one is
+// a real tokenizer, the other is ceil(bytes/4) — and this widens the gap
+// in the direction of the exact path being right. It is one more reason
+// the fallback is documented as a genuine last resort rather than a normal
+// operating path.
+//
+// No message id is set: this request is transient, never persisted, and
+// ids are kernel-assigned at persist time
+// (docs/specifications/model/data-types.md#message-identity-and-model-attribution).
+func countingMessages(blocks []*contentv1.ContentBlock) []*contentv1.Message {
+	if len(blocks) == 0 {
+		return nil
 	}
-	return sb.String()
+	return []*contentv1.Message{{
+		Role:    contentv1.Role_ROLE_USER,
+		Content: blocks,
+	}}
 }
 
 // ModelLookup is how a Counter reaches a model provider's own optional
@@ -150,8 +163,8 @@ func (c *Counter) Count(ctx context.Context, blocks []*contentv1.ContentBlock, r
 	}
 
 	resp, err := client.CountTokens(ctx, &modelv1.CountTokensRequest{
-		Text:    joinedText(blocks),
-		ModelId: ref.GetId(),
+		ModelId:  ref.GetId(),
+		Messages: countingMessages(blocks),
 	})
 	if err != nil {
 		return c.resolveError(ctx, blocks, provider, err)

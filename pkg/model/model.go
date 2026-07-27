@@ -61,12 +61,21 @@ type Provider interface {
 // io.ReaderFrom) rather than adding a boolean capability flag a Provider
 // must remember to keep in sync with its own method set.
 type TokenCounter interface {
-	// CountTokens returns an exact token count for text against modelID's
+	// CountTokens returns an exact input-token count for req against the
 	// real vendor tokenizer, per
-	// docs/specifications/model/protocol.md#counttokens. modelID MUST be
-	// honored — a provider serving several models MAY use a distinct
-	// tokenizer per model.
-	CountTokens(ctx context.Context, text, modelID string) (int64, error)
+	// docs/specifications/model/protocol.md#counttokens.
+	//
+	// req names a whole request — messages, assembled context, and tool
+	// declarations — not a string, because that is what every vendor's
+	// counting endpoint actually measures, and because tool schemas are
+	// frequently the largest single contributor to a request's input
+	// tokens. req.ModelId MUST be honored: a provider serving several
+	// models MAY use a distinct tokenizer per model.
+	//
+	// Takes the generated request type directly, for the same reason
+	// StreamCompletion does (see this package's doc.go): it is already the
+	// canonical shape, and mirroring it would be a purely duplicative copy.
+	CountTokens(ctx context.Context, req *modelv1.CountTokensRequest) (int64, error)
 }
 
 // Renderer is the optional interface behind Render

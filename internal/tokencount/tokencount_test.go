@@ -208,7 +208,14 @@ func TestCounter_Count_success(t *testing.T) {
 	if len(client.calls) != 1 {
 		t.Fatalf("CountTokens calls = %d, want 1", len(client.calls))
 	}
-	if got, want := client.calls[0].GetText(), "hello world"; got != want {
+	// The blocks reach the provider as one user message, not a flattened
+	// string — the request-shaped CountTokens RPC is what makes tool
+	// schemas and non-text content countable at all.
+	msgs := client.calls[0].GetMessages()
+	if len(msgs) != 1 || msgs[0].GetRole() != contentv1.Role_ROLE_USER {
+		t.Fatalf("messages = %+v, want one user message", msgs)
+	}
+	if got, want := msgs[0].GetContent()[0].GetText().GetText(), "hello world"; got != want {
 		t.Errorf("request text = %q, want %q", got, want)
 	}
 	if got, want := client.calls[0].GetModelId(), "claude"; got != want {

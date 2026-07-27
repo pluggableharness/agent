@@ -106,7 +106,7 @@ func (svc *Service) CountTokens(ctx context.Context, req *modelv1.CountTokensReq
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "model: CountTokens not implemented by this provider")
 	}
-	count, err := tc.CountTokens(ctx, req.GetText(), req.GetModelId())
+	count, err := tc.CountTokens(ctx, req)
 	if err != nil {
 		return nil, statusFromErr(err)
 	}
