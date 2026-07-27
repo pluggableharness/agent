@@ -25,6 +25,8 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 | `text` content, both directions | MUST | baseline |
 | Streaming RPC shape | MUST | see [`README.md`](README.md#transport--lifecycle) / [`protocol.md`](protocol.md#streamcompletion) — applies even to non-streaming backends |
 | `GetCapabilities` / `Configure` / `StreamCompletion` RPCs | MUST | the whole protocol surface |
+| `GetCapabilities` makes no per-call network request | MUST | [`protocol.md#getcapabilities`](protocol.md#getcapabilities) — a gateway or locally-served provider resolves its roster once in `Configure` and serves it from memory; a background refresh MUST NOT block the call |
+| Credential attribute declared `required` only when every supported deployment needs one | MUST | [`protocol.md#gateway-and-locally-served-providers`](protocol.md#gateway-and-locally-served-providers) — a loopback-served runtime typically has no auth; validate the combination in `Configure` instead |
 | `Describe` RPC | MUST | [`protocol.md#describe`](protocol.md#describe) — identity for `dev_overrides` binaries with no lock-file entry |
 | Structured error taxonomy (above) | MUST | |
 | `tool_use` / `tool_result` | MUST, if any served model has `supports_tool_use = true` | |

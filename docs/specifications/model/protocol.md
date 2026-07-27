@@ -4,7 +4,19 @@ The six RPCs a model provider plugin exposes. See [`README.md`](README.md#transp
 
 ## `GetCapabilities`
 
-Returns a `Capabilities` value with one `ModelSpec` per model the plugin can serve. This MUST be re-queryable cheaply (the kernel may call it often — e.g. before every routing decision) and MUST NOT require network calls to the vendor if avoidable; a plugin SHOULD ship its model list built in and refresh it lazily/periodically rather than blocking on a live API call per invocation.
+Returns a `Capabilities` value with one `ModelSpec` per model the plugin can serve. This MUST be re-queryable cheaply — the kernel may call it often, e.g. before every routing decision — and **an individual `GetCapabilities` call MUST NOT make a network call to the vendor**. A plugin serving a fixed roster SHOULD ship its model list built in.
+
+### Gateway and locally-served providers
+
+The rule above is about *per-invocation cost*, not about where the roster originates. A provider fronting a gateway or a local runtime cannot ship a meaningful built-in list — an aggregator's roster is genuinely dynamic and spans many upstream vendors with differing capabilities, and a locally-served runtime's roster is whatever the operator has pulled onto that machine. Such a provider satisfies this RPC by **resolving its roster once, out of band, and serving the resolved result from memory**:
+
+- Resolve during `Configure`, which is called once at bring-up, is already permitted to do real work, and is already the place a bad configuration MUST fail. A roster fetch that fails there is a configuration failure with a clear cause, not a routing decision that mysteriously finds no models.
+- Serve every `GetCapabilities` call from the in-process cache. The call stays cheap and non-blocking, which is the guarantee the requirement exists to protect.
+- A provider MAY refresh that cache in the background on its own schedule. It MUST NOT make `GetCapabilities` block on the refresh; a stale roster served instantly is strictly better than a fresh one that stalls every routing decision.
+
+A provider whose upstream roster genuinely cannot be resolved at `Configure` time SHOULD serve a conservative built-in subset rather than an empty list, because an empty `Capabilities` is indistinguishable from "this provider serves nothing" and makes the plugin unroutable.
+
+**Credentials are not universally required.** A provider MUST NOT declare an API-key attribute `required` unless every deployment it supports needs one. A locally-served runtime reached over loopback typically has no authentication at all, and the same plugin pointed at that vendor's hosted tier does. Such a provider declares the credential optional and validates the actual combination in `Configure` — where a missing key for a remote endpoint is a clear, immediate configuration error — rather than making an unauthenticated local deployment impossible to configure.
 
 The response MAY additionally include `slash_commands: []common.v1.PromptExpansionSpec` (declared once for the provider as a whole, not per model) and MUST include the provider's `ConfigSchema`, so the kernel knows what fields `Configure` expects before ever calling it. Each `PromptExpansionSpec` is a static template-expansion command only — the kernel expands `template` with the user's arguments and submits the result as an ordinary user message, never executing anything. A direct-invoke command that runs one of this provider's own operations is declared by a `slashcommand.v1` provider instead ([`../slashcommand/protocol.md`](../slashcommand/protocol.md)), never here. See [`data-types.md`](data-types.md#modelspec) for the full `ModelSpec` shape.
 
