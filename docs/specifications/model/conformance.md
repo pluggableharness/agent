@@ -29,6 +29,7 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 | Credential attribute declared `required` only when every supported deployment needs one | MUST | [`protocol.md#gateway-and-locally-served-providers`](protocol.md#gateway-and-locally-served-providers) — a loopback-served runtime typically has no auth; validate the combination in `Configure` instead |
 | `Describe` RPC | MUST | [`protocol.md#describe`](protocol.md#describe) — identity for `dev_overrides` binaries with no lock-file entry |
 | Structured error taxonomy (above) | MUST | |
+| `Configure` is safely re-callable | MUST | [`protocol.md#configure`](protocol.md#configure) — replaces configured state wholesale; a second call carries the operator's complete intent, so a field absent from it is absent, not inherited |
 | `tool_use` / `tool_result` | MUST, if any served model has `supports_tool_use = true` | |
 | `image` (vision) | MUST support where `supports_vision = true`; MUST reject cleanly where `false` | |
 | `document` | MUST support where `supports_documents = true`; MUST reject cleanly where `false` | [`data-types.md#canonical-message--content-block-schema`](data-types.md#canonical-message--content-block-schema) — mirrors `image`/`supports_vision`'s rule |

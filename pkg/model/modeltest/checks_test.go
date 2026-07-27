@@ -444,3 +444,35 @@ func TestCheck_unknownModelIDIsReported(t *testing.T) {
 		t.Errorf("selecting an unadvertised model was not reported:\n%s", rep)
 	}
 }
+
+// TestCheck_configureThatOnlyWorksOnceIsCaught guards the requirement
+// whose failure is most expensive to discover late: the kernel calls
+// Configure once at bring-up, so a provider that cannot take a second
+// call looks perfectly healthy until a credential rotation needs one.
+func TestCheck_configureThatOnlyWorksOnceIsCaught(t *testing.T) {
+	t.Parallel()
+
+	p := &singleUseConfigureProvider{}
+	rep := modeltest.Check(t.Context(), p, modeltest.WithCallTimeout(2*time.Second))
+
+	if !strings.Contains(rep.String(), "re-callable") {
+		t.Errorf("the suite did not catch a Configure that only works once:\n%s", rep)
+	}
+}
+
+// singleUseConfigureProvider accepts Configure exactly once.
+type singleUseConfigureProvider struct {
+	conformingProvider
+	configured bool
+}
+
+func (p *singleUseConfigureProvider) Configure(context.Context, *structpb.Struct) error {
+	if p.configured {
+		return &model.Error{
+			Category: modelv1.ModelErrorCategory_MODEL_ERROR_CATEGORY_INVALID_REQUEST,
+			Message:  "already configured",
+		}
+	}
+	p.configured = true
+	return nil
+}

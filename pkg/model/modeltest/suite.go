@@ -298,6 +298,19 @@ func checkConfigure(ctx context.Context, rec *recorder, client modelv1.ModelServ
 			"Configure returned %v; pass this provider's configuration with modeltest.WithConfig", err)
 		return false
 	}
+
+	// Configure MUST be safely re-callable
+	// (docs/specifications/model/protocol.md#configure). The kernel calls
+	// it once today, so a provider that only works the first time looks
+	// fine in production right up until a credential rotation needs it —
+	// which is exactly when a failure is most expensive. Calling it twice
+	// here is the whole check: a provider that merges rather than replaces,
+	// or that panics on a rebuilt client, fails now instead of later.
+	if _, err := client.Configure(ctx, &modelv1.ConfigureRequest{Config: cfg.configure}); err != nil {
+		rec.failf("re-callable",
+			"a second Configure returned %v; it MUST be safely re-callable, replacing configured state wholesale", err)
+		return false
+	}
 	return true
 }
 
