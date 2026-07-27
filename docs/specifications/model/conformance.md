@@ -34,6 +34,7 @@ On the wire, each category maps to a `grpc/codes.Code`: `context_length_exceeded
 | `StreamEvent.redacted_thinking` | MUST, for a vendor that emits vendor-encrypted reasoning blocks | [`data-types.md#streamevent`](data-types.md#streamevent) — a whole block, never fragmented; stored and echoed back verbatim or the vendor rejects the whole conversation on a later turn |
 | Prompt caching | MAY, capability-gated via `CachingSpec` | declare `mode` (explicit vs. implicit) |
 | Cache breakpoints (`StreamCompletionRequest.cache_breakpoints`) | MUST honor where `CachingSpec.mode = CACHING_MODE_EXPLICIT_MARKERS`; MUST ignore otherwise | [`protocol.md#cache-breakpoint-placement-policy`](protocol.md#cache-breakpoint-placement-policy) — placement is a kernel decision, never the plugin's |
+| `StreamCompletionRequest.provider_options` | MAY consume; kernel MUST pass through untouched | [`data-types.md#provider_options`](data-types.md#provider_options) — vendor knobs the kernel has no semantics for. A value the kernel reads MUST be a typed field instead, never smuggled through here |
 | Parallel tool calls in one turn | SHOULD declare via `supports_parallel_tool_calls` | kernel serializes calls if absent/false |
 | Tool-choice constraint (`GenerationParams.tool_choice`) | MAY, capability-gated via `ModelSpec.supported_tool_choice_modes` | kernel MUST NOT send a mode absent from the declared list, mirroring `ThinkingSpec` validation |
 | `Render` | MAY | generic fallback exists; `RenderRequest.schema_version` MUST be set when implemented |

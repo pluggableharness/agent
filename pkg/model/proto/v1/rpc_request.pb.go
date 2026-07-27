@@ -206,8 +206,31 @@ type StreamCompletionRequest struct {
 	// natural stable-prefix boundaries — see
 	// model/protocol.md#cache-breakpoint-placement-policy.
 	CacheBreakpoints []*CacheBreakpoint `protobuf:"bytes,7,rep,name=cache_breakpoints,json=cacheBreakpoints,proto3" json:"cache_breakpoints,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Vendor-specific request knobs the kernel has no semantics for, passed
+	// through untouched: the kernel never reads a key, validates one, or
+	// assigns meaning to one. This is the escape hatch that lets a
+	// third-party provider ship a vendor feature — a service tier, a
+	// sampling seed, a beta-feature flag, a conversation-retention id —
+	// without a change to this protocol. Values originate in the provider's
+	// own ConfigSchema and the operator's provider{} block, and the provider
+	// documents its own accepted keys; two providers MAY use the same key
+	// name for unrelated things.
+	//
+	// A Struct for the same reason ConfigureRequest.config is one — the
+	// shape is the provider's schema, not the kernel's to name — applied
+	// per-request rather than once at configure time (.claude/rules/proto.md's
+	// Struct precedent list).
+	//
+	// MUST NOT carry anything the kernel reads. Pass-through is the whole
+	// contract, so a value affecting routing, capability validation, cost
+	// computation, or replay is a typed field on this protocol or it does
+	// not work at all — a provider smuggling one through here gets silence,
+	// not kernel behavior. Promoting such a knob to a typed field in a later
+	// revision is the fix; teaching the kernel to read this field is not.
+	// See model/data-types.md#provider_options.
+	ProviderOptions *structpb.Struct `protobuf:"bytes,8,opt,name=provider_options,json=providerOptions,proto3,oneof" json:"provider_options,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *StreamCompletionRequest) Reset() {
@@ -285,6 +308,13 @@ func (x *StreamCompletionRequest) GetCallContext() *v11.CallContext {
 func (x *StreamCompletionRequest) GetCacheBreakpoints() []*CacheBreakpoint {
 	if x != nil {
 		return x.CacheBreakpoints
+	}
+	return nil
+}
+
+func (x *StreamCompletionRequest) GetProviderOptions() *structpb.Struct {
+	if x != nil {
+		return x.ProviderOptions
 	}
 	return nil
 }
@@ -417,7 +447,7 @@ const file_pluggableharness_model_v1_rpc_request_proto_rawDesc = "" +
 	"\x16GetCapabilitiesRequest\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\x11\n" +
-	"\x0fDescribeRequest\"\x8c\x04\n" +
+	"\x0fDescribeRequest\"\xea\x04\n" +
 	"\x17StreamCompletionRequest\x12@\n" +
 	"\bmessages\x18\x01 \x03(\v2$.pluggableharness.content.v1.MessageR\bmessages\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12@\n" +
@@ -425,8 +455,10 @@ const file_pluggableharness_model_v1_rpc_request_proto_rawDesc = "" +
 	"\x06params\x18\x04 \x01(\v2+.pluggableharness.model.v1.GenerationParamsH\x00R\x06params\x88\x01\x01\x12X\n" +
 	"\x11assembled_context\x18\x05 \x03(\v2+.pluggableharness.content.v1.ContextSectionR\x10assembledContext\x12J\n" +
 	"\fcall_context\x18\x06 \x01(\v2'.pluggableharness.common.v1.CallContextR\vcallContext\x12W\n" +
-	"\x11cache_breakpoints\x18\a \x03(\v2*.pluggableharness.model.v1.CacheBreakpointR\x10cacheBreakpointsB\t\n" +
-	"\a_params\"C\n" +
+	"\x11cache_breakpoints\x18\a \x03(\v2*.pluggableharness.model.v1.CacheBreakpointR\x10cacheBreakpoints\x12G\n" +
+	"\x10provider_options\x18\b \x01(\v2\x17.google.protobuf.StructH\x01R\x0fproviderOptions\x88\x01\x01B\t\n" +
+	"\a_paramsB\x13\n" +
+	"\x11_provider_options\"C\n" +
 	"\x12CountTokensRequest\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\"P\n" +
@@ -470,11 +502,12 @@ var file_pluggableharness_model_v1_rpc_request_proto_depIdxs = []int32{
 	10, // 4: pluggableharness.model.v1.StreamCompletionRequest.assembled_context:type_name -> pluggableharness.content.v1.ContextSection
 	11, // 5: pluggableharness.model.v1.StreamCompletionRequest.call_context:type_name -> pluggableharness.common.v1.CallContext
 	12, // 6: pluggableharness.model.v1.StreamCompletionRequest.cache_breakpoints:type_name -> pluggableharness.model.v1.CacheBreakpoint
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	6,  // 7: pluggableharness.model.v1.StreamCompletionRequest.provider_options:type_name -> google.protobuf.Struct
+	8,  // [8:8] is the sub-list for method output_type
+	8,  // [8:8] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_rpc_request_proto_init() }

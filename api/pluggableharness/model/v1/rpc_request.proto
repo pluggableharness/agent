@@ -90,6 +90,30 @@ message StreamCompletionRequest {
   // natural stable-prefix boundaries — see
   // model/protocol.md#cache-breakpoint-placement-policy.
   repeated CacheBreakpoint cache_breakpoints = 7;
+
+  // Vendor-specific request knobs the kernel has no semantics for, passed
+  // through untouched: the kernel never reads a key, validates one, or
+  // assigns meaning to one. This is the escape hatch that lets a
+  // third-party provider ship a vendor feature — a service tier, a
+  // sampling seed, a beta-feature flag, a conversation-retention id —
+  // without a change to this protocol. Values originate in the provider's
+  // own ConfigSchema and the operator's provider{} block, and the provider
+  // documents its own accepted keys; two providers MAY use the same key
+  // name for unrelated things.
+  //
+  // A Struct for the same reason ConfigureRequest.config is one — the
+  // shape is the provider's schema, not the kernel's to name — applied
+  // per-request rather than once at configure time (.claude/rules/proto.md's
+  // Struct precedent list).
+  //
+  // MUST NOT carry anything the kernel reads. Pass-through is the whole
+  // contract, so a value affecting routing, capability validation, cost
+  // computation, or replay is a typed field on this protocol or it does
+  // not work at all — a provider smuggling one through here gets silence,
+  // not kernel behavior. Promoting such a knob to a typed field in a later
+  // revision is the fix; teaching the kernel to read this field is not.
+  // See model/data-types.md#provider_options.
+  optional google.protobuf.Struct provider_options = 8;
 }
 
 // CountTokensRequest is CountTokens' request: the raw text to count, per

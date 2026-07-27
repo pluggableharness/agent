@@ -53,10 +53,29 @@ strongly typed as the Go code that implements it.
   enumerate: `log.v1.LogEntry.fields` (mirrors `slog.Attr`'s open key/value
   model), `config.v1`'s `ConfigureRequest.config` and `kernel.v1.GetConfigResult.config`
   (already-decoded `agent.hcl` values, whose shape is the *provider's* schema,
-  not the kernel's to name), and `trace.v1.Span`/`SpanEvent`'s `attributes`
+  not the kernel's to name), `trace.v1.Span`/`SpanEvent`'s `attributes`
   (an OTel span's attribute set, open-ended per call site by the same
-  reasoning as `log.v1.LogEntry.fields`) are the precedents. A field whose
-  keys are actually fixed and enumerable belongs in a real message instead.
+  reasoning as `log.v1.LogEntry.fields`), and
+  `model.v1.StreamCompletionRequest.provider_options` (vendor-specific
+  request knobs the kernel has no semantics for — the same "shape is the
+  provider's, not the kernel's to name" reasoning as `ConfigureRequest.config`,
+  applied per-request rather than once at configure time) are the
+  precedents. A field whose keys are actually fixed and enumerable belongs
+  in a real message instead.
+- **A `Struct` field is pass-through only: if the kernel reads it, it must
+  be a typed field instead.** This is what keeps the precedent list above
+  from becoming a general-purpose escape from the strong-typing rule. Every
+  entry on it is data the kernel *carries* — logs it, relays it, hands it
+  to the plugin that owns it — never data the kernel *branches on*. The
+  moment a value affects kernel behavior (routing, capability validation,
+  cost computation, replay), a `Struct` is the wrong home for it, because
+  nothing about a `Struct` key is discoverable, validatable, or versionable
+  at the wire contract level. `model.v1`'s prompt-cache TTL is the worked
+  example: it looks like an ordinary vendor knob, but the kernel computes
+  `cost_usd` and the TTL changes the rate, so it cannot live in
+  `provider_options` and must be a typed field or not exist
+  (`docs/specifications/model/conformance.md`'s open questions records why
+  it is currently the latter).
 - Every field that has a natural bounded domain (status, kind, risk class,
   error category) is an `enum`, not a `string`. `docs/specifications/tool/conformance.md`'s
   `ToolErrorCategory`, and `docs/specifications/tool/data-types.md`'s `RiskClass`

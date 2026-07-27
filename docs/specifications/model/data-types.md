@@ -190,6 +190,7 @@ StreamCompletionRequest {
   assembled_context     []ContextSection     // MUST — the kernel-assembled context chain, see below
   call_context           CallContext          // MUST — session/turn/working-directory attribution, see below
   cache_breakpoints     []CacheBreakpoint     // MAY be empty — see below
+  provider_options       Struct?              // MAY — vendor-specific pass-through, see below
 }
 ```
 
@@ -222,6 +223,16 @@ CacheBreakpoint {
 `cache_breakpoints` is meaningful only when the target model's `CachingSpec.mode == CACHING_MODE_EXPLICIT_MARKERS`; a model-provider adapter targeting a model whose `CachingSpec.mode` is `CACHING_MODE_IMPLICIT_AUTOMATIC` or `CACHING_MODE_NONE` MUST ignore this field rather than error on it. The adapter maps each breakpoint to its vendor's own cache-control mechanism (e.g. an Anthropic `cache_control` block on the targeted content).
 
 **Breakpoint placement is a kernel decision, not the plugin's.** The kernel knows each `assembled_context` section's `Stability` (`content/v1/types.proto`'s `Stability` enum: `STABILITY_STATIC` vs. `STABILITY_DYNAMIC`) and each message's position in the conversation, so it places breakpoints at natural stable-prefix boundaries — the same tools → system → static-project-context → conversation-tail ordering that governs `assembled_context`'s own chain order. In practice this means: a breakpoint after `after_tools` when the tool declaration list is stable turn to turn, and a breakpoint after `after_assembled_context` when the whole chain's leading sections are `STABILITY_STATIC` — since that's usually the longest stable prefix a vendor's prompt cache can actually reuse. A plugin never invents its own placement; it only translates the breakpoints the kernel already decided into vendor-native markers.
+
+### `provider_options`
+
+`provider_options` is an optional `google.protobuf.Struct` carrying vendor-specific request knobs the kernel has no semantics for. It is the escape hatch that lets a third-party provider ship a vendor feature without a change to this protocol — a vendor's `service_tier`, a sampling `seed`, a beta-feature header flag, a conversation-retention id, an incremental-response id. The kernel passes it through untouched: it never reads a key, never validates one, and never assigns meaning to one.
+
+Values originate the same way every other provider-specific value does — from the provider's own `ConfigSchema` and the operator's `provider "<name>" { ... }` block ([`configuration/blocks-reference.md`](../configuration/blocks-reference.md)) — and the provider documents its own accepted keys. Two providers MAY use the same key name for unrelated things; nothing in this protocol coordinates them.
+
+**The rule that keeps this honest: a field the kernel reads MUST NOT live here.** `provider_options` is pass-through by construction, so anything the kernel acts on — a value affecting routing, capability validation, cost computation, or replay — is a typed field on this protocol or it does not work at all. A provider that smuggles such a value through `provider_options` gets no kernel behavior from it, only silence. Concretely: prompt-cache TTL selection cannot live here (the kernel computes `cost_usd` and the TTL changes the rate), a thinking-effort level cannot live here (the kernel validates it against [`ThinkingSpec`](#thinkingspec) and routes fallbacks on it), and a token count cannot live here. When a knob turns out to need kernel behavior, the fix is to promote it to a typed field in a later protocol revision — not to teach the kernel to read `provider_options`.
+
+This is a `Struct` for the same reason `ConfigureRequest.config` is one — the shape is the provider's schema, not the kernel's to name — applied per-request rather than once at configure time. It is deliberately *not* one of the opaque `bytes` payloads (Emit→Render→Paint, event-bus publish), which exist so a producer's payload format can evolve independently of the kernel; `provider_options` exists because the kernel has no opinion about the values at all. See [`.claude/rules/proto.md`](../../../.claude/rules/proto.md)'s strong-typing section, whose pass-through rule this section restates from the protocol side.
 
 ## `GenerationParams`
 
