@@ -61,13 +61,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # cache: true keys GOMODCACHE + GOCACHE on go.sum — shared by every
-      # job in this workflow that sets up Go the same way.
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: ./.github/actions/setup-go-cached
         with:
-          go-version-file: go.mod
-          cache: true
+          job: build
 
       - name: Download modules
         run: go mod download
@@ -107,11 +104,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Scoped per OS by runner.os inside the action, so the three legs of
+      # this matrix keep three separate caches rather than fighting over one.
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: ./.github/actions/setup-go-cached
         with:
-          go-version-file: go.mod
-          cache: true
+          job: test
 
       - name: Test with race detector + coverage
         run: go test -race -shuffle=on -covermode=atomic -coverprofile=coverage.out ./...
@@ -156,11 +154,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # No cache at all, deliberately: gofmt parses source and neither
+      # resolves modules nor compiles anything, so there is nothing to cache
+      # and nothing to restore. This job used to carry setup-go's default
+      # cache, and because it finishes faster than any other Go job it was the
+      # one that won the shared cache key and wrote an empty GOCACHE for
+      # everything else to restore. See .github/actions/setup-go-cached.
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: Check gofmt -s
         run: |
@@ -198,11 +202,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Scoped separately from `build`: this job compiles the protoc plugins
+      # named by go.mod's tool directives, which no other job builds.
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: ./.github/actions/setup-go-cached
         with:
-          go-version-file: go.mod
-          cache: true
+          job: proto
 
       # setup_only: we drive buf explicitly below rather than using the
       # action's opinionated defaults. Version pinned for reproducibility;

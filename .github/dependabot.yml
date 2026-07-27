@@ -35,8 +35,13 @@ updates:
     commit-message:
       prefix: "deps"
 
+  # "/" covers .github/workflows. Composite actions are not picked up by it —
+  # each one's directory has to be listed, or the SHAs pinned inside it go
+  # stale silently while the workflows around it stay current.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/setup-go-cached"
     schedule:
       interval: "weekly"
     cooldown:

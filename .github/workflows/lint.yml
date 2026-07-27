@@ -35,11 +35,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Scoped separately from ci.yml's jobs: golangci-lint's type-checking
+      # pass populates GOCACHE with export data the plain build does not
+      # produce, and it is the job that benefits most from getting its own
+      # cache back rather than another job's. The action keeps its own small
+      # analysis cache alongside this one; the two are unrelated.
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: ./.github/actions/setup-go-cached
         with:
-          go-version-file: go.mod
-          cache: true
+          job: lint
 
       # Full-repo enforcement, not only-new-issues: the baseline is clean,
       # and diff-scoped linting can miss issues surfaced by base-branch drift.

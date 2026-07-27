@@ -1,0 +1,84 @@
+# =============================================================================
+# Set up Go with a job-scoped build cache.
+#
+# This exists because actions/setup-go's built-in `cache: true` is actively
+# harmful in a repo with more than one Go job.
+#
+# setup-go derives its cache key from the platform, the Go version, and a hash
+# of go.sum — and nothing else. Every Go job on the same runner OS therefore
+# competes for one key. actions/cache never overwrites an existing key, so the
+# first job to reach its post-run step wins and every other job on that OS
+# silently inherits whatever that one job happened to have compiled.
+#
+# The job that wins is the one that finishes first, which is the one that did
+# the least work. In this repo that was `gofmt` — it runs `gofmt -l -s .`,
+# compiles nothing, and finished in ten seconds. It was writing an empty
+# GOCACHE under the shared key, and Build, Test and golangci-lint were all
+# restoring that empty cache and recompiling the world every run. Measured on
+# the cache list: six of eight Linux entries were ~7.5 KB, against 150 MB for
+# the two runs where a real job happened to win the race. macOS and Windows
+# were unaffected at ~270 MB, because only one job ever runs there — which is
+# exactly the tell that this is a collision and not a Go problem.
+#
+# The fix is to scope the key per job. Each job then caches and restores its
+# own compiled output, and a job that compiles nothing can no longer speak for
+# one that does.
+#
+# Keying on go.sum alone (no run id / sha) is deliberate. The key is frozen
+# until the dependency graph changes, so the cache is written once per go.sum
+# and reused unchanged after that. Compiled dependencies — grpc, protobuf and
+# the race-instrumented standard library above all — dominate a cold build,
+# and they are precisely what does not change between commits. A rolling key
+# would also cache this repo's own packages, but at the cost of re-uploading
+# a few hundred MB on every run and churning through the repository's 10 GB
+# cache budget in a handful of runs.
+# =============================================================================
+
+name: Set up Go with a job-scoped build cache
+description: >
+  Installs the Go toolchain named in go.mod and restores GOCACHE and
+  GOMODCACHE under a cache key scoped to the calling job, so that jobs which
+  compile nothing cannot evict the caches of jobs that do.
+
+inputs:
+  job:
+    description: >
+      Cache scope for the calling job — any short stable name unique within
+      this repository (e.g. "build", "test", "lint"). Two jobs sharing a value
+      share a cache, which is only correct when they compile the same thing.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # cache: false — this action's whole purpose is to replace setup-go's
+    # cache with one that is scoped correctly. Leaving it on would restore the
+    # shared key over the top of ours and re-create the collision.
+    - name: Install Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    # Ask the toolchain where its caches are rather than hardcoding paths:
+    # GOCACHE and GOMODCACHE differ across Linux, macOS and Windows, and this
+    # action runs on all three.
+    - name: Locate the Go caches
+      id: paths
+      shell: bash
+      run: |
+        echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+        echo "mod=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Go build and module caches
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.paths.outputs.build }}
+          ${{ steps.paths.outputs.mod }}
+        key: go-${{ runner.os }}-${{ inputs.job }}-${{ hashFiles('go.sum') }}
+        # A dependency bump changes the key and would otherwise start from
+        # nothing. The prefix match reuses the previous graph's compiled
+        # output, so only what actually changed is rebuilt.
+        restore-keys: |
+          go-${{ runner.os }}-${{ inputs.job }}-
