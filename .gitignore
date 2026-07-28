@@ -31,11 +31,17 @@ __debug_bin*
 # the working directory, which the extension patterns above do not catch on
 # Linux or macOS. These are the ones this repo can actually produce, listed
 # by name because a broad pattern here would ignore real source files.
+#
+# Both shapes are covered on purpose: `go build ./cmd/agent` from the repo
+# root lands at /agent, while `cd cmd/agent && go build` lands beside the
+# main package. The second used to be uncovered, which is exactly how a
+# 21 MB providerconform reached a commit.
 /agent
 /anthropic
-/tui
 /providerconform
-examples/*/agent-example-provider
+/cmd/agent/agent
+/cmd/anthropic/anthropic
+/cmd/providerconform/providerconform
 
 # --- Go: test, coverage & profiling artifacts --------------------------------
 *.out
