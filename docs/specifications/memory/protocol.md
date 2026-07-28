@@ -95,7 +95,7 @@ Content-quality guidance (what's worth remembering, what isn't, promoting verbos
 
 Memory providers MAY implement `Render` per the general Emit→Render→Paint pipeline ([`architecture.md`](../architecture.md#emit--render--paint-pipeline)), returning the `RenderTree` formally defined in [`frontend/render-tree.md`](../frontend/render-tree.md). A reference implementation might render a `pending` record specially (e.g. a review-inbox UI element distinct from ordinary recall) — this is exactly the kind of case where custom rendering matters more than the generic fallback. If not implemented, the kernel falls back to its generic default rendering.
 
-`RenderRequest` carries `schema_version` alongside the opaque `payload` — see [`frontend/render-tree.md#schema-versioning`](../frontend/render-tree.md#schema-versioning) for what the value means and how a `Render` implementation is expected to use it.
+`RenderRequest` carries `schema_version` alongside the opaque `payload` — see [`frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads`](../frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads) for what the value means and how a `Render` implementation is expected to use it.
 
 ## `Describe`
 

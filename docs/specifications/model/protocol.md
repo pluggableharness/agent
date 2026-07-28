@@ -100,7 +100,7 @@ cost_usd = input_tokens * pricing.input_per_mtok / 1e6
 
 Model providers MAY implement `Render` per the general Emit→Render→Paint pipeline ([`architecture.md`](../architecture.md#emit--render--paint-pipeline)), returning the `RenderTree` formally defined in [`frontend/render-tree.md`](../frontend/render-tree.md) — e.g. to render a `thinking` block collapsed by default, or to render usage/cost info specially. If not implemented, the kernel falls back to its generic default rendering. This is a MAY, not a SHOULD — most model-provider payloads (plain text, tool calls) render fine under the generic fallback; the tool-result side (owned by tool providers) is where custom rendering matters more.
 
-`RenderRequest.schema_version` MUST be set alongside `payload` — the schema version the payload was emitted under, so a `Render` implementation can interpret a payload emitted by an older plugin version consistently when a session is replayed. See [`frontend/render-tree.md#schema-versioning`](../frontend/render-tree.md#schema-versioning) for the versioning scheme itself.
+`RenderRequest.schema_version` MUST be set alongside `payload` — the schema version the payload was emitted under, so a `Render` implementation can interpret a payload emitted by an older plugin version consistently when a session is replayed. See [`frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads`](../frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads) for the versioning scheme itself.
 
 ## `GetAccount`
 
@@ -118,11 +118,11 @@ It is separate from [`GetCapabilities`](#getcapabilities) because the two have d
 
 `quotas[]` reuses [`RateLimitSnapshot`](data-types.md#usagerate_limits) rather than introducing a parallel shape — pool headroom and a per-completion rate-limit budget are the same concept read at different times, and two types for it would guarantee two frontend renderers that disagree. `fetched_at` lets a frontend show how stale a reading is instead of presenting a cached figure as live, which is the specific failure that makes an operator stop trusting a usage meter.
 
-`method` (`api_key` | `product_session` | `deployment_key`) and `metering` (`subscription_pool` | `metered_api`) are not one-to-one: a product session can bill against credits once its pool is exhausted. The same pair is available statically on [`Capabilities.auth`](data-types.md#capabilities) for a provider that knows its credential shape without a network call.
+`method` (`api_key` | `product_session` | `deployment_key`) and `metering` (`subscription_pool` | `metered_api`) are not one-to-one: a product session can bill against credits once its pool is exhausted. The same pair is available statically on `Capabilities.auth` for a provider that knows its credential shape without a network call.
 
 **Nothing in `AccountSnapshot` may be a credential or leak one** — no key material, no token, no full account identifier, `labels{}` included.
 
-The kernel MUST NOT persist this into the session event log: it is a live reading of external state, and recording it would put a value into the replay path that no replay can reproduce ([`.claude/rules/determinism.md`](../../../.claude/rules/determinism.md)).
+The kernel MUST NOT persist this into the session event log: it is a live reading of external state, and recording it would put a value into the replay path that no replay can reproduce (the repository's replay-determinism rule, `.claude/rules/determinism.md`).
 
 ## `Describe`
 

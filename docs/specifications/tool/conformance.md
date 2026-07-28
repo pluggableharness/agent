@@ -79,7 +79,7 @@ This interacts with, but is distinct from, `concurrency_conflict`'s existing "re
 | Structured `ToolError` taxonomy, including `process_crashed` | MUST | |
 | Strict `output_schema` enforcement | MUST | [`protocol.md#invoke`](protocol.md#invoke) |
 | Best-effort partial-mutation report on cancellation | MUST, for `resource` operations | see [`protocol.md#invoke`](protocol.md#invoke) |
-| `Render` | MAY | generic fallback exists; `RenderRequest.schema_version` per [`../frontend/render-tree.md#schema-versioning`](../frontend/render-tree.md#schema-versioning) |
+| `Render` | MAY | generic fallback exists; `RenderRequest.schema_version` per [`../frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads`](../frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads) |
 | `Preview` | MAY | [`protocol.md#preview`](protocol.md#preview); kernel MUST fall back to raw `arguments` when absent; MUST NOT mutate anything when implemented |
 
 ## Open questions

@@ -34,7 +34,7 @@ A `SlashCommandCall` produces a `pluggableharness.plan.v1.PlanItem` with `produc
 
 ## Render
 
-Same optionality and reasoning as [`tool/protocol.md#render`](../tool/protocol.md#render) — returning the `RenderTree` formally defined in [`frontend/render-tree.md`](../frontend/render-tree.md). If not implemented, the kernel falls back to its generic default (pretty-printed JSON payload). `RenderRequest.schema_version` names which version of the plugin's own emitted-payload schema `payload` was written under, per [`frontend/render-tree.md#schema-versioning`](../frontend/render-tree.md#schema-versioning).
+Same optionality and reasoning as [`tool/protocol.md#render`](../tool/protocol.md#render) — returning the `RenderTree` formally defined in [`frontend/render-tree.md`](../frontend/render-tree.md). If not implemented, the kernel falls back to its generic default (pretty-printed JSON payload). `RenderRequest.schema_version` names which version of the plugin's own emitted-payload schema `payload` was written under, per [`frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads`](../frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads).
 
 ## Preview
 

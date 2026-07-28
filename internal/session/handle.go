@@ -332,8 +332,15 @@ func (h *Handle) markTerminal(ctx context.Context, status sessionv1.SessionStatu
 // treats it as a path argument, never a shell fragment.
 func probeVCS(ctx context.Context, dir string) *sessionv1.VcsState {
 	git := func(args ...string) ([]byte, error) {
+		// Both suppressions are load-bearing and neither is redundant:
+		// golangci-lint reads //nolint, while the standalone gosec the
+		// security workflow runs reads only #nosec, and #nosec binds only
+		// when it sits on the flagged line itself here — on a preceding
+		// line it does not attach to a node inside this closure. Carrying
+		// just the //nolint passed locally and failed CI.
 		//nolint:gosec // G204: constant command, path-only variable argument (see doc comment)
-		return exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...).Output()
+		cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...) // #nosec G204 -- constant "git"; only the -C path varies
+		return cmd.Output()
 	}
 
 	branchOut, err := git("rev-parse", "--abbrev-ref", "HEAD")

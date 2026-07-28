@@ -26,7 +26,7 @@ There is **no** frontend or widget `Attach` stream. Under `hashicorp/go-plugin` 
 - **Frontend → kernel:** unary RPCs on the same channel (`SubmitInput`, session lifecycle, plan/interactive resolution, metadata publish/list, …).
 - **`FrontendService` / `WidgetService`:** only `GetCapabilities`, `Configure`, `Describe` — the same triple every other category has.
 
-The callback channel is the **only** genuinely bidirectional transport surface in the protocol series (application RPCs on it are unary or server-streaming). See [`.claude/rules/grpc.md`](../../../.claude/rules/grpc.md).
+The callback channel is the **only** genuinely bidirectional transport surface in the protocol series (application RPCs on it are unary or server-streaming). See the repository's gRPC rule, `.claude/rules/grpc.md`.
 
 ## Session scope — multi-attach
 

@@ -51,7 +51,7 @@ A non-compactor provider whose `Contribute` response mutates a section it doesn'
 
 Context providers MAY implement `Render` per the general Emit→Render→Paint pipeline ([`architecture.md`](../architecture.md#emit--render--paint-pipeline)), returning the `RenderTree` formally defined in [`frontend/render-tree.md`](../frontend/render-tree.md) — e.g. to render an injected CLAUDE.md section collapsed by default in a transcript view, distinct from the live conversation. If not implemented, the kernel falls back to its generic default rendering.
 
-`RenderRequest` carries `schema_version` alongside the opaque `payload` — see [`frontend/render-tree.md#schema-versioning`](../frontend/render-tree.md#schema-versioning) for what the value means and how a `Render` implementation is expected to use it.
+`RenderRequest` carries `schema_version` alongside the opaque `payload` — see [`frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads`](../frontend/render-tree.md#schema-versioning-for-opaque-emit-payloads) for what the value means and how a `Render` implementation is expected to use it.
 
 ## `Describe`
 
