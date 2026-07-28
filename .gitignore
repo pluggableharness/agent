@@ -37,10 +37,8 @@ __debug_bin*
 # main package. The second used to be uncovered, which is exactly how a
 # 21 MB providerconform reached a commit.
 /agent
-/anthropic
 /providerconform
 /cmd/agent/agent
-/cmd/anthropic/anthropic
 /cmd/providerconform/providerconform
 
 # --- Go: test, coverage & profiling artifacts --------------------------------
