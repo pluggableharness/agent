@@ -1,10 +1,19 @@
-// Command agent is the PluggableHarness kernel binary.
+// Command agent is the PluggableHarness kernel binary. It has two modes,
+// selected by whether -prompt is given.
 //
-// This build runs exactly one non-interactive session: it loads agent.hcl,
-// launches every resolved provider plugin, runs -prompt to completion,
-// prints the session's final message to stdout, and exits. The interactive
-// command docs/specifications/architecture.md#cli-shape describes arrives
-// with the frontend plugin category; there is no REPL here yet.
+// With -prompt it runs exactly one non-interactive session: load agent.hcl,
+// launch every resolved provider plugin, run the prompt to completion,
+// print the session's final message to stdout, exit.
+//
+// Without -prompt it hosts a frontend. The kernel brings the same providers
+// up and then waits while a frontend plugin creates and drives sessions
+// over the kernel callback channel, exiting when the operator closes it.
+// There is still no REPL in this binary and there is not meant to be one:
+// the interactive surface is a plugin, so the terminal UI is a separate
+// process the kernel launches rather than code that lives here.
+//
+// Hosting a frontend means another process owns the terminal. Send this
+// one's logs somewhere else (2>agent.log) or they will paint over it.
 //
 // Everything below is wiring, per .claude/rules/go-layout.md: flags in,
 // one internal/kernel.Run call, an exit code out.
@@ -50,7 +59,7 @@ func run() int {
 	var (
 		configPath  = fs.String("config", kernel.DefaultConfigFile, "path to the agent.hcl config file")
 		profile     = fs.String("profile", "", `agent_profile block to run under (default "default")`)
-		prompt      = fs.String("prompt", "", "the prompt to run (required: this build has no interactive mode)")
+		prompt      = fs.String("prompt", "", "run this prompt to completion and exit; omit to host a frontend plugin instead")
 		logLevel    = fs.String("log-level", "", "override settings.log_level (trace|debug|info|warn|error)")
 		showVersion = fs.Bool("version", false, "print the version and exit")
 	)
@@ -66,12 +75,6 @@ func run() int {
 		_, _ = fmt.Fprintln(os.Stdout, buildVersion())
 		return exitOK
 	}
-	if *prompt == "" {
-		_, _ = fmt.Fprintln(os.Stderr, "agent: -prompt is required")
-		fs.Usage()
-		return exitUsage
-	}
-
 	// The one cancellation root: everything below derives from it, so a
 	// signal reaches the model stream, the tool calls, and the plugin
 	// subprocesses through the same context internal/kernel already

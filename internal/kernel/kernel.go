@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 
 	"github.com/pluggableharness/agent/internal/config"
@@ -60,9 +61,12 @@ type Options struct {
 	// BuiltinDefaultProfile when no such block is declared.
 	Profile string
 
-	// Prompt is the single non-interactive prompt this session runs.
-	// Required — this build has no frontend and therefore no way to ask
-	// for one.
+	// Prompt is a single non-interactive prompt to run to completion.
+	//
+	// Empty selects frontend-hosted mode instead: the kernel brings every
+	// provider up, installs the frontend host, and waits while a frontend
+	// plugin drives sessions over the kernel callback channel. That mode
+	// requires a frontend provider to be loaded; see ErrNoFrontend.
 	Prompt string
 
 	// LogLevel overrides settings.log_level when non-empty. Accepts the
@@ -83,16 +87,25 @@ type Options struct {
 	Stderr io.Writer
 }
 
-// ErrNoPrompt reports an Options with no Prompt. This build runs exactly
-// one non-interactive session, so there is nowhere else a prompt could
-// come from.
-var ErrNoPrompt = errors.New("kernel: a prompt is required")
+// ErrNoFrontend reports frontend-hosted mode (an Options with no Prompt)
+// against a configuration that loads no frontend provider. There would be
+// nothing to drive a session and nothing to wait for, so the kernel would
+// sit idle forever rather than doing anything an operator could observe —
+// which is worse than saying so.
+var ErrNoFrontend = errors.New("kernel: no prompt and no frontend provider: pass a prompt, or declare a frontend in required_providers")
+
+// frontendPollInterval is how often hosted mode checks whether the
+// frontend subprocess is still alive.
+//
+// A poll rather than a notification because hashicorp/go-plugin exposes no
+// completion channel, and 250ms because this only bounds how long the
+// kernel outlives a closed UI — it is not on any latency path. Every real
+// signal (input, renders, deltas) travels the callback channel, which is
+// event-driven.
+const frontendPollInterval = 250 * time.Millisecond
 
 // normalize fills Options' defaults, returning the resolved copy.
 func (o Options) normalize() (Options, error) {
-	if o.Prompt == "" {
-		return Options{}, ErrNoPrompt
-	}
 	if o.WorkingDirectory == "" {
 		wd, err := os.Getwd()
 		if err != nil {
@@ -177,18 +190,76 @@ func Run(ctx context.Context, opts Options) error {
 		return errors.Join(upErr, k.shutdown(ctx))
 	}
 
-	runErr := k.runSession(ctx)
+	runErr := k.run(ctx)
 	return errors.Join(runErr, k.shutdown(ctx))
 }
 
-// runSession builds the session driver over the process-wide collaborators
-// and runs exactly one session.
+// run builds the session driver, installs the frontend host, and then
+// picks a mode: one non-interactive session when a prompt was given,
+// otherwise wait while a frontend plugin drives.
+//
+// The host is installed in both modes deliberately. A frontend's callback
+// RPCs are answerable the moment its subprocess is up, which happens
+// during bring-up — before either branch below runs — so gating the host
+// on the mode would leave a launched frontend talking to a nil host.
+func (k *kernel) run(ctx context.Context) error {
+	runner, err := k.newRunner(ctx)
+	if err != nil {
+		return err
+	}
+	k.hostSlot.Set(newFrontendHost(k, runner, k.plans, k.inter))
+
+	if k.opts.Prompt != "" {
+		return k.runSession(ctx, runner)
+	}
+	return k.hostFrontend(ctx)
+}
+
+// hostFrontend blocks while a frontend plugin drives sessions over the
+// callback channel, returning when the operator closes it or ctx is
+// canceled. Sessions are created, fed, and ended entirely through
+// frontendHost — this function starts none of them.
+//
+// It returns nil for both exits: an operator quitting the UI and an
+// operator pressing Ctrl-C are ordinary ways to finish, not failures.
+func (k *kernel) hostFrontend(ctx context.Context) error {
+	frontends := k.plugins.ByCategory(commonv1.Category_CATEGORY_FRONTEND)
+	if len(frontends) == 0 {
+		return ErrNoFrontend
+	}
+
+	names := make([]string, 0, len(frontends))
+	for _, f := range frontends {
+		names = append(names, f.LocalName)
+	}
+	k.logger.InfoContext(ctx, "kernel: hosting frontend", "providers", names)
+
+	ticker := time.NewTicker(frontendPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			k.logger.InfoContext(ctx, "kernel: canceled, stopping")
+			return nil
+		case <-ticker.C:
+			for _, f := range frontends {
+				if f.Exited() {
+					k.logger.InfoContext(ctx, "kernel: frontend exited, stopping", "provider", f.LocalName)
+					return nil
+				}
+			}
+		}
+	}
+}
+
+// newRunner builds the session driver over the process-wide collaborators.
 //
 // The Runner (and the turn stack under it) is constructed per session, not
 // per process: internal/plangate and internal/tooldispatch share one
 // *circuitbreaker.Breaker scoped to a single session, and the gate needs
 // that session's id at construction. See internal/session's CLAUDE.md.
-func (k *kernel) runSession(ctx context.Context) error {
+func (k *kernel) newRunner(_ context.Context) (*session.Runner, error) {
 	stack := newTurnStack(k)
 
 	runner, err := session.New(session.Config{ //nolint:contextcheck // session.New takes no context by design; nothing is dropped
@@ -206,12 +277,14 @@ func (k *kernel) runSession(ctx context.Context) error {
 		Logger:                k.logger,
 	})
 	if err != nil {
-		return fmt.Errorf("kernel: session driver: %w", err)
+		return nil, fmt.Errorf("kernel: session driver: %w", err)
 	}
-	// Install the frontend host so plugin-side callback RPCs can open
-	// interactive sessions. CLI Run still uses Runner.Run below.
-	k.hostSlot.Set(newFrontendHost(k, runner, k.plans, k.inter))
+	return runner, nil
+}
 
+// runSession runs exactly one non-interactive session and writes its final
+// message to stdout — the -prompt path.
+func (k *kernel) runSession(ctx context.Context, runner *session.Runner) error {
 	result, err := runner.Run(ctx, session.Spec{
 		Profile:          k.opts.Profile,
 		Prompt:           k.opts.Prompt,

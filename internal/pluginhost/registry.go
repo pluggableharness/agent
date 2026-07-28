@@ -87,6 +87,20 @@ type Live struct {
 	closeFn func(context.Context) error
 }
 
+// Exited reports whether this plugin's subprocess has terminated. It
+// forwards to the underlying handle rather than exposing it, keeping the
+// "its lifecycle belongs to Supervisor" rule above intact: a caller can
+// observe that a plugin is gone without being able to end one.
+//
+// A Live built by a test with no real subprocess reports false — there is
+// nothing that could have exited.
+func (l *Live) Exited() bool {
+	if l.plugin == nil {
+		return false
+	}
+	return l.plugin.Exited()
+}
+
 // ModelClient returns this plugin's ModelService client, or ok=false if
 // it is not a model plugin.
 func (l *Live) ModelClient() (modelv1.ModelServiceClient, bool) {

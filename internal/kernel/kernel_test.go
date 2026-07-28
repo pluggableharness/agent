@@ -15,11 +15,18 @@ import (
 	"github.com/pluggableharness/agent/internal/doomloop"
 )
 
-func TestOptionsNormalize_requiresAPrompt(t *testing.T) {
+// An empty Prompt is no longer an error: it selects frontend-hosted mode.
+// Whether that mode is actually usable depends on a frontend provider being
+// loaded, which normalize cannot know and hostFrontend reports instead.
+func TestOptionsNormalize_emptyPromptSelectsHostedMode(t *testing.T) {
 	t.Parallel()
 
-	if _, err := (Options{}).normalize(); !errors.Is(err, ErrNoPrompt) {
-		t.Fatalf("normalize with no prompt = %v, want ErrNoPrompt", err)
+	got, err := (Options{}).normalize()
+	if err != nil {
+		t.Fatalf("normalize with no prompt = %v, want nil", err)
+	}
+	if got.Prompt != "" {
+		t.Errorf("Prompt = %q, want empty", got.Prompt)
 	}
 }
 
@@ -209,6 +216,21 @@ func TestRun_unknownLogLevelIsRejected(t *testing.T) {
 	err := Run(context.Background(), opts)
 	if err == nil || !strings.Contains(err.Error(), "log level") {
 		t.Fatalf("Run with an unknown log level = %v, want a log-level error", err)
+	}
+}
+
+// TestRun_hostedModeWithoutAFrontendIsRejected asserts the kernel refuses
+// to sit idle. Without a prompt it waits for a frontend to drive it, so a
+// configuration that loads none would block forever with nothing an
+// operator could see happening — the one outcome worse than an error.
+func TestRun_hostedModeWithoutAFrontendIsRejected(t *testing.T) {
+	project := newProject(t, minimalConfig)
+	opts := testOptions(t, project, &stringSink{}, &stringSink{})
+	opts.Prompt = ""
+
+	err := Run(context.Background(), opts)
+	if !errors.Is(err, ErrNoFrontend) {
+		t.Fatalf("Run with no prompt and no frontend = %v, want ErrNoFrontend", err)
 	}
 }
 

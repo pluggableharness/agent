@@ -162,6 +162,25 @@ func (p *Plugin) Producer() *commonv1.ProducerRef {
 	return p.producer
 }
 
+// Exited reports whether this plugin's subprocess has terminated.
+//
+// Read-only on purpose, and deliberately not an exposed *plugin.Client:
+// observing that a subprocess is gone is a different capability from
+// being able to kill one, and only the caller that launched it should
+// have the latter (the same reasoning that keeps Plugin.client
+// unexported).
+//
+// go-plugin offers no completion channel, so a caller that needs to wait
+// on this polls it. That is the intended use: a frontend-hosting kernel
+// has nothing else to tell it the operator closed the UI, because
+// deleting Attach removed the stream whose closure used to say so.
+func (p *Plugin) Exited() bool {
+	if p.client == nil {
+		return true
+	}
+	return p.client.Exited()
+}
+
 // preflightVersionCheck implements launch step 1: a no-op today, since
 // nothing populates a real protocol version anywhere yet (no registry/
 // lockfile field carries one) — operator decision #2. Once something

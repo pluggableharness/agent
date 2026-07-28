@@ -122,3 +122,12 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 *.lnk
+
+# --- Local dev run -----------------------------------------------------------
+# .dev/ holds committed scaffolding for running the kernel against locally
+# built plugins (.dev/README.md). The config files are committed as
+# templates; everything the run *writes* is not.
+/.dev/state/
+/.dev/cache/
+/.dev/data/
+/.dev/*.log
