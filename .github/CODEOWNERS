@@ -34,14 +34,13 @@
 # The plugin-author surface. Third parties compile against it.
 /docs/first-party/                  @pluggableharness/sdk-maintainers
 
-# The terminal shell: different skill set, and the TTY-ownership constraint
-# that follows from a frontend being a go-plugin subprocess.
+# The frontend-facing protocol surface. The reference terminal shell itself
+# now lives in pluggableharness/plugin-frontend-tui, so what is left here is
+# the contract every frontend builds against, not one implementation.
 /docs/first-party/frontends/        @pluggableharness/frontend-maintainers
 /pkg/frontend/                      @pluggableharness/frontend-maintainers @pluggableharness/sdk-maintainers
 /pkg/widget/                        @pluggableharness/frontend-maintainers @pluggableharness/sdk-maintainers
 /pkg/render/                        @pluggableharness/frontend-maintainers @pluggableharness/sdk-maintainers
-/internal/tui/                      @pluggableharness/frontend-maintainers
-/cmd/tui/                           @pluggableharness/frontend-maintainers
 
 # release.yml hands whatever a v* tag points at to GoReleaser.
 /.github/workflows/release.yml      @pluggableharness/release-engineering

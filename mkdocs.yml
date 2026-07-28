@@ -226,7 +226,6 @@ nav:
           - xAI: first-party/providers/xai.md
       - Frontends:
           - first-party/frontends/README.md
-          - Reference TUI shell: first-party/frontends/tui.md
       - Tools:
           - first-party/tools/README.md
           - File read: first-party/tools/file-read.md
