@@ -21,23 +21,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// FrontendErrorCategory classifies a FrontendError, per the error taxonomy
-// in frontend.md §7.
+// FrontendErrorCategory classifies a FrontendError.
 type FrontendErrorCategory int32
 
 const (
 	// Zero value. Never valid for a real error; its presence on the wire
 	// means a caller forgot to set the field.
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNSPECIFIED FrontendErrorCategory = 0
-	// A RenderTree or PlacedContent could not be displayed.
+	// A RenderTree could not be displayed.
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_RENDER_FAILED FrontendErrorCategory = 1
-	// A ClientEvent was malformed or referenced an unknown/already-resolved
-	// id (e.g. a plan_decision or interactive_response naming an item that
-	// was already resolved by another attached frontend, per frontend.md
-	// §3.3's first-response-wins arbitration).
-	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT FrontendErrorCategory = 2
-	// A PlacedContent named a Region this frontend cannot honor.
-	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED FrontendErrorCategory = 3
+	// A request was malformed or referenced an unknown/already-resolved
+	// id (e.g. ResolvePlanDecision naming an item already resolved by
+	// another attached frontend — first-response-wins arbitration).
+	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_REQUEST FrontendErrorCategory = 2
 	// An error that does not fit any other category.
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNKNOWN FrontendErrorCategory = 4
 	// AttachSession, ResumeSession, DetachSession, or ListSessions'
@@ -47,20 +43,19 @@ const (
 	// CreateSession failed — an invalid profile, or an unusable
 	// working_directory.
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED FrontendErrorCategory = 6
-	// A session-mutating control event targeted a session currently
+	// A session-mutating control targeted a session currently
 	// SESSION_STATUS_RUNNING in a way that conflicts with that (reserved
-	// for future session-mutating control events; no current variant in
-	// this protocol revision triggers it, since DetachSession is always
-	// safe on a running session).
+	// for future control events; DetachSession is always safe on a running
+	// session).
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_BUSY FrontendErrorCategory = 7
 	// ResumeSession named a session file with a newer PRAGMA user_version
-	// than this kernel understands (state-backend.md §"Schema migration").
+	// than this kernel understands (state-backend.md schema migration).
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SCHEMA_TOO_NEW FrontendErrorCategory = 8
-	// A user_message (or any other new-turn-inducing event) targeted a
-	// session attached replay-only per frontend.md §"Resume and re-open
-	// semantics" — a bound-exhausted (error_max_*) or FAILED session
-	// resumed via ResumeSession. Distinct from SESSION_BUSY: the session
-	// isn't running, it's terminal and specifically barred from new turns.
+	// SubmitInput (or any other new-turn-inducing RPC) targeted a session
+	// attached replay-only — a bound-exhausted (error_max_*) or FAILED
+	// session resumed via ResumeSession. Distinct from SESSION_BUSY: the
+	// session is not running, it is terminal and specifically barred from
+	// new turns.
 	FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY FrontendErrorCategory = 9
 )
 
@@ -69,8 +64,7 @@ var (
 	FrontendErrorCategory_name = map[int32]string{
 		0: "FRONTEND_ERROR_CATEGORY_UNSPECIFIED",
 		1: "FRONTEND_ERROR_CATEGORY_RENDER_FAILED",
-		2: "FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT",
-		3: "FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED",
+		2: "FRONTEND_ERROR_CATEGORY_INVALID_REQUEST",
 		4: "FRONTEND_ERROR_CATEGORY_UNKNOWN",
 		5: "FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND",
 		6: "FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED",
@@ -81,8 +75,7 @@ var (
 	FrontendErrorCategory_value = map[string]int32{
 		"FRONTEND_ERROR_CATEGORY_UNSPECIFIED":           0,
 		"FRONTEND_ERROR_CATEGORY_RENDER_FAILED":         1,
-		"FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT":  2,
-		"FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED":    3,
+		"FRONTEND_ERROR_CATEGORY_INVALID_REQUEST":       2,
 		"FRONTEND_ERROR_CATEGORY_UNKNOWN":               4,
 		"FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND":     5,
 		"FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED": 6,
@@ -119,9 +112,8 @@ func (FrontendErrorCategory) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_frontend_v1_errors_proto_rawDescGZIP(), []int{0}
 }
 
-// FrontendError is the structured error type for this category, per
-// frontend.md §7. Carried in ServerEvent.Error and in the structured detail
-// of a gRPC status returned from Configure.
+// FrontendError is the structured error type for this category. Carried
+// in the structured detail of a gRPC status.
 type FrontendError struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The error's category.
@@ -183,18 +175,17 @@ const file_pluggableharness_frontend_v1_errors_proto_rawDesc = "" +
 	")pluggableharness/frontend/v1/errors.proto\x12\x1cpluggableharness.frontend.v1\"z\n" +
 	"\rFrontendError\x12O\n" +
 	"\bcategory\x18\x01 \x01(\x0e23.pluggableharness.frontend.v1.FrontendErrorCategoryR\bcategory\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*\xdb\x03\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\xd8\x03\n" +
 	"\x15FrontendErrorCategory\x12'\n" +
 	"#FRONTEND_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12)\n" +
-	"%FRONTEND_ERROR_CATEGORY_RENDER_FAILED\x10\x01\x120\n" +
-	",FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT\x10\x02\x12.\n" +
-	"*FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED\x10\x03\x12#\n" +
+	"%FRONTEND_ERROR_CATEGORY_RENDER_FAILED\x10\x01\x12+\n" +
+	"'FRONTEND_ERROR_CATEGORY_INVALID_REQUEST\x10\x02\x12#\n" +
 	"\x1fFRONTEND_ERROR_CATEGORY_UNKNOWN\x10\x04\x12-\n" +
 	")FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND\x10\x05\x121\n" +
 	"-FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED\x10\x06\x12(\n" +
 	"$FRONTEND_ERROR_CATEGORY_SESSION_BUSY\x10\a\x12*\n" +
 	"&FRONTEND_ERROR_CATEGORY_SCHEMA_TOO_NEW\x10\b\x12/\n" +
-	"+FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY\x10\tBDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
+	"+FRONTEND_ERROR_CATEGORY_SESSION_REPLAY_ONLY\x10\t\"\x04\b\x03\x10\x03**FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTEDBDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
 
 var (
 	file_pluggableharness_frontend_v1_errors_proto_rawDescOnce sync.Once

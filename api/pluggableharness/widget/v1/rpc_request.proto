@@ -17,12 +17,6 @@ message GetCapabilitiesRequest {}
 
 // ConfigureRequest carries this provider's already-decoded agent.hcl block.
 message ConfigureRequest {
-  // The provider's already-decoded config, per frontend.md §4.1.
+  // The provider's already-decoded config.
   google.protobuf.Struct config = 1;
-}
-
-// AttachRequest identifies which session's widget instance to attach to.
-message AttachRequest {
-  // The session this widget instance is attaching to.
-  string session_id = 1;
 }

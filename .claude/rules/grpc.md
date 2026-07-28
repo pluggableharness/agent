@@ -17,18 +17,20 @@ dictated by the specs and MUST match exactly.
 |---|---|---|---|
 | Model | `StreamCompletion` | server-streaming + cancellation | `docs/specifications/model/README.md#transport--lifecycle` (explicitly *not* bidi) |
 | Tool | `Invoke` | server-streaming | `docs/specifications/tool/protocol.md` |
-| Frontend | `Attach` | **bidirectional** streaming | `docs/specifications/frontend/frontend-protocol.md` |
-| Widget | `Attach` | server-streaming only | `docs/specifications/frontend/widget-protocol.md` |
+| Frontend | *(no Attach)* | category triple only; I/O via callback channel | `docs/specifications/frontend/frontend-protocol.md` |
+| Widget | *(no Attach)* | category triple only; metadata via callback | `docs/specifications/frontend/widget-protocol.md` |
 | Slashcommand | `Invoke` | server-streaming | `docs/specifications/slashcommand/protocol.md` (same shape as Tool's `Invoke` — a direct-invoke command is a tool-shaped operation) |
 | Kernel callback | `RunSession`, `CountTokens` | bidirectional (go-plugin's native plugin→kernel channel) | `docs/specifications/kernel-callbacks.md` |
 | Kernel callback | `Subscribe` | server-streaming | `docs/specifications/kernel-callbacks.md#subscribe` (event-bus fan-out; see `docs/specifications/event-bus.md`) |
 | Kernel callback | `ReadEvents` | server-streaming | `docs/specifications/kernel-callbacks.md#readevents` |
 
-Frontend `Attach` and the kernel-callback channel are the **only** two
-genuinely bidirectional RPCs in the whole protocol — that channel's own
-`Subscribe`/`ReadEvents` additions are server-streaming, not a second bidi
-RPC on it. Do not default a new RPC to bidi streaming because it "might need
-it later" — pick the narrowest shape the spec calls for.
+The kernel-callback channel is the **only** genuinely bidirectional
+transport surface in the whole protocol (the plugin is the gRPC client on
+that connection). Application RPCs on it — including `Subscribe`,
+`ReadEvents`, and `StreamDeltas` — are unary or server-streaming, not bidi.
+Frontend and widget no longer expose an `Attach` stream. Do not default a
+new RPC to bidi streaming because it "might need it later" — pick the
+narrowest shape the spec calls for.
 
 - **A backend that has no real streaming to do still implements the
   streaming RPC shape** and emits exactly one terminal message. Do not add a

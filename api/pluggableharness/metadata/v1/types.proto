@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+// Package pluggableharness.metadata.v1 defines the typed metadata-block
+// vocabulary plugins publish and frontends render — the "Metadata" surface
+// of the four frontend state surfaces (input, state, metadata, transcript)
+// described in specifications/frontend/. A block never carries a color, a
+// width, or a position: Tone is a closed token scale the frontend maps to
+// whatever it has (including a screen reader saying "warning"), and the
+// closed oneof body is the only set of kinds every conforming frontend is
+// required to render.
+package pluggableharness.metadata.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "pluggableharness/common/v1/types.proto";
+
+option go_package = "github.com/pluggableharness/agent/pkg/metadata/proto/v1;metadatav1";
+
+// Tone is a closed token scale for a MetadataBlock's presentation intent.
+// Frontends map each token to their own vocabulary (ANSI color, CSS class,
+// spoken label); a block never names a color value.
+enum Tone {
+  // Zero value. Never valid for a real block; its presence means a caller
+  // forgot to set the field.
+  TONE_UNSPECIFIED = 0;
+  // Ordinary, unemphasized content.
+  TONE_NEUTRAL = 1;
+  // Informational emphasis without implying success or failure.
+  TONE_INFO = 2;
+  // A successful or healthy condition.
+  TONE_SUCCESS = 3;
+  // A cautionary condition that is not yet a failure.
+  TONE_WARNING = 4;
+  // A failure or high-severity condition.
+  TONE_DANGER = 5;
+}
+
+// Liveness reports whether the producing plugin is still connected.
+// The kernel never deletes a block: on publisher exit or RetractMetadata
+// it flips liveness to DISCONNECTED and republishes; the frontend decides
+// whether that means gray, drop, or "plugin gone."
+enum Liveness {
+  // Zero value. Never valid for a real block.
+  LIVENESS_UNSPECIFIED = 0;
+  // The producing plugin is still live and owns this block.
+  LIVENESS_LIVE = 1;
+  // The producing plugin has exited or explicitly retracted the block.
+  LIVENESS_DISCONNECTED = 2;
+}
+
+// MetadataBlock is one keyed, typed contribution to a session's metadata
+// surface. Identified by id within a session; upserted by PublishMetadata
+// and never deleted by the kernel.
+message MetadataBlock {
+  // Stable id within the session. The publishing plugin chooses it; a
+  // second PublishMetadata with the same id upserts.
+  string id = 1;
+
+  // The plugin that currently owns this block. Server-derived from the
+  // authenticated callback connection on PublishMetadata — a client MUST
+  // NOT supply this; the kernel overwrites any client-set value.
+  pluggableharness.common.v1.ProducerRef producer = 2;
+
+  // Ordering/eviction hint for space-constrained frontends. Higher wins.
+  // Unset (zero) means declaration order among equal-priority peers.
+  int32 priority = 3;
+
+  // Presentation intent token. MUST be set to a non-UNSPECIFIED value.
+  Tone tone = 4;
+
+  // Whether the producer is still connected. MUST be set.
+  Liveness liveness = 5;
+
+  // The session this block belongs to. MUST be set. Carried on the block
+  // (rather than only on the publish request) so a bus subscriber can
+  // filter without a second lookup.
+  string session_id = 6;
+
+  // Exactly one body variant is set. The set is closed on purpose: five
+  // kinds surface missing shapes faster than an open type would, and a
+  // closed set is what guarantees every frontend can render every block.
+  oneof body {
+    KeyValue key_value = 10;
+    Progress progress = 11;
+    Status status = 12;
+    ItemList item_list = 13;
+    Timer timer = 14;
+  }
+}
+
+// KeyValue is a short labeled value, e.g. "branch: main".
+message KeyValue {
+  // The field label shown to the operator.
+  string key = 1;
+  // The field value shown to the operator.
+  string value = 2;
+}
+
+// Progress is a determinate or indeterminate progress indicator.
+message Progress {
+  // Short label describing what is in progress.
+  string label = 1;
+  // Completed units. Meaningful when total is set and > 0.
+  int64 completed = 2;
+  // Total units. Absent or zero means indeterminate progress.
+  optional int64 total = 3;
+}
+
+// Status is a single status line with an optional detail.
+message Status {
+  // The primary status text.
+  string text = 1;
+  // Optional secondary detail.
+  optional string detail = 2;
+}
+
+// ItemList is an ordered list of short text items.
+message ItemList {
+  // Optional list title.
+  optional string title = 1;
+  // The items, in display order.
+  repeated string items = 2;
+}
+
+// Timer is a wall-clock duration or deadline the frontend can render as
+// a ticking clock or countdown.
+message Timer {
+  // Optional label for what the timer measures.
+  optional string label = 1;
+  // When the timed interval started. MUST be set for elapsed display.
+  google.protobuf.Timestamp started_at = 2;
+  // Optional absolute deadline; when set, frontends MAY render a
+  // countdown instead of (or in addition to) elapsed time.
+  optional google.protobuf.Timestamp deadline = 3;
+  // Optional fixed duration the timer represents when no deadline is set.
+  optional google.protobuf.Duration duration = 4;
+}

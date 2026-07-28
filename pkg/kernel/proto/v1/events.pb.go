@@ -222,6 +222,76 @@ func (x *StoredEvent) GetPayload() []byte {
 	return nil
 }
 
+// TokenDelta is one live incremental text fragment for the fast path,
+// out-of-band with respect to the event bus (no topic matching, no
+// filter evaluation, no shared subscriber queue). Per-stream FIFO only;
+// not durable and never replayed — finished text arrives as RenderTrees
+// via ReadEvents. See kernel-callbacks.md's StreamDeltas.
+type TokenDelta struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this delta belongs to. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Identifies which displayed element this delta appends to (e.g. a
+	// RenderNode id from a prior render), for correlating consecutive
+	// deltas into one growing piece of text.
+	TargetId string `protobuf:"bytes,2,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	// The incremental text to append.
+	Text          string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TokenDelta) Reset() {
+	*x = TokenDelta{}
+	mi := &file_pluggableharness_kernel_v1_events_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TokenDelta) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TokenDelta) ProtoMessage() {}
+
+func (x *TokenDelta) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_events_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TokenDelta.ProtoReflect.Descriptor instead.
+func (*TokenDelta) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_events_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TokenDelta) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *TokenDelta) GetTargetId() string {
+	if x != nil {
+		return x.TargetId
+	}
+	return ""
+}
+
+func (x *TokenDelta) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
 var File_pluggableharness_kernel_v1_events_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_kernel_v1_events_proto_rawDesc = "" +
@@ -240,7 +310,13 @@ const file_pluggableharness_kernel_v1_events_proto_rawDesc = "" +
 	"\x04kind\x18\x04 \x01(\x0e2%.pluggableharness.kernel.v1.EventKindR\x04kind\x12C\n" +
 	"\bproducer\x18\x05 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\bproducer\x12%\n" +
 	"\x0eschema_version\x18\x06 \x01(\tR\rschemaVersion\x12\x18\n" +
-	"\apayload\x18\a \x01(\fR\apayloadB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
+	"\apayload\x18\a \x01(\fR\apayload\"\\\n" +
+	"\n" +
+	"TokenDelta\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n" +
+	"\ttarget_id\x18\x02 \x01(\tR\btargetId\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04textB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
 
 var (
 	file_pluggableharness_kernel_v1_events_proto_rawDescOnce sync.Once
@@ -254,19 +330,20 @@ func file_pluggableharness_kernel_v1_events_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_kernel_v1_events_proto_rawDescData
 }
 
-var file_pluggableharness_kernel_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pluggableharness_kernel_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pluggableharness_kernel_v1_events_proto_goTypes = []any{
 	(*BusEvent)(nil),              // 0: pluggableharness.kernel.v1.BusEvent
 	(*StoredEvent)(nil),           // 1: pluggableharness.kernel.v1.StoredEvent
-	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
-	(EventKind)(0),                // 3: pluggableharness.kernel.v1.EventKind
-	(*v1.ProducerRef)(nil),        // 4: pluggableharness.common.v1.ProducerRef
+	(*TokenDelta)(nil),            // 2: pluggableharness.kernel.v1.TokenDelta
+	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+	(EventKind)(0),                // 4: pluggableharness.kernel.v1.EventKind
+	(*v1.ProducerRef)(nil),        // 5: pluggableharness.common.v1.ProducerRef
 }
 var file_pluggableharness_kernel_v1_events_proto_depIdxs = []int32{
-	2, // 0: pluggableharness.kernel.v1.BusEvent.time:type_name -> google.protobuf.Timestamp
-	2, // 1: pluggableharness.kernel.v1.StoredEvent.time:type_name -> google.protobuf.Timestamp
-	3, // 2: pluggableharness.kernel.v1.StoredEvent.kind:type_name -> pluggableharness.kernel.v1.EventKind
-	4, // 3: pluggableharness.kernel.v1.StoredEvent.producer:type_name -> pluggableharness.common.v1.ProducerRef
+	3, // 0: pluggableharness.kernel.v1.BusEvent.time:type_name -> google.protobuf.Timestamp
+	3, // 1: pluggableharness.kernel.v1.StoredEvent.time:type_name -> google.protobuf.Timestamp
+	4, // 2: pluggableharness.kernel.v1.StoredEvent.kind:type_name -> pluggableharness.kernel.v1.EventKind
+	5, // 3: pluggableharness.kernel.v1.StoredEvent.producer:type_name -> pluggableharness.common.v1.ProducerRef
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -286,7 +363,7 @@ func file_pluggableharness_kernel_v1_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_kernel_v1_events_proto_rawDesc), len(file_pluggableharness_kernel_v1_events_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

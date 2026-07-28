@@ -9,7 +9,6 @@ import (
 
 	"github.com/pluggableharness/agent/internal/plandecision"
 	"github.com/pluggableharness/agent/internal/plandecision/drivers/fake"
-	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 )
 
@@ -29,17 +28,17 @@ func TestResolver_scriptedQueue(t *testing.T) {
 	responses := []fake.Response{
 		{Decision: plandecision.Decision{
 			Decision:  planv1.PlanDecision_PLAN_DECISION_ALLOW,
-			Scope:     frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+			Scope:     planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 			DecidedBy: "test",
 		}},
 		{Decision: plandecision.Decision{
 			Decision:  planv1.PlanDecision_PLAN_DECISION_DENY,
-			Scope:     frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION,
+			Scope:     planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION,
 			DecidedBy: "test",
 		}},
 		{Decision: plandecision.Decision{
 			Decision:       planv1.PlanDecision_PLAN_DECISION_ALLOW,
-			Scope:          frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS,
+			Scope:          planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS,
 			CorrectedInput: corrected,
 			DecidedBy:      "test",
 		}},
@@ -84,7 +83,7 @@ func TestResolver_always(t *testing.T) {
 
 	r := fake.NewAlways(fake.Response{Decision: plandecision.Decision{
 		Decision:  planv1.PlanDecision_PLAN_DECISION_DENY,
-		Scope:     frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+		Scope:     planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 		DecidedBy: "test",
 	}})
 

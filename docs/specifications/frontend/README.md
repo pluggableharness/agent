@@ -1,37 +1,45 @@
 # Frontend & widget provider protocols
 
-Covers **two** plugin categories in one directory, both concerned with what the operator sees and does, neither owning the agent loop itself:
+Covers **two** plugin categories concerned with what the operator sees and does, neither owning the agent loop itself:
 
-- **Frontend provider** ([`frontend-protocol.md`](frontend-protocol.md)) — owns the terminal (or window, or voice channel): the process the kernel's state-event stream attaches to, responsible for actually painting pixels/text and turning operator input into `ClientEvent`s.
-- **Widget provider** ([`widget-protocol.md`](widget-protocol.md)) — contributes content *into* whichever frontend is active, without owning it. This is a genuine sixth plugin category, not merely an extension of the other six (see [`architecture.md`](../architecture.md#the-seven-provider-categories)) — a git-status panel or a context-budget indicator isn't naturally "a tool" or "a context provider," it just wants to put something on screen.
+- **Frontend provider** ([`frontend-protocol.md`](frontend-protocol.md)) — owns how the operator sees and types (terminal, window, voice channel, HTTP surface). The process that paints state and turns operator input into kernel-callback RPCs.
+- **Widget provider** ([`widget-protocol.md`](widget-protocol.md)) — contributes typed metadata (or other plugin-side work) without owning the frontend. A genuine category, not merely an extension of the other six (see [`architecture.md`](../architecture.md#the-seven-provider-categories)).
 
-Both categories share one vocabulary, formalized once and reused verbatim: the [`RenderTree`](render-tree.md#rendertree) intermediate representation (text runs, code blocks, diffs, tables, links, a sub-session node, an interactive `action` node) and the region/placement model ([`render-tree.md`](render-tree.md#placement--regions)). Every other plugin category's optional `Render` RPC — [`model/protocol.md#render`](../model/protocol.md#render), [`tool/protocol.md#render`](../tool/protocol.md#render), and the equivalent sections in `context/` and `memory/` — returns exactly this type; this directory is where the type itself is formally, canonically defined.
+## Four surfaces
 
-The wire protocol for both categories, plus the shared `RenderTree` IR, is defined as gRPC services with protobuf messages — see [`examples.md`](examples.md) for the schema. `RenderTree` is deliberately factored into its own shared vocabulary rather than nested inside the frontend or widget definitions: both the frontend and widget protocols place content into the same `Region` vocabulary. Slash commands are split the same way content is, but along a different line: a **direct-invoke** command is owned exclusively by the `slashcommand` plugin category — its `SlashCommandSpec` is defined once, canonically, in [`../slashcommand/README.md`](../slashcommand/README.md), not here — while a **prompt-expansion** command is genuinely shared vocabulary, declarable directly in any provider category's own capability response (not just frontend/widget) as a `pluggableharness.common.v1.PromptExpansionSpec` — see [`frontend-protocol.md#slash-commands`](frontend-protocol.md#slash-commands).
+The operator-facing model is four **kernel-held surfaces**, not a set of plugin-writable screen regions:
 
-## Transport & lifecycle
+| Surface | What it is | Mechanism |
+|---|---|---|
+| **Input** | A capability, not a place — TUI prompt, web form, CLI, voice | Unary RPCs on `KernelCallbackService` (frontend → kernel) |
+| **State** | "Where am I" — fixed schema, kernel-owned | `GetSessionState` snapshot + `kernel.state` bus deltas |
+| **Metadata** | Keyed collection of typed blocks, plugin-owned | `PublishMetadata` / `RetractMetadata` / `ListMetadata` + `kernel.metadata` |
+| **Transcript** | The conversation stream | `ReadEvents` backfill + `kernel.event.*` live; **the one place `RenderTree` remains** |
 
-Subprocess + gRPC via `hashicorp/go-plugin`, per [`architecture.md`](../architecture.md#transport). Standard handshake (magic cookie, protocol version negotiation) applies uniformly across all seven provider categories and isn't repeated per category.
+`RenderTree` survives only in the transcript because a tool result's presentation really is producer-specific (a diff, a scrollback pane, a collapsible sub-agent node — [`tool/protocol.md#render`](../tool/protocol.md#render)). The other three carry typed data and let the frontend decide presentation entirely.
 
-The two categories' primary RPC has **different streaming shapes**, and this is the one thing about this directory most worth getting right, since it's easy to conflate the two:
+## Transport
 
-- A **frontend** provider plugin exposes `GetCapabilities`, `Configure`, `Attach`, `Describe`. `Attach` is **genuinely bidirectional and connection-scoped** — one stream per connection, not one per session — the frontend sends `ClientEvent`s (operator input, session lifecycle control) and receives `ServerEvent`s (kernel state, session lifecycle acknowledgment) on the same live stream, because the operator can type a message while prior content is still rendering, and because full session lifecycle needs connection-level operations that have no natural per-session home. This is one of only two truly bidirectional RPCs anywhere in this protocol series, the other being the kernel-callback channel; every other category's primary RPC (`StreamCompletion`, `Invoke`) is server-streaming-plus-cancellation. See [`frontend-protocol.md#transport`](frontend-protocol.md#transport).
-- A **widget** provider plugin exposes `GetCapabilities`, `Configure`, `Attach`, `Describe` too — same RPC names, **different `Attach` shape**: widget `Attach` is **server-streaming only**, and remains session-scoped (one call per session, via `AttachRequest.session_id`) rather than connection-multiplexed. A widget is passive/display-only in v1; it never sends anything back over this channel. A widget wanting to trigger an action does so by also being a tool provider with a slash command, not through `Attach`. See [`widget-protocol.md#transport`](widget-protocol.md#transport).
+There is **no** frontend or widget `Attach` stream. Under `hashicorp/go-plugin` the plugin is the gRPC server, so the only direction that lets the kernel push streams into a plugin is the **callback channel**, where the plugin is the client ([`kernel-callbacks.md`](../kernel-callbacks.md)). That channel is given to every category unconditionally.
 
-Both plugins MAY additionally implement `Render`, per the general Emit→Render→Paint pipeline ([`architecture.md`](../architecture.md#emit--render--paint-pipeline)) — though in practice a frontend/widget is far more often a `Render` *consumer* (painting other categories' trees) than a producer of its own.
+- **Kernel → frontend:** `Subscribe` (topic-filtered bus), `StreamDeltas` (token fast path, out-of-band re: bus), `ReadEvents` (durable backfill).
+- **Frontend → kernel:** unary RPCs on the same channel (`SubmitInput`, session lifecycle, plan/interactive resolution, metadata publish/list, …).
+- **`FrontendService` / `WidgetService`:** only `GetCapabilities`, `Configure`, `Describe` — the same triple every other category has.
+
+The callback channel is the **only** genuinely bidirectional transport surface in the protocol series (application RPCs on it are unary or server-streaming). See [`.claude/rules/grpc.md`](../../../.claude/rules/grpc.md).
 
 ## Session scope — multi-attach
 
-**Multiple frontends MAY subscribe to the same session concurrently** — a TUI and a web tail both watching one live session, for example — each on its own connection-scoped `Attach` stream (`frontend-protocol.md#session-lifecycle`). This follows naturally from how widgets already work: any number of panels can subscribe to the same hook stream, so frontends support the same multiplicity rather than being constrained to a single attachment.
+**Multiple frontends MAY subscribe to the same session concurrently** — a TUI and a web tail both watching one live session — each via their own callback connection and their own `Subscribe` / `StreamDeltas` / `ReadEvents` calls.
 
-- **`ServerEvent`s for a given session broadcast identically to every frontend subscribed to that session.** No partitioning, no "primary" frontend — every subscribed frontend sees that session's live stream, in the same order. A frontend's own `Attach` stream may carry several sessions at once, each broadcasting independently to whichever frontends are subscribed to it.
-- **`ClientEvent`s are processed in kernel arrival order, per session**, with one specific arbitration rule for decisions that can only be honored once. See [`frontend-protocol.md#session-scope`](frontend-protocol.md#session-scope) for the full rule (first-response-wins on `plan_decision`/ `interactive_response`, with a distinct rejection error for a late-arriving second response).
-- **Attaching a session that's already in progress backfills its history first** — a bracketed replay batch (`session_attached` → replayed `render`s → `backfill_complete`) unicast to the newly attaching stream only, never re-broadcast to frontends already subscribed. See [`frontend-protocol.md#backfill--the-replay-path-not-a-new-subsystem`](frontend-protocol.md#backfill--the-replay-path-not-a-new-subsystem).
+- State, metadata, and transcript events for a session broadcast identically to every frontend that has attached that session.
+- Resolving decisions (`ResolvePlanDecision`, `ResolveInteractive`) is first-response-wins per pending item; a late second response is rejected with a distinct error.
+- Attaching a session already in progress backfills history via `ReadEvents` (and metadata via `ListMetadata`); anything missed after snapshot-then-subscribe is recoverable because `Emit` commits to sqlite before republishing onto `kernel.event.{kind}` ([`event-bus.md`](../event-bus.md)).
 
 ## Category structure
 
-- [`render-tree.md`](render-tree.md) — the `RenderTree` IR itself: every node type, the placement/region vocabulary, schema versioning for opaque `Render` payloads, and why both categories share one definition. The canonical reference every other category's `Render` points back to.
-- [`frontend-protocol.md`](frontend-protocol.md) — the frontend provider protocol: transport, the connection-scoped multiplexed `Attach` stream, fast-path text deltas vs. full `Render`, full session lifecycle (create/attach/resume/detach/list, backfill, no deletion), session scope/multi-attach, slash commands (registry aggregation across the direct-invoke and prompt-expansion lists, `PromptExpansionSpec` defined once, canonically, here), the `plan_decision.corrected_input`/`scope` redirect, and the error taxonomy for this category.
-- [`widget-protocol.md`](widget-protocol.md) — the widget provider protocol: transport (server-streaming, not bidi), deriving display state from `observe`-mode hooks with no new data feed, interactive widgets via the `action` `RenderNode`, and the `WidgetError` taxonomy.
-- [`examples.md`](examples.md) — wire-protocol excerpts for all three schemas, a worked frontend `Attach` sequence (attach → backfill → plan-ready → render → approve/reject/edit), and a worked widget example (a status-bar widget deriving state from the same event stream a frontend sees).
-- [`conformance.md`](conformance.md) — the error taxonomy for both categories, the MUST/SHOULD/MAY summary matrix, and any genuinely open questions.
+- [`render-tree.md`](render-tree.md) — the `RenderTree` IR (transcript only). No placement regions.
+- [`frontend-protocol.md`](frontend-protocol.md) — frontend provider protocol and how a frontend consumes the four surfaces.
+- [`widget-protocol.md`](widget-protocol.md) — widget provider protocol; screen presence is `PublishMetadata`.
+- [`examples.md`](examples.md) — worked sequences.
+- [`conformance.md`](conformance.md) — MUST/SHOULD/MAY matrix and the acceptance criterion (a second frontend).

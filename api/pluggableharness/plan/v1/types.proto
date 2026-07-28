@@ -18,6 +18,37 @@ import "pluggableharness/tool/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/plan/proto/v1;planv1";
 
+// ClientDecision is the operator's resolution of a pending plan item that
+// policy evaluated as ASK — the allow/deny half of ResolvePlanDecision,
+// orthogonal to PlanDecisionScope (how durably the verdict is remembered).
+enum ClientDecision {
+  // Zero value. Never valid for a real decision.
+  CLIENT_DECISION_UNSPECIFIED = 0;
+  // The operator approved the plan item as proposed (or as corrected).
+  CLIENT_DECISION_ALLOW = 1;
+  // The operator rejected the plan item.
+  CLIENT_DECISION_DENY = 2;
+}
+
+// PlanDecisionScope is how durably a ResolvePlanDecision applies beyond
+// the one PlanItem it names. Orthogonal to ClientDecision: decision says
+// allow/deny, scope says how long that verdict is remembered. See
+// agent-loop/plan-apply-gate.md's PlanDecisionScope semantics.
+enum PlanDecisionScope {
+  // Zero value. Never valid for a real decision.
+  PLAN_DECISION_SCOPE_UNSPECIFIED = 0;
+  // Applies to this PlanItem only. The default a frontend SHOULD send
+  // when the operator has not explicitly asked for a broader scope.
+  PLAN_DECISION_SCOPE_ONCE = 1;
+  // Applies to the rest of this session for matching provider/operation
+  // calls — an in-memory, session-lifetime rule, not written to agent.hcl.
+  PLAN_DECISION_SCOPE_SESSION = 2;
+  // The kernel persists this as policy beyond this session. A kernel that
+  // cannot persist policy MUST reject ALWAYS rather than silently
+  // downgrading to SESSION or ONCE.
+  PLAN_DECISION_SCOPE_ALWAYS = 3;
+}
+
 // PlanDecision is the outcome of evaluating one PlanItem against policy.
 enum PlanDecision {
   // Zero value. Never valid as a deliberately-chosen decision; its

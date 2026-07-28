@@ -4,14 +4,18 @@
 // 	protoc        (unknown)
 // source: pluggableharness/render/v1/types.proto
 
-// Package pluggableharness.render.v1 defines the Emit->Render->Paint intermediate
-// representation described in specifications/frontend.md §1. Every plugin
-// category's optional Render() RPC (model.md §7, tool.md §7,
-// context.md §9, memory.md §10) returns this; every frontend/widget Paints
-// it. frontend.md §1 MUST: a frontend must render every RenderNode variant
-// gracefully with a generic fallback (e.g. an unrecognized-in-practice
-// future variant, or `diff` on a frontend with no diff view -> plain
-// before/after text) — never error, never silently drop a node.
+// Package pluggableharness.render.v1 defines the Emit->Render->Paint
+// intermediate representation used by the transcript surface
+// (specifications/frontend/). Every plugin category's optional Render()
+// RPC (model, tool, context, memory) returns a RenderTree; frontends
+// paint transcript content from it. A frontend MUST render every
+// RenderNode variant gracefully with a generic fallback (e.g. an
+// unrecognized future variant, or `diff` on a frontend with no diff view
+// -> plain before/after text) — never error, never silently drop a node.
+//
+// Placement is not this package's job: Region and PlacedContent were
+// retired. State, metadata, and input are typed kernel surfaces; only
+// the conversation transcript still travels as RenderTree.
 
 package renderv1
 
@@ -30,84 +34,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-// Region is the placement vocabulary for where a RenderTree gets shown,
-// described in specifications/frontend.md §2. Every region is
-// plugin-contributable; a placement is a hint the frontend MAY drop or
-// re-fold under space constraints. Lives here (not in frontend/v1) because
-// both the frontend provider protocol AND the widget provider protocol
-// place content into these same regions (frontend.md §4.1's WidgetUpdate),
-// and neither category's package should depend on the other's.
-type Region int32
-
-const (
-	// Zero value. Never valid for a real placement; its presence on the wire
-	// means a caller forgot to set the field.
-	Region_REGION_UNSPECIFIED Region = 0
-	// The main conversation transcript. The default region when a producer
-	// doesn't specify one.
-	Region_REGION_MAIN_CHAT Region = 1
-	// A persistent side panel.
-	Region_REGION_SIDEBAR Region = 2
-	// A persistent header bar.
-	Region_REGION_TOP_BAR Region = 3
-	// The area around the user's input box.
-	Region_REGION_INPUT_BAR Region = 4
-	// Contextual hotkey/command hints.
-	Region_REGION_HOTKEY_HINTS Region = 5
-	// A modal or floating layer. MUST be visually distinct from the rest of
-	// the interface (frontend.md §2).
-	Region_REGION_OVERLAY Region = 6
-)
-
-// Enum value maps for Region.
-var (
-	Region_name = map[int32]string{
-		0: "REGION_UNSPECIFIED",
-		1: "REGION_MAIN_CHAT",
-		2: "REGION_SIDEBAR",
-		3: "REGION_TOP_BAR",
-		4: "REGION_INPUT_BAR",
-		5: "REGION_HOTKEY_HINTS",
-		6: "REGION_OVERLAY",
-	}
-	Region_value = map[string]int32{
-		"REGION_UNSPECIFIED":  0,
-		"REGION_MAIN_CHAT":    1,
-		"REGION_SIDEBAR":      2,
-		"REGION_TOP_BAR":      3,
-		"REGION_INPUT_BAR":    4,
-		"REGION_HOTKEY_HINTS": 5,
-		"REGION_OVERLAY":      6,
-	}
-)
-
-func (x Region) Enum() *Region {
-	p := new(Region)
-	*p = x
-	return p
-}
-
-func (x Region) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Region) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_render_v1_types_proto_enumTypes[0].Descriptor()
-}
-
-func (Region) Type() protoreflect.EnumType {
-	return &file_pluggableharness_render_v1_types_proto_enumTypes[0]
-}
-
-func (x Region) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Region.Descriptor instead.
-func (Region) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{0}
-}
 
 // TextStyle is a hint for how a TextNode's content should be presented.
 // Distinct from "unset": TEXT_STYLE_NORMAL is a producer explicitly
@@ -166,11 +92,11 @@ func (x TextStyle) String() string {
 }
 
 func (TextStyle) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_render_v1_types_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_render_v1_types_proto_enumTypes[0].Descriptor()
 }
 
 func (TextStyle) Type() protoreflect.EnumType {
-	return &file_pluggableharness_render_v1_types_proto_enumTypes[1]
+	return &file_pluggableharness_render_v1_types_proto_enumTypes[0]
 }
 
 func (x TextStyle) Number() protoreflect.EnumNumber {
@@ -179,7 +105,7 @@ func (x TextStyle) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TextStyle.Descriptor instead.
 func (TextStyle) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 // DiffLineOp classifies one line of a DiffHunk, mirroring unified diff's
@@ -225,11 +151,11 @@ func (x DiffLineOp) String() string {
 }
 
 func (DiffLineOp) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_render_v1_types_proto_enumTypes[2].Descriptor()
+	return file_pluggableharness_render_v1_types_proto_enumTypes[1].Descriptor()
 }
 
 func (DiffLineOp) Type() protoreflect.EnumType {
-	return &file_pluggableharness_render_v1_types_proto_enumTypes[2]
+	return &file_pluggableharness_render_v1_types_proto_enumTypes[1]
 }
 
 func (x DiffLineOp) Number() protoreflect.EnumNumber {
@@ -238,15 +164,15 @@ func (x DiffLineOp) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DiffLineOp.Descriptor instead.
 func (DiffLineOp) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 // RenderTree is the return type of every category's Render() RPC.
-// frontend.md §1 treats "RenderTree" and "RenderNode" as equivalent (the
-// tree root is just a node) — this wraps a single root RenderNode so every
-// Render() RPC across every category shares one stable, named response
-// type, with room to grow (e.g. a schema_version) without changing
-// RenderNode itself.
+// specifications/frontend/render-tree.md treats "RenderTree" and
+// "RenderNode" as equivalent (the tree root is just a node) — this wraps
+// a single root RenderNode so every Render() RPC across every category
+// shares one stable, named response type, with room to grow (e.g. a
+// schema_version) without changing RenderNode itself.
 type RenderTree struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The tree's root node.
@@ -292,83 +218,6 @@ func (x *RenderTree) GetRoot() *RenderNode {
 	return nil
 }
 
-// PlacedContent pairs a RenderTree with where it should be shown and how
-// it interacts with that region's prior content from the same producer.
-// Used by frontend.md §3.2's ServerEvent.render variant.
-type PlacedContent struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Where this content should be placed.
-	Region Region `protobuf:"varint,1,opt,name=region,proto3,enum=pluggableharness.render.v1.Region" json:"region,omitempty"`
-	// The content to place.
-	Content *RenderTree `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	// True: replace this producer's prior content in `region`. False:
-	// append (the default behavior for REGION_MAIN_CHAT).
-	Replace bool `protobuf:"varint,3,opt,name=replace,proto3" json:"replace,omitempty"`
-	// Ordering/eviction hint for space-constrained regions. Unset means
-	// "declaration order".
-	Priority      *int32 `protobuf:"varint,4,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PlacedContent) Reset() {
-	*x = PlacedContent{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PlacedContent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PlacedContent) ProtoMessage() {}
-
-func (x *PlacedContent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PlacedContent.ProtoReflect.Descriptor instead.
-func (*PlacedContent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *PlacedContent) GetRegion() Region {
-	if x != nil {
-		return x.Region
-	}
-	return Region_REGION_UNSPECIFIED
-}
-
-func (x *PlacedContent) GetContent() *RenderTree {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
-func (x *PlacedContent) GetReplace() bool {
-	if x != nil {
-		return x.Replace
-	}
-	return false
-}
-
-func (x *PlacedContent) GetPriority() int32 {
-	if x != nil && x.Priority != nil {
-		return *x.Priority
-	}
-	return 0
-}
-
 // DiffLine is one line within a DiffHunk.
 type DiffLine struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -382,7 +231,7 @@ type DiffLine struct {
 
 func (x *DiffLine) Reset() {
 	*x = DiffLine{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[2]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -394,7 +243,7 @@ func (x *DiffLine) String() string {
 func (*DiffLine) ProtoMessage() {}
 
 func (x *DiffLine) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[2]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -407,7 +256,7 @@ func (x *DiffLine) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiffLine.ProtoReflect.Descriptor instead.
 func (*DiffLine) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{2}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *DiffLine) GetOp() DiffLineOp {
@@ -447,7 +296,7 @@ type DiffHunk struct {
 
 func (x *DiffHunk) Reset() {
 	*x = DiffHunk{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[3]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -459,7 +308,7 @@ func (x *DiffHunk) String() string {
 func (*DiffHunk) ProtoMessage() {}
 
 func (x *DiffHunk) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[3]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -472,7 +321,7 @@ func (x *DiffHunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiffHunk.ProtoReflect.Descriptor instead.
 func (*DiffHunk) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DiffHunk) GetOldStart() int32 {
@@ -534,7 +383,7 @@ type RenderNode struct {
 
 func (x *RenderNode) Reset() {
 	*x = RenderNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[4]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -546,7 +395,7 @@ func (x *RenderNode) String() string {
 func (*RenderNode) ProtoMessage() {}
 
 func (x *RenderNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[4]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -559,7 +408,7 @@ func (x *RenderNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderNode.ProtoReflect.Descriptor instead.
 func (*RenderNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RenderNode) GetNode() isRenderNode_Node {
@@ -736,7 +585,7 @@ type TextNode struct {
 
 func (x *TextNode) Reset() {
 	*x = TextNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[5]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -748,7 +597,7 @@ func (x *TextNode) String() string {
 func (*TextNode) ProtoMessage() {}
 
 func (x *TextNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[5]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -761,7 +610,7 @@ func (x *TextNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextNode.ProtoReflect.Descriptor instead.
 func (*TextNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TextNode) GetContent() string {
@@ -792,7 +641,7 @@ type CodeBlockNode struct {
 
 func (x *CodeBlockNode) Reset() {
 	*x = CodeBlockNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[6]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -804,7 +653,7 @@ func (x *CodeBlockNode) String() string {
 func (*CodeBlockNode) ProtoMessage() {}
 
 func (x *CodeBlockNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[6]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -817,7 +666,7 @@ func (x *CodeBlockNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CodeBlockNode.ProtoReflect.Descriptor instead.
 func (*CodeBlockNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{6}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CodeBlockNode) GetLanguage() string {
@@ -847,7 +696,7 @@ type DiffNode struct {
 
 func (x *DiffNode) Reset() {
 	*x = DiffNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[7]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -859,7 +708,7 @@ func (x *DiffNode) String() string {
 func (*DiffNode) ProtoMessage() {}
 
 func (x *DiffNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[7]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -872,7 +721,7 @@ func (x *DiffNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiffNode.ProtoReflect.Descriptor instead.
 func (*DiffNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{7}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DiffNode) GetHunks() []*DiffHunk {
@@ -894,7 +743,7 @@ type TableRow struct {
 
 func (x *TableRow) Reset() {
 	*x = TableRow{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[8]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -906,7 +755,7 @@ func (x *TableRow) String() string {
 func (*TableRow) ProtoMessage() {}
 
 func (x *TableRow) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[8]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -919,7 +768,7 @@ func (x *TableRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableRow.ProtoReflect.Descriptor instead.
 func (*TableRow) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{8}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TableRow) GetCells() []string {
@@ -943,7 +792,7 @@ type TableNode struct {
 
 func (x *TableNode) Reset() {
 	*x = TableNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[9]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -955,7 +804,7 @@ func (x *TableNode) String() string {
 func (*TableNode) ProtoMessage() {}
 
 func (x *TableNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[9]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -968,7 +817,7 @@ func (x *TableNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableNode.ProtoReflect.Descriptor instead.
 func (*TableNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{9}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TableNode) GetHeaders() []string {
@@ -998,7 +847,7 @@ type LinkNode struct {
 
 func (x *LinkNode) Reset() {
 	*x = LinkNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[10]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1010,7 +859,7 @@ func (x *LinkNode) String() string {
 func (*LinkNode) ProtoMessage() {}
 
 func (x *LinkNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[10]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1023,7 +872,7 @@ func (x *LinkNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkNode.ProtoReflect.Descriptor instead.
 func (*LinkNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{10}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *LinkNode) GetText() string {
@@ -1053,7 +902,7 @@ type ListNode struct {
 
 func (x *ListNode) Reset() {
 	*x = ListNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[11]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1065,7 +914,7 @@ func (x *ListNode) String() string {
 func (*ListNode) ProtoMessage() {}
 
 func (x *ListNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[11]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1078,7 +927,7 @@ func (x *ListNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNode.ProtoReflect.Descriptor instead.
 func (*ListNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{11}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListNode) GetItems() []*RenderNode {
@@ -1107,7 +956,7 @@ type GroupNode struct {
 
 func (x *GroupNode) Reset() {
 	*x = GroupNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[12]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1119,7 +968,7 @@ func (x *GroupNode) String() string {
 func (*GroupNode) ProtoMessage() {}
 
 func (x *GroupNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[12]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1132,7 +981,7 @@ func (x *GroupNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupNode.ProtoReflect.Descriptor instead.
 func (*GroupNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{12}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GroupNode) GetChildren() []*RenderNode {
@@ -1158,7 +1007,7 @@ type CollapsibleNode struct {
 
 func (x *CollapsibleNode) Reset() {
 	*x = CollapsibleNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[13]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1170,7 +1019,7 @@ func (x *CollapsibleNode) String() string {
 func (*CollapsibleNode) ProtoMessage() {}
 
 func (x *CollapsibleNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[13]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1183,7 +1032,7 @@ func (x *CollapsibleNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollapsibleNode.ProtoReflect.Descriptor instead.
 func (*CollapsibleNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{13}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CollapsibleNode) GetSummary() string {
@@ -1222,7 +1071,7 @@ type SubSessionNode struct {
 
 func (x *SubSessionNode) Reset() {
 	*x = SubSessionNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[14]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1083,7 @@ func (x *SubSessionNode) String() string {
 func (*SubSessionNode) ProtoMessage() {}
 
 func (x *SubSessionNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[14]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1096,7 @@ func (x *SubSessionNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubSessionNode.ProtoReflect.Descriptor instead.
 func (*SubSessionNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{14}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SubSessionNode) GetSessionId() string {
@@ -1264,16 +1113,17 @@ func (x *SubSessionNode) GetSummary() string {
 	return ""
 }
 
-// ActionNode is interactive/clickable content — the widget action channel
-// (frontend.md §5.1). A frontend MUST make this node interactive and, on
-// activation, dispatch a ClientEvent.action_trigger carrying `tool_name`
-// and `args` unchanged. The kernel handles the resulting action_trigger
-// identically to a direct_invoke slash command: the normal Invoke/
-// plan-apply pipeline including policy evaluation, with no model turn.
+// ActionNode is interactive/clickable content in a transcript RenderTree.
+// A frontend MUST make this node interactive and, on activation, call
+// KernelCallbackService.TriggerAction carrying tool_name, args, and
+// provider unchanged. The kernel handles it identically to a
+// direct-invoke slash command: the normal Invoke/plan-apply pipeline
+// including policy evaluation, with no model turn.
 type ActionNode struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Identifies this action node within its RenderTree, echoed back in the
-	// resulting ClientEvent so the frontend (and kernel) can correlate.
+	// Identifies this action node within its RenderTree, echoed back in
+	// TriggerActionRequest.node_id so the frontend (and kernel) can
+	// correlate.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The clickable label shown to the user.
 	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
@@ -1287,8 +1137,8 @@ type ActionNode struct {
 	// The declared name of the tool provider plugin `tool_name` belongs to.
 	// tool_name is only unique per provider (matching plan.v1.PlanItem's own
 	// provider/tool_name pairing), so this disambiguates which provider's
-	// operation to invoke on activation. Echoed unchanged onto the resulting
-	// ClientEvent.ActionTrigger.provider (frontend.md §"Client events").
+	// operation to invoke on activation. Echoed unchanged onto
+	// TriggerActionRequest.provider.
 	Provider      string `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1296,7 +1146,7 @@ type ActionNode struct {
 
 func (x *ActionNode) Reset() {
 	*x = ActionNode{}
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[15]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1308,7 +1158,7 @@ func (x *ActionNode) String() string {
 func (*ActionNode) ProtoMessage() {}
 
 func (x *ActionNode) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[15]
+	mi := &file_pluggableharness_render_v1_types_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1321,7 +1171,7 @@ func (x *ActionNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionNode.ProtoReflect.Descriptor instead.
 func (*ActionNode) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{15}
+	return file_pluggableharness_render_v1_types_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ActionNode) GetId() string {
@@ -1366,13 +1216,7 @@ const file_pluggableharness_render_v1_types_proto_rawDesc = "" +
 	"&pluggableharness/render/v1/types.proto\x12\x1apluggableharness.render.v1\x1a\x1cgoogle/protobuf/struct.proto\"H\n" +
 	"\n" +
 	"RenderTree\x12:\n" +
-	"\x04root\x18\x01 \x01(\v2&.pluggableharness.render.v1.RenderNodeR\x04root\"\xd5\x01\n" +
-	"\rPlacedContent\x12:\n" +
-	"\x06region\x18\x01 \x01(\x0e2\".pluggableharness.render.v1.RegionR\x06region\x12@\n" +
-	"\acontent\x18\x02 \x01(\v2&.pluggableharness.render.v1.RenderTreeR\acontent\x12\x18\n" +
-	"\areplace\x18\x03 \x01(\bR\areplace\x12\x1f\n" +
-	"\bpriority\x18\x04 \x01(\x05H\x00R\bpriority\x88\x01\x01B\v\n" +
-	"\t_priority\"V\n" +
+	"\x04root\x18\x01 \x01(\v2&.pluggableharness.render.v1.RenderNodeR\x04root\"V\n" +
 	"\bDiffLine\x126\n" +
 	"\x02op\x18\x01 \x01(\x0e2&.pluggableharness.render.v1.DiffLineOpR\x02op\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\"\xba\x01\n" +
@@ -1435,15 +1279,7 @@ const file_pluggableharness_render_v1_types_proto_rawDesc = "" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x1b\n" +
 	"\ttool_name\x18\x03 \x01(\tR\btoolName\x12+\n" +
 	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x1a\n" +
-	"\bprovider\x18\x05 \x01(\tR\bprovider*\xa1\x01\n" +
-	"\x06Region\x12\x16\n" +
-	"\x12REGION_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10REGION_MAIN_CHAT\x10\x01\x12\x12\n" +
-	"\x0eREGION_SIDEBAR\x10\x02\x12\x12\n" +
-	"\x0eREGION_TOP_BAR\x10\x03\x12\x14\n" +
-	"\x10REGION_INPUT_BAR\x10\x04\x12\x17\n" +
-	"\x13REGION_HOTKEY_HINTS\x10\x05\x12\x12\n" +
-	"\x0eREGION_OVERLAY\x10\x06*\xd9\x01\n" +
+	"\bprovider\x18\x05 \x01(\tR\bprovider*\xd9\x01\n" +
 	"\tTextStyle\x12\x1a\n" +
 	"\x16TEXT_STYLE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11TEXT_STYLE_NORMAL\x10\x01\x12\x13\n" +
@@ -1473,58 +1309,54 @@ func file_pluggableharness_render_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_render_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_render_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_pluggableharness_render_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_pluggableharness_render_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_render_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_pluggableharness_render_v1_types_proto_goTypes = []any{
-	(Region)(0),             // 0: pluggableharness.render.v1.Region
-	(TextStyle)(0),          // 1: pluggableharness.render.v1.TextStyle
-	(DiffLineOp)(0),         // 2: pluggableharness.render.v1.DiffLineOp
-	(*RenderTree)(nil),      // 3: pluggableharness.render.v1.RenderTree
-	(*PlacedContent)(nil),   // 4: pluggableharness.render.v1.PlacedContent
-	(*DiffLine)(nil),        // 5: pluggableharness.render.v1.DiffLine
-	(*DiffHunk)(nil),        // 6: pluggableharness.render.v1.DiffHunk
-	(*RenderNode)(nil),      // 7: pluggableharness.render.v1.RenderNode
-	(*TextNode)(nil),        // 8: pluggableharness.render.v1.TextNode
-	(*CodeBlockNode)(nil),   // 9: pluggableharness.render.v1.CodeBlockNode
-	(*DiffNode)(nil),        // 10: pluggableharness.render.v1.DiffNode
-	(*TableRow)(nil),        // 11: pluggableharness.render.v1.TableRow
-	(*TableNode)(nil),       // 12: pluggableharness.render.v1.TableNode
-	(*LinkNode)(nil),        // 13: pluggableharness.render.v1.LinkNode
-	(*ListNode)(nil),        // 14: pluggableharness.render.v1.ListNode
-	(*GroupNode)(nil),       // 15: pluggableharness.render.v1.GroupNode
-	(*CollapsibleNode)(nil), // 16: pluggableharness.render.v1.CollapsibleNode
-	(*SubSessionNode)(nil),  // 17: pluggableharness.render.v1.SubSessionNode
-	(*ActionNode)(nil),      // 18: pluggableharness.render.v1.ActionNode
-	(*structpb.Struct)(nil), // 19: google.protobuf.Struct
+	(TextStyle)(0),          // 0: pluggableharness.render.v1.TextStyle
+	(DiffLineOp)(0),         // 1: pluggableharness.render.v1.DiffLineOp
+	(*RenderTree)(nil),      // 2: pluggableharness.render.v1.RenderTree
+	(*DiffLine)(nil),        // 3: pluggableharness.render.v1.DiffLine
+	(*DiffHunk)(nil),        // 4: pluggableharness.render.v1.DiffHunk
+	(*RenderNode)(nil),      // 5: pluggableharness.render.v1.RenderNode
+	(*TextNode)(nil),        // 6: pluggableharness.render.v1.TextNode
+	(*CodeBlockNode)(nil),   // 7: pluggableharness.render.v1.CodeBlockNode
+	(*DiffNode)(nil),        // 8: pluggableharness.render.v1.DiffNode
+	(*TableRow)(nil),        // 9: pluggableharness.render.v1.TableRow
+	(*TableNode)(nil),       // 10: pluggableharness.render.v1.TableNode
+	(*LinkNode)(nil),        // 11: pluggableharness.render.v1.LinkNode
+	(*ListNode)(nil),        // 12: pluggableharness.render.v1.ListNode
+	(*GroupNode)(nil),       // 13: pluggableharness.render.v1.GroupNode
+	(*CollapsibleNode)(nil), // 14: pluggableharness.render.v1.CollapsibleNode
+	(*SubSessionNode)(nil),  // 15: pluggableharness.render.v1.SubSessionNode
+	(*ActionNode)(nil),      // 16: pluggableharness.render.v1.ActionNode
+	(*structpb.Struct)(nil), // 17: google.protobuf.Struct
 }
 var file_pluggableharness_render_v1_types_proto_depIdxs = []int32{
-	7,  // 0: pluggableharness.render.v1.RenderTree.root:type_name -> pluggableharness.render.v1.RenderNode
-	0,  // 1: pluggableharness.render.v1.PlacedContent.region:type_name -> pluggableharness.render.v1.Region
-	3,  // 2: pluggableharness.render.v1.PlacedContent.content:type_name -> pluggableharness.render.v1.RenderTree
-	2,  // 3: pluggableharness.render.v1.DiffLine.op:type_name -> pluggableharness.render.v1.DiffLineOp
-	5,  // 4: pluggableharness.render.v1.DiffHunk.lines:type_name -> pluggableharness.render.v1.DiffLine
-	8,  // 5: pluggableharness.render.v1.RenderNode.text:type_name -> pluggableharness.render.v1.TextNode
-	9,  // 6: pluggableharness.render.v1.RenderNode.code_block:type_name -> pluggableharness.render.v1.CodeBlockNode
-	10, // 7: pluggableharness.render.v1.RenderNode.diff:type_name -> pluggableharness.render.v1.DiffNode
-	12, // 8: pluggableharness.render.v1.RenderNode.table:type_name -> pluggableharness.render.v1.TableNode
-	13, // 9: pluggableharness.render.v1.RenderNode.link:type_name -> pluggableharness.render.v1.LinkNode
-	14, // 10: pluggableharness.render.v1.RenderNode.list:type_name -> pluggableharness.render.v1.ListNode
-	15, // 11: pluggableharness.render.v1.RenderNode.group:type_name -> pluggableharness.render.v1.GroupNode
-	16, // 12: pluggableharness.render.v1.RenderNode.collapsible:type_name -> pluggableharness.render.v1.CollapsibleNode
-	17, // 13: pluggableharness.render.v1.RenderNode.sub_session:type_name -> pluggableharness.render.v1.SubSessionNode
-	18, // 14: pluggableharness.render.v1.RenderNode.action:type_name -> pluggableharness.render.v1.ActionNode
-	1,  // 15: pluggableharness.render.v1.TextNode.style:type_name -> pluggableharness.render.v1.TextStyle
-	6,  // 16: pluggableharness.render.v1.DiffNode.hunks:type_name -> pluggableharness.render.v1.DiffHunk
-	11, // 17: pluggableharness.render.v1.TableNode.rows:type_name -> pluggableharness.render.v1.TableRow
-	7,  // 18: pluggableharness.render.v1.ListNode.items:type_name -> pluggableharness.render.v1.RenderNode
-	7,  // 19: pluggableharness.render.v1.GroupNode.children:type_name -> pluggableharness.render.v1.RenderNode
-	7,  // 20: pluggableharness.render.v1.CollapsibleNode.children:type_name -> pluggableharness.render.v1.RenderNode
-	19, // 21: pluggableharness.render.v1.ActionNode.args:type_name -> google.protobuf.Struct
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	5,  // 0: pluggableharness.render.v1.RenderTree.root:type_name -> pluggableharness.render.v1.RenderNode
+	1,  // 1: pluggableharness.render.v1.DiffLine.op:type_name -> pluggableharness.render.v1.DiffLineOp
+	3,  // 2: pluggableharness.render.v1.DiffHunk.lines:type_name -> pluggableharness.render.v1.DiffLine
+	6,  // 3: pluggableharness.render.v1.RenderNode.text:type_name -> pluggableharness.render.v1.TextNode
+	7,  // 4: pluggableharness.render.v1.RenderNode.code_block:type_name -> pluggableharness.render.v1.CodeBlockNode
+	8,  // 5: pluggableharness.render.v1.RenderNode.diff:type_name -> pluggableharness.render.v1.DiffNode
+	10, // 6: pluggableharness.render.v1.RenderNode.table:type_name -> pluggableharness.render.v1.TableNode
+	11, // 7: pluggableharness.render.v1.RenderNode.link:type_name -> pluggableharness.render.v1.LinkNode
+	12, // 8: pluggableharness.render.v1.RenderNode.list:type_name -> pluggableharness.render.v1.ListNode
+	13, // 9: pluggableharness.render.v1.RenderNode.group:type_name -> pluggableharness.render.v1.GroupNode
+	14, // 10: pluggableharness.render.v1.RenderNode.collapsible:type_name -> pluggableharness.render.v1.CollapsibleNode
+	15, // 11: pluggableharness.render.v1.RenderNode.sub_session:type_name -> pluggableharness.render.v1.SubSessionNode
+	16, // 12: pluggableharness.render.v1.RenderNode.action:type_name -> pluggableharness.render.v1.ActionNode
+	0,  // 13: pluggableharness.render.v1.TextNode.style:type_name -> pluggableharness.render.v1.TextStyle
+	4,  // 14: pluggableharness.render.v1.DiffNode.hunks:type_name -> pluggableharness.render.v1.DiffHunk
+	9,  // 15: pluggableharness.render.v1.TableNode.rows:type_name -> pluggableharness.render.v1.TableRow
+	5,  // 16: pluggableharness.render.v1.ListNode.items:type_name -> pluggableharness.render.v1.RenderNode
+	5,  // 17: pluggableharness.render.v1.GroupNode.children:type_name -> pluggableharness.render.v1.RenderNode
+	5,  // 18: pluggableharness.render.v1.CollapsibleNode.children:type_name -> pluggableharness.render.v1.RenderNode
+	17, // 19: pluggableharness.render.v1.ActionNode.args:type_name -> google.protobuf.Struct
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_render_v1_types_proto_init() }
@@ -1532,8 +1364,7 @@ func file_pluggableharness_render_v1_types_proto_init() {
 	if File_pluggableharness_render_v1_types_proto != nil {
 		return
 	}
-	file_pluggableharness_render_v1_types_proto_msgTypes[1].OneofWrappers = []any{}
-	file_pluggableharness_render_v1_types_proto_msgTypes[4].OneofWrappers = []any{
+	file_pluggableharness_render_v1_types_proto_msgTypes[3].OneofWrappers = []any{
 		(*RenderNode_Text)(nil),
 		(*RenderNode_CodeBlock)(nil),
 		(*RenderNode_Diff)(nil),
@@ -1545,15 +1376,15 @@ func file_pluggableharness_render_v1_types_proto_init() {
 		(*RenderNode_SubSession)(nil),
 		(*RenderNode_Action)(nil),
 	}
+	file_pluggableharness_render_v1_types_proto_msgTypes[4].OneofWrappers = []any{}
 	file_pluggableharness_render_v1_types_proto_msgTypes[5].OneofWrappers = []any{}
-	file_pluggableharness_render_v1_types_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_render_v1_types_proto_rawDesc), len(file_pluggableharness_render_v1_types_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   16,
+			NumEnums:      2,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

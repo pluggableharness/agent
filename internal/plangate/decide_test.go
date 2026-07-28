@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
@@ -44,7 +43,7 @@ func TestDecide_perItemPolicyEvaluation(t *testing.T) {
 			// http.post matches nothing and falls through to the
 			// resource default, which is ask.
 		},
-		Resolver: fake.NewAlways(allowDecision(frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE)),
+		Resolver: fake.NewAlways(allowDecision(planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE)),
 		Events:   sink,
 	})
 
@@ -113,7 +112,7 @@ func TestDecide_askEscalatesToResolverWithCompositeDecidedBy(t *testing.T) {
 
 	resolver := fake.New(fake.Response{Decision: plandecision.Decision{
 		Decision:  planv1.PlanDecision_PLAN_DECISION_ALLOW,
-		Scope:     frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+		Scope:     planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 		DecidedBy: "tui",
 	}})
 	sink := &recordingSink{}
@@ -147,7 +146,7 @@ func TestDecide_correctedInputReplacesTheItemInput(t *testing.T) {
 	corrected := mustStruct(map[string]any{"path": "/tmp/safe"})
 	resolver := fake.NewAlways(fake.Response{Decision: plandecision.Decision{
 		Decision:       planv1.PlanDecision_PLAN_DECISION_ALLOW,
-		Scope:          frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+		Scope:          planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 		CorrectedInput: corrected,
 		DecidedBy:      "tui",
 	}})
@@ -190,7 +189,7 @@ func TestDecide_invalidCorrectedInputIsRejected(t *testing.T) {
 	bad := mustStruct(map[string]any{"path": 42})
 	resolver := fake.NewAlways(fake.Response{Decision: plandecision.Decision{
 		Decision:       planv1.PlanDecision_PLAN_DECISION_ALLOW,
-		Scope:          frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+		Scope:          planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 		CorrectedInput: bad,
 		DecidedBy:      "tui",
 	}})
@@ -223,7 +222,7 @@ func TestDecide_invalidCorrectedInputIsRejected(t *testing.T) {
 func TestDecide_alwaysScopeIsRejected(t *testing.T) {
 	t.Parallel()
 
-	resolver := fake.NewAlways(allowDecision(frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS))
+	resolver := fake.NewAlways(allowDecision(planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS))
 	sink := &recordingSink{}
 	g := newTestGate(t, Config{
 		Rules:    []policy.Rule{ruleFor("confirm-writes", "fs", "write_file", policy.ActionAsk)},
@@ -251,7 +250,7 @@ func TestDecide_sessionScopeSuppressesTheSecondResolverCall(t *testing.T) {
 
 	resolver := fake.New(fake.Response{Decision: plandecision.Decision{
 		Decision:  planv1.PlanDecision_PLAN_DECISION_ALLOW,
-		Scope:     frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION,
+		Scope:     planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION,
 		DecidedBy: "tui",
 	}})
 	g := newTestGate(t, Config{
@@ -292,7 +291,7 @@ func TestDecide_sessionScopeIsPerGate(t *testing.T) {
 	newGate := func() (*Gate, *fake.Resolver) {
 		r := fake.New(fake.Response{Decision: plandecision.Decision{
 			Decision:  planv1.PlanDecision_PLAN_DECISION_ALLOW,
-			Scope:     frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION,
+			Scope:     planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION,
 			DecidedBy: "tui",
 		}})
 		return newTestGate(t, Config{
@@ -326,7 +325,7 @@ func TestDecide_hookVetoDeniesTheWholePlan(t *testing.T) {
 	t.Parallel()
 
 	hooks := vetoHooks("guardrails")
-	resolver := fake.NewAlways(allowDecision(frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE))
+	resolver := fake.NewAlways(allowDecision(planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE))
 	sink := &recordingSink{}
 	g := newTestGate(t, Config{
 		Rules: []policy.Rule{
@@ -571,7 +570,7 @@ func TestDecide_correctedInputWithoutACatalogIsAccepted(t *testing.T) {
 		Rules: []policy.Rule{ruleFor("confirm-writes", "fs", "write_file", policy.ActionAsk)},
 		Resolver: fake.NewAlways(fake.Response{Decision: plandecision.Decision{
 			Decision:       planv1.PlanDecision_PLAN_DECISION_ALLOW,
-			Scope:          frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+			Scope:          planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 			CorrectedInput: mustStruct(map[string]any{"path": 42}),
 			DecidedBy:      "tui",
 		}}),
@@ -593,7 +592,7 @@ func TestDecide_unknownOperationFallsBackToNoSchema(t *testing.T) {
 
 	g := newTestGate(t, Config{
 		Rules:    []policy.Rule{ruleFor("confirm-writes", "fs", "write_file", policy.ActionAsk)},
-		Resolver: fake.NewAlways(allowDecision(frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE)),
+		Resolver: fake.NewAlways(allowDecision(planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE)),
 		Tools:    &fakeTools{handles: map[string]providercatalog.ToolHandle{}},
 	})
 

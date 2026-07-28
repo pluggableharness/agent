@@ -9,7 +9,6 @@ package frontendv1
 import (
 	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v12 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -25,25 +24,20 @@ const (
 )
 
 // FrontendCapabilities is this frontend's static self-description, returned
-// by GetCapabilities (frontend.md §3.1).
+// by GetCapabilities.
 type FrontendCapabilities struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Prompt-expansion slash commands this frontend contributes. MAY be
 	// empty. A direct-invoke command is declared by a slashcommand.v1
 	// provider instead (specifications/slashcommand/), never here.
 	SlashCommands []*v1.PromptExpansionSpec `protobuf:"bytes,1,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
-	// This provider's `agent.hcl` configuration schema (configuration.md §4).
+	// This provider's agent.hcl configuration schema
+	// (configuration/blocks-reference.md).
 	ConfigSchema *v11.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
-	// Regions this frontend proactively declares it can render into. A
-	// complement to, not a replacement for, the reactive
-	// FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED error a placement the
-	// frontend can't honor still produces — this lets a producer route
-	// content preferentially without waiting to find out the hard way.
-	SupportedRegions []v12.Region `protobuf:"varint,3,rep,packed,name=supported_regions,json=supportedRegions,proto3,enum=pluggableharness.render.v1.Region" json:"supported_regions,omitempty"`
-	// Hook points this frontend can subscribe to (agent-loop/hook-dispatch.md),
-	// so a mis-declared agent.hcl hook{} block naming an unsupported point
-	// can be rejected at config-load time rather than failing at first
-	// dispatch.
+	// Hook points this frontend can subscribe to
+	// (agent-loop/hook-dispatch.md), so a mis-declared agent.hcl hook{}
+	// block naming an unsupported point can be rejected at config-load
+	// time rather than failing at first dispatch.
 	SupportedHookPoints []v1.HookPoint `protobuf:"varint,4,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
@@ -93,13 +87,6 @@ func (x *FrontendCapabilities) GetConfigSchema() *v11.ConfigSchema {
 	return nil
 }
 
-func (x *FrontendCapabilities) GetSupportedRegions() []v12.Region {
-	if x != nil {
-		return x.SupportedRegions
-	}
-	return nil
-}
-
 func (x *FrontendCapabilities) GetSupportedHookPoints() []v1.HookPoint {
 	if x != nil {
 		return x.SupportedHookPoints
@@ -111,12 +98,11 @@ var File_pluggableharness_frontend_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_frontend_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"(pluggableharness/frontend/v1/types.proto\x12\x1cpluggableharness.frontend.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\"\xe9\x02\n" +
+	"(pluggableharness/frontend/v1/types.proto\x12\x1cpluggableharness.frontend.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\"\xb1\x02\n" +
 	"\x14FrontendCapabilities\x12V\n" +
 	"\x0eslash_commands\x18\x01 \x03(\v2/.pluggableharness.common.v1.PromptExpansionSpecR\rslashCommands\x12M\n" +
-	"\rconfig_schema\x18\x02 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12O\n" +
-	"\x11supported_regions\x18\x03 \x03(\x0e2\".pluggableharness.render.v1.RegionR\x10supportedRegions\x12Y\n" +
-	"\x15supported_hook_points\x18\x04 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPointsBDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
+	"\rconfig_schema\x18\x02 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
+	"\x15supported_hook_points\x18\x04 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPointsJ\x04\b\x03\x10\x04R\x11supported_regionsBDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
 
 var (
 	file_pluggableharness_frontend_v1_types_proto_rawDescOnce sync.Once
@@ -135,19 +121,17 @@ var file_pluggableharness_frontend_v1_types_proto_goTypes = []any{
 	(*FrontendCapabilities)(nil),   // 0: pluggableharness.frontend.v1.FrontendCapabilities
 	(*v1.PromptExpansionSpec)(nil), // 1: pluggableharness.common.v1.PromptExpansionSpec
 	(*v11.ConfigSchema)(nil),       // 2: pluggableharness.config.v1.ConfigSchema
-	(v12.Region)(0),                // 3: pluggableharness.render.v1.Region
-	(v1.HookPoint)(0),              // 4: pluggableharness.common.v1.HookPoint
+	(v1.HookPoint)(0),              // 3: pluggableharness.common.v1.HookPoint
 }
 var file_pluggableharness_frontend_v1_types_proto_depIdxs = []int32{
 	1, // 0: pluggableharness.frontend.v1.FrontendCapabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
 	2, // 1: pluggableharness.frontend.v1.FrontendCapabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
-	3, // 2: pluggableharness.frontend.v1.FrontendCapabilities.supported_regions:type_name -> pluggableharness.render.v1.Region
-	4, // 3: pluggableharness.frontend.v1.FrontendCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3, // 2: pluggableharness.frontend.v1.FrontendCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_frontend_v1_types_proto_init() }

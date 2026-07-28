@@ -16,7 +16,6 @@ func TestError_Error(t *testing.T) {
 		want string
 	}{
 		{name: "render failed", err: widget.RenderFailed("bad node"), want: "widget: WIDGET_ERROR_CATEGORY_RENDER_FAILED: bad node"},
-		{name: "region unsupported", err: widget.RegionUnsupported("no sidebar"), want: "widget: WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED: no sidebar"},
 		{name: "unknown", err: widget.Unknown("boom"), want: "widget: WIDGET_ERROR_CATEGORY_UNKNOWN: boom"},
 	}
 
@@ -43,9 +42,6 @@ func TestFromStatus_notAStatusError(t *testing.T) {
 func TestFromStatus_nilError(t *testing.T) {
 	t.Parallel()
 
-	// status.FromError(nil) reports ok=true with a nil/OK status carrying
-	// no ErrorInfo detail, so FromStatus must still report ok=false here —
-	// there is no WidgetError to recover from success.
 	_, ok := widget.FromStatus(nil)
 	if ok {
 		t.Error("FromStatus(nil) ok = true, want false")

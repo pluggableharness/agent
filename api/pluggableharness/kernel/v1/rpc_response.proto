@@ -5,6 +5,7 @@ package pluggableharness.kernel.v1;
 import "google/protobuf/struct.proto";
 import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/log/v1/types.proto";
+import "pluggableharness/metadata/v1/types.proto";
 import "pluggableharness/session/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
@@ -147,3 +148,84 @@ message GetSessionResult {
   // live, in-memory rationale as remaining_depth.
   double remaining_cost_budget_usd = 3;
 }
+
+// GetSessionStateResult carries the fixed-schema SessionState snapshot.
+message GetSessionStateResult {
+  // The session's "where am I" state. MUST be set.
+  pluggableharness.session.v1.SessionState state = 1;
+}
+
+// SubmitInputResult acknowledges a submitted turn.
+message SubmitInputResult {
+  // The turn id assigned to this submission, for correlating subsequent
+  // events and deltas without relying solely on stream order. MUST be set.
+  string turn_id = 1;
+}
+
+// ResolvePlanDecisionResult is empty on success. Errors surface as a
+// gRPC status (e.g. already resolved, unknown plan_item_id).
+message ResolvePlanDecisionResult {}
+
+// ResolveInteractiveResult is empty on success.
+message ResolveInteractiveResult {}
+
+// InterruptResult is empty on success.
+message InterruptResult {}
+
+// CreateSessionResult carries the newly created session's info. The
+// calling frontend is auto-attached.
+message CreateSessionResult {
+  // The newly created session's info. MUST be set.
+  pluggableharness.session.v1.SessionInfo info = 1;
+}
+
+// AttachSessionResult carries the attached session's current info.
+// History backfill is via ReadEvents, not inlined here.
+message AttachSessionResult {
+  // The attached session's current info. MUST be set.
+  pluggableharness.session.v1.SessionInfo info = 1;
+}
+
+// ResumeSessionResult carries the resumed session's current info.
+message ResumeSessionResult {
+  // The resumed session's current info. MUST be set.
+  pluggableharness.session.v1.SessionInfo info = 1;
+}
+
+// DetachSessionResult is empty on success.
+message DetachSessionResult {}
+
+// ListSessionsResult carries the matching session summaries.
+message ListSessionsResult {
+  // The matching sessions, most-recently-started first.
+  repeated pluggableharness.session.v1.SessionInfo sessions = 1;
+}
+
+// PublishMetadataResult carries the block as stored after the kernel
+// stamped producer and liveness.
+message PublishMetadataResult {
+  // The stored block. MUST be set.
+  pluggableharness.metadata.v1.MetadataBlock block = 1;
+}
+
+// RetractMetadataResult carries the block after liveness was flipped to
+// DISCONNECTED.
+message RetractMetadataResult {
+  // The retracted block. MUST be set.
+  pluggableharness.metadata.v1.MetadataBlock block = 1;
+}
+
+// ListMetadataResult carries every known block for the session.
+message ListMetadataResult {
+  // All blocks currently in the session's metadata store, in stable
+  // id order. MAY be empty.
+  repeated pluggableharness.metadata.v1.MetadataBlock blocks = 1;
+}
+
+// InvokeSlashCommandResult is empty on success; command output flows
+// through the transcript / metadata surfaces.
+message InvokeSlashCommandResult {}
+
+// TriggerActionResult is empty on success; action output flows through
+// the transcript / plan-apply path.
+message TriggerActionResult {}

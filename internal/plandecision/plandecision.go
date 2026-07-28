@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pluggableharness/agent/internal/schemavalidate"
-	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 	schemav1 "github.com/pluggableharness/agent/pkg/schema/proto/v1"
 )
@@ -79,7 +78,7 @@ type Decision struct {
 	// in memory, ALWAYS persisted as policy. A Resolver that cannot
 	// durably persist an ALWAYS verdict MUST fail with
 	// ErrPolicyPersistenceUnavailable rather than downgrade the scope.
-	Scope frontendv1.PlanDecisionScope
+	Scope planv1.PlanDecisionScope
 	// CorrectedInput, when non-nil, replaces the plan item's original
 	// input: the operator supplied corrected arguments rather than a
 	// binary accept/reject. It MUST be re-validated against the

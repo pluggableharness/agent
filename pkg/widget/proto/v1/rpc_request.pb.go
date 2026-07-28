@@ -100,7 +100,7 @@ func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
 // ConfigureRequest carries this provider's already-decoded agent.hcl block.
 type ConfigureRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The provider's already-decoded config, per frontend.md §4.1.
+	// The provider's already-decoded config.
 	Config        *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -143,52 +143,6 @@ func (x *ConfigureRequest) GetConfig() *structpb.Struct {
 	return nil
 }
 
-// AttachRequest identifies which session's widget instance to attach to.
-type AttachRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The session this widget instance is attaching to.
-	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AttachRequest) Reset() {
-	*x = AttachRequest{}
-	mi := &file_pluggableharness_widget_v1_rpc_request_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AttachRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AttachRequest) ProtoMessage() {}
-
-func (x *AttachRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_widget_v1_rpc_request_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AttachRequest.ProtoReflect.Descriptor instead.
-func (*AttachRequest) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_widget_v1_rpc_request_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *AttachRequest) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
-}
-
 var File_pluggableharness_widget_v1_rpc_request_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_widget_v1_rpc_request_proto_rawDesc = "" +
@@ -197,10 +151,7 @@ const file_pluggableharness_widget_v1_rpc_request_proto_rawDesc = "" +
 	"\x0fDescribeRequest\"\x18\n" +
 	"\x16GetCapabilitiesRequest\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
-	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\".\n" +
-	"\rAttachRequest\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionIdB@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
+	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06configB@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
 
 var (
 	file_pluggableharness_widget_v1_rpc_request_proto_rawDescOnce sync.Once
@@ -214,16 +165,15 @@ func file_pluggableharness_widget_v1_rpc_request_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_widget_v1_rpc_request_proto_rawDescData
 }
 
-var file_pluggableharness_widget_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_pluggableharness_widget_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pluggableharness_widget_v1_rpc_request_proto_goTypes = []any{
 	(*DescribeRequest)(nil),        // 0: pluggableharness.widget.v1.DescribeRequest
 	(*GetCapabilitiesRequest)(nil), // 1: pluggableharness.widget.v1.GetCapabilitiesRequest
 	(*ConfigureRequest)(nil),       // 2: pluggableharness.widget.v1.ConfigureRequest
-	(*AttachRequest)(nil),          // 3: pluggableharness.widget.v1.AttachRequest
-	(*structpb.Struct)(nil),        // 4: google.protobuf.Struct
+	(*structpb.Struct)(nil),        // 3: google.protobuf.Struct
 }
 var file_pluggableharness_widget_v1_rpc_request_proto_depIdxs = []int32{
-	4, // 0: pluggableharness.widget.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
+	3, // 0: pluggableharness.widget.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -242,7 +192,7 @@ func file_pluggableharness_widget_v1_rpc_request_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_widget_v1_rpc_request_proto_rawDesc), len(file_pluggableharness_widget_v1_rpc_request_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

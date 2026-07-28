@@ -31,6 +31,11 @@
 //     Publish is a thin one-line call; Subscribe owns the stream-receive
 //     goroutine and delivers events to a caller-supplied handler, so a
 //     plugin author writes a handler, not stream plumbing.
+//   - Frontend state-surface helpers (frontend.go): GetSessionState,
+//     SubmitInput (returns turn_id), session lifecycle, plan/interactive
+//     resolution, metadata publish/list/retract, StreamDeltas, and the
+//     slash/action unaries — see specifications/frontend/ and
+//     specifications/kernel-callbacks.md.
 //
 // This package deliberately does not import anything under internal/ —
 // pkg/ is the plugin-author-consumable surface and internal/ is

@@ -16,9 +16,7 @@ import (
 )
 
 // newTestServer starts svc on an in-memory bufconn listener and returns a
-// frontendv1.FrontendServiceClient dialed against it — a real gRPC round
-// trip, not a hand-rolled interface fake, mirroring
-// pkg/kernel/helpers_test.go's newTestClient.
+// frontendv1.FrontendServiceClient dialed against it.
 func newTestServer(t *testing.T, svc *frontend.Service) frontendv1.FrontendServiceClient {
 	t.Helper()
 
@@ -40,14 +38,10 @@ func newTestServer(t *testing.T, svc *frontend.Service) frontendv1.FrontendServi
 	return frontendv1.NewFrontendServiceClient(conn)
 }
 
-// fakeProvider is a hand-written frontend.Provider fake (go-testing.md:
-// fakes, not mocking frameworks). Each method's behavior is controlled by
-// a caller-set func field; a nil field falls through to a harmless zero
-// value.
+// fakeProvider is a hand-written frontend.Provider fake.
 type fakeProvider struct {
 	capabilitiesFunc func(ctx context.Context) (*frontend.Capabilities, error)
 	configureFunc    func(ctx context.Context, config *structpb.Struct) error
-	handleEventFunc  func(ctx context.Context, event frontend.ClientEvent, emit frontend.Emitter) error
 }
 
 var _ frontend.Provider = (*fakeProvider)(nil)
@@ -66,12 +60,5 @@ func (f *fakeProvider) Configure(ctx context.Context, config *structpb.Struct) e
 	return nil
 }
 
-func (f *fakeProvider) HandleEvent(ctx context.Context, event frontend.ClientEvent, emit frontend.Emitter) error {
-	if f.handleEventFunc != nil {
-		return f.handleEventFunc(ctx, event, emit)
-	}
-	return nil
-}
-
-// testIdentity is a fixed plugin.Identity used across server/attach tests.
+// testIdentity is a fixed plugin.Identity used across server tests.
 var testIdentity = plugin.Identity{Name: "test-frontend", Version: "1.0.0", Source: "github.com/pluggableharness/agent/pkg/frontend"}

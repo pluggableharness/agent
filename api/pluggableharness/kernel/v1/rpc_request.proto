@@ -2,12 +2,16 @@ syntax = "proto3";
 
 package pluggableharness.kernel.v1;
 
+import "google/protobuf/struct.proto";
 import "pluggableharness/common/v1/types.proto";
 import "pluggableharness/content/v1/types.proto";
 import "pluggableharness/kernel/v1/types.proto";
 import "pluggableharness/log/v1/types.proto";
+import "pluggableharness/metadata/v1/types.proto";
 import "pluggableharness/metric/v1/types.proto";
 import "pluggableharness/model/v1/types.proto";
+import "pluggableharness/plan/v1/types.proto";
+import "pluggableharness/session/v1/types.proto";
 import "pluggableharness/trace/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
@@ -231,4 +235,171 @@ message GetSessionRequest {
   // The calling session's id. MUST be set. Same one-session-only rule as
   // EmitRequest.session_id.
   string session_id = 1;
+}
+
+// GetSessionStateRequest asks for the fixed-schema "where am I" snapshot
+// a frontend renders. See kernel-callbacks.md's GetSessionState.
+message GetSessionStateRequest {
+  // The session to snapshot. MUST be set. Same one-session-only rule as
+  // EmitRequest.session_id for non-frontend callers; a frontend that has
+  // attached the session holds a grant for it.
+  string session_id = 1;
+}
+
+// SubmitInputRequest submits operator input as the next turn for a
+// session. See kernel-callbacks.md's SubmitInput.
+message SubmitInputRequest {
+  // The session to submit into. MUST be set.
+  string session_id = 1;
+  // The message content, in emission order. MUST contain at least one
+  // block. Plain typed text is a single TextBlock; image paste adds an
+  // ImageBlock gated by the target model's supports_vision.
+  repeated pluggableharness.content.v1.ContentBlock content = 2;
+}
+
+// ResolvePlanDecisionRequest answers a pending plan item that policy
+// evaluated as ASK. See kernel-callbacks.md's ResolvePlanDecision and
+// agent-loop/plan-apply-gate.md.
+message ResolvePlanDecisionRequest {
+  // The session owning the pending plan item. MUST be set.
+  string session_id = 1;
+  // The plan item being resolved. MUST be set.
+  string plan_item_id = 2;
+  // The operator's allow/deny decision. MUST be set.
+  pluggableharness.plan.v1.ClientDecision decision = 3;
+  // When present, a operator-edited replacement for the plan item's
+  // tool input. The kernel MUST re-validate this against the tool's
+  // input_schema; an invalid correction is rejected, not silently coerced.
+  optional google.protobuf.Struct corrected_input = 4;
+  // How durably this decision applies beyond this one item.
+  pluggableharness.plan.v1.PlanDecisionScope scope = 5;
+}
+
+// ResolveInteractiveRequest answers a pending interactive-kind tool call.
+// See kernel-callbacks.md's ResolveInteractive.
+message ResolveInteractiveRequest {
+  // The session owning the pending call. MUST be set.
+  string session_id = 1;
+  // Correlates to the interactive tool call's id. MUST be set.
+  string call_id = 2;
+  // The operator's response, becoming the interactive call's
+  // ToolResult.payload. MUST be set.
+  google.protobuf.Struct response = 3;
+}
+
+// InterruptRequest cancels the running turn for a session.
+message InterruptRequest {
+  // The session whose turn to cancel. MUST be set.
+  string session_id = 1;
+}
+
+// CreateSessionRequest creates a new session and grants the calling
+// frontend a subscription to it.
+message CreateSessionRequest {
+  // The agent.hcl profile to create the session under. Absent means the
+  // kernel's configured default profile.
+  optional string profile = 1;
+  // An initial user message to seed the session with, submitted as the
+  // first turn once the session is created. Absent creates an empty
+  // session awaiting the first SubmitInput.
+  optional string initial_prompt = 2;
+  // The session's working directory. Absent means the kernel's own
+  // working directory at creation time.
+  optional string working_directory = 3;
+}
+
+// AttachSessionRequest subscribes the calling frontend to an existing
+// session (live or terminal) without re-opening a terminal session.
+message AttachSessionRequest {
+  // The session to attach. MUST be set.
+  string session_id = 1;
+}
+
+// ResumeSessionRequest attaches a historical session for continuation or
+// replay. A COMPLETED or CANCELLED session MAY be re-opened to RUNNING
+// for new turns; a bound-exhausted or FAILED session attaches
+// replay-only.
+message ResumeSessionRequest {
+  // The session to resume. MUST be set.
+  string session_id = 1;
+}
+
+// DetachSessionRequest unsubscribes the calling frontend from a session
+// without affecting the session itself or other attached frontends.
+message DetachSessionRequest {
+  // The session to detach. MUST be set.
+  string session_id = 1;
+}
+
+// ListSessionsRequest returns a filtered session summary list.
+message ListSessionsRequest {
+  // Restricts the result to sessions in this status. Absent means no
+  // status filter.
+  optional pluggableharness.session.v1.SessionStatus status = 1;
+  // Restricts the result to children of this session. Absent means no
+  // parent filter.
+  optional string parent_session_id = 2;
+  // True: only root sessions (no parent_session_id). False: all sessions
+  // matching the other filters, at any depth.
+  bool roots_only = 3;
+}
+
+// PublishMetadataRequest upserts one MetadataBlock into a session's
+// metadata surface. The kernel stamps producer and liveness=LIVE.
+message PublishMetadataRequest {
+  // The session this block belongs to. MUST be set.
+  string session_id = 1;
+  // The block to publish. id and body MUST be set; producer and liveness
+  // are server-derived and any client-set values are overwritten.
+  pluggableharness.metadata.v1.MetadataBlock block = 2;
+}
+
+// RetractMetadataRequest marks a block DISCONNECTED and republishes it.
+// The kernel never deletes the block.
+message RetractMetadataRequest {
+  // The session owning the block. MUST be set.
+  string session_id = 1;
+  // The block id to retract. MUST be set.
+  string block_id = 2;
+}
+
+// ListMetadataRequest returns every MetadataBlock currently known for a
+// session — the snapshot half of snapshot-then-subscribe for the
+// metadata surface.
+message ListMetadataRequest {
+  // The session whose blocks to list. MUST be set.
+  string session_id = 1;
+}
+
+// StreamDeltasRequest opens a live-only token-delta stream for one
+// session. Replayed text arrives as finished RenderTrees via ReadEvents,
+// never as deltas.
+message StreamDeltasRequest {
+  // The session to stream deltas for. MUST be set.
+  string session_id = 1;
+}
+
+// InvokeSlashCommandRequest dispatches a slash command against a session.
+message InvokeSlashCommandRequest {
+  // The session to invoke against. MUST be set.
+  string session_id = 1;
+  // The command name, without its leading slash. MUST be set.
+  string name = 2;
+  // The raw argument string following the command name.
+  string args = 3;
+}
+
+// TriggerActionRequest dispatches an ActionNode activation — the same
+// no-model-turn Invoke/plan-apply path as a direct-invoke slash command.
+message TriggerActionRequest {
+  // The session to invoke against. MUST be set.
+  string session_id = 1;
+  // The originating ActionNode's id.
+  string node_id = 2;
+  // The tool operation to invoke (ToolSchema.name).
+  string tool_name = 3;
+  // The arguments to invoke it with.
+  google.protobuf.Struct args = 4;
+  // The declared name of the tool provider plugin tool_name belongs to.
+  string provider = 5;
 }

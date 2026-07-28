@@ -84,7 +84,7 @@ func TestService_Configure_InvalidArgument(t *testing.T) {
 	provider := &fakeProvider{
 		configureFunc: func(context.Context, *structpb.Struct) error {
 			return &frontend.Error{
-				Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT,
+				Category: frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_REQUEST,
 				Message:  "malformed theme",
 			}
 		},

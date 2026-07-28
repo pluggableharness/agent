@@ -7,7 +7,6 @@ import (
 
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	eventv1 "github.com/pluggableharness/agent/pkg/event/proto/v1"
-	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	hookv1 "github.com/pluggableharness/agent/pkg/hook/proto/v1"
 	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
@@ -298,7 +297,7 @@ func (g *Gate) resolveAsk(ctx context.Context, turnID string, item *planv1.PlanI
 		return fmt.Errorf("plangate: decide: %s.%s: %w",
 			item.GetProvider(), item.GetOperationName(), err)
 	}
-	if dec.Scope == frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS {
+	if dec.Scope == planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS {
 		return fmt.Errorf("plangate: decide: %s.%s: %w",
 			item.GetProvider(), item.GetOperationName(), plandecision.ErrPolicyPersistenceUnavailable)
 	}
@@ -308,7 +307,7 @@ func (g *Gate) resolveAsk(ctx context.Context, turnID string, item *planv1.PlanI
 	if dec.CorrectedInput != nil {
 		item.Input = dec.CorrectedInput
 	}
-	if dec.Scope == frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION {
+	if dec.Scope == planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION {
 		g.rememberScope(item.GetProvider(), item.GetOperationName(), sessionVerdict{
 			decision:  dec.Decision,
 			decidedBy: dec.DecidedBy,

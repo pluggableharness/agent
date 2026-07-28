@@ -1,13 +1,17 @@
 syntax = "proto3";
 
-// Package pluggableharness.render.v1 defines the Emit->Render->Paint intermediate
-// representation described in specifications/frontend.md §1. Every plugin
-// category's optional Render() RPC (model.md §7, tool.md §7,
-// context.md §9, memory.md §10) returns this; every frontend/widget Paints
-// it. frontend.md §1 MUST: a frontend must render every RenderNode variant
-// gracefully with a generic fallback (e.g. an unrecognized-in-practice
-// future variant, or `diff` on a frontend with no diff view -> plain
-// before/after text) — never error, never silently drop a node.
+// Package pluggableharness.render.v1 defines the Emit->Render->Paint
+// intermediate representation used by the transcript surface
+// (specifications/frontend/). Every plugin category's optional Render()
+// RPC (model, tool, context, memory) returns a RenderTree; frontends
+// paint transcript content from it. A frontend MUST render every
+// RenderNode variant gracefully with a generic fallback (e.g. an
+// unrecognized future variant, or `diff` on a frontend with no diff view
+// -> plain before/after text) — never error, never silently drop a node.
+//
+// Placement is not this package's job: Region and PlacedContent were
+// retired. State, metadata, and input are typed kernel surfaces; only
+// the conversation transcript still travels as RenderTree.
 package pluggableharness.render.v1;
 
 import "google/protobuf/struct.proto";
@@ -15,60 +19,14 @@ import "google/protobuf/struct.proto";
 option go_package = "github.com/pluggableharness/agent/pkg/render/proto/v1;renderv1";
 
 // RenderTree is the return type of every category's Render() RPC.
-// frontend.md §1 treats "RenderTree" and "RenderNode" as equivalent (the
-// tree root is just a node) — this wraps a single root RenderNode so every
-// Render() RPC across every category shares one stable, named response
-// type, with room to grow (e.g. a schema_version) without changing
-// RenderNode itself.
+// specifications/frontend/render-tree.md treats "RenderTree" and
+// "RenderNode" as equivalent (the tree root is just a node) — this wraps
+// a single root RenderNode so every Render() RPC across every category
+// shares one stable, named response type, with room to grow (e.g. a
+// schema_version) without changing RenderNode itself.
 message RenderTree {
   // The tree's root node.
   RenderNode root = 1;
-}
-
-// Region is the placement vocabulary for where a RenderTree gets shown,
-// described in specifications/frontend.md §2. Every region is
-// plugin-contributable; a placement is a hint the frontend MAY drop or
-// re-fold under space constraints. Lives here (not in frontend/v1) because
-// both the frontend provider protocol AND the widget provider protocol
-// place content into these same regions (frontend.md §4.1's WidgetUpdate),
-// and neither category's package should depend on the other's.
-enum Region {
-  // Zero value. Never valid for a real placement; its presence on the wire
-  // means a caller forgot to set the field.
-  REGION_UNSPECIFIED = 0;
-  // The main conversation transcript. The default region when a producer
-  // doesn't specify one.
-  REGION_MAIN_CHAT = 1;
-  // A persistent side panel.
-  REGION_SIDEBAR = 2;
-  // A persistent header bar.
-  REGION_TOP_BAR = 3;
-  // The area around the user's input box.
-  REGION_INPUT_BAR = 4;
-  // Contextual hotkey/command hints.
-  REGION_HOTKEY_HINTS = 5;
-  // A modal or floating layer. MUST be visually distinct from the rest of
-  // the interface (frontend.md §2).
-  REGION_OVERLAY = 6;
-}
-
-// PlacedContent pairs a RenderTree with where it should be shown and how
-// it interacts with that region's prior content from the same producer.
-// Used by frontend.md §3.2's ServerEvent.render variant.
-message PlacedContent {
-  // Where this content should be placed.
-  Region region = 1;
-
-  // The content to place.
-  RenderTree content = 2;
-
-  // True: replace this producer's prior content in `region`. False:
-  // append (the default behavior for REGION_MAIN_CHAT).
-  bool replace = 3;
-
-  // Ordering/eviction hint for space-constrained regions. Unset means
-  // "declaration order".
-  optional int32 priority = 4;
 }
 
 // TextStyle is a hint for how a TextNode's content should be presented.
@@ -232,15 +190,16 @@ message SubSessionNode {
   string summary = 2;
 }
 
-// ActionNode is interactive/clickable content — the widget action channel
-// (frontend.md §5.1). A frontend MUST make this node interactive and, on
-// activation, dispatch a ClientEvent.action_trigger carrying `tool_name`
-// and `args` unchanged. The kernel handles the resulting action_trigger
-// identically to a direct_invoke slash command: the normal Invoke/
-// plan-apply pipeline including policy evaluation, with no model turn.
+// ActionNode is interactive/clickable content in a transcript RenderTree.
+// A frontend MUST make this node interactive and, on activation, call
+// KernelCallbackService.TriggerAction carrying tool_name, args, and
+// provider unchanged. The kernel handles it identically to a
+// direct-invoke slash command: the normal Invoke/plan-apply pipeline
+// including policy evaluation, with no model turn.
 message ActionNode {
-  // Identifies this action node within its RenderTree, echoed back in the
-  // resulting ClientEvent so the frontend (and kernel) can correlate.
+  // Identifies this action node within its RenderTree, echoed back in
+  // TriggerActionRequest.node_id so the frontend (and kernel) can
+  // correlate.
   string id = 1;
   // The clickable label shown to the user.
   string label = 2;
@@ -254,7 +213,7 @@ message ActionNode {
   // The declared name of the tool provider plugin `tool_name` belongs to.
   // tool_name is only unique per provider (matching plan.v1.PlanItem's own
   // provider/tool_name pairing), so this disambiguates which provider's
-  // operation to invoke on activation. Echoed unchanged onto the resulting
-  // ClientEvent.ActionTrigger.provider (frontend.md §"Client events").
+  // operation to invoke on activation. Echoed unchanged onto
+  // TriggerActionRequest.provider.
   string provider = 5;
 }

@@ -4,8 +4,11 @@ import (
 	"context"
 	"log/slog"
 
+	"sync"
+
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/log"
+	"github.com/pluggableharness/agent/internal/metadata"
 	"github.com/pluggableharness/agent/internal/producer"
 	"github.com/pluggableharness/agent/internal/sessionscope"
 	"github.com/pluggableharness/agent/internal/sessionstate"
@@ -97,6 +100,17 @@ type Config struct {
 	// a model provider's own CountTokens RPC is reachable, the single
 	// documented fallback heuristic otherwise. MUST be set.
 	Tokens *tokencount.Counter
+
+	// Metadata is the process-wide MetadataBlock collection behind
+	// PublishMetadata/RetractMetadata/ListMetadata. MAY be nil; when nil
+	// those RPCs return FailedPrecondition (or empty List). Prefer
+	// wiring a shared *metadata.Store from cmd/ wiring.
+	Metadata *metadata.Store
+
+	// Deltas is the live TokenDelta fan-out for StreamDeltas. MAY be nil;
+	// when nil StreamDeltas stays open until the client cancels with no
+	// deltas delivered.
+	Deltas *DeltaHub
 }
 
 // defaultBusSubscribeQueueBound is the fallback per-Subscribe-stream
@@ -129,6 +143,13 @@ type Server struct {
 	scopes                 *sessionscope.Registry
 	sessions               *sessionstate.Table
 	tokens                 *tokencount.Counter
+	metadata               *metadata.Store
+	deltas                 *DeltaHub
+
+	// attachReleases tracks Grant release funcs from AttachSession so
+	// DetachSession can drop exactly one grant per call.
+	attachMu       sync.Mutex
+	attachReleases map[string][]func()
 }
 
 // NewServer returns a Server bound to cfg — see Config's field comments
@@ -159,6 +180,9 @@ func NewServer(cfg Config) *Server {
 		scopes:                 cfg.Scopes,
 		sessions:               cfg.Sessions,
 		tokens:                 cfg.Tokens,
+		metadata:               cfg.Metadata,
+		deltas:                 cfg.Deltas,
+		attachReleases:         make(map[string][]func()),
 	}
 }
 

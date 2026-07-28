@@ -1,15 +1,17 @@
 // Command tui runs the reference terminal shell for PluggableHarness Agent.
 //
-// The shell is a frontend provider: in its finished form the kernel launches it
-// as a hashicorp/go-plugin subprocess and drives it over a bidirectional Attach
-// stream. That kernel-side attach path does not exist yet, so this binary
-// currently runs the shell against a scripted demo source, which is what makes
-// the layout, focus model, and keymap reviewable ahead of the wiring.
+// The shell is a frontend provider: the kernel launches it as a
+// hashicorp/go-plugin subprocess. There is no Attach stream — session
+// lifecycle, SubmitInput, GetSessionState, ListMetadata, Subscribe, and
+// StreamDeltas all ride the kernel callback channel
+// (docs/specifications/frontend/). The category service is only
+// GetCapabilities / Configure / Describe.
 //
-// The terminal is opened directly rather than using stdin/stdout, because under
-// go-plugin those streams belong to the handshake and the host's logger. That
-// is the real code path, exercised here so it does not need revisiting when the
-// bridge lands.
+// Until the session lifecycle RPCs are fully wired end-to-end, this binary
+// also supports a scripted demo source so layout, focus, and keymap stay
+// reviewable offline. The terminal is opened directly rather than using
+// stdin/stdout, because under go-plugin those streams belong to the
+// handshake and the host's logger.
 package main
 
 import (

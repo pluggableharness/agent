@@ -14,7 +14,6 @@ import (
 	"github.com/pluggableharness/agent/internal/plandecision/drivers/autoallow"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	telemetryfake "github.com/pluggableharness/agent/internal/telemetry/drivers/fake"
-	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 	toolv1 "github.com/pluggableharness/agent/pkg/tool/proto/v1"
 )
@@ -237,7 +236,7 @@ func TestResolve_alwaysScopeOnce(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Resolve #%d: %v", i, err)
 		}
-		if got.Scope != frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE {
+		if got.Scope != planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE {
 			t.Fatalf("Resolve #%d: Scope = %v, want PLAN_DECISION_SCOPE_ONCE", i, got.Scope)
 		}
 	}

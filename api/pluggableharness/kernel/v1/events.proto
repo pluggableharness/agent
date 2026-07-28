@@ -8,9 +8,9 @@ import "pluggableharness/kernel/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
 
-// Occurrence-shaped messages streamed by the two server-streaming
-// KernelCallbackService RPCs: BusEvent (Subscribe) and StoredEvent
-// (ReadEvents).
+// Occurrence-shaped messages streamed by KernelCallbackService's
+// server-streaming RPCs: BusEvent (Subscribe), StoredEvent (ReadEvents),
+// and TokenDelta (StreamDeltas).
 
 // BusEvent is one event delivered to a Subscribe stream. See
 // kernel-callbacks.md's Subscribe and event-bus.md.
@@ -69,4 +69,20 @@ message StoredEvent {
   // The event payload, exactly as the originating Emit call wrote it.
   // Opaque to the kernel — see EmitRequest.payload.
   bytes payload = 7;
+}
+
+// TokenDelta is one live incremental text fragment for the fast path,
+// out-of-band with respect to the event bus (no topic matching, no
+// filter evaluation, no shared subscriber queue). Per-stream FIFO only;
+// not durable and never replayed — finished text arrives as RenderTrees
+// via ReadEvents. See kernel-callbacks.md's StreamDeltas.
+message TokenDelta {
+  // The session this delta belongs to. MUST be set.
+  string session_id = 1;
+  // Identifies which displayed element this delta appends to (e.g. a
+  // RenderNode id from a prior render), for correlating consecutive
+  // deltas into one growing piece of text.
+  string target_id = 2;
+  // The incremental text to append.
+  string text = 3;
 }

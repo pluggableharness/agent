@@ -155,7 +155,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		m.handleWheel(msg)
 	case PlaceMsg:
-		m.store.Place(msg.Content, msg.Producer, msg.Sequence)
+		m.store.PlaceContent(msg.Region, msg.Tree, msg.Producer, msg.Sequence, msg.Replace, msg.Priority)
 		m.store.ClearProducerStreams()
 		m.relayout()
 	case DeltaMsg:
@@ -300,7 +300,7 @@ func (m *Model) cycleAgent(back bool) {
 }
 
 func (m *Model) moveFocus(back bool) {
-	ring := focusRing(m.layout, m.hasContent(renderv1.Region_REGION_SIDEBAR))
+	ring := focusRing(m.layout, m.hasContent(region.Sidebar))
 	m.focus = cycleFocus(m.focus, ring, back)
 	m.cursor = 0
 }
@@ -454,21 +454,21 @@ func (m *Model) resolve(allow bool, scope DecisionScope) {
 	m.closeOverlay()
 }
 
-func (m *Model) focusedRegion() renderv1.Region {
+func (m *Model) focusedRegion() region.Region {
 	if m.focus == FocusSidebar {
-		return renderv1.Region_REGION_SIDEBAR
+		return region.Sidebar
 	}
 
-	return renderv1.Region_REGION_MAIN_CHAT
+	return region.MainChat
 }
 
-func (m *Model) hasContent(r renderv1.Region) bool {
+func (m *Model) hasContent(r region.Region) bool {
 	return len(m.store.Contents(r)) > 0
 }
 
 // targets enumerates the focusable elements of a region, giving each
 // placement a distinct root path so paths stay unique across producers.
-func (m *Model) targets(r renderv1.Region) []paint.Target {
+func (m *Model) targets(r region.Region) []paint.Target {
 	var out []paint.Target
 
 	for i, pl := range m.store.Contents(r) {
@@ -490,7 +490,7 @@ func isPrintable(key string) bool {
 
 // focusedActionID returns the ActionNode ID under the cursor in a region, or
 // empty when the cursor is elsewhere or on a non-action target.
-func (m *Model) focusedActionID(r renderv1.Region, focused bool) string {
+func (m *Model) focusedActionID(r region.Region, focused bool) string {
 	if !focused {
 		return ""
 	}
@@ -504,7 +504,7 @@ func (m *Model) focusedActionID(r renderv1.Region, focused bool) string {
 }
 
 // focusedPath returns the node path under the cursor in a region.
-func (m *Model) focusedPath(r renderv1.Region) string {
+func (m *Model) focusedPath(r region.Region) string {
 	targets := m.targets(r)
 	if m.cursor < 0 || m.cursor >= len(targets) {
 		return ""
@@ -514,7 +514,7 @@ func (m *Model) focusedPath(r renderv1.Region) string {
 }
 
 // paintRegion renders every placement in a region, joined vertically.
-func (m *Model) paintRegion(r renderv1.Region, width int, focused bool) string {
+func (m *Model) paintRegion(r region.Region, width int, focused bool) string {
 	placements := m.store.Contents(r)
 	if len(placements) == 0 {
 		return ""
@@ -735,10 +735,10 @@ func (m *Model) panelAccent(focused bool) color.Color {
 // when the terminal is too narrow for a sidebar, and any live streaming text.
 func (m *Model) mainBody(l Layout) string {
 	width := l.MainInnerWidth()
-	parts := []string{m.paintRegion(renderv1.Region_REGION_MAIN_CHAT, width, m.focus == FocusMain)}
+	parts := []string{m.paintRegion(region.MainChat, width, m.focus == FocusMain)}
 
 	if l.FoldSidebar() {
-		parts = append(parts, m.paintRegion(renderv1.Region_REGION_SIDEBAR, width, false))
+		parts = append(parts, m.paintRegion(region.Sidebar, width, false))
 	}
 
 	for _, s := range m.store.Streams() {
@@ -759,8 +759,8 @@ func (m *Model) sidebarColumn(l Layout) []string {
 
 	groups := m.sidebarGroups()
 	focused := m.focus == FocusSidebar
-	activeRoot := rootOf(m.focusedPath(renderv1.Region_REGION_SIDEBAR))
-	action := m.focusedActionID(renderv1.Region_REGION_SIDEBAR, focused)
+	activeRoot := rootOf(m.focusedPath(region.Sidebar))
+	action := m.focusedActionID(region.Sidebar, focused)
 
 	rows := make([]string, 0, l.BodyHeight)
 
@@ -838,7 +838,7 @@ func (m *Model) sidebarGroups() []sidebarGroup {
 
 	at := map[region.Producer]int{}
 
-	for i, pl := range m.store.Contents(renderv1.Region_REGION_SIDEBAR) {
+	for i, pl := range m.store.Contents(region.Sidebar) {
 		g, ok := at[pl.Producer]
 		if !ok {
 			groups = append(groups, sidebarGroup{title: pl.Producer.Name})
@@ -1031,7 +1031,7 @@ func (m *Model) viewHints(l Layout) []string {
 	room := inner - lipgloss.Width(owner) - lipgloss.Width(ui.SegmentSeparator)
 
 	hints := m.keys.Hints(m.activeLayer(), m.focus, l.SidebarAvailable, max(room, 0))
-	if contributed := m.paintRegion(renderv1.Region_REGION_HOTKEY_HINTS, room, false); contributed != "" {
+	if contributed := m.paintRegion(region.HotkeyHints, room, false); contributed != "" {
 		hints = ui.Clip(contributed, max(room, 0))
 	}
 

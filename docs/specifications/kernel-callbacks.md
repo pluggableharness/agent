@@ -1,6 +1,6 @@
 # Kernel callback service
 
-This formalizes the **plugin-to-kernel** direction of communication — the reverse of every other protocol in this series, which covers kernel-to-plugin RPCs (`GetCapabilities`, `Configure`, `StreamCompletion`, `Invoke`, `Attach`, and so on). Twelve primitives live here, grouped by concern:
+This formalizes the **plugin-to-kernel** direction of communication — the reverse of every other protocol in this series, which covers kernel-to-plugin RPCs (`GetCapabilities`, `Configure`, `StreamCompletion`, `Invoke`, and so on). Primitives live here, grouped by concern:
 
 - **`RunSession`** — runs a full agent session on a plugin's behalf. Used for sub-agent spawns today, and reserved for a future non-interactive pipeline mode. Full turn-by-turn semantics live in [`agent-loop/subagents.md`](agent-loop/subagents.md); this document defines only the wire-level calling mechanism. `RunSessionResult` carries, alongside `final_message` and `status`, three aggregate usage fields — `total_cost_usd`, `total_input_tokens`, `total_output_tokens` — summed across every turn the child session ran, including any of its own descendant sub-agent sessions. These are deliberately flat fields, not a reference to a single completion's `Usage` shape: `RunSessionResult` reports a whole-session rollup (the same `cost_ledger` SUM [`state-backend.md`](state-backend.md) already computes), a different thing from one model call's per-call token counts. The rollup lets a calling plugin do budget-aware fan-out — checking a just-finished child's actual spend before deciding whether to spawn another — without separately re-summing the child's event history itself.
 - **`CountTokens`** — resolves an exact-if-possible token count for a string, the shared primitive every other category's `tokens` field routes through.
@@ -10,6 +10,13 @@ This formalizes the **plugin-to-kernel** direction of communication — the reve
 - **`GetConfig`** — returns the calling plugin's own resolved `agent.hcl` configuration, the same already-decoded shape `Configure` received.
 - **`Publish`** / **`Subscribe`** — the event bus: ephemeral, best-effort, cross-plugin pub/sub, distinct from `Emit`'s durable per-session log and from hook dispatch's synchronous, `agent.hcl`-declared subscriber chain. See [`event-bus.md`](event-bus.md).
 - **`ReadEvents`** / **`GetSession`** — read-back primitives over the calling plugin's own session: its persisted event log, and its metadata plus live budget rollups.
+- **Frontend state surfaces** (also on this channel, because the plugin is the gRPC server and cannot receive a push stream on a category service):
+  - **`GetSessionState`** — fixed-schema "where am I" snapshot (`session.v1.SessionState`).
+  - **`SubmitInput`** — operator input as `ContentBlock`s; returns `turn_id`.
+  - **`ResolvePlanDecision`** / **`ResolveInteractive`** / **`Interrupt`** / **`InvokeSlashCommand`** / **`TriggerAction`** — operator control.
+  - **`CreateSession`** / **`AttachSession`** / **`ResumeSession`** / **`DetachSession`** / **`ListSessions`** — session lifecycle (moved off the retired frontend `Attach` stream).
+  - **`PublishMetadata`** / **`RetractMetadata`** / **`ListMetadata`** — typed metadata blocks; retraction flips `liveness` to `DISCONNECTED`, never deletes.
+  - **`StreamDeltas`** — live-only token fast path (server-streaming, **not** on the bus; kernel does not batch).
 
 See [`glossary.md`](glossary.md) for how these terms fit the wider vocabulary, and [`architecture.md`](architecture.md) for the surrounding system (transport, hook dispatch, plan/apply, state backend).
 
@@ -36,7 +43,7 @@ KernelCallbackService {
 }
 ```
 
-This channel and the frontend provider's `Attach` RPC are the **only** two genuinely bidirectional RPCs in the whole system — every other category RPC, and every RPC on this service, is server-streaming or unary. `Subscribe` and `ReadEvents` are server-streaming; the other ten are unary. A new primitive added to this service does not get to default to bidi "just in case"; the shape here is a consequence of `hashicorp/go-plugin`'s native plugin→kernel channel existing at all, not a free design choice repeated per RPC — and even that channel's own two RPCs (`RunSession`, `CountTokens`) are, at the application level, simple request/response calls riding a connection that happens to be bidirectional at the transport layer, not calls that themselves stream both ways.
+This channel is the **only** genuinely bidirectional *transport* surface in the whole system — the plugin is the gRPC client here. Every application RPC on this service is unary or server-streaming (`Subscribe`, `ReadEvents`, `StreamDeltas`). Frontend and widget no longer expose an `Attach` stream; their category services are the standard GetCapabilities/Configure/Describe triple. A new primitive added to this service does not get to default to bidi "just in case"; the shape here is a consequence of `hashicorp/go-plugin`'s native plugin→kernel channel existing at all, not a free design choice repeated per RPC.
 
 The callback channel uses a **fixed, well-known broker ID**, not a wire-negotiated one — safe because the kernel is the only party that ever accepts this broker connection, so no collision is possible. Producer identity (`{category, name, version}`) is a property of *which broker connection a call arrived on*, established at handshake, and is server-derived, never client-supplied (see "Emit" and "Log" below) — a plugin cannot declare a producer identity other than its own.
 

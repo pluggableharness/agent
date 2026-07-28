@@ -4,15 +4,19 @@
 // 	protoc        (unknown)
 // source: pluggableharness/kernel/v1/service.proto
 
-// Package pluggableharness.kernel.v1 defines the kernel-callback service described
-// in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
-// Log, ExportSpans, RecordMetrics, GetTelemetryConfig, GetConfig, Publish,
-// Subscribe, ReadEvents, GetSession) — the plugin-to-kernel calling
-// direction every plugin category gets at handshake, the reverse of every
-// other category's protocol in this series. Unlike a category plugin
-// protocol, this service carries no GetCapabilities/Configure RPCs: it
-// isn't something the kernel dials into a plugin, it's the connection
-// every plugin subprocess is handed back to call into the kernel.
+// Package pluggableharness.kernel.v1 defines the kernel-callback service
+// described in specifications/kernel-callbacks.md — the plugin-to-kernel
+// calling direction every plugin category gets at handshake, the reverse
+// of every other category's protocol in this series. Unlike a category
+// plugin protocol, this service carries no GetCapabilities/Configure
+// RPCs: it is not something the kernel dials into a plugin, it is the
+// connection every plugin subprocess is handed back to call into the
+// kernel.
+//
+// Frontend state surfaces (input, state, metadata, transcript backfill,
+// token deltas) also live here: under go-plugin the plugin is the gRPC
+// server, so kernel-push streams and frontend-originated control both
+// use this channel rather than a category Attach RPC.
 
 package kernelv1
 
@@ -34,8 +38,7 @@ var File_pluggableharness_kernel_v1_service_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_kernel_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"(pluggableharness/kernel/v1/service.proto\x12\x1apluggableharness.kernel.v1\x1a'pluggableharness/kernel/v1/events.proto\x1a,pluggableharness/kernel/v1/rpc_request.proto\x1a-pluggableharness/kernel/v1/rpc_response.proto2\x85\n" +
-	"\n" +
+	"(pluggableharness/kernel/v1/service.proto\x12\x1apluggableharness.kernel.v1\x1a'pluggableharness/kernel/v1/events.proto\x1a,pluggableharness/kernel/v1/rpc_request.proto\x1a-pluggableharness/kernel/v1/rpc_response.proto2\xe9\x18\n" +
 	"\x15KernelCallbackService\x12i\n" +
 	"\n" +
 	"RunSession\x12-.pluggableharness.kernel.v1.RunSessionRequest\x1a,.pluggableharness.kernel.v1.RunSessionResult\x12l\n" +
@@ -51,33 +54,81 @@ const file_pluggableharness_kernel_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"ReadEvents\x12-.pluggableharness.kernel.v1.ReadEventsRequest\x1a'.pluggableharness.kernel.v1.StoredEvent0\x01\x12i\n" +
 	"\n" +
-	"GetSession\x12-.pluggableharness.kernel.v1.GetSessionRequest\x1a,.pluggableharness.kernel.v1.GetSessionResultB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
+	"GetSession\x12-.pluggableharness.kernel.v1.GetSessionRequest\x1a,.pluggableharness.kernel.v1.GetSessionResult\x12x\n" +
+	"\x0fGetSessionState\x122.pluggableharness.kernel.v1.GetSessionStateRequest\x1a1.pluggableharness.kernel.v1.GetSessionStateResult\x12l\n" +
+	"\vSubmitInput\x12..pluggableharness.kernel.v1.SubmitInputRequest\x1a-.pluggableharness.kernel.v1.SubmitInputResult\x12\x84\x01\n" +
+	"\x13ResolvePlanDecision\x126.pluggableharness.kernel.v1.ResolvePlanDecisionRequest\x1a5.pluggableharness.kernel.v1.ResolvePlanDecisionResult\x12\x81\x01\n" +
+	"\x12ResolveInteractive\x125.pluggableharness.kernel.v1.ResolveInteractiveRequest\x1a4.pluggableharness.kernel.v1.ResolveInteractiveResult\x12f\n" +
+	"\tInterrupt\x12,.pluggableharness.kernel.v1.InterruptRequest\x1a+.pluggableharness.kernel.v1.InterruptResult\x12r\n" +
+	"\rCreateSession\x120.pluggableharness.kernel.v1.CreateSessionRequest\x1a/.pluggableharness.kernel.v1.CreateSessionResult\x12r\n" +
+	"\rAttachSession\x120.pluggableharness.kernel.v1.AttachSessionRequest\x1a/.pluggableharness.kernel.v1.AttachSessionResult\x12r\n" +
+	"\rResumeSession\x120.pluggableharness.kernel.v1.ResumeSessionRequest\x1a/.pluggableharness.kernel.v1.ResumeSessionResult\x12r\n" +
+	"\rDetachSession\x120.pluggableharness.kernel.v1.DetachSessionRequest\x1a/.pluggableharness.kernel.v1.DetachSessionResult\x12o\n" +
+	"\fListSessions\x12/.pluggableharness.kernel.v1.ListSessionsRequest\x1a..pluggableharness.kernel.v1.ListSessionsResult\x12x\n" +
+	"\x0fPublishMetadata\x122.pluggableharness.kernel.v1.PublishMetadataRequest\x1a1.pluggableharness.kernel.v1.PublishMetadataResult\x12x\n" +
+	"\x0fRetractMetadata\x122.pluggableharness.kernel.v1.RetractMetadataRequest\x1a1.pluggableharness.kernel.v1.RetractMetadataResult\x12o\n" +
+	"\fListMetadata\x12/.pluggableharness.kernel.v1.ListMetadataRequest\x1a..pluggableharness.kernel.v1.ListMetadataResult\x12i\n" +
+	"\fStreamDeltas\x12/.pluggableharness.kernel.v1.StreamDeltasRequest\x1a&.pluggableharness.kernel.v1.TokenDelta0\x01\x12\x81\x01\n" +
+	"\x12InvokeSlashCommand\x125.pluggableharness.kernel.v1.InvokeSlashCommandRequest\x1a4.pluggableharness.kernel.v1.InvokeSlashCommandResult\x12r\n" +
+	"\rTriggerAction\x120.pluggableharness.kernel.v1.TriggerActionRequest\x1a/.pluggableharness.kernel.v1.TriggerActionResultB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
 
 var file_pluggableharness_kernel_v1_service_proto_goTypes = []any{
-	(*RunSessionRequest)(nil),         // 0: pluggableharness.kernel.v1.RunSessionRequest
-	(*CountTokensRequest)(nil),        // 1: pluggableharness.kernel.v1.CountTokensRequest
-	(*EmitRequest)(nil),               // 2: pluggableharness.kernel.v1.EmitRequest
-	(*LogRequest)(nil),                // 3: pluggableharness.kernel.v1.LogRequest
-	(*ExportSpansRequest)(nil),        // 4: pluggableharness.kernel.v1.ExportSpansRequest
-	(*RecordMetricsRequest)(nil),      // 5: pluggableharness.kernel.v1.RecordMetricsRequest
-	(*GetTelemetryConfigRequest)(nil), // 6: pluggableharness.kernel.v1.GetTelemetryConfigRequest
-	(*GetConfigRequest)(nil),          // 7: pluggableharness.kernel.v1.GetConfigRequest
-	(*PublishRequest)(nil),            // 8: pluggableharness.kernel.v1.PublishRequest
-	(*SubscribeRequest)(nil),          // 9: pluggableharness.kernel.v1.SubscribeRequest
-	(*ReadEventsRequest)(nil),         // 10: pluggableharness.kernel.v1.ReadEventsRequest
-	(*GetSessionRequest)(nil),         // 11: pluggableharness.kernel.v1.GetSessionRequest
-	(*RunSessionResult)(nil),          // 12: pluggableharness.kernel.v1.RunSessionResult
-	(*CountTokensResult)(nil),         // 13: pluggableharness.kernel.v1.CountTokensResult
-	(*EmitResult)(nil),                // 14: pluggableharness.kernel.v1.EmitResult
-	(*LogResult)(nil),                 // 15: pluggableharness.kernel.v1.LogResult
-	(*ExportSpansResult)(nil),         // 16: pluggableharness.kernel.v1.ExportSpansResult
-	(*RecordMetricsResult)(nil),       // 17: pluggableharness.kernel.v1.RecordMetricsResult
-	(*GetTelemetryConfigResult)(nil),  // 18: pluggableharness.kernel.v1.GetTelemetryConfigResult
-	(*GetConfigResult)(nil),           // 19: pluggableharness.kernel.v1.GetConfigResult
-	(*PublishResult)(nil),             // 20: pluggableharness.kernel.v1.PublishResult
-	(*BusEvent)(nil),                  // 21: pluggableharness.kernel.v1.BusEvent
-	(*StoredEvent)(nil),               // 22: pluggableharness.kernel.v1.StoredEvent
-	(*GetSessionResult)(nil),          // 23: pluggableharness.kernel.v1.GetSessionResult
+	(*RunSessionRequest)(nil),          // 0: pluggableharness.kernel.v1.RunSessionRequest
+	(*CountTokensRequest)(nil),         // 1: pluggableharness.kernel.v1.CountTokensRequest
+	(*EmitRequest)(nil),                // 2: pluggableharness.kernel.v1.EmitRequest
+	(*LogRequest)(nil),                 // 3: pluggableharness.kernel.v1.LogRequest
+	(*ExportSpansRequest)(nil),         // 4: pluggableharness.kernel.v1.ExportSpansRequest
+	(*RecordMetricsRequest)(nil),       // 5: pluggableharness.kernel.v1.RecordMetricsRequest
+	(*GetTelemetryConfigRequest)(nil),  // 6: pluggableharness.kernel.v1.GetTelemetryConfigRequest
+	(*GetConfigRequest)(nil),           // 7: pluggableharness.kernel.v1.GetConfigRequest
+	(*PublishRequest)(nil),             // 8: pluggableharness.kernel.v1.PublishRequest
+	(*SubscribeRequest)(nil),           // 9: pluggableharness.kernel.v1.SubscribeRequest
+	(*ReadEventsRequest)(nil),          // 10: pluggableharness.kernel.v1.ReadEventsRequest
+	(*GetSessionRequest)(nil),          // 11: pluggableharness.kernel.v1.GetSessionRequest
+	(*GetSessionStateRequest)(nil),     // 12: pluggableharness.kernel.v1.GetSessionStateRequest
+	(*SubmitInputRequest)(nil),         // 13: pluggableharness.kernel.v1.SubmitInputRequest
+	(*ResolvePlanDecisionRequest)(nil), // 14: pluggableharness.kernel.v1.ResolvePlanDecisionRequest
+	(*ResolveInteractiveRequest)(nil),  // 15: pluggableharness.kernel.v1.ResolveInteractiveRequest
+	(*InterruptRequest)(nil),           // 16: pluggableharness.kernel.v1.InterruptRequest
+	(*CreateSessionRequest)(nil),       // 17: pluggableharness.kernel.v1.CreateSessionRequest
+	(*AttachSessionRequest)(nil),       // 18: pluggableharness.kernel.v1.AttachSessionRequest
+	(*ResumeSessionRequest)(nil),       // 19: pluggableharness.kernel.v1.ResumeSessionRequest
+	(*DetachSessionRequest)(nil),       // 20: pluggableharness.kernel.v1.DetachSessionRequest
+	(*ListSessionsRequest)(nil),        // 21: pluggableharness.kernel.v1.ListSessionsRequest
+	(*PublishMetadataRequest)(nil),     // 22: pluggableharness.kernel.v1.PublishMetadataRequest
+	(*RetractMetadataRequest)(nil),     // 23: pluggableharness.kernel.v1.RetractMetadataRequest
+	(*ListMetadataRequest)(nil),        // 24: pluggableharness.kernel.v1.ListMetadataRequest
+	(*StreamDeltasRequest)(nil),        // 25: pluggableharness.kernel.v1.StreamDeltasRequest
+	(*InvokeSlashCommandRequest)(nil),  // 26: pluggableharness.kernel.v1.InvokeSlashCommandRequest
+	(*TriggerActionRequest)(nil),       // 27: pluggableharness.kernel.v1.TriggerActionRequest
+	(*RunSessionResult)(nil),           // 28: pluggableharness.kernel.v1.RunSessionResult
+	(*CountTokensResult)(nil),          // 29: pluggableharness.kernel.v1.CountTokensResult
+	(*EmitResult)(nil),                 // 30: pluggableharness.kernel.v1.EmitResult
+	(*LogResult)(nil),                  // 31: pluggableharness.kernel.v1.LogResult
+	(*ExportSpansResult)(nil),          // 32: pluggableharness.kernel.v1.ExportSpansResult
+	(*RecordMetricsResult)(nil),        // 33: pluggableharness.kernel.v1.RecordMetricsResult
+	(*GetTelemetryConfigResult)(nil),   // 34: pluggableharness.kernel.v1.GetTelemetryConfigResult
+	(*GetConfigResult)(nil),            // 35: pluggableharness.kernel.v1.GetConfigResult
+	(*PublishResult)(nil),              // 36: pluggableharness.kernel.v1.PublishResult
+	(*BusEvent)(nil),                   // 37: pluggableharness.kernel.v1.BusEvent
+	(*StoredEvent)(nil),                // 38: pluggableharness.kernel.v1.StoredEvent
+	(*GetSessionResult)(nil),           // 39: pluggableharness.kernel.v1.GetSessionResult
+	(*GetSessionStateResult)(nil),      // 40: pluggableharness.kernel.v1.GetSessionStateResult
+	(*SubmitInputResult)(nil),          // 41: pluggableharness.kernel.v1.SubmitInputResult
+	(*ResolvePlanDecisionResult)(nil),  // 42: pluggableharness.kernel.v1.ResolvePlanDecisionResult
+	(*ResolveInteractiveResult)(nil),   // 43: pluggableharness.kernel.v1.ResolveInteractiveResult
+	(*InterruptResult)(nil),            // 44: pluggableharness.kernel.v1.InterruptResult
+	(*CreateSessionResult)(nil),        // 45: pluggableharness.kernel.v1.CreateSessionResult
+	(*AttachSessionResult)(nil),        // 46: pluggableharness.kernel.v1.AttachSessionResult
+	(*ResumeSessionResult)(nil),        // 47: pluggableharness.kernel.v1.ResumeSessionResult
+	(*DetachSessionResult)(nil),        // 48: pluggableharness.kernel.v1.DetachSessionResult
+	(*ListSessionsResult)(nil),         // 49: pluggableharness.kernel.v1.ListSessionsResult
+	(*PublishMetadataResult)(nil),      // 50: pluggableharness.kernel.v1.PublishMetadataResult
+	(*RetractMetadataResult)(nil),      // 51: pluggableharness.kernel.v1.RetractMetadataResult
+	(*ListMetadataResult)(nil),         // 52: pluggableharness.kernel.v1.ListMetadataResult
+	(*TokenDelta)(nil),                 // 53: pluggableharness.kernel.v1.TokenDelta
+	(*InvokeSlashCommandResult)(nil),   // 54: pluggableharness.kernel.v1.InvokeSlashCommandResult
+	(*TriggerActionResult)(nil),        // 55: pluggableharness.kernel.v1.TriggerActionResult
 }
 var file_pluggableharness_kernel_v1_service_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.kernel.v1.KernelCallbackService.RunSession:input_type -> pluggableharness.kernel.v1.RunSessionRequest
@@ -92,20 +143,52 @@ var file_pluggableharness_kernel_v1_service_proto_depIdxs = []int32{
 	9,  // 9: pluggableharness.kernel.v1.KernelCallbackService.Subscribe:input_type -> pluggableharness.kernel.v1.SubscribeRequest
 	10, // 10: pluggableharness.kernel.v1.KernelCallbackService.ReadEvents:input_type -> pluggableharness.kernel.v1.ReadEventsRequest
 	11, // 11: pluggableharness.kernel.v1.KernelCallbackService.GetSession:input_type -> pluggableharness.kernel.v1.GetSessionRequest
-	12, // 12: pluggableharness.kernel.v1.KernelCallbackService.RunSession:output_type -> pluggableharness.kernel.v1.RunSessionResult
-	13, // 13: pluggableharness.kernel.v1.KernelCallbackService.CountTokens:output_type -> pluggableharness.kernel.v1.CountTokensResult
-	14, // 14: pluggableharness.kernel.v1.KernelCallbackService.Emit:output_type -> pluggableharness.kernel.v1.EmitResult
-	15, // 15: pluggableharness.kernel.v1.KernelCallbackService.Log:output_type -> pluggableharness.kernel.v1.LogResult
-	16, // 16: pluggableharness.kernel.v1.KernelCallbackService.ExportSpans:output_type -> pluggableharness.kernel.v1.ExportSpansResult
-	17, // 17: pluggableharness.kernel.v1.KernelCallbackService.RecordMetrics:output_type -> pluggableharness.kernel.v1.RecordMetricsResult
-	18, // 18: pluggableharness.kernel.v1.KernelCallbackService.GetTelemetryConfig:output_type -> pluggableharness.kernel.v1.GetTelemetryConfigResult
-	19, // 19: pluggableharness.kernel.v1.KernelCallbackService.GetConfig:output_type -> pluggableharness.kernel.v1.GetConfigResult
-	20, // 20: pluggableharness.kernel.v1.KernelCallbackService.Publish:output_type -> pluggableharness.kernel.v1.PublishResult
-	21, // 21: pluggableharness.kernel.v1.KernelCallbackService.Subscribe:output_type -> pluggableharness.kernel.v1.BusEvent
-	22, // 22: pluggableharness.kernel.v1.KernelCallbackService.ReadEvents:output_type -> pluggableharness.kernel.v1.StoredEvent
-	23, // 23: pluggableharness.kernel.v1.KernelCallbackService.GetSession:output_type -> pluggableharness.kernel.v1.GetSessionResult
-	12, // [12:24] is the sub-list for method output_type
-	0,  // [0:12] is the sub-list for method input_type
+	12, // 12: pluggableharness.kernel.v1.KernelCallbackService.GetSessionState:input_type -> pluggableharness.kernel.v1.GetSessionStateRequest
+	13, // 13: pluggableharness.kernel.v1.KernelCallbackService.SubmitInput:input_type -> pluggableharness.kernel.v1.SubmitInputRequest
+	14, // 14: pluggableharness.kernel.v1.KernelCallbackService.ResolvePlanDecision:input_type -> pluggableharness.kernel.v1.ResolvePlanDecisionRequest
+	15, // 15: pluggableharness.kernel.v1.KernelCallbackService.ResolveInteractive:input_type -> pluggableharness.kernel.v1.ResolveInteractiveRequest
+	16, // 16: pluggableharness.kernel.v1.KernelCallbackService.Interrupt:input_type -> pluggableharness.kernel.v1.InterruptRequest
+	17, // 17: pluggableharness.kernel.v1.KernelCallbackService.CreateSession:input_type -> pluggableharness.kernel.v1.CreateSessionRequest
+	18, // 18: pluggableharness.kernel.v1.KernelCallbackService.AttachSession:input_type -> pluggableharness.kernel.v1.AttachSessionRequest
+	19, // 19: pluggableharness.kernel.v1.KernelCallbackService.ResumeSession:input_type -> pluggableharness.kernel.v1.ResumeSessionRequest
+	20, // 20: pluggableharness.kernel.v1.KernelCallbackService.DetachSession:input_type -> pluggableharness.kernel.v1.DetachSessionRequest
+	21, // 21: pluggableharness.kernel.v1.KernelCallbackService.ListSessions:input_type -> pluggableharness.kernel.v1.ListSessionsRequest
+	22, // 22: pluggableharness.kernel.v1.KernelCallbackService.PublishMetadata:input_type -> pluggableharness.kernel.v1.PublishMetadataRequest
+	23, // 23: pluggableharness.kernel.v1.KernelCallbackService.RetractMetadata:input_type -> pluggableharness.kernel.v1.RetractMetadataRequest
+	24, // 24: pluggableharness.kernel.v1.KernelCallbackService.ListMetadata:input_type -> pluggableharness.kernel.v1.ListMetadataRequest
+	25, // 25: pluggableharness.kernel.v1.KernelCallbackService.StreamDeltas:input_type -> pluggableharness.kernel.v1.StreamDeltasRequest
+	26, // 26: pluggableharness.kernel.v1.KernelCallbackService.InvokeSlashCommand:input_type -> pluggableharness.kernel.v1.InvokeSlashCommandRequest
+	27, // 27: pluggableharness.kernel.v1.KernelCallbackService.TriggerAction:input_type -> pluggableharness.kernel.v1.TriggerActionRequest
+	28, // 28: pluggableharness.kernel.v1.KernelCallbackService.RunSession:output_type -> pluggableharness.kernel.v1.RunSessionResult
+	29, // 29: pluggableharness.kernel.v1.KernelCallbackService.CountTokens:output_type -> pluggableharness.kernel.v1.CountTokensResult
+	30, // 30: pluggableharness.kernel.v1.KernelCallbackService.Emit:output_type -> pluggableharness.kernel.v1.EmitResult
+	31, // 31: pluggableharness.kernel.v1.KernelCallbackService.Log:output_type -> pluggableharness.kernel.v1.LogResult
+	32, // 32: pluggableharness.kernel.v1.KernelCallbackService.ExportSpans:output_type -> pluggableharness.kernel.v1.ExportSpansResult
+	33, // 33: pluggableharness.kernel.v1.KernelCallbackService.RecordMetrics:output_type -> pluggableharness.kernel.v1.RecordMetricsResult
+	34, // 34: pluggableharness.kernel.v1.KernelCallbackService.GetTelemetryConfig:output_type -> pluggableharness.kernel.v1.GetTelemetryConfigResult
+	35, // 35: pluggableharness.kernel.v1.KernelCallbackService.GetConfig:output_type -> pluggableharness.kernel.v1.GetConfigResult
+	36, // 36: pluggableharness.kernel.v1.KernelCallbackService.Publish:output_type -> pluggableharness.kernel.v1.PublishResult
+	37, // 37: pluggableharness.kernel.v1.KernelCallbackService.Subscribe:output_type -> pluggableharness.kernel.v1.BusEvent
+	38, // 38: pluggableharness.kernel.v1.KernelCallbackService.ReadEvents:output_type -> pluggableharness.kernel.v1.StoredEvent
+	39, // 39: pluggableharness.kernel.v1.KernelCallbackService.GetSession:output_type -> pluggableharness.kernel.v1.GetSessionResult
+	40, // 40: pluggableharness.kernel.v1.KernelCallbackService.GetSessionState:output_type -> pluggableharness.kernel.v1.GetSessionStateResult
+	41, // 41: pluggableharness.kernel.v1.KernelCallbackService.SubmitInput:output_type -> pluggableharness.kernel.v1.SubmitInputResult
+	42, // 42: pluggableharness.kernel.v1.KernelCallbackService.ResolvePlanDecision:output_type -> pluggableharness.kernel.v1.ResolvePlanDecisionResult
+	43, // 43: pluggableharness.kernel.v1.KernelCallbackService.ResolveInteractive:output_type -> pluggableharness.kernel.v1.ResolveInteractiveResult
+	44, // 44: pluggableharness.kernel.v1.KernelCallbackService.Interrupt:output_type -> pluggableharness.kernel.v1.InterruptResult
+	45, // 45: pluggableharness.kernel.v1.KernelCallbackService.CreateSession:output_type -> pluggableharness.kernel.v1.CreateSessionResult
+	46, // 46: pluggableharness.kernel.v1.KernelCallbackService.AttachSession:output_type -> pluggableharness.kernel.v1.AttachSessionResult
+	47, // 47: pluggableharness.kernel.v1.KernelCallbackService.ResumeSession:output_type -> pluggableharness.kernel.v1.ResumeSessionResult
+	48, // 48: pluggableharness.kernel.v1.KernelCallbackService.DetachSession:output_type -> pluggableharness.kernel.v1.DetachSessionResult
+	49, // 49: pluggableharness.kernel.v1.KernelCallbackService.ListSessions:output_type -> pluggableharness.kernel.v1.ListSessionsResult
+	50, // 50: pluggableharness.kernel.v1.KernelCallbackService.PublishMetadata:output_type -> pluggableharness.kernel.v1.PublishMetadataResult
+	51, // 51: pluggableharness.kernel.v1.KernelCallbackService.RetractMetadata:output_type -> pluggableharness.kernel.v1.RetractMetadataResult
+	52, // 52: pluggableharness.kernel.v1.KernelCallbackService.ListMetadata:output_type -> pluggableharness.kernel.v1.ListMetadataResult
+	53, // 53: pluggableharness.kernel.v1.KernelCallbackService.StreamDeltas:output_type -> pluggableharness.kernel.v1.TokenDelta
+	54, // 54: pluggableharness.kernel.v1.KernelCallbackService.InvokeSlashCommand:output_type -> pluggableharness.kernel.v1.InvokeSlashCommandResult
+	55, // 55: pluggableharness.kernel.v1.KernelCallbackService.TriggerAction:output_type -> pluggableharness.kernel.v1.TriggerActionResult
+	28, // [28:56] is the sub-list for method output_type
+	0,  // [0:28] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name

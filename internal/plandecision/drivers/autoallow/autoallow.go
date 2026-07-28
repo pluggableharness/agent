@@ -11,7 +11,6 @@ import (
 	"github.com/pluggableharness/agent/internal/plandecision"
 	"github.com/pluggableharness/agent/internal/telemetry"
 	"github.com/pluggableharness/agent/internal/telemetry/drivers/noop"
-	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 )
 
@@ -138,7 +137,7 @@ func (r *resolver) Resolve(ctx context.Context, req plandecision.Request) (_ pla
 
 	r.logger.DebugContext(ctx, "autoallow: resolved plan item", append(attrs,
 		slog.String("decision", planv1.PlanDecision_PLAN_DECISION_ALLOW.String()),
-		slog.String("scope", frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE.String()),
+		slog.String("scope", planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE.String()),
 	)...)
 
 	return plandecision.Decision{
@@ -148,7 +147,7 @@ func (r *resolver) Resolve(ctx context.Context, req plandecision.Request) (_ pla
 		// persisted policy rule) that the real frontend resolver would
 		// later have to discover and reconcile. Auto-allow leaves zero
 		// durable trace beyond the ordinary per-item audit row.
-		Scope: frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+		Scope: planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 		// Never a correction: this resolver blanket-approves the
 		// model's original input, it does not propose alternatives.
 		CorrectedInput: nil,

@@ -4,16 +4,18 @@
 // 	protoc        (unknown)
 // source: pluggableharness/session/v1/types.proto
 
-// Package pluggableharness.session.v1 defines the session lifecycle status enum
-// shared by kernel-callbacks.md §1's RunSessionResult, state-backend.md
-// §4.2's session_meta.status column, and frontend.md §3.2's
-// session_tree_update ServerEvent.
+// Package pluggableharness.session.v1 defines the session lifecycle status
+// enum shared by kernel-callbacks.md's RunSessionResult and
+// state-backend.md's session_meta.status column, plus SessionInfo and the
+// frontend-facing SessionState snapshot ("where am I") assembled by
+// KernelCallbackService.GetSessionState.
 
 package sessionv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -110,9 +112,9 @@ func (SessionStatus) EnumDescriptor() ([]byte, []int) {
 
 // SessionInfo is a session's shareable summary, mirroring
 // state-backend.md's session_meta row plus a cheap cost_ledger SUM. Used
-// by frontend.md's SessionCreated/SessionAttached/SessionList ServerEvent
-// variants — the frontend protocol's read-only view of session lifecycle
-// state, never mutated by a frontend directly.
+// by session lifecycle RPCs (CreateSession/AttachSession/ListSessions)
+// and embedded inside SessionState — the frontend protocol's read-only
+// view of session lifecycle state, never mutated by a frontend directly.
 type SessionInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session's id. ULID, matches the session's sqlite filename stem
@@ -228,11 +230,318 @@ func (x *SessionInfo) GetCostUsd() float64 {
 	return 0
 }
 
+// VcsState is the session's version-control summary for status rendering.
+// Absent fields mean "unknown / not a VCS working tree," not empty.
+type VcsState struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The remote tracking URL or name, when known.
+	Remote *string `protobuf:"bytes,1,opt,name=remote,proto3,oneof" json:"remote,omitempty"`
+	// The current branch or detached-HEAD ref name, when known.
+	Branch *string `protobuf:"bytes,2,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
+	// True when the working tree has uncommitted changes. Absent when VCS
+	// state could not be determined.
+	Dirty         *bool `protobuf:"varint,3,opt,name=dirty,proto3,oneof" json:"dirty,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VcsState) Reset() {
+	*x = VcsState{}
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VcsState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VcsState) ProtoMessage() {}
+
+func (x *VcsState) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VcsState.ProtoReflect.Descriptor instead.
+func (*VcsState) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_session_v1_types_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *VcsState) GetRemote() string {
+	if x != nil && x.Remote != nil {
+		return *x.Remote
+	}
+	return ""
+}
+
+func (x *VcsState) GetBranch() string {
+	if x != nil && x.Branch != nil {
+		return *x.Branch
+	}
+	return ""
+}
+
+func (x *VcsState) GetDirty() bool {
+	if x != nil && x.Dirty != nil {
+		return *x.Dirty
+	}
+	return false
+}
+
+// ModelState names the model currently driving the session.
+type ModelState struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The model's id within its provider (ModelSpec.id).
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// The declared name of the model provider plugin.
+	Provider      string `protobuf:"bytes,2,opt,name=provider,proto3" json:"provider,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModelState) Reset() {
+	*x = ModelState{}
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelState) ProtoMessage() {}
+
+func (x *ModelState) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModelState.ProtoReflect.Descriptor instead.
+func (*ModelState) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_session_v1_types_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ModelState) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ModelState) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+// ContextState is the session's context-window pressure for status bars.
+type ContextState struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Tokens currently used against the window.
+	UsedTokens int64 `protobuf:"varint,1,opt,name=used_tokens,json=usedTokens,proto3" json:"used_tokens,omitempty"`
+	// The usable context window size in tokens (effective ceiling).
+	WindowTokens  int64 `protobuf:"varint,2,opt,name=window_tokens,json=windowTokens,proto3" json:"window_tokens,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ContextState) Reset() {
+	*x = ContextState{}
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContextState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContextState) ProtoMessage() {}
+
+func (x *ContextState) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContextState.ProtoReflect.Descriptor instead.
+func (*ContextState) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_session_v1_types_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ContextState) GetUsedTokens() int64 {
+	if x != nil {
+		return x.UsedTokens
+	}
+	return 0
+}
+
+func (x *ContextState) GetWindowTokens() int64 {
+	if x != nil {
+		return x.WindowTokens
+	}
+	return 0
+}
+
+// SessionState is the fixed-schema "where am I" snapshot a frontend
+// renders into a status bar, HTTP header, stdout line, or spoken sentence.
+// Assembled by KernelCallbackService.GetSessionState and republished on
+// the event bus topic kernel.state whenever a watched field changes.
+// Per-session: every snapshot names exactly one session. No extension
+// point — a closed schema is what makes every frontend able to render it.
+type SessionState struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's shareable lifecycle summary. MUST be set.
+	Info *SessionInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
+	// Absolute working directory for this session. MUST be set once the
+	// session has one; empty only before CreateSession finishes binding it.
+	WorkingDirectory string `protobuf:"bytes,2,opt,name=working_directory,json=workingDirectory,proto3" json:"working_directory,omitempty"`
+	// Version-control summary for working_directory. Absent when not a
+	// VCS tree or not yet probed.
+	Vcs *VcsState `protobuf:"bytes,3,opt,name=vcs,proto3,oneof" json:"vcs,omitempty"`
+	// The model currently selected for this session's turns. Absent only
+	// before the first model resolution.
+	Model *ModelState `protobuf:"bytes,4,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	// The active thinking/effort level name for the current model, when
+	// the model exposes an effort ladder. Absent when thinking is off or
+	// the model has no effort control.
+	ThinkingEffort *string `protobuf:"bytes,5,opt,name=thinking_effort,json=thinkingEffort,proto3,oneof" json:"thinking_effort,omitempty"`
+	// Context-window pressure. Absent only before the first turn's usage
+	// is known.
+	Context *ContextState `protobuf:"bytes,6,opt,name=context,proto3,oneof" json:"context,omitempty"`
+	// Number of completed turns in this session.
+	TurnCount int32 `protobuf:"varint,7,opt,name=turn_count,json=turnCount,proto3" json:"turn_count,omitempty"`
+	// Wall-clock time since info.started_at. MUST be set for a live
+	// session; for a terminal session equals ended_at - started_at.
+	Elapsed *durationpb.Duration `protobuf:"bytes,8,opt,name=elapsed,proto3" json:"elapsed,omitempty"`
+	// Session-lifetime total tokens (input + output), summed from the cost
+	// ledger / usage rollups. Zero when no model call has completed yet.
+	TotalTokens   int64 `protobuf:"varint,9,opt,name=total_tokens,json=totalTokens,proto3" json:"total_tokens,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionState) Reset() {
+	*x = SessionState{}
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionState) ProtoMessage() {}
+
+func (x *SessionState) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_session_v1_types_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionState.ProtoReflect.Descriptor instead.
+func (*SessionState) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_session_v1_types_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SessionState) GetInfo() *SessionInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+func (x *SessionState) GetWorkingDirectory() string {
+	if x != nil {
+		return x.WorkingDirectory
+	}
+	return ""
+}
+
+func (x *SessionState) GetVcs() *VcsState {
+	if x != nil {
+		return x.Vcs
+	}
+	return nil
+}
+
+func (x *SessionState) GetModel() *ModelState {
+	if x != nil {
+		return x.Model
+	}
+	return nil
+}
+
+func (x *SessionState) GetThinkingEffort() string {
+	if x != nil && x.ThinkingEffort != nil {
+		return *x.ThinkingEffort
+	}
+	return ""
+}
+
+func (x *SessionState) GetContext() *ContextState {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+func (x *SessionState) GetTurnCount() int32 {
+	if x != nil {
+		return x.TurnCount
+	}
+	return 0
+}
+
+func (x *SessionState) GetElapsed() *durationpb.Duration {
+	if x != nil {
+		return x.Elapsed
+	}
+	return nil
+}
+
+func (x *SessionState) GetTotalTokens() int64 {
+	if x != nil {
+		return x.TotalTokens
+	}
+	return 0
+}
+
 var File_pluggableharness_session_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/session/v1/types.proto\x12\x1bpluggableharness.session.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x03\n" +
+	"'pluggableharness/session/v1/types.proto\x12\x1bpluggableharness.session.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x03\n" +
 	"\vSessionInfo\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12/\n" +
@@ -246,7 +555,38 @@ const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"\bcost_usd\x18\b \x01(\x01H\x02R\acostUsd\x88\x01\x01B\x14\n" +
 	"\x12_parent_session_idB\v\n" +
 	"\t_ended_atB\v\n" +
-	"\t_cost_usd*\x98\x02\n" +
+	"\t_cost_usd\"\x7f\n" +
+	"\bVcsState\x12\x1b\n" +
+	"\x06remote\x18\x01 \x01(\tH\x00R\x06remote\x88\x01\x01\x12\x1b\n" +
+	"\x06branch\x18\x02 \x01(\tH\x01R\x06branch\x88\x01\x01\x12\x19\n" +
+	"\x05dirty\x18\x03 \x01(\bH\x02R\x05dirty\x88\x01\x01B\t\n" +
+	"\a_remoteB\t\n" +
+	"\a_branchB\b\n" +
+	"\x06_dirty\"8\n" +
+	"\n" +
+	"ModelState\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bprovider\x18\x02 \x01(\tR\bprovider\"T\n" +
+	"\fContextState\x12\x1f\n" +
+	"\vused_tokens\x18\x01 \x01(\x03R\n" +
+	"usedTokens\x12#\n" +
+	"\rwindow_tokens\x18\x02 \x01(\x03R\fwindowTokens\"\x9c\x04\n" +
+	"\fSessionState\x12<\n" +
+	"\x04info\x18\x01 \x01(\v2(.pluggableharness.session.v1.SessionInfoR\x04info\x12+\n" +
+	"\x11working_directory\x18\x02 \x01(\tR\x10workingDirectory\x12<\n" +
+	"\x03vcs\x18\x03 \x01(\v2%.pluggableharness.session.v1.VcsStateH\x00R\x03vcs\x88\x01\x01\x12B\n" +
+	"\x05model\x18\x04 \x01(\v2'.pluggableharness.session.v1.ModelStateH\x01R\x05model\x88\x01\x01\x12,\n" +
+	"\x0fthinking_effort\x18\x05 \x01(\tH\x02R\x0ethinkingEffort\x88\x01\x01\x12H\n" +
+	"\acontext\x18\x06 \x01(\v2).pluggableharness.session.v1.ContextStateH\x03R\acontext\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"turn_count\x18\a \x01(\x05R\tturnCount\x123\n" +
+	"\aelapsed\x18\b \x01(\v2\x19.google.protobuf.DurationR\aelapsed\x12!\n" +
+	"\ftotal_tokens\x18\t \x01(\x03R\vtotalTokensB\x06\n" +
+	"\x04_vcsB\b\n" +
+	"\x06_modelB\x12\n" +
+	"\x10_thinking_effortB\n" +
+	"\n" +
+	"\b_context*\x98\x02\n" +
 	"\rSessionStatus\x12\x1e\n" +
 	"\x1aSESSION_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SESSION_STATUS_RUNNING\x10\x01\x12\x1c\n" +
@@ -270,21 +610,31 @@ func file_pluggableharness_session_v1_types_proto_rawDescGZIP() []byte {
 }
 
 var file_pluggableharness_session_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_session_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_pluggableharness_session_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pluggableharness_session_v1_types_proto_goTypes = []any{
 	(SessionStatus)(0),            // 0: pluggableharness.session.v1.SessionStatus
 	(*SessionInfo)(nil),           // 1: pluggableharness.session.v1.SessionInfo
-	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
+	(*VcsState)(nil),              // 2: pluggableharness.session.v1.VcsState
+	(*ModelState)(nil),            // 3: pluggableharness.session.v1.ModelState
+	(*ContextState)(nil),          // 4: pluggableharness.session.v1.ContextState
+	(*SessionState)(nil),          // 5: pluggableharness.session.v1.SessionState
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),   // 7: google.protobuf.Duration
 }
 var file_pluggableharness_session_v1_types_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.session.v1.SessionInfo.status:type_name -> pluggableharness.session.v1.SessionStatus
-	2, // 1: pluggableharness.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
-	2, // 2: pluggableharness.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 1: pluggableharness.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
+	6, // 2: pluggableharness.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
+	1, // 3: pluggableharness.session.v1.SessionState.info:type_name -> pluggableharness.session.v1.SessionInfo
+	2, // 4: pluggableharness.session.v1.SessionState.vcs:type_name -> pluggableharness.session.v1.VcsState
+	3, // 5: pluggableharness.session.v1.SessionState.model:type_name -> pluggableharness.session.v1.ModelState
+	4, // 6: pluggableharness.session.v1.SessionState.context:type_name -> pluggableharness.session.v1.ContextState
+	7, // 7: pluggableharness.session.v1.SessionState.elapsed:type_name -> google.protobuf.Duration
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_session_v1_types_proto_init() }
@@ -293,13 +643,15 @@ func file_pluggableharness_session_v1_types_proto_init() {
 		return
 	}
 	file_pluggableharness_session_v1_types_proto_msgTypes[0].OneofWrappers = []any{}
+	file_pluggableharness_session_v1_types_proto_msgTypes[1].OneofWrappers = []any{}
+	file_pluggableharness_session_v1_types_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_session_v1_types_proto_rawDesc), len(file_pluggableharness_session_v1_types_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

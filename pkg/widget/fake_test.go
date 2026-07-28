@@ -8,14 +8,10 @@ import (
 	"github.com/pluggableharness/agent/pkg/widget"
 )
 
-// fakeProvider is a hand-written widget.Provider fake (go-testing.md:
-// fakes, not mocking frameworks). Each method's behavior is controlled by
-// a caller-set func field; a nil field returns a zero value and a nil
-// error, which is enough for tests that only exercise one method.
+// fakeProvider is a hand-written widget.Provider fake.
 type fakeProvider struct {
 	getCapabilitiesFunc func(ctx context.Context) (widget.Capabilities, error)
 	configureFunc       func(ctx context.Context, config *structpb.Struct) error
-	attachFunc          func(ctx context.Context, req widget.AttachRequest, sender *widget.UpdateSender) error
 }
 
 func (f *fakeProvider) GetCapabilities(ctx context.Context) (widget.Capabilities, error) {
@@ -28,13 +24,6 @@ func (f *fakeProvider) GetCapabilities(ctx context.Context) (widget.Capabilities
 func (f *fakeProvider) Configure(ctx context.Context, config *structpb.Struct) error {
 	if f.configureFunc != nil {
 		return f.configureFunc(ctx, config)
-	}
-	return nil
-}
-
-func (f *fakeProvider) Attach(ctx context.Context, req widget.AttachRequest, sender *widget.UpdateSender) error {
-	if f.attachFunc != nil {
-		return f.attachFunc(ctx, req, sender)
 	}
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	configv1 "github.com/pluggableharness/agent/pkg/config/proto/v1"
 	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
-	renderv1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 )
 
 // CapabilitiesOption configures one optional field of a Capabilities built
@@ -15,12 +14,6 @@ type CapabilitiesOption func(*Capabilities)
 // itself contributes.
 func WithSlashCommands(commands ...*commonv1.PromptExpansionSpec) CapabilitiesOption {
 	return func(c *Capabilities) { c.SlashCommands = commands }
-}
-
-// WithSupportedRegions sets the Regions this frontend proactively declares
-// it can render into.
-func WithSupportedRegions(regions ...renderv1.Region) CapabilitiesOption {
-	return func(c *Capabilities) { c.SupportedRegions = regions }
 }
 
 // WithSupportedHookPoints sets the hook points this frontend can
@@ -52,7 +45,6 @@ func capabilitiesToProto(c *Capabilities) *frontendv1.FrontendCapabilities {
 	return &frontendv1.FrontendCapabilities{
 		SlashCommands:       c.SlashCommands,
 		ConfigSchema:        c.ConfigSchema,
-		SupportedRegions:    c.SupportedRegions,
 		SupportedHookPoints: c.SupportedHookPoints,
 	}
 }

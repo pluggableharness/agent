@@ -4,11 +4,13 @@
 // 	protoc        (unknown)
 // source: pluggableharness/widget/v1/service.proto
 
-// Package pluggableharness.widget.v1 defines the widget provider plugin protocol
-// described in specifications/frontend.md §4 (Attach, action dispatch, ...).
-// Messages and RPCs are added incrementally as the protocol is finalized;
-// this file currently scaffolds the buf toolchain wiring — see
-// .claude/rules/proto.md.
+// Package pluggableharness.widget.v1 defines the widget provider plugin
+// protocol described in specifications/frontend/widget-protocol.md. A
+// widget contributes typed metadata (or other plugin-side work) without
+// owning the frontend. There is no Attach stream: a widget that wants
+// screen presence calls KernelCallbackService.PublishMetadata on the
+// callback channel, the same path a tool provider uses for a status
+// block.
 
 package widgetv1
 
@@ -30,34 +32,29 @@ var File_pluggableharness_widget_v1_service_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_widget_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"(pluggableharness/widget/v1/service.proto\x12\x1apluggableharness.widget.v1\x1a'pluggableharness/widget/v1/events.proto\x1a,pluggableharness/widget/v1/rpc_request.proto\x1a-pluggableharness/widget/v1/rpc_response.proto2\xbd\x03\n" +
+	"(pluggableharness/widget/v1/service.proto\x12\x1apluggableharness.widget.v1\x1a,pluggableharness/widget/v1/rpc_request.proto\x1a-pluggableharness/widget/v1/rpc_response.proto2\xdc\x02\n" +
 	"\rWidgetService\x12z\n" +
 	"\x0fGetCapabilities\x122.pluggableharness.widget.v1.GetCapabilitiesRequest\x1a3.pluggableharness.widget.v1.GetCapabilitiesResponse\x12h\n" +
-	"\tConfigure\x12,.pluggableharness.widget.v1.ConfigureRequest\x1a-.pluggableharness.widget.v1.ConfigureResponse\x12_\n" +
-	"\x06Attach\x12).pluggableharness.widget.v1.AttachRequest\x1a(.pluggableharness.widget.v1.WidgetUpdate0\x01\x12e\n" +
+	"\tConfigure\x12,.pluggableharness.widget.v1.ConfigureRequest\x1a-.pluggableharness.widget.v1.ConfigureResponse\x12e\n" +
 	"\bDescribe\x12+.pluggableharness.widget.v1.DescribeRequest\x1a,.pluggableharness.widget.v1.DescribeResponseB@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
 
 var file_pluggableharness_widget_v1_service_proto_goTypes = []any{
 	(*GetCapabilitiesRequest)(nil),  // 0: pluggableharness.widget.v1.GetCapabilitiesRequest
 	(*ConfigureRequest)(nil),        // 1: pluggableharness.widget.v1.ConfigureRequest
-	(*AttachRequest)(nil),           // 2: pluggableharness.widget.v1.AttachRequest
-	(*DescribeRequest)(nil),         // 3: pluggableharness.widget.v1.DescribeRequest
-	(*GetCapabilitiesResponse)(nil), // 4: pluggableharness.widget.v1.GetCapabilitiesResponse
-	(*ConfigureResponse)(nil),       // 5: pluggableharness.widget.v1.ConfigureResponse
-	(*WidgetUpdate)(nil),            // 6: pluggableharness.widget.v1.WidgetUpdate
-	(*DescribeResponse)(nil),        // 7: pluggableharness.widget.v1.DescribeResponse
+	(*DescribeRequest)(nil),         // 2: pluggableharness.widget.v1.DescribeRequest
+	(*GetCapabilitiesResponse)(nil), // 3: pluggableharness.widget.v1.GetCapabilitiesResponse
+	(*ConfigureResponse)(nil),       // 4: pluggableharness.widget.v1.ConfigureResponse
+	(*DescribeResponse)(nil),        // 5: pluggableharness.widget.v1.DescribeResponse
 }
 var file_pluggableharness_widget_v1_service_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.widget.v1.WidgetService.GetCapabilities:input_type -> pluggableharness.widget.v1.GetCapabilitiesRequest
 	1, // 1: pluggableharness.widget.v1.WidgetService.Configure:input_type -> pluggableharness.widget.v1.ConfigureRequest
-	2, // 2: pluggableharness.widget.v1.WidgetService.Attach:input_type -> pluggableharness.widget.v1.AttachRequest
-	3, // 3: pluggableharness.widget.v1.WidgetService.Describe:input_type -> pluggableharness.widget.v1.DescribeRequest
-	4, // 4: pluggableharness.widget.v1.WidgetService.GetCapabilities:output_type -> pluggableharness.widget.v1.GetCapabilitiesResponse
-	5, // 5: pluggableharness.widget.v1.WidgetService.Configure:output_type -> pluggableharness.widget.v1.ConfigureResponse
-	6, // 6: pluggableharness.widget.v1.WidgetService.Attach:output_type -> pluggableharness.widget.v1.WidgetUpdate
-	7, // 7: pluggableharness.widget.v1.WidgetService.Describe:output_type -> pluggableharness.widget.v1.DescribeResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	2, // 2: pluggableharness.widget.v1.WidgetService.Describe:input_type -> pluggableharness.widget.v1.DescribeRequest
+	3, // 3: pluggableharness.widget.v1.WidgetService.GetCapabilities:output_type -> pluggableharness.widget.v1.GetCapabilitiesResponse
+	4, // 4: pluggableharness.widget.v1.WidgetService.Configure:output_type -> pluggableharness.widget.v1.ConfigureResponse
+	5, // 5: pluggableharness.widget.v1.WidgetService.Describe:output_type -> pluggableharness.widget.v1.DescribeResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -68,7 +65,6 @@ func file_pluggableharness_widget_v1_service_proto_init() {
 	if File_pluggableharness_widget_v1_service_proto != nil {
 		return
 	}
-	file_pluggableharness_widget_v1_events_proto_init()
 	file_pluggableharness_widget_v1_rpc_request_proto_init()
 	file_pluggableharness_widget_v1_rpc_response_proto_init()
 	type x struct{}

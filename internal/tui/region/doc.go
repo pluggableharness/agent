@@ -1,21 +1,10 @@
-// Package region owns the reference TUI shell's content store: the per-region
-// set of placements contributed by every producer, and the ordering rule that
-// decides what paints first.
+// Package region is the reference TUI's local layout store: which pane holds
+// which RenderTree, stream buffers for live token deltas, and producer-scoped
+// replace semantics.
 //
-// The store models the protocol's coexistence default
-// (docs/specifications/frontend/render-tree.md): a region is not a
-// single-writer slot, so several producers may target one region and the
-// frontend arbitrates by priority rather than evicting. PlacedContent.replace
-// supersedes only the placements of the producer that sent it, never another
-// producer's.
-//
-// Ordering is (ranked, priority, sequence) ascending, with unset priority
-// sorting after every ranked entry and sequence as the sole tiebreak. Wall
-// clock is never an input and regions are held in a fixed-length array rather
-// than a map, so paint order cannot vary with Go's map iteration — both
-// required by .claude/rules/determinism.md. The practical consequence is that
-// two shells replaying one session compose identical frames.
-//
-// Nothing in this package performs I/O or touches a terminal, so the whole
-// ordering contract is testable headlessly.
+// Region values here are local UI chrome (main chat, sidebar chrome, top bar,
+// …) — not a wire enum. The protocol retired placement regions; transcript
+// content is always main chat, and other chrome is driven by SessionState and
+// MetadataBlock surfaces. Priority and sequence still arbitrate coexistence
+// when multiple producers contribute to the same local pane.
 package region

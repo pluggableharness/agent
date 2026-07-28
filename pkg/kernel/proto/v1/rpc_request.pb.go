@@ -10,11 +10,15 @@ import (
 	v1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	v11 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	v13 "github.com/pluggableharness/agent/pkg/log/proto/v1"
+	v18 "github.com/pluggableharness/agent/pkg/metadata/proto/v1"
 	v15 "github.com/pluggableharness/agent/pkg/metric/proto/v1"
 	v12 "github.com/pluggableharness/agent/pkg/model/proto/v1"
+	v16 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
+	v17 "github.com/pluggableharness/agent/pkg/session/proto/v1"
 	v14 "github.com/pluggableharness/agent/pkg/trace/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -799,11 +803,951 @@ func (x *GetSessionRequest) GetSessionId() string {
 	return ""
 }
 
+// GetSessionStateRequest asks for the fixed-schema "where am I" snapshot
+// a frontend renders. See kernel-callbacks.md's GetSessionState.
+type GetSessionStateRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to snapshot. MUST be set. Same one-session-only rule as
+	// EmitRequest.session_id for non-frontend callers; a frontend that has
+	// attached the session holds a grant for it.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSessionStateRequest) Reset() {
+	*x = GetSessionStateRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSessionStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSessionStateRequest) ProtoMessage() {}
+
+func (x *GetSessionStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSessionStateRequest.ProtoReflect.Descriptor instead.
+func (*GetSessionStateRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *GetSessionStateRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// SubmitInputRequest submits operator input as the next turn for a
+// session. See kernel-callbacks.md's SubmitInput.
+type SubmitInputRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to submit into. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The message content, in emission order. MUST contain at least one
+	// block. Plain typed text is a single TextBlock; image paste adds an
+	// ImageBlock gated by the target model's supports_vision.
+	Content       []*v11.ContentBlock `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubmitInputRequest) Reset() {
+	*x = SubmitInputRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitInputRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitInputRequest) ProtoMessage() {}
+
+func (x *SubmitInputRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitInputRequest.ProtoReflect.Descriptor instead.
+func (*SubmitInputRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SubmitInputRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SubmitInputRequest) GetContent() []*v11.ContentBlock {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+// ResolvePlanDecisionRequest answers a pending plan item that policy
+// evaluated as ASK. See kernel-callbacks.md's ResolvePlanDecision and
+// agent-loop/plan-apply-gate.md.
+type ResolvePlanDecisionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session owning the pending plan item. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The plan item being resolved. MUST be set.
+	PlanItemId string `protobuf:"bytes,2,opt,name=plan_item_id,json=planItemId,proto3" json:"plan_item_id,omitempty"`
+	// The operator's allow/deny decision. MUST be set.
+	Decision v16.ClientDecision `protobuf:"varint,3,opt,name=decision,proto3,enum=pluggableharness.plan.v1.ClientDecision" json:"decision,omitempty"`
+	// When present, a operator-edited replacement for the plan item's
+	// tool input. The kernel MUST re-validate this against the tool's
+	// input_schema; an invalid correction is rejected, not silently coerced.
+	CorrectedInput *structpb.Struct `protobuf:"bytes,4,opt,name=corrected_input,json=correctedInput,proto3,oneof" json:"corrected_input,omitempty"`
+	// How durably this decision applies beyond this one item.
+	Scope         v16.PlanDecisionScope `protobuf:"varint,5,opt,name=scope,proto3,enum=pluggableharness.plan.v1.PlanDecisionScope" json:"scope,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolvePlanDecisionRequest) Reset() {
+	*x = ResolvePlanDecisionRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolvePlanDecisionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolvePlanDecisionRequest) ProtoMessage() {}
+
+func (x *ResolvePlanDecisionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolvePlanDecisionRequest.ProtoReflect.Descriptor instead.
+func (*ResolvePlanDecisionRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ResolvePlanDecisionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ResolvePlanDecisionRequest) GetPlanItemId() string {
+	if x != nil {
+		return x.PlanItemId
+	}
+	return ""
+}
+
+func (x *ResolvePlanDecisionRequest) GetDecision() v16.ClientDecision {
+	if x != nil {
+		return x.Decision
+	}
+	return v16.ClientDecision(0)
+}
+
+func (x *ResolvePlanDecisionRequest) GetCorrectedInput() *structpb.Struct {
+	if x != nil {
+		return x.CorrectedInput
+	}
+	return nil
+}
+
+func (x *ResolvePlanDecisionRequest) GetScope() v16.PlanDecisionScope {
+	if x != nil {
+		return x.Scope
+	}
+	return v16.PlanDecisionScope(0)
+}
+
+// ResolveInteractiveRequest answers a pending interactive-kind tool call.
+// See kernel-callbacks.md's ResolveInteractive.
+type ResolveInteractiveRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session owning the pending call. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Correlates to the interactive tool call's id. MUST be set.
+	CallId string `protobuf:"bytes,2,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
+	// The operator's response, becoming the interactive call's
+	// ToolResult.payload. MUST be set.
+	Response      *structpb.Struct `protobuf:"bytes,3,opt,name=response,proto3" json:"response,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveInteractiveRequest) Reset() {
+	*x = ResolveInteractiveRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveInteractiveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveInteractiveRequest) ProtoMessage() {}
+
+func (x *ResolveInteractiveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveInteractiveRequest.ProtoReflect.Descriptor instead.
+func (*ResolveInteractiveRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ResolveInteractiveRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ResolveInteractiveRequest) GetCallId() string {
+	if x != nil {
+		return x.CallId
+	}
+	return ""
+}
+
+func (x *ResolveInteractiveRequest) GetResponse() *structpb.Struct {
+	if x != nil {
+		return x.Response
+	}
+	return nil
+}
+
+// InterruptRequest cancels the running turn for a session.
+type InterruptRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session whose turn to cancel. MUST be set.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InterruptRequest) Reset() {
+	*x = InterruptRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InterruptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InterruptRequest) ProtoMessage() {}
+
+func (x *InterruptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InterruptRequest.ProtoReflect.Descriptor instead.
+func (*InterruptRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *InterruptRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// CreateSessionRequest creates a new session and grants the calling
+// frontend a subscription to it.
+type CreateSessionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent.hcl profile to create the session under. Absent means the
+	// kernel's configured default profile.
+	Profile *string `protobuf:"bytes,1,opt,name=profile,proto3,oneof" json:"profile,omitempty"`
+	// An initial user message to seed the session with, submitted as the
+	// first turn once the session is created. Absent creates an empty
+	// session awaiting the first SubmitInput.
+	InitialPrompt *string `protobuf:"bytes,2,opt,name=initial_prompt,json=initialPrompt,proto3,oneof" json:"initial_prompt,omitempty"`
+	// The session's working directory. Absent means the kernel's own
+	// working directory at creation time.
+	WorkingDirectory *string `protobuf:"bytes,3,opt,name=working_directory,json=workingDirectory,proto3,oneof" json:"working_directory,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CreateSessionRequest) Reset() {
+	*x = CreateSessionRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSessionRequest) ProtoMessage() {}
+
+func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
+func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *CreateSessionRequest) GetProfile() string {
+	if x != nil && x.Profile != nil {
+		return *x.Profile
+	}
+	return ""
+}
+
+func (x *CreateSessionRequest) GetInitialPrompt() string {
+	if x != nil && x.InitialPrompt != nil {
+		return *x.InitialPrompt
+	}
+	return ""
+}
+
+func (x *CreateSessionRequest) GetWorkingDirectory() string {
+	if x != nil && x.WorkingDirectory != nil {
+		return *x.WorkingDirectory
+	}
+	return ""
+}
+
+// AttachSessionRequest subscribes the calling frontend to an existing
+// session (live or terminal) without re-opening a terminal session.
+type AttachSessionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to attach. MUST be set.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttachSessionRequest) Reset() {
+	*x = AttachSessionRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttachSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachSessionRequest) ProtoMessage() {}
+
+func (x *AttachSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachSessionRequest.ProtoReflect.Descriptor instead.
+func (*AttachSessionRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *AttachSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// ResumeSessionRequest attaches a historical session for continuation or
+// replay. A COMPLETED or CANCELLED session MAY be re-opened to RUNNING
+// for new turns; a bound-exhausted or FAILED session attaches
+// replay-only.
+type ResumeSessionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to resume. MUST be set.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResumeSessionRequest) Reset() {
+	*x = ResumeSessionRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResumeSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResumeSessionRequest) ProtoMessage() {}
+
+func (x *ResumeSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResumeSessionRequest.ProtoReflect.Descriptor instead.
+func (*ResumeSessionRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ResumeSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// DetachSessionRequest unsubscribes the calling frontend from a session
+// without affecting the session itself or other attached frontends.
+type DetachSessionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to detach. MUST be set.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DetachSessionRequest) Reset() {
+	*x = DetachSessionRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DetachSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DetachSessionRequest) ProtoMessage() {}
+
+func (x *DetachSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DetachSessionRequest.ProtoReflect.Descriptor instead.
+func (*DetachSessionRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *DetachSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// ListSessionsRequest returns a filtered session summary list.
+type ListSessionsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Restricts the result to sessions in this status. Absent means no
+	// status filter.
+	Status *v17.SessionStatus `protobuf:"varint,1,opt,name=status,proto3,enum=pluggableharness.session.v1.SessionStatus,oneof" json:"status,omitempty"`
+	// Restricts the result to children of this session. Absent means no
+	// parent filter.
+	ParentSessionId *string `protobuf:"bytes,2,opt,name=parent_session_id,json=parentSessionId,proto3,oneof" json:"parent_session_id,omitempty"`
+	// True: only root sessions (no parent_session_id). False: all sessions
+	// matching the other filters, at any depth.
+	RootsOnly     bool `protobuf:"varint,3,opt,name=roots_only,json=rootsOnly,proto3" json:"roots_only,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSessionsRequest) Reset() {
+	*x = ListSessionsRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSessionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSessionsRequest) ProtoMessage() {}
+
+func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSessionsRequest.ProtoReflect.Descriptor instead.
+func (*ListSessionsRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListSessionsRequest) GetStatus() v17.SessionStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return v17.SessionStatus(0)
+}
+
+func (x *ListSessionsRequest) GetParentSessionId() string {
+	if x != nil && x.ParentSessionId != nil {
+		return *x.ParentSessionId
+	}
+	return ""
+}
+
+func (x *ListSessionsRequest) GetRootsOnly() bool {
+	if x != nil {
+		return x.RootsOnly
+	}
+	return false
+}
+
+// PublishMetadataRequest upserts one MetadataBlock into a session's
+// metadata surface. The kernel stamps producer and liveness=LIVE.
+type PublishMetadataRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session this block belongs to. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The block to publish. id and body MUST be set; producer and liveness
+	// are server-derived and any client-set values are overwritten.
+	Block         *v18.MetadataBlock `protobuf:"bytes,2,opt,name=block,proto3" json:"block,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishMetadataRequest) Reset() {
+	*x = PublishMetadataRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishMetadataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishMetadataRequest) ProtoMessage() {}
+
+func (x *PublishMetadataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishMetadataRequest.ProtoReflect.Descriptor instead.
+func (*PublishMetadataRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *PublishMetadataRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *PublishMetadataRequest) GetBlock() *v18.MetadataBlock {
+	if x != nil {
+		return x.Block
+	}
+	return nil
+}
+
+// RetractMetadataRequest marks a block DISCONNECTED and republishes it.
+// The kernel never deletes the block.
+type RetractMetadataRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session owning the block. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The block id to retract. MUST be set.
+	BlockId       string `protobuf:"bytes,2,opt,name=block_id,json=blockId,proto3" json:"block_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetractMetadataRequest) Reset() {
+	*x = RetractMetadataRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetractMetadataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetractMetadataRequest) ProtoMessage() {}
+
+func (x *RetractMetadataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetractMetadataRequest.ProtoReflect.Descriptor instead.
+func (*RetractMetadataRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *RetractMetadataRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *RetractMetadataRequest) GetBlockId() string {
+	if x != nil {
+		return x.BlockId
+	}
+	return ""
+}
+
+// ListMetadataRequest returns every MetadataBlock currently known for a
+// session — the snapshot half of snapshot-then-subscribe for the
+// metadata surface.
+type ListMetadataRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session whose blocks to list. MUST be set.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMetadataRequest) Reset() {
+	*x = ListMetadataRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMetadataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMetadataRequest) ProtoMessage() {}
+
+func (x *ListMetadataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMetadataRequest.ProtoReflect.Descriptor instead.
+func (*ListMetadataRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ListMetadataRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// StreamDeltasRequest opens a live-only token-delta stream for one
+// session. Replayed text arrives as finished RenderTrees via ReadEvents,
+// never as deltas.
+type StreamDeltasRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to stream deltas for. MUST be set.
+	SessionId     string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StreamDeltasRequest) Reset() {
+	*x = StreamDeltasRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StreamDeltasRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StreamDeltasRequest) ProtoMessage() {}
+
+func (x *StreamDeltasRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StreamDeltasRequest.ProtoReflect.Descriptor instead.
+func (*StreamDeltasRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *StreamDeltasRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// InvokeSlashCommandRequest dispatches a slash command against a session.
+type InvokeSlashCommandRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to invoke against. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The command name, without its leading slash. MUST be set.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The raw argument string following the command name.
+	Args          string `protobuf:"bytes,3,opt,name=args,proto3" json:"args,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InvokeSlashCommandRequest) Reset() {
+	*x = InvokeSlashCommandRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InvokeSlashCommandRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InvokeSlashCommandRequest) ProtoMessage() {}
+
+func (x *InvokeSlashCommandRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InvokeSlashCommandRequest.ProtoReflect.Descriptor instead.
+func (*InvokeSlashCommandRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *InvokeSlashCommandRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *InvokeSlashCommandRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *InvokeSlashCommandRequest) GetArgs() string {
+	if x != nil {
+		return x.Args
+	}
+	return ""
+}
+
+// TriggerActionRequest dispatches an ActionNode activation — the same
+// no-model-turn Invoke/plan-apply path as a direct-invoke slash command.
+type TriggerActionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session to invoke against. MUST be set.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The originating ActionNode's id.
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// The tool operation to invoke (ToolSchema.name).
+	ToolName string `protobuf:"bytes,3,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
+	// The arguments to invoke it with.
+	Args *structpb.Struct `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
+	// The declared name of the tool provider plugin tool_name belongs to.
+	Provider      string `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TriggerActionRequest) Reset() {
+	*x = TriggerActionRequest{}
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerActionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerActionRequest) ProtoMessage() {}
+
+func (x *TriggerActionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerActionRequest.ProtoReflect.Descriptor instead.
+func (*TriggerActionRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *TriggerActionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *TriggerActionRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *TriggerActionRequest) GetToolName() string {
+	if x != nil {
+		return x.ToolName
+	}
+	return ""
+}
+
+func (x *TriggerActionRequest) GetArgs() *structpb.Struct {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *TriggerActionRequest) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
 var File_pluggableharness_kernel_v1_rpc_request_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc = "" +
 	"\n" +
-	",pluggableharness/kernel/v1/rpc_request.proto\x12\x1apluggableharness.kernel.v1\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a&pluggableharness/kernel/v1/types.proto\x1a#pluggableharness/log/v1/types.proto\x1a&pluggableharness/metric/v1/types.proto\x1a%pluggableharness/model/v1/types.proto\x1a%pluggableharness/trace/v1/types.proto\"\xa9\x02\n" +
+	",pluggableharness/kernel/v1/rpc_request.proto\x12\x1apluggableharness.kernel.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a&pluggableharness/common/v1/types.proto\x1a'pluggableharness/content/v1/types.proto\x1a&pluggableharness/kernel/v1/types.proto\x1a#pluggableharness/log/v1/types.proto\x1a(pluggableharness/metadata/v1/types.proto\x1a&pluggableharness/metric/v1/types.proto\x1a%pluggableharness/model/v1/types.proto\x1a$pluggableharness/plan/v1/types.proto\x1a'pluggableharness/session/v1/types.proto\x1a%pluggableharness/trace/v1/types.proto\"\xa9\x02\n" +
 	"\x11RunSessionRequest\x12\x18\n" +
 	"\aprofile\x18\x01 \x01(\tR\aprofile\x12\x16\n" +
 	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12*\n" +
@@ -858,7 +1802,81 @@ const file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc = "" +
 	"\x06_limit\"2\n" +
 	"\x11GetSessionRequest\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionIdB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
+	"session_id\x18\x01 \x01(\tR\tsessionId\"7\n" +
+	"\x16GetSessionStateRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"x\n" +
+	"\x12SubmitInputRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12C\n" +
+	"\acontent\x18\x02 \x03(\v2).pluggableharness.content.v1.ContentBlockR\acontent\"\xc1\x02\n" +
+	"\x1aResolvePlanDecisionRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12 \n" +
+	"\fplan_item_id\x18\x02 \x01(\tR\n" +
+	"planItemId\x12D\n" +
+	"\bdecision\x18\x03 \x01(\x0e2(.pluggableharness.plan.v1.ClientDecisionR\bdecision\x12E\n" +
+	"\x0fcorrected_input\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x0ecorrectedInput\x88\x01\x01\x12A\n" +
+	"\x05scope\x18\x05 \x01(\x0e2+.pluggableharness.plan.v1.PlanDecisionScopeR\x05scopeB\x12\n" +
+	"\x10_corrected_input\"\x88\x01\n" +
+	"\x19ResolveInteractiveRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
+	"\acall_id\x18\x02 \x01(\tR\x06callId\x123\n" +
+	"\bresponse\x18\x03 \x01(\v2\x17.google.protobuf.StructR\bresponse\"1\n" +
+	"\x10InterruptRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"\xc8\x01\n" +
+	"\x14CreateSessionRequest\x12\x1d\n" +
+	"\aprofile\x18\x01 \x01(\tH\x00R\aprofile\x88\x01\x01\x12*\n" +
+	"\x0einitial_prompt\x18\x02 \x01(\tH\x01R\rinitialPrompt\x88\x01\x01\x120\n" +
+	"\x11working_directory\x18\x03 \x01(\tH\x02R\x10workingDirectory\x88\x01\x01B\n" +
+	"\n" +
+	"\b_profileB\x11\n" +
+	"\x0f_initial_promptB\x14\n" +
+	"\x12_working_directory\"5\n" +
+	"\x14AttachSessionRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"5\n" +
+	"\x14ResumeSessionRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"5\n" +
+	"\x14DetachSessionRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"\xcf\x01\n" +
+	"\x13ListSessionsRequest\x12G\n" +
+	"\x06status\x18\x01 \x01(\x0e2*.pluggableharness.session.v1.SessionStatusH\x00R\x06status\x88\x01\x01\x12/\n" +
+	"\x11parent_session_id\x18\x02 \x01(\tH\x01R\x0fparentSessionId\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"roots_only\x18\x03 \x01(\bR\trootsOnlyB\t\n" +
+	"\a_statusB\x14\n" +
+	"\x12_parent_session_id\"z\n" +
+	"\x16PublishMetadataRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12A\n" +
+	"\x05block\x18\x02 \x01(\v2+.pluggableharness.metadata.v1.MetadataBlockR\x05block\"R\n" +
+	"\x16RetractMetadataRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x19\n" +
+	"\bblock_id\x18\x02 \x01(\tR\ablockId\"4\n" +
+	"\x13ListMetadataRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"4\n" +
+	"\x13StreamDeltasRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"b\n" +
+	"\x19InvokeSlashCommandRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04args\x18\x03 \x01(\tR\x04args\"\xb4\x01\n" +
+	"\x14TriggerActionRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x1b\n" +
+	"\ttool_name\x18\x03 \x01(\tR\btoolName\x12+\n" +
+	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x1a\n" +
+	"\bprovider\x18\x05 \x01(\tR\bproviderB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
 
 var (
 	file_pluggableharness_kernel_v1_rpc_request_proto_rawDescOnce sync.Once
@@ -872,42 +1890,71 @@ func file_pluggableharness_kernel_v1_rpc_request_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_kernel_v1_rpc_request_proto_rawDescData
 }
 
-var file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_pluggableharness_kernel_v1_rpc_request_proto_goTypes = []any{
-	(*RunSessionRequest)(nil),         // 0: pluggableharness.kernel.v1.RunSessionRequest
-	(*CountTokensRequest)(nil),        // 1: pluggableharness.kernel.v1.CountTokensRequest
-	(*EmitRequest)(nil),               // 2: pluggableharness.kernel.v1.EmitRequest
-	(*LogRequest)(nil),                // 3: pluggableharness.kernel.v1.LogRequest
-	(*ExportSpansRequest)(nil),        // 4: pluggableharness.kernel.v1.ExportSpansRequest
-	(*RecordMetricsRequest)(nil),      // 5: pluggableharness.kernel.v1.RecordMetricsRequest
-	(*GetTelemetryConfigRequest)(nil), // 6: pluggableharness.kernel.v1.GetTelemetryConfigRequest
-	(*GetConfigRequest)(nil),          // 7: pluggableharness.kernel.v1.GetConfigRequest
-	(*PublishRequest)(nil),            // 8: pluggableharness.kernel.v1.PublishRequest
-	(*SubscribeRequest)(nil),          // 9: pluggableharness.kernel.v1.SubscribeRequest
-	(*ReadEventsRequest)(nil),         // 10: pluggableharness.kernel.v1.ReadEventsRequest
-	(*GetSessionRequest)(nil),         // 11: pluggableharness.kernel.v1.GetSessionRequest
-	(*v1.ProviderRef)(nil),            // 12: pluggableharness.common.v1.ProviderRef
-	(*v11.ContentBlock)(nil),          // 13: pluggableharness.content.v1.ContentBlock
-	(*v12.ModelRef)(nil),              // 14: pluggableharness.model.v1.ModelRef
-	(EventKind)(0),                    // 15: pluggableharness.kernel.v1.EventKind
-	(*v13.LogEntry)(nil),              // 16: pluggableharness.log.v1.LogEntry
-	(*v14.Span)(nil),                  // 17: pluggableharness.trace.v1.Span
-	(*v15.MetricRecord)(nil),          // 18: pluggableharness.metric.v1.MetricRecord
+	(*RunSessionRequest)(nil),          // 0: pluggableharness.kernel.v1.RunSessionRequest
+	(*CountTokensRequest)(nil),         // 1: pluggableharness.kernel.v1.CountTokensRequest
+	(*EmitRequest)(nil),                // 2: pluggableharness.kernel.v1.EmitRequest
+	(*LogRequest)(nil),                 // 3: pluggableharness.kernel.v1.LogRequest
+	(*ExportSpansRequest)(nil),         // 4: pluggableharness.kernel.v1.ExportSpansRequest
+	(*RecordMetricsRequest)(nil),       // 5: pluggableharness.kernel.v1.RecordMetricsRequest
+	(*GetTelemetryConfigRequest)(nil),  // 6: pluggableharness.kernel.v1.GetTelemetryConfigRequest
+	(*GetConfigRequest)(nil),           // 7: pluggableharness.kernel.v1.GetConfigRequest
+	(*PublishRequest)(nil),             // 8: pluggableharness.kernel.v1.PublishRequest
+	(*SubscribeRequest)(nil),           // 9: pluggableharness.kernel.v1.SubscribeRequest
+	(*ReadEventsRequest)(nil),          // 10: pluggableharness.kernel.v1.ReadEventsRequest
+	(*GetSessionRequest)(nil),          // 11: pluggableharness.kernel.v1.GetSessionRequest
+	(*GetSessionStateRequest)(nil),     // 12: pluggableharness.kernel.v1.GetSessionStateRequest
+	(*SubmitInputRequest)(nil),         // 13: pluggableharness.kernel.v1.SubmitInputRequest
+	(*ResolvePlanDecisionRequest)(nil), // 14: pluggableharness.kernel.v1.ResolvePlanDecisionRequest
+	(*ResolveInteractiveRequest)(nil),  // 15: pluggableharness.kernel.v1.ResolveInteractiveRequest
+	(*InterruptRequest)(nil),           // 16: pluggableharness.kernel.v1.InterruptRequest
+	(*CreateSessionRequest)(nil),       // 17: pluggableharness.kernel.v1.CreateSessionRequest
+	(*AttachSessionRequest)(nil),       // 18: pluggableharness.kernel.v1.AttachSessionRequest
+	(*ResumeSessionRequest)(nil),       // 19: pluggableharness.kernel.v1.ResumeSessionRequest
+	(*DetachSessionRequest)(nil),       // 20: pluggableharness.kernel.v1.DetachSessionRequest
+	(*ListSessionsRequest)(nil),        // 21: pluggableharness.kernel.v1.ListSessionsRequest
+	(*PublishMetadataRequest)(nil),     // 22: pluggableharness.kernel.v1.PublishMetadataRequest
+	(*RetractMetadataRequest)(nil),     // 23: pluggableharness.kernel.v1.RetractMetadataRequest
+	(*ListMetadataRequest)(nil),        // 24: pluggableharness.kernel.v1.ListMetadataRequest
+	(*StreamDeltasRequest)(nil),        // 25: pluggableharness.kernel.v1.StreamDeltasRequest
+	(*InvokeSlashCommandRequest)(nil),  // 26: pluggableharness.kernel.v1.InvokeSlashCommandRequest
+	(*TriggerActionRequest)(nil),       // 27: pluggableharness.kernel.v1.TriggerActionRequest
+	(*v1.ProviderRef)(nil),             // 28: pluggableharness.common.v1.ProviderRef
+	(*v11.ContentBlock)(nil),           // 29: pluggableharness.content.v1.ContentBlock
+	(*v12.ModelRef)(nil),               // 30: pluggableharness.model.v1.ModelRef
+	(EventKind)(0),                     // 31: pluggableharness.kernel.v1.EventKind
+	(*v13.LogEntry)(nil),               // 32: pluggableharness.log.v1.LogEntry
+	(*v14.Span)(nil),                   // 33: pluggableharness.trace.v1.Span
+	(*v15.MetricRecord)(nil),           // 34: pluggableharness.metric.v1.MetricRecord
+	(v16.ClientDecision)(0),            // 35: pluggableharness.plan.v1.ClientDecision
+	(*structpb.Struct)(nil),            // 36: google.protobuf.Struct
+	(v16.PlanDecisionScope)(0),         // 37: pluggableharness.plan.v1.PlanDecisionScope
+	(v17.SessionStatus)(0),             // 38: pluggableharness.session.v1.SessionStatus
+	(*v18.MetadataBlock)(nil),          // 39: pluggableharness.metadata.v1.MetadataBlock
 }
 var file_pluggableharness_kernel_v1_rpc_request_proto_depIdxs = []int32{
-	12, // 0: pluggableharness.kernel.v1.RunSessionRequest.scoped_providers:type_name -> pluggableharness.common.v1.ProviderRef
-	13, // 1: pluggableharness.kernel.v1.CountTokensRequest.content:type_name -> pluggableharness.content.v1.ContentBlock
-	14, // 2: pluggableharness.kernel.v1.CountTokensRequest.model_ref:type_name -> pluggableharness.model.v1.ModelRef
-	15, // 3: pluggableharness.kernel.v1.EmitRequest.kind:type_name -> pluggableharness.kernel.v1.EventKind
-	16, // 4: pluggableharness.kernel.v1.LogRequest.entries:type_name -> pluggableharness.log.v1.LogEntry
-	17, // 5: pluggableharness.kernel.v1.ExportSpansRequest.spans:type_name -> pluggableharness.trace.v1.Span
-	18, // 6: pluggableharness.kernel.v1.RecordMetricsRequest.metrics:type_name -> pluggableharness.metric.v1.MetricRecord
-	15, // 7: pluggableharness.kernel.v1.ReadEventsRequest.kinds:type_name -> pluggableharness.kernel.v1.EventKind
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	28, // 0: pluggableharness.kernel.v1.RunSessionRequest.scoped_providers:type_name -> pluggableharness.common.v1.ProviderRef
+	29, // 1: pluggableharness.kernel.v1.CountTokensRequest.content:type_name -> pluggableharness.content.v1.ContentBlock
+	30, // 2: pluggableharness.kernel.v1.CountTokensRequest.model_ref:type_name -> pluggableharness.model.v1.ModelRef
+	31, // 3: pluggableharness.kernel.v1.EmitRequest.kind:type_name -> pluggableharness.kernel.v1.EventKind
+	32, // 4: pluggableharness.kernel.v1.LogRequest.entries:type_name -> pluggableharness.log.v1.LogEntry
+	33, // 5: pluggableharness.kernel.v1.ExportSpansRequest.spans:type_name -> pluggableharness.trace.v1.Span
+	34, // 6: pluggableharness.kernel.v1.RecordMetricsRequest.metrics:type_name -> pluggableharness.metric.v1.MetricRecord
+	31, // 7: pluggableharness.kernel.v1.ReadEventsRequest.kinds:type_name -> pluggableharness.kernel.v1.EventKind
+	29, // 8: pluggableharness.kernel.v1.SubmitInputRequest.content:type_name -> pluggableharness.content.v1.ContentBlock
+	35, // 9: pluggableharness.kernel.v1.ResolvePlanDecisionRequest.decision:type_name -> pluggableharness.plan.v1.ClientDecision
+	36, // 10: pluggableharness.kernel.v1.ResolvePlanDecisionRequest.corrected_input:type_name -> google.protobuf.Struct
+	37, // 11: pluggableharness.kernel.v1.ResolvePlanDecisionRequest.scope:type_name -> pluggableharness.plan.v1.PlanDecisionScope
+	36, // 12: pluggableharness.kernel.v1.ResolveInteractiveRequest.response:type_name -> google.protobuf.Struct
+	38, // 13: pluggableharness.kernel.v1.ListSessionsRequest.status:type_name -> pluggableharness.session.v1.SessionStatus
+	39, // 14: pluggableharness.kernel.v1.PublishMetadataRequest.block:type_name -> pluggableharness.metadata.v1.MetadataBlock
+	36, // 15: pluggableharness.kernel.v1.TriggerActionRequest.args:type_name -> google.protobuf.Struct
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_kernel_v1_rpc_request_proto_init() }
@@ -921,13 +1968,16 @@ func file_pluggableharness_kernel_v1_rpc_request_proto_init() {
 	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[4].OneofWrappers = []any{}
 	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[5].OneofWrappers = []any{}
 	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[10].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[14].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[17].OneofWrappers = []any{}
+	file_pluggableharness_kernel_v1_rpc_request_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc), len(file_pluggableharness_kernel_v1_rpc_request_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

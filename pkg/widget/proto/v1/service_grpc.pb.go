@@ -4,11 +4,13 @@
 // - protoc             (unknown)
 // source: pluggableharness/widget/v1/service.proto
 
-// Package pluggableharness.widget.v1 defines the widget provider plugin protocol
-// described in specifications/frontend.md §4 (Attach, action dispatch, ...).
-// Messages and RPCs are added incrementally as the protocol is finalized;
-// this file currently scaffolds the buf toolchain wiring — see
-// .claude/rules/proto.md.
+// Package pluggableharness.widget.v1 defines the widget provider plugin
+// protocol described in specifications/frontend/widget-protocol.md. A
+// widget contributes typed metadata (or other plugin-side work) without
+// owning the frontend. There is no Attach stream: a widget that wants
+// screen presence calls KernelCallbackService.PublishMetadata on the
+// callback channel, the same path a tool provider uses for a status
+// block.
 
 package widgetv1
 
@@ -27,7 +29,6 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	WidgetService_GetCapabilities_FullMethodName = "/pluggableharness.widget.v1.WidgetService/GetCapabilities"
 	WidgetService_Configure_FullMethodName       = "/pluggableharness.widget.v1.WidgetService/Configure"
-	WidgetService_Attach_FullMethodName          = "/pluggableharness.widget.v1.WidgetService/Attach"
 	WidgetService_Describe_FullMethodName        = "/pluggableharness.widget.v1.WidgetService/Describe"
 )
 
@@ -35,46 +36,18 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// WidgetService is the widget provider plugin protocol described in
-// specifications/frontend.md §4.1. A widget provider plugin exposes
-// GetCapabilities, Configure, and Attach. Unlike the frontend provider's
-// bidirectional Attach (frontend.md §3), this Attach is server-streaming
-// only — widgets are passive/display-only in v1; a widget wanting to
-// trigger an action does so by also being a tool provider with a slash
-// command (frontend.md §5), not through this channel.
+// WidgetService is the widget provider plugin protocol. Same three RPCs
+// every category exposes; no Attach.
 type WidgetServiceClient interface {
-	// GetCapabilities returns this widget's regions and config schema, per
-	// frontend.md §4.1. MUST be cheaply re-queryable and MUST NOT require a
+	// GetCapabilities returns this widget's config schema and supported
+	// hook points. MUST be cheaply re-queryable and MUST NOT require a
 	// network call.
 	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
-	// Configure decodes this provider's agent.hcl block, per frontend.md
-	// §4.1. The request is already-decoded JSON (the schema-to-cty bridge is
-	// kernel-internal and never crosses the wire). Errors surface as a gRPC
-	// status per grpc.md — not an in-band field on ConfigureResponse.
+	// Configure decodes this provider's agent.hcl block. Errors surface as
+	// a gRPC status per grpc.md — not an in-band field on ConfigureResponse.
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
-	// Attach opens a server-streaming feed of this widget's rendered updates
-	// for one session, per frontend.md §4.1 — confirmed NOT bidi; widgets are
-	// passive/display-only in v1. A widget derives its displayed state via
-	// observe-mode hook subscription (agent-loop.md §4), not a separate
-	// session-state feed (frontend.md §4.2); this stream is purely how it
-	// pushes the resulting rendered updates out, it never receives anything
-	// back on this channel. Cancellation is the kernel closing the gRPC
-	// stream; the plugin MUST treat this as normal control flow, never as an
-	// error.
-	//
-	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is the bare "WidgetUpdate" per frontend.md §4.1's
-	// literal spec, naming the domain concept rather than the RPC. Not a
-	// uniqueness violation: WidgetUpdate is used by exactly this one RPC.
-	Attach(ctx context.Context, in *AttachRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WidgetUpdate], error)
-	// Describe reports this plugin build's own identity — {name, version,
-	// source, category, protocol_version} — directly from the running
-	// process, rather than the kernel inferring it from a lock-file row.
-	// Every one of the seven category protocols gains this identical RPC in
-	// this protocol revision; it exists specifically for a
-	// `dev_overrides`-resolved binary (configuration/lock-file.md's
-	// "dev_overrides and identity without a lock entry"), which has no
-	// provider {} lock-file entry to read identity from at all.
+	// Describe reports this plugin build's own identity from the running
+	// process rather than a lock-file row.
 	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
 
@@ -106,25 +79,6 @@ func (c *widgetServiceClient) Configure(ctx context.Context, in *ConfigureReques
 	return out, nil
 }
 
-func (c *widgetServiceClient) Attach(ctx context.Context, in *AttachRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WidgetUpdate], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &WidgetService_ServiceDesc.Streams[0], WidgetService_Attach_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[AttachRequest, WidgetUpdate]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WidgetService_AttachClient = grpc.ServerStreamingClient[WidgetUpdate]
-
 func (c *widgetServiceClient) Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DescribeResponse)
@@ -139,46 +93,18 @@ func (c *widgetServiceClient) Describe(ctx context.Context, in *DescribeRequest,
 // All implementations must embed UnimplementedWidgetServiceServer
 // for forward compatibility.
 //
-// WidgetService is the widget provider plugin protocol described in
-// specifications/frontend.md §4.1. A widget provider plugin exposes
-// GetCapabilities, Configure, and Attach. Unlike the frontend provider's
-// bidirectional Attach (frontend.md §3), this Attach is server-streaming
-// only — widgets are passive/display-only in v1; a widget wanting to
-// trigger an action does so by also being a tool provider with a slash
-// command (frontend.md §5), not through this channel.
+// WidgetService is the widget provider plugin protocol. Same three RPCs
+// every category exposes; no Attach.
 type WidgetServiceServer interface {
-	// GetCapabilities returns this widget's regions and config schema, per
-	// frontend.md §4.1. MUST be cheaply re-queryable and MUST NOT require a
+	// GetCapabilities returns this widget's config schema and supported
+	// hook points. MUST be cheaply re-queryable and MUST NOT require a
 	// network call.
 	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
-	// Configure decodes this provider's agent.hcl block, per frontend.md
-	// §4.1. The request is already-decoded JSON (the schema-to-cty bridge is
-	// kernel-internal and never crosses the wire). Errors surface as a gRPC
-	// status per grpc.md — not an in-band field on ConfigureResponse.
+	// Configure decodes this provider's agent.hcl block. Errors surface as
+	// a gRPC status per grpc.md — not an in-band field on ConfigureResponse.
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
-	// Attach opens a server-streaming feed of this widget's rendered updates
-	// for one session, per frontend.md §4.1 — confirmed NOT bidi; widgets are
-	// passive/display-only in v1. A widget derives its displayed state via
-	// observe-mode hook subscription (agent-loop.md §4), not a separate
-	// session-state feed (frontend.md §4.2); this stream is purely how it
-	// pushes the resulting rendered updates out, it never receives anything
-	// back on this channel. Cancellation is the kernel closing the gRPC
-	// stream; the plugin MUST treat this as normal control flow, never as an
-	// error.
-	//
-	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is the bare "WidgetUpdate" per frontend.md §4.1's
-	// literal spec, naming the domain concept rather than the RPC. Not a
-	// uniqueness violation: WidgetUpdate is used by exactly this one RPC.
-	Attach(*AttachRequest, grpc.ServerStreamingServer[WidgetUpdate]) error
-	// Describe reports this plugin build's own identity — {name, version,
-	// source, category, protocol_version} — directly from the running
-	// process, rather than the kernel inferring it from a lock-file row.
-	// Every one of the seven category protocols gains this identical RPC in
-	// this protocol revision; it exists specifically for a
-	// `dev_overrides`-resolved binary (configuration/lock-file.md's
-	// "dev_overrides and identity without a lock entry"), which has no
-	// provider {} lock-file entry to read identity from at all.
+	// Describe reports this plugin build's own identity from the running
+	// process rather than a lock-file row.
 	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedWidgetServiceServer()
 }
@@ -195,9 +121,6 @@ func (UnimplementedWidgetServiceServer) GetCapabilities(context.Context, *GetCap
 }
 func (UnimplementedWidgetServiceServer) Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Configure not implemented")
-}
-func (UnimplementedWidgetServiceServer) Attach(*AttachRequest, grpc.ServerStreamingServer[WidgetUpdate]) error {
-	return status.Error(codes.Unimplemented, "method Attach not implemented")
 }
 func (UnimplementedWidgetServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
@@ -259,17 +182,6 @@ func _WidgetService_Configure_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _WidgetService_Attach_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(AttachRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(WidgetServiceServer).Attach(m, &grpc.GenericServerStream[AttachRequest, WidgetUpdate]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WidgetService_AttachServer = grpc.ServerStreamingServer[WidgetUpdate]
-
 func _WidgetService_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DescribeRequest)
 	if err := dec(in); err != nil {
@@ -308,12 +220,6 @@ var WidgetService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _WidgetService_Describe_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Attach",
-			Handler:       _WidgetService_Attach_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "pluggableharness/widget/v1/service.proto",
 }

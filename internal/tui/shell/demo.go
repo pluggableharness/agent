@@ -78,17 +78,17 @@ func demoScript() []tea.Msg {
 
 		EditStatsMsg{LinesRead: 4820, LinesAdded: 612, LinesRemoved: 148},
 
-		place(kernel, 1, renderv1.Region_REGION_MAIN_CHAT, false, nil, render.Tree(render.Group(
+		place(kernel, 1, region.MainChat, false, nil, render.Tree(render.Group(
 			render.TextStyled("Reference TUI shell", renderv1.TextStyle_TEXT_STYLE_BOLD),
 			render.Text("Every region below is plugin-contributable. This content is a fixture."),
 		))),
 
-		place(kernel, 2, renderv1.Region_REGION_MAIN_CHAT, false, nil, render.Tree(render.Collapsible(
+		place(kernel, 2, region.MainChat, false, nil, render.Tree(render.Collapsible(
 			"read_file(internal/tui/shell/model.go)",
 			render.Code("go", "func (m *Model) View() tea.View {\n\t// ...\n}"),
 		))),
 
-		place(kernel, 3, renderv1.Region_REGION_MAIN_CHAT, false, nil, render.Tree(render.Diff(
+		place(kernel, 3, region.MainChat, false, nil, render.Tree(render.Diff(
 			render.Hunk(12, 3, 12, 4,
 				render.DiffContextLine("func Solve(width, height int) Layout {"),
 				render.DiffRemoveLine("\treturn Layout{}"),
@@ -97,19 +97,19 @@ func demoScript() []tea.Msg {
 			),
 		))),
 
-		place(kernel, 4, renderv1.Region_REGION_MAIN_CHAT, false, nil, render.Tree(render.Group(
+		place(kernel, 4, region.MainChat, false, nil, render.Tree(render.Group(
 			render.TextStyled("Interactive content", renderv1.TextStyle_TEXT_STYLE_DIM),
 			render.Action("act_compact", "Compact context", "compact_context", nil, "builtin"),
 		))),
 
-		place(kernel, 5, renderv1.Region_REGION_MAIN_CHAT, false, nil,
+		place(kernel, 5, region.MainChat, false, nil,
 			render.Tree(render.SubSession("session-01CHILD", "search the codebase"))),
 
 		// No repeated heading: the panel title already names the producer.
 		// With workspace detail out of shell chrome, the git widget is the only
 		// source of VCS state — which is the point: one truth, contributed by
 		// the plugin that owns it.
-		place(gitWidget, 6, renderv1.Region_REGION_SIDEBAR, true, new(int32(10)), render.Tree(render.Group(
+		place(gitWidget, 6, region.Sidebar, true, new(int32(10)), render.Tree(render.Group(
 			render.Text("feat/tui-shell"),
 			render.TextStyled("3 modified", renderv1.TextStyle_TEXT_STYLE_WARNING),
 			render.Text("pr #11"),
@@ -119,7 +119,7 @@ func demoScript() []tea.Msg {
 		// A second widget of a different kind: the shell already reports context
 		// and cost itself, so a fixture that repeated them would demonstrate
 		// duplication rather than what widgets are for.
-		place(jobsWidget, 7, renderv1.Region_REGION_SIDEBAR, true, new(int32(20)), render.Tree(render.Group(
+		place(jobsWidget, 7, region.Sidebar, true, new(int32(20)), render.Tree(render.Group(
 			render.TextStyled("build ✓ 2.1s", renderv1.TextStyle_TEXT_STYLE_SUCCESS),
 			render.TextStyled("tests running", renderv1.TextStyle_TEXT_STYLE_WARNING),
 		))),
@@ -150,15 +150,13 @@ func demoScript() []tea.Msg {
 	}
 }
 
-func place(p region.Producer, seq uint64, r renderv1.Region, replace bool, priority *int32, tree *renderv1.RenderTree) PlaceMsg {
+func place(p region.Producer, seq uint64, r region.Region, replace bool, priority *int32, tree *renderv1.RenderTree) PlaceMsg {
 	return PlaceMsg{
+		Region:   r,
+		Tree:     tree,
 		Producer: p,
 		Sequence: seq,
-		Content: &renderv1.PlacedContent{
-			Region:   r,
-			Content:  tree,
-			Replace:  replace,
-			Priority: priority,
-		},
+		Replace:  replace,
+		Priority: priority,
 	}
 }

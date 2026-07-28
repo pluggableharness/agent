@@ -4,15 +4,19 @@
 // - protoc             (unknown)
 // source: pluggableharness/kernel/v1/service.proto
 
-// Package pluggableharness.kernel.v1 defines the kernel-callback service described
-// in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
-// Log, ExportSpans, RecordMetrics, GetTelemetryConfig, GetConfig, Publish,
-// Subscribe, ReadEvents, GetSession) — the plugin-to-kernel calling
-// direction every plugin category gets at handshake, the reverse of every
-// other category's protocol in this series. Unlike a category plugin
-// protocol, this service carries no GetCapabilities/Configure RPCs: it
-// isn't something the kernel dials into a plugin, it's the connection
-// every plugin subprocess is handed back to call into the kernel.
+// Package pluggableharness.kernel.v1 defines the kernel-callback service
+// described in specifications/kernel-callbacks.md — the plugin-to-kernel
+// calling direction every plugin category gets at handshake, the reverse
+// of every other category's protocol in this series. Unlike a category
+// plugin protocol, this service carries no GetCapabilities/Configure
+// RPCs: it is not something the kernel dials into a plugin, it is the
+// connection every plugin subprocess is handed back to call into the
+// kernel.
+//
+// Frontend state surfaces (input, state, metadata, transcript backfill,
+// token deltas) also live here: under go-plugin the plugin is the gRPC
+// server, so kernel-push streams and frontend-originated control both
+// use this channel rather than a category Attach RPC.
 
 package kernelv1
 
@@ -29,18 +33,34 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KernelCallbackService_RunSession_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/RunSession"
-	KernelCallbackService_CountTokens_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/CountTokens"
-	KernelCallbackService_Emit_FullMethodName               = "/pluggableharness.kernel.v1.KernelCallbackService/Emit"
-	KernelCallbackService_Log_FullMethodName                = "/pluggableharness.kernel.v1.KernelCallbackService/Log"
-	KernelCallbackService_ExportSpans_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/ExportSpans"
-	KernelCallbackService_RecordMetrics_FullMethodName      = "/pluggableharness.kernel.v1.KernelCallbackService/RecordMetrics"
-	KernelCallbackService_GetTelemetryConfig_FullMethodName = "/pluggableharness.kernel.v1.KernelCallbackService/GetTelemetryConfig"
-	KernelCallbackService_GetConfig_FullMethodName          = "/pluggableharness.kernel.v1.KernelCallbackService/GetConfig"
-	KernelCallbackService_Publish_FullMethodName            = "/pluggableharness.kernel.v1.KernelCallbackService/Publish"
-	KernelCallbackService_Subscribe_FullMethodName          = "/pluggableharness.kernel.v1.KernelCallbackService/Subscribe"
-	KernelCallbackService_ReadEvents_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/ReadEvents"
-	KernelCallbackService_GetSession_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/GetSession"
+	KernelCallbackService_RunSession_FullMethodName          = "/pluggableharness.kernel.v1.KernelCallbackService/RunSession"
+	KernelCallbackService_CountTokens_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/CountTokens"
+	KernelCallbackService_Emit_FullMethodName                = "/pluggableharness.kernel.v1.KernelCallbackService/Emit"
+	KernelCallbackService_Log_FullMethodName                 = "/pluggableharness.kernel.v1.KernelCallbackService/Log"
+	KernelCallbackService_ExportSpans_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/ExportSpans"
+	KernelCallbackService_RecordMetrics_FullMethodName       = "/pluggableharness.kernel.v1.KernelCallbackService/RecordMetrics"
+	KernelCallbackService_GetTelemetryConfig_FullMethodName  = "/pluggableharness.kernel.v1.KernelCallbackService/GetTelemetryConfig"
+	KernelCallbackService_GetConfig_FullMethodName           = "/pluggableharness.kernel.v1.KernelCallbackService/GetConfig"
+	KernelCallbackService_Publish_FullMethodName             = "/pluggableharness.kernel.v1.KernelCallbackService/Publish"
+	KernelCallbackService_Subscribe_FullMethodName           = "/pluggableharness.kernel.v1.KernelCallbackService/Subscribe"
+	KernelCallbackService_ReadEvents_FullMethodName          = "/pluggableharness.kernel.v1.KernelCallbackService/ReadEvents"
+	KernelCallbackService_GetSession_FullMethodName          = "/pluggableharness.kernel.v1.KernelCallbackService/GetSession"
+	KernelCallbackService_GetSessionState_FullMethodName     = "/pluggableharness.kernel.v1.KernelCallbackService/GetSessionState"
+	KernelCallbackService_SubmitInput_FullMethodName         = "/pluggableharness.kernel.v1.KernelCallbackService/SubmitInput"
+	KernelCallbackService_ResolvePlanDecision_FullMethodName = "/pluggableharness.kernel.v1.KernelCallbackService/ResolvePlanDecision"
+	KernelCallbackService_ResolveInteractive_FullMethodName  = "/pluggableharness.kernel.v1.KernelCallbackService/ResolveInteractive"
+	KernelCallbackService_Interrupt_FullMethodName           = "/pluggableharness.kernel.v1.KernelCallbackService/Interrupt"
+	KernelCallbackService_CreateSession_FullMethodName       = "/pluggableharness.kernel.v1.KernelCallbackService/CreateSession"
+	KernelCallbackService_AttachSession_FullMethodName       = "/pluggableharness.kernel.v1.KernelCallbackService/AttachSession"
+	KernelCallbackService_ResumeSession_FullMethodName       = "/pluggableharness.kernel.v1.KernelCallbackService/ResumeSession"
+	KernelCallbackService_DetachSession_FullMethodName       = "/pluggableharness.kernel.v1.KernelCallbackService/DetachSession"
+	KernelCallbackService_ListSessions_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/ListSessions"
+	KernelCallbackService_PublishMetadata_FullMethodName     = "/pluggableharness.kernel.v1.KernelCallbackService/PublishMetadata"
+	KernelCallbackService_RetractMetadata_FullMethodName     = "/pluggableharness.kernel.v1.KernelCallbackService/RetractMetadata"
+	KernelCallbackService_ListMetadata_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/ListMetadata"
+	KernelCallbackService_StreamDeltas_FullMethodName        = "/pluggableharness.kernel.v1.KernelCallbackService/StreamDeltas"
+	KernelCallbackService_InvokeSlashCommand_FullMethodName  = "/pluggableharness.kernel.v1.KernelCallbackService/InvokeSlashCommand"
+	KernelCallbackService_TriggerAction_FullMethodName       = "/pluggableharness.kernel.v1.KernelCallbackService/TriggerAction"
 )
 
 // KernelCallbackServiceClient is the client API for KernelCallbackService service.
@@ -48,126 +68,145 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // KernelCallbackService is the plugin-to-kernel callback channel described
-// in specifications/kernel-callbacks.md §1. hashicorp/go-plugin natively
+// in specifications/kernel-callbacks.md. hashicorp/go-plugin natively
 // supports bidirectional plugins, and this is that mechanism: every plugin
-// subprocess, for every category defined across this series, MUST be given
-// a client connection to this service at handshake time, unconditionally.
-// A plugin that never calls back simply never uses it, but the channel's
-// presence is not gated on category — a context provider needing
-// CountTokens is just as valid a caller as a tool provider needing
-// RunSession.
+// subprocess, for every category, MUST be given a client connection to
+// this service at handshake time, unconditionally.
+//
+// Application RPCs are unary or server-streaming. The connection itself is
+// bidirectional at the transport layer; that is the only genuinely
+// bidirectional surface in the protocol series (there is no category
+// Attach stream).
 type KernelCallbackServiceClient interface {
 	// RunSession dispatches a nested sub-agent session under a named
-	// agent.hcl profile. Full semantics — profile resolution, budget
-	// inheritance, visibility of intermediate turns — are defined in
-	// agent-loop.md §7 and are not repeated here; kernel-callbacks.md §1
-	// gives this RPC's calling contract.
+	// agent.hcl profile. Full semantics live in agent-loop/subagents.md.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "RunSessionResult", the exact name agent-loop.md §7.1
-	// uses in its own data-type definition. Not a uniqueness violation:
-	// RunSessionResult is used by exactly this one RPC.
 	RunSession(ctx context.Context, in *RunSessionRequest, opts ...grpc.CallOption) (*RunSessionResult, error)
-	// CountTokens resolves the token-counting gap independently flagged by
-	// context.md §12, configuration.md §12, memory.md §13, and frontend.md
-	// §10: exactly one kernel-owned implementation, so that `tokens` figures
-	// produced by different providers stay mutually comparable and additive
-	// for configuration.md §6's budget-sum arithmetic. See
-	// kernel-callbacks.md §2 for the resolution algorithm and §3 for the
-	// single documented fallback formula.
+	// CountTokens resolves the token-counting gap: exactly one kernel-owned
+	// implementation so tokens figures stay mutually comparable.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "CountTokensResult", the exact name kernel-callbacks.md
-	// §2 uses. Not a uniqueness violation: used by exactly this one RPC.
 	CountTokens(ctx context.Context, in *CountTokensRequest, opts ...grpc.CallOption) (*CountTokensResult, error)
 	// Emit is how a plugin persists anything into the session's state
-	// backend. The kernel is the state backend's sole writer
-	// (state-backend.md §3) — a plugin never opens or writes the sqlite file
-	// directly; it calls Emit and the kernel performs the actual write,
-	// assigning the ordering-authoritative sequence number and the stable
-	// event id itself. See kernel-callbacks.md §4.
+	// backend. The kernel is the sole writer.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "EmitResult", the exact name kernel-callbacks.md §4
-	// uses. Not a uniqueness violation: used by exactly this one RPC.
 	Emit(ctx context.Context, in *EmitRequest, opts ...grpc.CallOption) (*EmitResult, error)
 	// Log carries a plugin's own log output into the kernel's centralized
-	// logging, so it doesn't vanish into an unread subprocess stderr.
-	// Unlike Emit, a Log call is not tied to an active session — a plugin
-	// MAY call Log before any session exists (process startup, or from
-	// within Configure) or after one has ended (during shutdown). See
-	// kernel-callbacks.md §5.
+	// logging.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "LogResult", the exact name kernel-callbacks.md §5
-	// uses. Not a uniqueness violation: used by exactly this one RPC.
 	Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResult, error)
-	// ExportSpans relays a batch of a plugin's own completed trace spans to
-	// the kernel, which forwards them to the operator's configured
-	// collector essentially unchanged. This reverses an earlier
-	// direct-per-process-OTLP-export design — see
-	// specifications/observability.md#the-relay-model for why.
+	// ExportSpans relays a batch of a plugin's own completed trace spans.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "ExportSpansResult", used by exactly this one RPC.
 	ExportSpans(ctx context.Context, in *ExportSpansRequest, opts ...grpc.CallOption) (*ExportSpansResult, error)
-	// RecordMetrics relays a batch of metric observations. Unlike
-	// ExportSpans, this is not a transparent relay: the kernel records each
-	// observation against its own instrument and bounds the attribute key
-	// set before it reaches any exporter. See
-	// specifications/observability.md#the-tracing-metrics-asymmetry.
+	// RecordMetrics relays a batch of metric observations (bounded
+	// attributes; not a transparent relay).
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "RecordMetricsResult", used by exactly this one RPC.
 	RecordMetrics(ctx context.Context, in *RecordMetricsRequest, opts ...grpc.CallOption) (*RecordMetricsResult, error)
-	// GetTelemetryConfig answers whether tracing/metrics/logs are enabled
-	// and at what level/ratio, so a plugin doesn't have to guess from its
-	// own environment. A plugin SHOULD call this once at startup and cache
-	// the result — see specifications/observability.md#gettelemetryconfig-caching.
+	// GetTelemetryConfig answers whether tracing/metrics/logs are enabled.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "GetTelemetryConfigResult", used by exactly this one
-	// RPC.
 	GetTelemetryConfig(ctx context.Context, in *GetTelemetryConfigRequest, opts ...grpc.CallOption) (*GetTelemetryConfigResult, error)
 	// GetConfig returns the calling plugin's own already-decoded agent.hcl
-	// configuration — the same shape Configure received. See
-	// kernel-callbacks.md's GetConfig for the secret-echo MUST NOT rule this
-	// implies.
+	// configuration.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "GetConfigResult", used by exactly this one RPC.
 	GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (*GetConfigResult, error)
-	// Publish emits one event onto the ephemeral, best-effort, cross-plugin
-	// event bus, distinct from Emit's durable per-session log and from
-	// hook dispatch's synchronous, agent.hcl-declared subscriber chain. See
-	// specifications/event-bus.md.
+	// Publish emits one event onto the ephemeral event bus.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "PublishResult", used by exactly this one RPC.
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResult, error)
-	// Subscribe opens a server-streaming subscription to the event bus,
-	// filtered by topic. See specifications/event-bus.md#filter-grammar and
-	// #backpressure for why the kernel may unilaterally close this stream.
+	// Subscribe opens a server-streaming subscription to the event bus.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is "BusEvent", naming the streamed domain concept
-	// rather than the RPC, the same convention model.md §4's StreamEvent
-	// and widget.md's WidgetUpdate already use.
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BusEvent], error)
 	// ReadEvents reads back the calling plugin's own session's persisted
-	// event log, ordered by sequence — never by wall-clock time
-	// (.claude/rules/determinism.md).
+	// event log, ordered by sequence.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is "StoredEvent", the same "name the domain
-	// concept" convention as Subscribe's BusEvent above.
 	ReadEvents(ctx context.Context, in *ReadEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StoredEvent], error)
 	// GetSession returns the calling plugin's own session's metadata plus
-	// its live, in-memory budget rollups.
+	// its live budget rollups.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "GetSessionResult", used by exactly this one RPC.
 	GetSession(ctx context.Context, in *GetSessionRequest, opts ...grpc.CallOption) (*GetSessionResult, error)
+	// GetSessionState returns the fixed-schema "where am I" snapshot for
+	// one session. Pair with Subscribe on topic kernel.state for deltas.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	GetSessionState(ctx context.Context, in *GetSessionStateRequest, opts ...grpc.CallOption) (*GetSessionStateResult, error)
+	// SubmitInput submits operator input as the next turn. Returns the
+	// assigned turn_id for correlation.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	SubmitInput(ctx context.Context, in *SubmitInputRequest, opts ...grpc.CallOption) (*SubmitInputResult, error)
+	// ResolvePlanDecision answers a pending plan item (policy ASK).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ResolvePlanDecision(ctx context.Context, in *ResolvePlanDecisionRequest, opts ...grpc.CallOption) (*ResolvePlanDecisionResult, error)
+	// ResolveInteractive answers a pending interactive-kind tool call.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ResolveInteractive(ctx context.Context, in *ResolveInteractiveRequest, opts ...grpc.CallOption) (*ResolveInteractiveResult, error)
+	// Interrupt cancels the running turn for a session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	Interrupt(ctx context.Context, in *InterruptRequest, opts ...grpc.CallOption) (*InterruptResult, error)
+	// CreateSession creates a new session and auto-attaches the caller.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	CreateSession(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*CreateSessionResult, error)
+	// AttachSession subscribes the caller to an existing session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	AttachSession(ctx context.Context, in *AttachSessionRequest, opts ...grpc.CallOption) (*AttachSessionResult, error)
+	// ResumeSession attaches a historical session for continuation or
+	// replay-only.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ResumeSession(ctx context.Context, in *ResumeSessionRequest, opts ...grpc.CallOption) (*ResumeSessionResult, error)
+	// DetachSession unsubscribes the caller from a session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	DetachSession(ctx context.Context, in *DetachSessionRequest, opts ...grpc.CallOption) (*DetachSessionResult, error)
+	// ListSessions returns a filtered session summary list.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResult, error)
+	// PublishMetadata upserts a MetadataBlock (producer and liveness
+	// server-stamped).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	PublishMetadata(ctx context.Context, in *PublishMetadataRequest, opts ...grpc.CallOption) (*PublishMetadataResult, error)
+	// RetractMetadata flips a block to DISCONNECTED and republishes; never
+	// deletes.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	RetractMetadata(ctx context.Context, in *RetractMetadataRequest, opts ...grpc.CallOption) (*RetractMetadataResult, error)
+	// ListMetadata returns every known MetadataBlock for a session
+	// (snapshot half of snapshot-then-subscribe).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ListMetadata(ctx context.Context, in *ListMetadataRequest, opts ...grpc.CallOption) (*ListMetadataResult, error)
+	// StreamDeltas is the live-only token fast path: server-streaming on
+	// this channel, out-of-band with respect to the event bus. The kernel
+	// does not batch; frontends coalesce to their own refresh.
+	//
+	// buf:lint:ignore RPC_REQUEST_STANDARD_NAME
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	StreamDeltas(ctx context.Context, in *StreamDeltasRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TokenDelta], error)
+	// InvokeSlashCommand dispatches a slash command against a session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	InvokeSlashCommand(ctx context.Context, in *InvokeSlashCommandRequest, opts ...grpc.CallOption) (*InvokeSlashCommandResult, error)
+	// TriggerAction dispatches an ActionNode activation (no model turn).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	TriggerAction(ctx context.Context, in *TriggerActionRequest, opts ...grpc.CallOption) (*TriggerActionResult, error)
 }
 
 type kernelCallbackServiceClient struct {
@@ -316,131 +355,319 @@ func (c *kernelCallbackServiceClient) GetSession(ctx context.Context, in *GetSes
 	return out, nil
 }
 
+func (c *kernelCallbackServiceClient) GetSessionState(ctx context.Context, in *GetSessionStateRequest, opts ...grpc.CallOption) (*GetSessionStateResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSessionStateResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_GetSessionState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) SubmitInput(ctx context.Context, in *SubmitInputRequest, opts ...grpc.CallOption) (*SubmitInputResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmitInputResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_SubmitInput_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) ResolvePlanDecision(ctx context.Context, in *ResolvePlanDecisionRequest, opts ...grpc.CallOption) (*ResolvePlanDecisionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolvePlanDecisionResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_ResolvePlanDecision_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) ResolveInteractive(ctx context.Context, in *ResolveInteractiveRequest, opts ...grpc.CallOption) (*ResolveInteractiveResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveInteractiveResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_ResolveInteractive_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) Interrupt(ctx context.Context, in *InterruptRequest, opts ...grpc.CallOption) (*InterruptResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InterruptResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_Interrupt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) CreateSession(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*CreateSessionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateSessionResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_CreateSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) AttachSession(ctx context.Context, in *AttachSessionRequest, opts ...grpc.CallOption) (*AttachSessionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AttachSessionResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_AttachSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) ResumeSession(ctx context.Context, in *ResumeSessionRequest, opts ...grpc.CallOption) (*ResumeSessionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResumeSessionResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_ResumeSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) DetachSession(ctx context.Context, in *DetachSessionRequest, opts ...grpc.CallOption) (*DetachSessionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DetachSessionResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_DetachSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSessionsResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_ListSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) PublishMetadata(ctx context.Context, in *PublishMetadataRequest, opts ...grpc.CallOption) (*PublishMetadataResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublishMetadataResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_PublishMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) RetractMetadata(ctx context.Context, in *RetractMetadataRequest, opts ...grpc.CallOption) (*RetractMetadataResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetractMetadataResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_RetractMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) ListMetadata(ctx context.Context, in *ListMetadataRequest, opts ...grpc.CallOption) (*ListMetadataResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMetadataResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_ListMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) StreamDeltas(ctx context.Context, in *StreamDeltasRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TokenDelta], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &KernelCallbackService_ServiceDesc.Streams[2], KernelCallbackService_StreamDeltas_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamDeltasRequest, TokenDelta]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KernelCallbackService_StreamDeltasClient = grpc.ServerStreamingClient[TokenDelta]
+
+func (c *kernelCallbackServiceClient) InvokeSlashCommand(ctx context.Context, in *InvokeSlashCommandRequest, opts ...grpc.CallOption) (*InvokeSlashCommandResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InvokeSlashCommandResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_InvokeSlashCommand_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kernelCallbackServiceClient) TriggerAction(ctx context.Context, in *TriggerActionRequest, opts ...grpc.CallOption) (*TriggerActionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TriggerActionResult)
+	err := c.cc.Invoke(ctx, KernelCallbackService_TriggerAction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KernelCallbackServiceServer is the server API for KernelCallbackService service.
 // All implementations must embed UnimplementedKernelCallbackServiceServer
 // for forward compatibility.
 //
 // KernelCallbackService is the plugin-to-kernel callback channel described
-// in specifications/kernel-callbacks.md §1. hashicorp/go-plugin natively
+// in specifications/kernel-callbacks.md. hashicorp/go-plugin natively
 // supports bidirectional plugins, and this is that mechanism: every plugin
-// subprocess, for every category defined across this series, MUST be given
-// a client connection to this service at handshake time, unconditionally.
-// A plugin that never calls back simply never uses it, but the channel's
-// presence is not gated on category — a context provider needing
-// CountTokens is just as valid a caller as a tool provider needing
-// RunSession.
+// subprocess, for every category, MUST be given a client connection to
+// this service at handshake time, unconditionally.
+//
+// Application RPCs are unary or server-streaming. The connection itself is
+// bidirectional at the transport layer; that is the only genuinely
+// bidirectional surface in the protocol series (there is no category
+// Attach stream).
 type KernelCallbackServiceServer interface {
 	// RunSession dispatches a nested sub-agent session under a named
-	// agent.hcl profile. Full semantics — profile resolution, budget
-	// inheritance, visibility of intermediate turns — are defined in
-	// agent-loop.md §7 and are not repeated here; kernel-callbacks.md §1
-	// gives this RPC's calling contract.
+	// agent.hcl profile. Full semantics live in agent-loop/subagents.md.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "RunSessionResult", the exact name agent-loop.md §7.1
-	// uses in its own data-type definition. Not a uniqueness violation:
-	// RunSessionResult is used by exactly this one RPC.
 	RunSession(context.Context, *RunSessionRequest) (*RunSessionResult, error)
-	// CountTokens resolves the token-counting gap independently flagged by
-	// context.md §12, configuration.md §12, memory.md §13, and frontend.md
-	// §10: exactly one kernel-owned implementation, so that `tokens` figures
-	// produced by different providers stay mutually comparable and additive
-	// for configuration.md §6's budget-sum arithmetic. See
-	// kernel-callbacks.md §2 for the resolution algorithm and §3 for the
-	// single documented fallback formula.
+	// CountTokens resolves the token-counting gap: exactly one kernel-owned
+	// implementation so tokens figures stay mutually comparable.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "CountTokensResult", the exact name kernel-callbacks.md
-	// §2 uses. Not a uniqueness violation: used by exactly this one RPC.
 	CountTokens(context.Context, *CountTokensRequest) (*CountTokensResult, error)
 	// Emit is how a plugin persists anything into the session's state
-	// backend. The kernel is the state backend's sole writer
-	// (state-backend.md §3) — a plugin never opens or writes the sqlite file
-	// directly; it calls Emit and the kernel performs the actual write,
-	// assigning the ordering-authoritative sequence number and the stable
-	// event id itself. See kernel-callbacks.md §4.
+	// backend. The kernel is the sole writer.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "EmitResult", the exact name kernel-callbacks.md §4
-	// uses. Not a uniqueness violation: used by exactly this one RPC.
 	Emit(context.Context, *EmitRequest) (*EmitResult, error)
 	// Log carries a plugin's own log output into the kernel's centralized
-	// logging, so it doesn't vanish into an unread subprocess stderr.
-	// Unlike Emit, a Log call is not tied to an active session — a plugin
-	// MAY call Log before any session exists (process startup, or from
-	// within Configure) or after one has ended (during shutdown). See
-	// kernel-callbacks.md §5.
+	// logging.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "LogResult", the exact name kernel-callbacks.md §5
-	// uses. Not a uniqueness violation: used by exactly this one RPC.
 	Log(context.Context, *LogRequest) (*LogResult, error)
-	// ExportSpans relays a batch of a plugin's own completed trace spans to
-	// the kernel, which forwards them to the operator's configured
-	// collector essentially unchanged. This reverses an earlier
-	// direct-per-process-OTLP-export design — see
-	// specifications/observability.md#the-relay-model for why.
+	// ExportSpans relays a batch of a plugin's own completed trace spans.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "ExportSpansResult", used by exactly this one RPC.
 	ExportSpans(context.Context, *ExportSpansRequest) (*ExportSpansResult, error)
-	// RecordMetrics relays a batch of metric observations. Unlike
-	// ExportSpans, this is not a transparent relay: the kernel records each
-	// observation against its own instrument and bounds the attribute key
-	// set before it reaches any exporter. See
-	// specifications/observability.md#the-tracing-metrics-asymmetry.
+	// RecordMetrics relays a batch of metric observations (bounded
+	// attributes; not a transparent relay).
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "RecordMetricsResult", used by exactly this one RPC.
 	RecordMetrics(context.Context, *RecordMetricsRequest) (*RecordMetricsResult, error)
-	// GetTelemetryConfig answers whether tracing/metrics/logs are enabled
-	// and at what level/ratio, so a plugin doesn't have to guess from its
-	// own environment. A plugin SHOULD call this once at startup and cache
-	// the result — see specifications/observability.md#gettelemetryconfig-caching.
+	// GetTelemetryConfig answers whether tracing/metrics/logs are enabled.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "GetTelemetryConfigResult", used by exactly this one
-	// RPC.
 	GetTelemetryConfig(context.Context, *GetTelemetryConfigRequest) (*GetTelemetryConfigResult, error)
 	// GetConfig returns the calling plugin's own already-decoded agent.hcl
-	// configuration — the same shape Configure received. See
-	// kernel-callbacks.md's GetConfig for the secret-echo MUST NOT rule this
-	// implies.
+	// configuration.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "GetConfigResult", used by exactly this one RPC.
 	GetConfig(context.Context, *GetConfigRequest) (*GetConfigResult, error)
-	// Publish emits one event onto the ephemeral, best-effort, cross-plugin
-	// event bus, distinct from Emit's durable per-session log and from
-	// hook dispatch's synchronous, agent.hcl-declared subscriber chain. See
-	// specifications/event-bus.md.
+	// Publish emits one event onto the ephemeral event bus.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "PublishResult", used by exactly this one RPC.
 	Publish(context.Context, *PublishRequest) (*PublishResult, error)
-	// Subscribe opens a server-streaming subscription to the event bus,
-	// filtered by topic. See specifications/event-bus.md#filter-grammar and
-	// #backpressure for why the kernel may unilaterally close this stream.
+	// Subscribe opens a server-streaming subscription to the event bus.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is "BusEvent", naming the streamed domain concept
-	// rather than the RPC, the same convention model.md §4's StreamEvent
-	// and widget.md's WidgetUpdate already use.
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[BusEvent]) error
 	// ReadEvents reads back the calling plugin's own session's persisted
-	// event log, ordered by sequence — never by wall-clock time
-	// (.claude/rules/determinism.md).
+	// event log, ordered by sequence.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element type is "StoredEvent", the same "name the domain
-	// concept" convention as Subscribe's BusEvent above.
 	ReadEvents(*ReadEventsRequest, grpc.ServerStreamingServer[StoredEvent]) error
 	// GetSession returns the calling plugin's own session's metadata plus
-	// its live, in-memory budget rollups.
+	// its live budget rollups.
 	//
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Response type is "GetSessionResult", used by exactly this one RPC.
 	GetSession(context.Context, *GetSessionRequest) (*GetSessionResult, error)
+	// GetSessionState returns the fixed-schema "where am I" snapshot for
+	// one session. Pair with Subscribe on topic kernel.state for deltas.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	GetSessionState(context.Context, *GetSessionStateRequest) (*GetSessionStateResult, error)
+	// SubmitInput submits operator input as the next turn. Returns the
+	// assigned turn_id for correlation.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	SubmitInput(context.Context, *SubmitInputRequest) (*SubmitInputResult, error)
+	// ResolvePlanDecision answers a pending plan item (policy ASK).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ResolvePlanDecision(context.Context, *ResolvePlanDecisionRequest) (*ResolvePlanDecisionResult, error)
+	// ResolveInteractive answers a pending interactive-kind tool call.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ResolveInteractive(context.Context, *ResolveInteractiveRequest) (*ResolveInteractiveResult, error)
+	// Interrupt cancels the running turn for a session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	Interrupt(context.Context, *InterruptRequest) (*InterruptResult, error)
+	// CreateSession creates a new session and auto-attaches the caller.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	CreateSession(context.Context, *CreateSessionRequest) (*CreateSessionResult, error)
+	// AttachSession subscribes the caller to an existing session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	AttachSession(context.Context, *AttachSessionRequest) (*AttachSessionResult, error)
+	// ResumeSession attaches a historical session for continuation or
+	// replay-only.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ResumeSession(context.Context, *ResumeSessionRequest) (*ResumeSessionResult, error)
+	// DetachSession unsubscribes the caller from a session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	DetachSession(context.Context, *DetachSessionRequest) (*DetachSessionResult, error)
+	// ListSessions returns a filtered session summary list.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResult, error)
+	// PublishMetadata upserts a MetadataBlock (producer and liveness
+	// server-stamped).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	PublishMetadata(context.Context, *PublishMetadataRequest) (*PublishMetadataResult, error)
+	// RetractMetadata flips a block to DISCONNECTED and republishes; never
+	// deletes.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	RetractMetadata(context.Context, *RetractMetadataRequest) (*RetractMetadataResult, error)
+	// ListMetadata returns every known MetadataBlock for a session
+	// (snapshot half of snapshot-then-subscribe).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	ListMetadata(context.Context, *ListMetadataRequest) (*ListMetadataResult, error)
+	// StreamDeltas is the live-only token fast path: server-streaming on
+	// this channel, out-of-band with respect to the event bus. The kernel
+	// does not batch; frontends coalesce to their own refresh.
+	//
+	// buf:lint:ignore RPC_REQUEST_STANDARD_NAME
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	StreamDeltas(*StreamDeltasRequest, grpc.ServerStreamingServer[TokenDelta]) error
+	// InvokeSlashCommand dispatches a slash command against a session.
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	InvokeSlashCommand(context.Context, *InvokeSlashCommandRequest) (*InvokeSlashCommandResult, error)
+	// TriggerAction dispatches an ActionNode activation (no model turn).
+	//
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	TriggerAction(context.Context, *TriggerActionRequest) (*TriggerActionResult, error)
 	mustEmbedUnimplementedKernelCallbackServiceServer()
 }
 
@@ -486,6 +713,54 @@ func (UnimplementedKernelCallbackServiceServer) ReadEvents(*ReadEventsRequest, g
 }
 func (UnimplementedKernelCallbackServiceServer) GetSession(context.Context, *GetSessionRequest) (*GetSessionResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSession not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) GetSessionState(context.Context, *GetSessionStateRequest) (*GetSessionStateResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSessionState not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) SubmitInput(context.Context, *SubmitInputRequest) (*SubmitInputResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitInput not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) ResolvePlanDecision(context.Context, *ResolvePlanDecisionRequest) (*ResolvePlanDecisionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolvePlanDecision not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) ResolveInteractive(context.Context, *ResolveInteractiveRequest) (*ResolveInteractiveResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveInteractive not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) Interrupt(context.Context, *InterruptRequest) (*InterruptResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method Interrupt not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) CreateSession(context.Context, *CreateSessionRequest) (*CreateSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSession not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) AttachSession(context.Context, *AttachSessionRequest) (*AttachSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method AttachSession not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) ResumeSession(context.Context, *ResumeSessionRequest) (*ResumeSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResumeSession not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) DetachSession(context.Context, *DetachSessionRequest) (*DetachSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method DetachSession not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSessions not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) PublishMetadata(context.Context, *PublishMetadataRequest) (*PublishMetadataResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method PublishMetadata not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) RetractMetadata(context.Context, *RetractMetadataRequest) (*RetractMetadataResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method RetractMetadata not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) ListMetadata(context.Context, *ListMetadataRequest) (*ListMetadataResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMetadata not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) StreamDeltas(*StreamDeltasRequest, grpc.ServerStreamingServer[TokenDelta]) error {
+	return status.Error(codes.Unimplemented, "method StreamDeltas not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) InvokeSlashCommand(context.Context, *InvokeSlashCommandRequest) (*InvokeSlashCommandResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method InvokeSlashCommand not implemented")
+}
+func (UnimplementedKernelCallbackServiceServer) TriggerAction(context.Context, *TriggerActionRequest) (*TriggerActionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method TriggerAction not implemented")
 }
 func (UnimplementedKernelCallbackServiceServer) mustEmbedUnimplementedKernelCallbackServiceServer() {}
 func (UnimplementedKernelCallbackServiceServer) testEmbeddedByValue()                               {}
@@ -710,6 +985,287 @@ func _KernelCallbackService_GetSession_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KernelCallbackService_GetSessionState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSessionStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).GetSessionState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_GetSessionState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).GetSessionState(ctx, req.(*GetSessionStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_SubmitInput_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitInputRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).SubmitInput(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_SubmitInput_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).SubmitInput(ctx, req.(*SubmitInputRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_ResolvePlanDecision_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolvePlanDecisionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).ResolvePlanDecision(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_ResolvePlanDecision_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).ResolvePlanDecision(ctx, req.(*ResolvePlanDecisionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_ResolveInteractive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveInteractiveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).ResolveInteractive(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_ResolveInteractive_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).ResolveInteractive(ctx, req.(*ResolveInteractiveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_Interrupt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InterruptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).Interrupt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_Interrupt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).Interrupt(ctx, req.(*InterruptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_CreateSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).CreateSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_CreateSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).CreateSession(ctx, req.(*CreateSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_AttachSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AttachSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).AttachSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_AttachSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).AttachSession(ctx, req.(*AttachSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_ResumeSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResumeSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).ResumeSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_ResumeSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).ResumeSession(ctx, req.(*ResumeSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_DetachSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DetachSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).DetachSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_DetachSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).DetachSession(ctx, req.(*DetachSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_ListSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).ListSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_ListSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).ListSessions(ctx, req.(*ListSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_PublishMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).PublishMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_PublishMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).PublishMetadata(ctx, req.(*PublishMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_RetractMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetractMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).RetractMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_RetractMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).RetractMetadata(ctx, req.(*RetractMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_ListMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).ListMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_ListMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).ListMetadata(ctx, req.(*ListMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_StreamDeltas_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamDeltasRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KernelCallbackServiceServer).StreamDeltas(m, &grpc.GenericServerStream[StreamDeltasRequest, TokenDelta]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KernelCallbackService_StreamDeltasServer = grpc.ServerStreamingServer[TokenDelta]
+
+func _KernelCallbackService_InvokeSlashCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InvokeSlashCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).InvokeSlashCommand(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_InvokeSlashCommand_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).InvokeSlashCommand(ctx, req.(*InvokeSlashCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KernelCallbackService_TriggerAction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TriggerActionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelCallbackServiceServer).TriggerAction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelCallbackService_TriggerAction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelCallbackServiceServer).TriggerAction(ctx, req.(*TriggerActionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KernelCallbackService_ServiceDesc is the grpc.ServiceDesc for KernelCallbackService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -757,6 +1313,66 @@ var KernelCallbackService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetSession",
 			Handler:    _KernelCallbackService_GetSession_Handler,
 		},
+		{
+			MethodName: "GetSessionState",
+			Handler:    _KernelCallbackService_GetSessionState_Handler,
+		},
+		{
+			MethodName: "SubmitInput",
+			Handler:    _KernelCallbackService_SubmitInput_Handler,
+		},
+		{
+			MethodName: "ResolvePlanDecision",
+			Handler:    _KernelCallbackService_ResolvePlanDecision_Handler,
+		},
+		{
+			MethodName: "ResolveInteractive",
+			Handler:    _KernelCallbackService_ResolveInteractive_Handler,
+		},
+		{
+			MethodName: "Interrupt",
+			Handler:    _KernelCallbackService_Interrupt_Handler,
+		},
+		{
+			MethodName: "CreateSession",
+			Handler:    _KernelCallbackService_CreateSession_Handler,
+		},
+		{
+			MethodName: "AttachSession",
+			Handler:    _KernelCallbackService_AttachSession_Handler,
+		},
+		{
+			MethodName: "ResumeSession",
+			Handler:    _KernelCallbackService_ResumeSession_Handler,
+		},
+		{
+			MethodName: "DetachSession",
+			Handler:    _KernelCallbackService_DetachSession_Handler,
+		},
+		{
+			MethodName: "ListSessions",
+			Handler:    _KernelCallbackService_ListSessions_Handler,
+		},
+		{
+			MethodName: "PublishMetadata",
+			Handler:    _KernelCallbackService_PublishMetadata_Handler,
+		},
+		{
+			MethodName: "RetractMetadata",
+			Handler:    _KernelCallbackService_RetractMetadata_Handler,
+		},
+		{
+			MethodName: "ListMetadata",
+			Handler:    _KernelCallbackService_ListMetadata_Handler,
+		},
+		{
+			MethodName: "InvokeSlashCommand",
+			Handler:    _KernelCallbackService_InvokeSlashCommand_Handler,
+		},
+		{
+			MethodName: "TriggerAction",
+			Handler:    _KernelCallbackService_TriggerAction_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -767,6 +1383,11 @@ var KernelCallbackService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ReadEvents",
 			Handler:       _KernelCallbackService_ReadEvents_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "StreamDeltas",
+			Handler:       _KernelCallbackService_StreamDeltas_Handler,
 			ServerStreams: true,
 		},
 	},

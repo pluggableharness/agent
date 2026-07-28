@@ -7,9 +7,8 @@
 package widgetv1
 
 import (
-	v12 "github.com/pluggableharness/agent/pkg/common/proto/v1"
-	v11 "github.com/pluggableharness/agent/pkg/config/proto/v1"
-	v1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
+	v11 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	v1 "github.com/pluggableharness/agent/pkg/config/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -25,19 +24,17 @@ const (
 )
 
 // WidgetCapabilities is this widget provider's complete capability
-// advertisement, per frontend.md §4.1.
+// advertisement.
 type WidgetCapabilities struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// MUST — the regions this widget intends to contribute to.
-	Regions []v1.Region `protobuf:"varint,1,rep,packed,name=regions,proto3,enum=pluggableharness.render.v1.Region" json:"regions,omitempty"`
-	// This provider's agent.hcl config schema, per configuration.md §4 —
-	// what fields Configure's request may be decoded from.
-	ConfigSchema *v11.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
+	// This provider's agent.hcl config schema — what fields Configure's
+	// request may be decoded from.
+	ConfigSchema *v1.ConfigSchema `protobuf:"bytes,2,opt,name=config_schema,json=configSchema,proto3" json:"config_schema,omitempty"`
 	// Hook points this widget can subscribe to in observe mode
 	// (agent-loop/hook-dispatch.md), so a mis-declared agent.hcl hook{}
 	// block naming an unsupported point can be rejected at config-load
 	// time rather than failing at first dispatch.
-	SupportedHookPoints []v12.HookPoint `protobuf:"varint,3,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
+	SupportedHookPoints []v11.HookPoint `protobuf:"varint,3,rep,packed,name=supported_hook_points,json=supportedHookPoints,proto3,enum=pluggableharness.common.v1.HookPoint" json:"supported_hook_points,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -72,21 +69,14 @@ func (*WidgetCapabilities) Descriptor() ([]byte, []int) {
 	return file_pluggableharness_widget_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *WidgetCapabilities) GetRegions() []v1.Region {
-	if x != nil {
-		return x.Regions
-	}
-	return nil
-}
-
-func (x *WidgetCapabilities) GetConfigSchema() *v11.ConfigSchema {
+func (x *WidgetCapabilities) GetConfigSchema() *v1.ConfigSchema {
 	if x != nil {
 		return x.ConfigSchema
 	}
 	return nil
 }
 
-func (x *WidgetCapabilities) GetSupportedHookPoints() []v12.HookPoint {
+func (x *WidgetCapabilities) GetSupportedHookPoints() []v11.HookPoint {
 	if x != nil {
 		return x.SupportedHookPoints
 	}
@@ -97,11 +87,10 @@ var File_pluggableharness_widget_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_widget_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"&pluggableharness/widget/v1/types.proto\x12\x1apluggableharness.widget.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\x1a&pluggableharness/render/v1/types.proto\"\xfc\x01\n" +
-	"\x12WidgetCapabilities\x12<\n" +
-	"\aregions\x18\x01 \x03(\x0e2\".pluggableharness.render.v1.RegionR\aregions\x12M\n" +
+	"&pluggableharness/widget/v1/types.proto\x12\x1apluggableharness.widget.v1\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/config/v1/types.proto\"\xcd\x01\n" +
+	"\x12WidgetCapabilities\x12M\n" +
 	"\rconfig_schema\x18\x02 \x01(\v2(.pluggableharness.config.v1.ConfigSchemaR\fconfigSchema\x12Y\n" +
-	"\x15supported_hook_points\x18\x03 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPointsB@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
+	"\x15supported_hook_points\x18\x03 \x03(\x0e2%.pluggableharness.common.v1.HookPointR\x13supportedHookPointsJ\x04\b\x01\x10\x02R\aregionsB@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
 
 var (
 	file_pluggableharness_widget_v1_types_proto_rawDescOnce sync.Once
@@ -118,19 +107,17 @@ func file_pluggableharness_widget_v1_types_proto_rawDescGZIP() []byte {
 var file_pluggableharness_widget_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_pluggableharness_widget_v1_types_proto_goTypes = []any{
 	(*WidgetCapabilities)(nil), // 0: pluggableharness.widget.v1.WidgetCapabilities
-	(v1.Region)(0),             // 1: pluggableharness.render.v1.Region
-	(*v11.ConfigSchema)(nil),   // 2: pluggableharness.config.v1.ConfigSchema
-	(v12.HookPoint)(0),         // 3: pluggableharness.common.v1.HookPoint
+	(*v1.ConfigSchema)(nil),    // 1: pluggableharness.config.v1.ConfigSchema
+	(v11.HookPoint)(0),         // 2: pluggableharness.common.v1.HookPoint
 }
 var file_pluggableharness_widget_v1_types_proto_depIdxs = []int32{
-	1, // 0: pluggableharness.widget.v1.WidgetCapabilities.regions:type_name -> pluggableharness.render.v1.Region
-	2, // 1: pluggableharness.widget.v1.WidgetCapabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
-	3, // 2: pluggableharness.widget.v1.WidgetCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	1, // 0: pluggableharness.widget.v1.WidgetCapabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
+	2, // 1: pluggableharness.widget.v1.WidgetCapabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_widget_v1_types_proto_init() }

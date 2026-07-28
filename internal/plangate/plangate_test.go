@@ -13,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
-	frontendv1 "github.com/pluggableharness/agent/pkg/frontend/proto/v1"
 	hookv1 "github.com/pluggableharness/agent/pkg/hook/proto/v1"
 	planv1 "github.com/pluggableharness/agent/pkg/plan/proto/v1"
 	renderv1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
@@ -237,7 +236,7 @@ func newTestGate(t *testing.T, cfg Config, opts ...Option) *Gate {
 	if cfg.Resolver == nil {
 		cfg.Resolver = fake.NewAlways(fake.Response{Decision: plandecision.Decision{
 			Decision:  planv1.PlanDecision_PLAN_DECISION_ALLOW,
-			Scope:     frontendv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
+			Scope:     planv1.PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE,
 			DecidedBy: "test",
 		}})
 	}
@@ -249,7 +248,7 @@ func newTestGate(t *testing.T, cfg Config, opts ...Option) *Gate {
 }
 
 // allowDecision is the resolver response most tests want.
-func allowDecision(scope frontendv1.PlanDecisionScope) fake.Response {
+func allowDecision(scope planv1.PlanDecisionScope) fake.Response {
 	return fake.Response{Decision: plandecision.Decision{
 		Decision:  planv1.PlanDecision_PLAN_DECISION_ALLOW,
 		Scope:     scope,

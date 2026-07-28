@@ -4,9 +4,13 @@
 // 	protoc        (unknown)
 // source: pluggableharness/frontend/v1/service.proto
 
-// Package pluggableharness.frontend.v1 defines the frontend provider plugin protocol
-// described in specifications/frontend.md §3 (Attach, ServerEvent,
-// ClientEvent, ...).
+// Package pluggableharness.frontend.v1 defines the frontend provider plugin
+// protocol described in specifications/frontend/. A frontend owns how the
+// operator sees and types — TUI, web, CLI, voice — but does not own the
+// agent loop. Kernel-to-frontend traffic (state, metadata, transcript,
+// token deltas) rides the kernel callback channel
+// (specifications/kernel-callbacks.md); this service is only the
+// standard category triple every plugin exposes.
 
 package frontendv1
 
@@ -28,34 +32,29 @@ var File_pluggableharness_frontend_v1_service_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_frontend_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"*pluggableharness/frontend/v1/service.proto\x12\x1cpluggableharness.frontend.v1\x1a)pluggableharness/frontend/v1/events.proto\x1a.pluggableharness/frontend/v1/rpc_request.proto\x1a/pluggableharness/frontend/v1/rpc_response.proto2\xce\x03\n" +
+	"*pluggableharness/frontend/v1/service.proto\x12\x1cpluggableharness.frontend.v1\x1a.pluggableharness/frontend/v1/rpc_request.proto\x1a/pluggableharness/frontend/v1/rpc_response.proto2\xea\x02\n" +
 	"\x0fFrontendService\x12~\n" +
 	"\x0fGetCapabilities\x124.pluggableharness.frontend.v1.GetCapabilitiesRequest\x1a5.pluggableharness.frontend.v1.GetCapabilitiesResponse\x12l\n" +
-	"\tConfigure\x12..pluggableharness.frontend.v1.ConfigureRequest\x1a/.pluggableharness.frontend.v1.ConfigureResponse\x12b\n" +
-	"\x06Attach\x12).pluggableharness.frontend.v1.ClientEvent\x1a).pluggableharness.frontend.v1.ServerEvent(\x010\x01\x12i\n" +
+	"\tConfigure\x12..pluggableharness.frontend.v1.ConfigureRequest\x1a/.pluggableharness.frontend.v1.ConfigureResponse\x12i\n" +
 	"\bDescribe\x12-.pluggableharness.frontend.v1.DescribeRequest\x1a..pluggableharness.frontend.v1.DescribeResponseBDZBgithub.com/pluggableharness/agent/pkg/frontend/proto/v1;frontendv1b\x06proto3"
 
 var file_pluggableharness_frontend_v1_service_proto_goTypes = []any{
 	(*GetCapabilitiesRequest)(nil),  // 0: pluggableharness.frontend.v1.GetCapabilitiesRequest
 	(*ConfigureRequest)(nil),        // 1: pluggableharness.frontend.v1.ConfigureRequest
-	(*ClientEvent)(nil),             // 2: pluggableharness.frontend.v1.ClientEvent
-	(*DescribeRequest)(nil),         // 3: pluggableharness.frontend.v1.DescribeRequest
-	(*GetCapabilitiesResponse)(nil), // 4: pluggableharness.frontend.v1.GetCapabilitiesResponse
-	(*ConfigureResponse)(nil),       // 5: pluggableharness.frontend.v1.ConfigureResponse
-	(*ServerEvent)(nil),             // 6: pluggableharness.frontend.v1.ServerEvent
-	(*DescribeResponse)(nil),        // 7: pluggableharness.frontend.v1.DescribeResponse
+	(*DescribeRequest)(nil),         // 2: pluggableharness.frontend.v1.DescribeRequest
+	(*GetCapabilitiesResponse)(nil), // 3: pluggableharness.frontend.v1.GetCapabilitiesResponse
+	(*ConfigureResponse)(nil),       // 4: pluggableharness.frontend.v1.ConfigureResponse
+	(*DescribeResponse)(nil),        // 5: pluggableharness.frontend.v1.DescribeResponse
 }
 var file_pluggableharness_frontend_v1_service_proto_depIdxs = []int32{
 	0, // 0: pluggableharness.frontend.v1.FrontendService.GetCapabilities:input_type -> pluggableharness.frontend.v1.GetCapabilitiesRequest
 	1, // 1: pluggableharness.frontend.v1.FrontendService.Configure:input_type -> pluggableharness.frontend.v1.ConfigureRequest
-	2, // 2: pluggableharness.frontend.v1.FrontendService.Attach:input_type -> pluggableharness.frontend.v1.ClientEvent
-	3, // 3: pluggableharness.frontend.v1.FrontendService.Describe:input_type -> pluggableharness.frontend.v1.DescribeRequest
-	4, // 4: pluggableharness.frontend.v1.FrontendService.GetCapabilities:output_type -> pluggableharness.frontend.v1.GetCapabilitiesResponse
-	5, // 5: pluggableharness.frontend.v1.FrontendService.Configure:output_type -> pluggableharness.frontend.v1.ConfigureResponse
-	6, // 6: pluggableharness.frontend.v1.FrontendService.Attach:output_type -> pluggableharness.frontend.v1.ServerEvent
-	7, // 7: pluggableharness.frontend.v1.FrontendService.Describe:output_type -> pluggableharness.frontend.v1.DescribeResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	2, // 2: pluggableharness.frontend.v1.FrontendService.Describe:input_type -> pluggableharness.frontend.v1.DescribeRequest
+	3, // 3: pluggableharness.frontend.v1.FrontendService.GetCapabilities:output_type -> pluggableharness.frontend.v1.GetCapabilitiesResponse
+	4, // 4: pluggableharness.frontend.v1.FrontendService.Configure:output_type -> pluggableharness.frontend.v1.ConfigureResponse
+	5, // 5: pluggableharness.frontend.v1.FrontendService.Describe:output_type -> pluggableharness.frontend.v1.DescribeResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -66,7 +65,6 @@ func file_pluggableharness_frontend_v1_service_proto_init() {
 	if File_pluggableharness_frontend_v1_service_proto != nil {
 		return
 	}
-	file_pluggableharness_frontend_v1_events_proto_init()
 	file_pluggableharness_frontend_v1_rpc_request_proto_init()
 	file_pluggableharness_frontend_v1_rpc_response_proto_init()
 	type x struct{}

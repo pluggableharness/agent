@@ -5,16 +5,10 @@ import (
 
 	"github.com/pluggableharness/agent/internal/tui/region"
 	"github.com/pluggableharness/agent/pkg/render"
-	renderv1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 )
 
-func placed(r renderv1.Region, text string, replace bool, priority *int32) *renderv1.PlacedContent {
-	return &renderv1.PlacedContent{
-		Region:   r,
-		Content:  render.Tree(render.Text(text)),
-		Replace:  replace,
-		Priority: priority,
-	}
+func place(s *region.Store, r region.Region, text string, replace bool, priority *int32, p region.Producer, seq uint64) {
+	s.PlaceContent(r, render.Tree(render.Text(text)), p, seq, replace, priority)
 }
 
 func texts(t *testing.T, in []region.Placement) []string {
@@ -47,13 +41,13 @@ func TestNormalize(t *testing.T) {
 
 	tests := []struct {
 		name string
-		in   renderv1.Region
-		want renderv1.Region
+		in   region.Region
+		want region.Region
 	}{
-		{"unspecified folds to main chat", renderv1.Region_REGION_UNSPECIFIED, renderv1.Region_REGION_MAIN_CHAT},
-		{"known region is preserved", renderv1.Region_REGION_SIDEBAR, renderv1.Region_REGION_SIDEBAR},
-		{"future region folds to main chat", renderv1.Region(42), renderv1.Region_REGION_MAIN_CHAT},
-		{"negative region folds to main chat", renderv1.Region(-1), renderv1.Region_REGION_MAIN_CHAT},
+		{"unspecified folds to main chat", region.Unspecified, region.MainChat},
+		{"known region is preserved", region.Sidebar, region.Sidebar},
+		{"future region folds to main chat", region.Region(42), region.MainChat},
+		{"negative region folds to main chat", region.Region(-1), region.MainChat},
 	}
 
 	for _, tc := range tests {
@@ -73,10 +67,10 @@ func TestPlaceAppendsByDefault(t *testing.T) {
 	s := region.NewStore()
 	p := region.Producer{Category: "tool", Name: "fs"}
 
-	s.Place(placed(renderv1.Region_REGION_MAIN_CHAT, "first", false, nil), p, 1)
-	s.Place(placed(renderv1.Region_REGION_MAIN_CHAT, "second", false, nil), p, 2)
+	place(s, region.MainChat, "first", false, nil, p, 1)
+	place(s, region.MainChat, "second", false, nil, p, 2)
 
-	got := texts(t, s.Contents(renderv1.Region_REGION_MAIN_CHAT))
+	got := texts(t, s.Contents(region.MainChat))
 	if want := []string{"first", "second"}; !equal(got, want) {
 		t.Fatalf("append semantics broken: got %v, want %v", got, want)
 	}
@@ -92,11 +86,11 @@ func TestReplaceIsScopedToOneProducer(t *testing.T) {
 	git := region.Producer{Category: "widget", Name: "git"}
 	ctx := region.Producer{Category: "widget", Name: "context"}
 
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "git v1", true, nil), git, 1)
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "context", true, nil), ctx, 2)
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "git v2", true, nil), git, 3)
+	place(s, region.Sidebar, "git v1", true, nil, git, 1)
+	place(s, region.Sidebar, "context", true, nil, ctx, 2)
+	place(s, region.Sidebar, "git v2", true, nil, git, 3)
 
-	got := texts(t, s.Contents(renderv1.Region_REGION_SIDEBAR))
+	got := texts(t, s.Contents(region.Sidebar))
 	if want := []string{"context", "git v2"}; !equal(got, want) {
 		t.Fatalf("replace evicted the wrong producer: got %v, want %v", got, want)
 	}
@@ -112,12 +106,12 @@ func TestContentsOrdering(t *testing.T) {
 
 	lo, hi := int32(1), int32(50)
 
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "unranked-early", false, nil), p, 1)
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "ranked-high", false, &hi), p, 2)
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "unranked-late", false, nil), p, 3)
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "ranked-low", false, &lo), p, 4)
+	place(s, region.Sidebar, "unranked-early", false, nil, p, 1)
+	place(s, region.Sidebar, "ranked-high", false, &hi, p, 2)
+	place(s, region.Sidebar, "unranked-late", false, nil, p, 3)
+	place(s, region.Sidebar, "ranked-low", false, &lo, p, 4)
 
-	got := texts(t, s.Contents(renderv1.Region_REGION_SIDEBAR))
+	got := texts(t, s.Contents(region.Sidebar))
 	want := []string{"ranked-low", "ranked-high", "unranked-early", "unranked-late"}
 
 	if !equal(got, want) {
@@ -134,10 +128,10 @@ func TestZeroPriorityIsRanked(t *testing.T) {
 	p := region.Producer{Category: "widget", Name: "w"}
 	zero := int32(0)
 
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "unranked", false, nil), p, 1)
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "ranked-zero", false, &zero), p, 2)
+	place(s, region.Sidebar, "unranked", false, nil, p, 1)
+	place(s, region.Sidebar, "ranked-zero", false, &zero, p, 2)
 
-	got := texts(t, s.Contents(renderv1.Region_REGION_SIDEBAR))
+	got := texts(t, s.Contents(region.Sidebar))
 	if want := []string{"ranked-zero", "unranked"}; !equal(got, want) {
 		t.Fatalf("zero priority treated as unset: got %v, want %v", got, want)
 	}
@@ -150,13 +144,13 @@ func TestContentsIsDeterministic(t *testing.T) {
 
 	for i := range 20 {
 		p := region.Producer{Category: "widget", Name: string(rune('a' + i%5))}
-		s.Place(placed(renderv1.Region_REGION_MAIN_CHAT, "n", false, nil), p, uint64(i))
+		place(s, region.MainChat, "n", false, nil, p, uint64(i))
 	}
 
-	first := texts(t, s.Contents(renderv1.Region_REGION_MAIN_CHAT))
+	first := texts(t, s.Contents(region.MainChat))
 
 	for range 25 {
-		if got := texts(t, s.Contents(renderv1.Region_REGION_MAIN_CHAT)); !equal(got, first) {
+		if got := texts(t, s.Contents(region.MainChat)); !equal(got, first) {
 			t.Fatal("Contents returned a different order across calls; paint order is not deterministic")
 		}
 	}
@@ -168,13 +162,13 @@ func TestContentsReturnsACopy(t *testing.T) {
 	s := region.NewStore()
 	p := region.Producer{Category: "tool", Name: "fs"}
 
-	s.Place(placed(renderv1.Region_REGION_MAIN_CHAT, "a", false, nil), p, 1)
-	s.Place(placed(renderv1.Region_REGION_MAIN_CHAT, "b", false, nil), p, 2)
+	place(s, region.MainChat, "a", false, nil, p, 1)
+	place(s, region.MainChat, "b", false, nil, p, 2)
 
-	got := s.Contents(renderv1.Region_REGION_MAIN_CHAT)
+	got := s.Contents(region.MainChat)
 	got[0], got[1] = got[1], got[0]
 
-	after := texts(t, s.Contents(renderv1.Region_REGION_MAIN_CHAT))
+	after := texts(t, s.Contents(region.MainChat))
 	if want := []string{"a", "b"}; !equal(after, want) {
 		t.Fatalf("mutating the returned slice disturbed the store: got %v", after)
 	}
@@ -186,10 +180,10 @@ func TestPlaceIgnoresNilContent(t *testing.T) {
 	s := region.NewStore()
 	p := region.Producer{Category: "tool", Name: "fs"}
 
-	s.Place(nil, p, 1)
-	s.Place(&renderv1.PlacedContent{Region: renderv1.Region_REGION_MAIN_CHAT}, p, 2)
+	s.PlaceContent(region.MainChat, nil, p, 1, false, nil)
+	s.PlaceContent(region.MainChat, nil, p, 2, false, nil)
 
-	if got := s.Contents(renderv1.Region_REGION_MAIN_CHAT); len(got) != 0 {
+	if got := s.Contents(region.MainChat); len(got) != 0 {
 		t.Fatalf("nil content was stored: %d placements", len(got))
 	}
 }
@@ -197,7 +191,7 @@ func TestPlaceIgnoresNilContent(t *testing.T) {
 func TestContentsOfUnknownRegionIsEmpty(t *testing.T) {
 	t.Parallel()
 
-	if got := region.NewStore().Contents(renderv1.Region(99)); got != nil {
+	if got := region.NewStore().Contents(region.Region(99)); got != nil {
 		t.Fatalf("expected nil for out-of-range region, got %v", got)
 	}
 }
@@ -252,14 +246,14 @@ func TestReset(t *testing.T) {
 	s := region.NewStore()
 	p := region.Producer{Category: "tool", Name: "fs"}
 
-	s.Place(placed(renderv1.Region_REGION_MAIN_CHAT, "a", false, nil), p, 1)
-	s.Place(placed(renderv1.Region_REGION_SIDEBAR, "b", false, nil), p, 2)
+	place(s, region.MainChat, "a", false, nil, p, 1)
+	place(s, region.Sidebar, "b", false, nil, p, 2)
 	s.Delta("t", "streaming")
 
 	s.Reset()
 
-	if len(s.Contents(renderv1.Region_REGION_MAIN_CHAT)) != 0 ||
-		len(s.Contents(renderv1.Region_REGION_SIDEBAR)) != 0 ||
+	if len(s.Contents(region.MainChat)) != 0 ||
+		len(s.Contents(region.Sidebar)) != 0 ||
 		len(s.Streams()) != 0 {
 		t.Fatal("Reset left content behind; a re-backfill would stack on stale state")
 	}

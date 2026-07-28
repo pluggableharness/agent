@@ -21,20 +21,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// WidgetErrorCategory classifies a WidgetError, mirroring
-// FrontendErrorCategory's shape (frontend/v1/errors.proto) for the widget category —
-// resolves frontend/conformance.md's prior open question of whether
-// widgets need a structured error type of their own.
+// WidgetErrorCategory classifies a WidgetError.
 type WidgetErrorCategory int32
 
 const (
 	// Zero value. Never valid for a real error; its presence on the wire
 	// means a caller forgot to set the field.
 	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_UNSPECIFIED WidgetErrorCategory = 0
-	// A RenderTree or WidgetUpdate could not be displayed.
+	// A render or metadata contribution could not be produced.
 	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_RENDER_FAILED WidgetErrorCategory = 1
-	// A WidgetUpdate named a Region this widget's frontend cannot honor.
-	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED WidgetErrorCategory = 2
 	// An error that does not fit any other category.
 	WidgetErrorCategory_WIDGET_ERROR_CATEGORY_UNKNOWN WidgetErrorCategory = 3
 )
@@ -44,14 +39,12 @@ var (
 	WidgetErrorCategory_name = map[int32]string{
 		0: "WIDGET_ERROR_CATEGORY_UNSPECIFIED",
 		1: "WIDGET_ERROR_CATEGORY_RENDER_FAILED",
-		2: "WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED",
 		3: "WIDGET_ERROR_CATEGORY_UNKNOWN",
 	}
 	WidgetErrorCategory_value = map[string]int32{
-		"WIDGET_ERROR_CATEGORY_UNSPECIFIED":        0,
-		"WIDGET_ERROR_CATEGORY_RENDER_FAILED":      1,
-		"WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED": 2,
-		"WIDGET_ERROR_CATEGORY_UNKNOWN":            3,
+		"WIDGET_ERROR_CATEGORY_UNSPECIFIED":   0,
+		"WIDGET_ERROR_CATEGORY_RENDER_FAILED": 1,
+		"WIDGET_ERROR_CATEGORY_UNKNOWN":       3,
 	}
 )
 
@@ -82,13 +75,9 @@ func (WidgetErrorCategory) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_widget_v1_errors_proto_rawDescGZIP(), []int{0}
 }
 
-// WidgetError is the structured error type for the widget category,
-// mirroring FrontendError (frontend/v1/errors.proto). Unlike the frontend category
-// (whose Attach errors surface in-band via ServerEvent.Error), widget
-// Attach has no return channel other than the stream itself — WidgetError
-// is carried in the structured detail of a gRPC status on Configure or
-// Attach, per .claude/rules/grpc.md's error-taxonomy discipline, not as an
-// in-band stream message.
+// WidgetError is the structured error type for the widget category.
+// Carried in the structured detail of a gRPC status on Configure (or
+// any future unary), per .claude/rules/grpc.md.
 type WidgetError struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The error's category.
@@ -150,12 +139,11 @@ const file_pluggableharness_widget_v1_errors_proto_rawDesc = "" +
 	"'pluggableharness/widget/v1/errors.proto\x12\x1apluggableharness.widget.v1\"t\n" +
 	"\vWidgetError\x12K\n" +
 	"\bcategory\x18\x01 \x01(\x0e2/.pluggableharness.widget.v1.WidgetErrorCategoryR\bcategory\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*\xb6\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\xb8\x01\n" +
 	"\x13WidgetErrorCategory\x12%\n" +
 	"!WIDGET_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12'\n" +
-	"#WIDGET_ERROR_CATEGORY_RENDER_FAILED\x10\x01\x12,\n" +
-	"(WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTED\x10\x02\x12!\n" +
-	"\x1dWIDGET_ERROR_CATEGORY_UNKNOWN\x10\x03B@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
+	"#WIDGET_ERROR_CATEGORY_RENDER_FAILED\x10\x01\x12!\n" +
+	"\x1dWIDGET_ERROR_CATEGORY_UNKNOWN\x10\x03\"\x04\b\x02\x10\x02*(WIDGET_ERROR_CATEGORY_REGION_UNSUPPORTEDB@Z>github.com/pluggableharness/agent/pkg/widget/proto/v1;widgetv1b\x06proto3"
 
 var (
 	file_pluggableharness_widget_v1_errors_proto_rawDescOnce sync.Once

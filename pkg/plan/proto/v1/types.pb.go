@@ -34,6 +34,125 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ClientDecision is the operator's resolution of a pending plan item that
+// policy evaluated as ASK — the allow/deny half of ResolvePlanDecision,
+// orthogonal to PlanDecisionScope (how durably the verdict is remembered).
+type ClientDecision int32
+
+const (
+	// Zero value. Never valid for a real decision.
+	ClientDecision_CLIENT_DECISION_UNSPECIFIED ClientDecision = 0
+	// The operator approved the plan item as proposed (or as corrected).
+	ClientDecision_CLIENT_DECISION_ALLOW ClientDecision = 1
+	// The operator rejected the plan item.
+	ClientDecision_CLIENT_DECISION_DENY ClientDecision = 2
+)
+
+// Enum value maps for ClientDecision.
+var (
+	ClientDecision_name = map[int32]string{
+		0: "CLIENT_DECISION_UNSPECIFIED",
+		1: "CLIENT_DECISION_ALLOW",
+		2: "CLIENT_DECISION_DENY",
+	}
+	ClientDecision_value = map[string]int32{
+		"CLIENT_DECISION_UNSPECIFIED": 0,
+		"CLIENT_DECISION_ALLOW":       1,
+		"CLIENT_DECISION_DENY":        2,
+	}
+)
+
+func (x ClientDecision) Enum() *ClientDecision {
+	p := new(ClientDecision)
+	*p = x
+	return p
+}
+
+func (x ClientDecision) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ClientDecision) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_plan_v1_types_proto_enumTypes[0].Descriptor()
+}
+
+func (ClientDecision) Type() protoreflect.EnumType {
+	return &file_pluggableharness_plan_v1_types_proto_enumTypes[0]
+}
+
+func (x ClientDecision) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ClientDecision.Descriptor instead.
+func (ClientDecision) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{0}
+}
+
+// PlanDecisionScope is how durably a ResolvePlanDecision applies beyond
+// the one PlanItem it names. Orthogonal to ClientDecision: decision says
+// allow/deny, scope says how long that verdict is remembered. See
+// agent-loop/plan-apply-gate.md's PlanDecisionScope semantics.
+type PlanDecisionScope int32
+
+const (
+	// Zero value. Never valid for a real decision.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_UNSPECIFIED PlanDecisionScope = 0
+	// Applies to this PlanItem only. The default a frontend SHOULD send
+	// when the operator has not explicitly asked for a broader scope.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_ONCE PlanDecisionScope = 1
+	// Applies to the rest of this session for matching provider/operation
+	// calls — an in-memory, session-lifetime rule, not written to agent.hcl.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_SESSION PlanDecisionScope = 2
+	// The kernel persists this as policy beyond this session. A kernel that
+	// cannot persist policy MUST reject ALWAYS rather than silently
+	// downgrading to SESSION or ONCE.
+	PlanDecisionScope_PLAN_DECISION_SCOPE_ALWAYS PlanDecisionScope = 3
+)
+
+// Enum value maps for PlanDecisionScope.
+var (
+	PlanDecisionScope_name = map[int32]string{
+		0: "PLAN_DECISION_SCOPE_UNSPECIFIED",
+		1: "PLAN_DECISION_SCOPE_ONCE",
+		2: "PLAN_DECISION_SCOPE_SESSION",
+		3: "PLAN_DECISION_SCOPE_ALWAYS",
+	}
+	PlanDecisionScope_value = map[string]int32{
+		"PLAN_DECISION_SCOPE_UNSPECIFIED": 0,
+		"PLAN_DECISION_SCOPE_ONCE":        1,
+		"PLAN_DECISION_SCOPE_SESSION":     2,
+		"PLAN_DECISION_SCOPE_ALWAYS":      3,
+	}
+)
+
+func (x PlanDecisionScope) Enum() *PlanDecisionScope {
+	p := new(PlanDecisionScope)
+	*p = x
+	return p
+}
+
+func (x PlanDecisionScope) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PlanDecisionScope) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_plan_v1_types_proto_enumTypes[1].Descriptor()
+}
+
+func (PlanDecisionScope) Type() protoreflect.EnumType {
+	return &file_pluggableharness_plan_v1_types_proto_enumTypes[1]
+}
+
+func (x PlanDecisionScope) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PlanDecisionScope.Descriptor instead.
+func (PlanDecisionScope) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{1}
+}
+
 // PlanDecision is the outcome of evaluating one PlanItem against policy.
 type PlanDecision int32
 
@@ -91,11 +210,11 @@ func (x PlanDecision) String() string {
 }
 
 func (PlanDecision) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_plan_v1_types_proto_enumTypes[0].Descriptor()
+	return file_pluggableharness_plan_v1_types_proto_enumTypes[2].Descriptor()
 }
 
 func (PlanDecision) Type() protoreflect.EnumType {
-	return &file_pluggableharness_plan_v1_types_proto_enumTypes[0]
+	return &file_pluggableharness_plan_v1_types_proto_enumTypes[2]
 }
 
 func (x PlanDecision) Number() protoreflect.EnumNumber {
@@ -104,7 +223,7 @@ func (x PlanDecision) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PlanDecision.Descriptor instead.
 func (PlanDecision) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{0}
+	return file_pluggableharness_plan_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
 // ApplyOutcome classifies how one plan item's apply attempt concluded.
@@ -162,11 +281,11 @@ func (x ApplyResult_ApplyOutcome) String() string {
 }
 
 func (ApplyResult_ApplyOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_plan_v1_types_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_plan_v1_types_proto_enumTypes[3].Descriptor()
 }
 
 func (ApplyResult_ApplyOutcome) Type() protoreflect.EnumType {
-	return &file_pluggableharness_plan_v1_types_proto_enumTypes[1]
+	return &file_pluggableharness_plan_v1_types_proto_enumTypes[3]
 }
 
 func (x ApplyResult_ApplyOutcome) Number() protoreflect.EnumNumber {
@@ -638,7 +757,16 @@ const file_pluggableharness_plan_v1_types_proto_rawDesc = "" +
 	"\x15APPLY_OUTCOME_APPLIED\x10\x01\x12\x18\n" +
 	"\x14APPLY_OUTCOME_FAILED\x10\x02\x12\x18\n" +
 	"\x14APPLY_OUTCOME_DENIED\x10\x03\x12\x19\n" +
-	"\x15APPLY_OUTCOME_SKIPPED\x10\x04*\x90\x01\n" +
+	"\x15APPLY_OUTCOME_SKIPPED\x10\x04*f\n" +
+	"\x0eClientDecision\x12\x1f\n" +
+	"\x1bCLIENT_DECISION_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15CLIENT_DECISION_ALLOW\x10\x01\x12\x18\n" +
+	"\x14CLIENT_DECISION_DENY\x10\x02*\x97\x01\n" +
+	"\x11PlanDecisionScope\x12#\n" +
+	"\x1fPLAN_DECISION_SCOPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18PLAN_DECISION_SCOPE_ONCE\x10\x01\x12\x1f\n" +
+	"\x1bPLAN_DECISION_SCOPE_SESSION\x10\x02\x12\x1e\n" +
+	"\x1aPLAN_DECISION_SCOPE_ALWAYS\x10\x03*\x90\x01\n" +
 	"\fPlanDecision\x12\x1d\n" +
 	"\x19PLAN_DECISION_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15PLAN_DECISION_PENDING\x10\x01\x12\x17\n" +
@@ -658,35 +786,37 @@ func file_pluggableharness_plan_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_plan_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_plan_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_plan_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_pluggableharness_plan_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_pluggableharness_plan_v1_types_proto_goTypes = []any{
-	(PlanDecision)(0),             // 0: pluggableharness.plan.v1.PlanDecision
-	(ApplyResult_ApplyOutcome)(0), // 1: pluggableharness.plan.v1.ApplyResult.ApplyOutcome
-	(*PlanItem)(nil),              // 2: pluggableharness.plan.v1.PlanItem
-	(*Plan)(nil),                  // 3: pluggableharness.plan.v1.Plan
-	(*ApplyResult)(nil),           // 4: pluggableharness.plan.v1.ApplyResult
-	(*ApplyResult_ApplyItem)(nil), // 5: pluggableharness.plan.v1.ApplyResult.ApplyItem
-	(*structpb.Struct)(nil),       // 6: google.protobuf.Struct
-	(v1.ToolKind)(0),              // 7: pluggableharness.tool.v1.ToolKind
-	(v1.RiskClass)(0),             // 8: pluggableharness.tool.v1.RiskClass
-	(*v11.RenderTree)(nil),        // 9: pluggableharness.render.v1.RenderTree
-	(v12.Category)(0),             // 10: pluggableharness.common.v1.Category
-	(*v1.ToolResult)(nil),         // 11: pluggableharness.tool.v1.ToolResult
-	(*v1.ToolError)(nil),          // 12: pluggableharness.tool.v1.ToolError
+	(ClientDecision)(0),           // 0: pluggableharness.plan.v1.ClientDecision
+	(PlanDecisionScope)(0),        // 1: pluggableharness.plan.v1.PlanDecisionScope
+	(PlanDecision)(0),             // 2: pluggableharness.plan.v1.PlanDecision
+	(ApplyResult_ApplyOutcome)(0), // 3: pluggableharness.plan.v1.ApplyResult.ApplyOutcome
+	(*PlanItem)(nil),              // 4: pluggableharness.plan.v1.PlanItem
+	(*Plan)(nil),                  // 5: pluggableharness.plan.v1.Plan
+	(*ApplyResult)(nil),           // 6: pluggableharness.plan.v1.ApplyResult
+	(*ApplyResult_ApplyItem)(nil), // 7: pluggableharness.plan.v1.ApplyResult.ApplyItem
+	(*structpb.Struct)(nil),       // 8: google.protobuf.Struct
+	(v1.ToolKind)(0),              // 9: pluggableharness.tool.v1.ToolKind
+	(v1.RiskClass)(0),             // 10: pluggableharness.tool.v1.RiskClass
+	(*v11.RenderTree)(nil),        // 11: pluggableharness.render.v1.RenderTree
+	(v12.Category)(0),             // 12: pluggableharness.common.v1.Category
+	(*v1.ToolResult)(nil),         // 13: pluggableharness.tool.v1.ToolResult
+	(*v1.ToolError)(nil),          // 14: pluggableharness.tool.v1.ToolError
 }
 var file_pluggableharness_plan_v1_types_proto_depIdxs = []int32{
-	6,  // 0: pluggableharness.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
-	0,  // 1: pluggableharness.plan.v1.PlanItem.decision:type_name -> pluggableharness.plan.v1.PlanDecision
-	7,  // 2: pluggableharness.plan.v1.PlanItem.kind:type_name -> pluggableharness.tool.v1.ToolKind
-	8,  // 3: pluggableharness.plan.v1.PlanItem.risk:type_name -> pluggableharness.tool.v1.RiskClass
-	9,  // 4: pluggableharness.plan.v1.PlanItem.preview:type_name -> pluggableharness.render.v1.RenderTree
-	10, // 5: pluggableharness.plan.v1.PlanItem.producer_category:type_name -> pluggableharness.common.v1.Category
-	2,  // 6: pluggableharness.plan.v1.Plan.items:type_name -> pluggableharness.plan.v1.PlanItem
-	5,  // 7: pluggableharness.plan.v1.ApplyResult.items:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyItem
-	1,  // 8: pluggableharness.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyOutcome
-	11, // 9: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.tool.v1.ToolResult
-	12, // 10: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.tool.v1.ToolError
+	8,  // 0: pluggableharness.plan.v1.PlanItem.input:type_name -> google.protobuf.Struct
+	2,  // 1: pluggableharness.plan.v1.PlanItem.decision:type_name -> pluggableharness.plan.v1.PlanDecision
+	9,  // 2: pluggableharness.plan.v1.PlanItem.kind:type_name -> pluggableharness.tool.v1.ToolKind
+	10, // 3: pluggableharness.plan.v1.PlanItem.risk:type_name -> pluggableharness.tool.v1.RiskClass
+	11, // 4: pluggableharness.plan.v1.PlanItem.preview:type_name -> pluggableharness.render.v1.RenderTree
+	12, // 5: pluggableharness.plan.v1.PlanItem.producer_category:type_name -> pluggableharness.common.v1.Category
+	4,  // 6: pluggableharness.plan.v1.Plan.items:type_name -> pluggableharness.plan.v1.PlanItem
+	7,  // 7: pluggableharness.plan.v1.ApplyResult.items:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyItem
+	3,  // 8: pluggableharness.plan.v1.ApplyResult.ApplyItem.outcome:type_name -> pluggableharness.plan.v1.ApplyResult.ApplyOutcome
+	13, // 9: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_result:type_name -> pluggableharness.tool.v1.ToolResult
+	14, // 10: pluggableharness.plan.v1.ApplyResult.ApplyItem.tool_error:type_name -> pluggableharness.tool.v1.ToolError
 	11, // [11:11] is the sub-list for method output_type
 	11, // [11:11] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name
@@ -709,7 +839,7 @@ func file_pluggableharness_plan_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_plan_v1_types_proto_rawDesc), len(file_pluggableharness_plan_v1_types_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      4,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,

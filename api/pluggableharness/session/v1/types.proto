@@ -1,11 +1,13 @@
 syntax = "proto3";
 
-// Package pluggableharness.session.v1 defines the session lifecycle status enum
-// shared by kernel-callbacks.md §1's RunSessionResult, state-backend.md
-// §4.2's session_meta.status column, and frontend.md §3.2's
-// session_tree_update ServerEvent.
+// Package pluggableharness.session.v1 defines the session lifecycle status
+// enum shared by kernel-callbacks.md's RunSessionResult and
+// state-backend.md's session_meta.status column, plus SessionInfo and the
+// frontend-facing SessionState snapshot ("where am I") assembled by
+// KernelCallbackService.GetSessionState.
 package pluggableharness.session.v1;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/session/proto/v1;sessionv1";
@@ -40,9 +42,9 @@ enum SessionStatus {
 
 // SessionInfo is a session's shareable summary, mirroring
 // state-backend.md's session_meta row plus a cheap cost_ledger SUM. Used
-// by frontend.md's SessionCreated/SessionAttached/SessionList ServerEvent
-// variants — the frontend protocol's read-only view of session lifecycle
-// state, never mutated by a frontend directly.
+// by session lifecycle RPCs (CreateSession/AttachSession/ListSessions)
+// and embedded inside SessionState — the frontend protocol's read-only
+// view of session lifecycle state, never mutated by a frontend directly.
 message SessionInfo {
   // The session's id. ULID, matches the session's sqlite filename stem
   // (state-backend.md §"File layout").
@@ -74,4 +76,75 @@ message SessionInfo {
   // state-backend.md's cost_ledger table for this session. Absent if no
   // cost has been incurred yet, rather than a meaningless zero.
   optional double cost_usd = 8;
+}
+
+// VcsState is the session's version-control summary for status rendering.
+// Absent fields mean "unknown / not a VCS working tree," not empty.
+message VcsState {
+  // The remote tracking URL or name, when known.
+  optional string remote = 1;
+  // The current branch or detached-HEAD ref name, when known.
+  optional string branch = 2;
+  // True when the working tree has uncommitted changes. Absent when VCS
+  // state could not be determined.
+  optional bool dirty = 3;
+}
+
+// ModelState names the model currently driving the session.
+message ModelState {
+  // The model's id within its provider (ModelSpec.id).
+  string id = 1;
+  // The declared name of the model provider plugin.
+  string provider = 2;
+}
+
+// ContextState is the session's context-window pressure for status bars.
+message ContextState {
+  // Tokens currently used against the window.
+  int64 used_tokens = 1;
+  // The usable context window size in tokens (effective ceiling).
+  int64 window_tokens = 2;
+}
+
+// SessionState is the fixed-schema "where am I" snapshot a frontend
+// renders into a status bar, HTTP header, stdout line, or spoken sentence.
+// Assembled by KernelCallbackService.GetSessionState and republished on
+// the event bus topic kernel.state whenever a watched field changes.
+// Per-session: every snapshot names exactly one session. No extension
+// point — a closed schema is what makes every frontend able to render it.
+message SessionState {
+  // The session's shareable lifecycle summary. MUST be set.
+  SessionInfo info = 1;
+
+  // Absolute working directory for this session. MUST be set once the
+  // session has one; empty only before CreateSession finishes binding it.
+  string working_directory = 2;
+
+  // Version-control summary for working_directory. Absent when not a
+  // VCS tree or not yet probed.
+  optional VcsState vcs = 3;
+
+  // The model currently selected for this session's turns. Absent only
+  // before the first model resolution.
+  optional ModelState model = 4;
+
+  // The active thinking/effort level name for the current model, when
+  // the model exposes an effort ladder. Absent when thinking is off or
+  // the model has no effort control.
+  optional string thinking_effort = 5;
+
+  // Context-window pressure. Absent only before the first turn's usage
+  // is known.
+  optional ContextState context = 6;
+
+  // Number of completed turns in this session.
+  int32 turn_count = 7;
+
+  // Wall-clock time since info.started_at. MUST be set for a live
+  // session; for a terminal session equals ended_at - started_at.
+  google.protobuf.Duration elapsed = 8;
+
+  // Session-lifetime total tokens (input + output), summed from the cost
+  // ledger / usage rollups. Zero when no model call has completed yet.
+  int64 total_tokens = 9;
 }

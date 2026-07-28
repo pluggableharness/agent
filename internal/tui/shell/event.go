@@ -22,12 +22,15 @@ type EventSource interface {
 	Run(ctx context.Context, send func(tea.Msg)) error
 }
 
-// PlaceMsg delivers content for a region. It is the translated form of a
-// ServerEvent.render carrying PlacedContent.
+// PlaceMsg delivers a RenderTree for a local layout pane. Transcript
+// events arrive as MainChat; metadata and chrome map to other panes.
 type PlaceMsg struct {
-	Content  *renderv1.PlacedContent
+	Region   region.Region
+	Tree     *renderv1.RenderTree
 	Producer region.Producer
 	Sequence uint64
+	Replace  bool
+	Priority *int32
 }
 
 // DeltaMsg is streamed model text. Consecutive deltas sharing a TargetID
@@ -103,8 +106,9 @@ type StatusMsg struct {
 // this shell's late response.
 type DismissOverlayMsg struct{ Reason string }
 
-// Action is an operator-originated event destined for the kernel's Attach
-// stream. The shell emits these; the bridge translates them to ClientEvents.
+// Action is an operator-originated event destined for the kernel callback
+// channel (SubmitInput, ResolvePlanDecision, Interrupt, TriggerAction).
+// The shell emits these; the bridge translates them to unary RPCs.
 type Action interface{ isAction() }
 
 // SubmitPrompt is a user message. The protocol carries content blocks rather

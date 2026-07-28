@@ -28,15 +28,18 @@ var (
 )
 
 // NewService returns a Service wrapping p. identity is this plugin build's
-// own self-reported identity — Describe reports it directly, per
-// frontend-protocol.md's "Transport" section, rather than the kernel
-// inferring it from a lock-file row. callback is this plugin process's
-// lazily-dialed handle to the kernel callback channel
-// (github.com/pluggableharness/agent/pkg/plugin's Callback); p's own
-// methods may dial it via callback.Client to make kernel-callback calls
-// (Log, Emit, GetConfig, ...) as part of handling a request.
+// own self-reported identity — Describe reports it directly rather than
+// the kernel inferring it from a lock-file row. callback is this plugin
+// process's lazily-dialed handle to the kernel callback channel; p uses
+// it for GetSessionState, SubmitInput, Subscribe, StreamDeltas, and the
+// rest of the frontend state-surface RPCs.
 func NewService(p Provider, identity plugin.Identity, callback *plugin.Callback) *Service {
 	return &Service{provider: p, identity: identity, callback: callback}
+}
+
+// Callback returns the kernel callback handle passed to NewService.
+func (svc *Service) Callback() *plugin.Callback {
+	return svc.callback
 }
 
 // Register registers the FrontendService on s, satisfying
@@ -46,7 +49,7 @@ func (svc *Service) Register(s *grpc.Server) {
 }
 
 // GetCapabilities returns this frontend's slash commands, config schema,
-// supported regions, and supported hook points. Unary.
+// and supported hook points. Unary.
 func (svc *Service) GetCapabilities(ctx context.Context, _ *frontendv1.GetCapabilitiesRequest) (*frontendv1.GetCapabilitiesResponse, error) {
 	caps, err := svc.provider.Capabilities(ctx)
 	if err != nil {
@@ -57,8 +60,7 @@ func (svc *Service) GetCapabilities(ctx context.Context, _ *frontendv1.GetCapabi
 
 // Configure applies this provider's agent.hcl configuration. Unary. A
 // returned error surfaces as a gRPC status carrying a Error in its
-// structured detail, never as an in-band field on ConfigureResponse
-// (doc.go's "Error handling is two distinct paths, not one").
+// structured detail, never as an in-band field on ConfigureResponse.
 func (svc *Service) Configure(ctx context.Context, req *frontendv1.ConfigureRequest) (*frontendv1.ConfigureResponse, error) {
 	if err := svc.provider.Configure(ctx, req.GetConfig()); err != nil {
 		return nil, statusErr(err)

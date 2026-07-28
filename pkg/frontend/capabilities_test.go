@@ -8,7 +8,6 @@ import (
 	"github.com/pluggableharness/agent/pkg/config"
 	configv1 "github.com/pluggableharness/agent/pkg/config/proto/v1"
 	"github.com/pluggableharness/agent/pkg/frontend"
-	renderv1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 )
 
 func TestNewCapabilities(t *testing.T) {
@@ -27,7 +26,6 @@ func TestNewCapabilities(t *testing.T) {
 
 	caps := frontend.NewCapabilities(schema,
 		frontend.WithSlashCommands(slash),
-		frontend.WithSupportedRegions(renderv1.Region_REGION_MAIN_CHAT, renderv1.Region_REGION_OVERLAY),
 		frontend.WithSupportedHookPoints(commonv1.HookPoint_HOOK_POINT_PRE_TOOL_CALL),
 	)
 
@@ -36,10 +34,6 @@ func TestNewCapabilities(t *testing.T) {
 	}
 	if len(caps.SlashCommands) != 1 || caps.SlashCommands[0] != slash {
 		t.Errorf("SlashCommands = %v, want [%v]", caps.SlashCommands, slash)
-	}
-	wantRegions := []renderv1.Region{renderv1.Region_REGION_MAIN_CHAT, renderv1.Region_REGION_OVERLAY}
-	if !reflect.DeepEqual(caps.SupportedRegions, wantRegions) {
-		t.Errorf("SupportedRegions = %v, want %v", caps.SupportedRegions, wantRegions)
 	}
 	wantHooks := []commonv1.HookPoint{commonv1.HookPoint_HOOK_POINT_PRE_TOOL_CALL}
 	if !reflect.DeepEqual(caps.SupportedHookPoints, wantHooks) {

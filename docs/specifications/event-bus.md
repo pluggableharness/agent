@@ -59,6 +59,13 @@ The per-stream bound is an `event_bus{}` config value (`configuration/blocks-ref
 
 - **`kernel.event.{kind}`** — republished by `Emit` immediately after a successful persisted write, where `{kind}` is the lowercase text form of the persisted `EventKind` (`state-backend.md#the-kind-enum`'s own vocabulary — e.g. `kernel.event.tool_call`, `kernel.event.message`). This lets a plugin observe the durable event stream live without polling `ReadEvents`, while the durability guarantee is untouched: the sqlite row is committed before the republish happens, so a subscriber that never connects, or that disconnects mid-stream, loses nothing durable — it can always fall back to `ReadEvents` for anything it missed.
 
+Additional kernel-originated topics in this revision:
+
+- **`kernel.state`** — republished when a session's `SessionState` snapshot changes (working directory, model, context pressure, turn count, …). Payload carries `session_id` (not in the topic name — keeps topic cardinality bounded). Frontends pair `GetSessionState` with a subscription here.
+- **`kernel.metadata`** — republished on every `PublishMetadata` / `RetractMetadata` / producer-disconnect liveness flip. Payload is a `metadata.v1.MetadataBlock` (includes `session_id`). Frontends pair `ListMetadata` with a subscription here.
+
+**Token deltas do not use the bus.** `StreamDeltas` is a separate server-streaming RPC on the callback channel (no topic matching, no shared subscriber queue). See `kernel-callbacks.md` and `frontend/frontend-protocol.md#token-fast-path`.
+
 A future kernel-originated topic (a turn-lifecycle notification, a plan-ready signal mirrored onto the bus for observability) has a home in this namespace without a naming collision with any plugin's own topics, since no plugin can ever construct a `kernel.*` topic.
 
 ## Open questions

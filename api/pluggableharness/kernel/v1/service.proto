@@ -1,14 +1,18 @@
 syntax = "proto3";
 
-// Package pluggableharness.kernel.v1 defines the kernel-callback service described
-// in specifications/kernel-callbacks.md (RunSession, CountTokens, Emit,
-// Log, ExportSpans, RecordMetrics, GetTelemetryConfig, GetConfig, Publish,
-// Subscribe, ReadEvents, GetSession) — the plugin-to-kernel calling
-// direction every plugin category gets at handshake, the reverse of every
-// other category's protocol in this series. Unlike a category plugin
-// protocol, this service carries no GetCapabilities/Configure RPCs: it
-// isn't something the kernel dials into a plugin, it's the connection
-// every plugin subprocess is handed back to call into the kernel.
+// Package pluggableharness.kernel.v1 defines the kernel-callback service
+// described in specifications/kernel-callbacks.md — the plugin-to-kernel
+// calling direction every plugin category gets at handshake, the reverse
+// of every other category's protocol in this series. Unlike a category
+// plugin protocol, this service carries no GetCapabilities/Configure
+// RPCs: it is not something the kernel dials into a plugin, it is the
+// connection every plugin subprocess is handed back to call into the
+// kernel.
+//
+// Frontend state surfaces (input, state, metadata, transcript backfill,
+// token deltas) also live here: under go-plugin the plugin is the gRPC
+// server, so kernel-push streams and frontend-originated control both
+// use this channel rather than a category Attach RPC.
 package pluggableharness.kernel.v1;
 
 import "pluggableharness/kernel/v1/events.proto";
@@ -18,135 +22,170 @@ import "pluggableharness/kernel/v1/rpc_response.proto";
 option go_package = "github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1";
 
 // KernelCallbackService is the plugin-to-kernel callback channel described
-// in specifications/kernel-callbacks.md §1. hashicorp/go-plugin natively
+// in specifications/kernel-callbacks.md. hashicorp/go-plugin natively
 // supports bidirectional plugins, and this is that mechanism: every plugin
-// subprocess, for every category defined across this series, MUST be given
-// a client connection to this service at handshake time, unconditionally.
-// A plugin that never calls back simply never uses it, but the channel's
-// presence is not gated on category — a context provider needing
-// CountTokens is just as valid a caller as a tool provider needing
-// RunSession.
+// subprocess, for every category, MUST be given a client connection to
+// this service at handshake time, unconditionally.
+//
+// Application RPCs are unary or server-streaming. The connection itself is
+// bidirectional at the transport layer; that is the only genuinely
+// bidirectional surface in the protocol series (there is no category
+// Attach stream).
 service KernelCallbackService {
   // RunSession dispatches a nested sub-agent session under a named
-  // agent.hcl profile. Full semantics — profile resolution, budget
-  // inheritance, visibility of intermediate turns — are defined in
-  // agent-loop.md §7 and are not repeated here; kernel-callbacks.md §1
-  // gives this RPC's calling contract.
+  // agent.hcl profile. Full semantics live in agent-loop/subagents.md.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "RunSessionResult", the exact name agent-loop.md §7.1
-  // uses in its own data-type definition. Not a uniqueness violation:
-  // RunSessionResult is used by exactly this one RPC.
   rpc RunSession(RunSessionRequest) returns (RunSessionResult);
 
-  // CountTokens resolves the token-counting gap independently flagged by
-  // context.md §12, configuration.md §12, memory.md §13, and frontend.md
-  // §10: exactly one kernel-owned implementation, so that `tokens` figures
-  // produced by different providers stay mutually comparable and additive
-  // for configuration.md §6's budget-sum arithmetic. See
-  // kernel-callbacks.md §2 for the resolution algorithm and §3 for the
-  // single documented fallback formula.
+  // CountTokens resolves the token-counting gap: exactly one kernel-owned
+  // implementation so tokens figures stay mutually comparable.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "CountTokensResult", the exact name kernel-callbacks.md
-  // §2 uses. Not a uniqueness violation: used by exactly this one RPC.
   rpc CountTokens(CountTokensRequest) returns (CountTokensResult);
 
   // Emit is how a plugin persists anything into the session's state
-  // backend. The kernel is the state backend's sole writer
-  // (state-backend.md §3) — a plugin never opens or writes the sqlite file
-  // directly; it calls Emit and the kernel performs the actual write,
-  // assigning the ordering-authoritative sequence number and the stable
-  // event id itself. See kernel-callbacks.md §4.
+  // backend. The kernel is the sole writer.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "EmitResult", the exact name kernel-callbacks.md §4
-  // uses. Not a uniqueness violation: used by exactly this one RPC.
   rpc Emit(EmitRequest) returns (EmitResult);
 
   // Log carries a plugin's own log output into the kernel's centralized
-  // logging, so it doesn't vanish into an unread subprocess stderr.
-  // Unlike Emit, a Log call is not tied to an active session — a plugin
-  // MAY call Log before any session exists (process startup, or from
-  // within Configure) or after one has ended (during shutdown). See
-  // kernel-callbacks.md §5.
+  // logging.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "LogResult", the exact name kernel-callbacks.md §5
-  // uses. Not a uniqueness violation: used by exactly this one RPC.
   rpc Log(LogRequest) returns (LogResult);
 
-  // ExportSpans relays a batch of a plugin's own completed trace spans to
-  // the kernel, which forwards them to the operator's configured
-  // collector essentially unchanged. This reverses an earlier
-  // direct-per-process-OTLP-export design — see
-  // specifications/observability.md#the-relay-model for why.
+  // ExportSpans relays a batch of a plugin's own completed trace spans.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "ExportSpansResult", used by exactly this one RPC.
   rpc ExportSpans(ExportSpansRequest) returns (ExportSpansResult);
 
-  // RecordMetrics relays a batch of metric observations. Unlike
-  // ExportSpans, this is not a transparent relay: the kernel records each
-  // observation against its own instrument and bounds the attribute key
-  // set before it reaches any exporter. See
-  // specifications/observability.md#the-tracing-metrics-asymmetry.
+  // RecordMetrics relays a batch of metric observations (bounded
+  // attributes; not a transparent relay).
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "RecordMetricsResult", used by exactly this one RPC.
   rpc RecordMetrics(RecordMetricsRequest) returns (RecordMetricsResult);
 
-  // GetTelemetryConfig answers whether tracing/metrics/logs are enabled
-  // and at what level/ratio, so a plugin doesn't have to guess from its
-  // own environment. A plugin SHOULD call this once at startup and cache
-  // the result — see specifications/observability.md#gettelemetryconfig-caching.
+  // GetTelemetryConfig answers whether tracing/metrics/logs are enabled.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "GetTelemetryConfigResult", used by exactly this one
-  // RPC.
   rpc GetTelemetryConfig(GetTelemetryConfigRequest) returns (GetTelemetryConfigResult);
 
   // GetConfig returns the calling plugin's own already-decoded agent.hcl
-  // configuration — the same shape Configure received. See
-  // kernel-callbacks.md's GetConfig for the secret-echo MUST NOT rule this
-  // implies.
+  // configuration.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "GetConfigResult", used by exactly this one RPC.
   rpc GetConfig(GetConfigRequest) returns (GetConfigResult);
 
-  // Publish emits one event onto the ephemeral, best-effort, cross-plugin
-  // event bus, distinct from Emit's durable per-session log and from
-  // hook dispatch's synchronous, agent.hcl-declared subscriber chain. See
-  // specifications/event-bus.md.
+  // Publish emits one event onto the ephemeral event bus.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "PublishResult", used by exactly this one RPC.
   rpc Publish(PublishRequest) returns (PublishResult);
 
-  // Subscribe opens a server-streaming subscription to the event bus,
-  // filtered by topic. See specifications/event-bus.md#filter-grammar and
-  // #backpressure for why the kernel may unilaterally close this stream.
+  // Subscribe opens a server-streaming subscription to the event bus.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Stream element type is "BusEvent", naming the streamed domain concept
-  // rather than the RPC, the same convention model.md §4's StreamEvent
-  // and widget.md's WidgetUpdate already use.
   rpc Subscribe(SubscribeRequest) returns (stream BusEvent);
 
   // ReadEvents reads back the calling plugin's own session's persisted
-  // event log, ordered by sequence — never by wall-clock time
-  // (.claude/rules/determinism.md).
+  // event log, ordered by sequence.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Stream element type is "StoredEvent", the same "name the domain
-  // concept" convention as Subscribe's BusEvent above.
   rpc ReadEvents(ReadEventsRequest) returns (stream StoredEvent);
 
   // GetSession returns the calling plugin's own session's metadata plus
-  // its live, in-memory budget rollups.
+  // its live budget rollups.
   //
   // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-  // Response type is "GetSessionResult", used by exactly this one RPC.
   rpc GetSession(GetSessionRequest) returns (GetSessionResult);
+
+  // GetSessionState returns the fixed-schema "where am I" snapshot for
+  // one session. Pair with Subscribe on topic kernel.state for deltas.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc GetSessionState(GetSessionStateRequest) returns (GetSessionStateResult);
+
+  // SubmitInput submits operator input as the next turn. Returns the
+  // assigned turn_id for correlation.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc SubmitInput(SubmitInputRequest) returns (SubmitInputResult);
+
+  // ResolvePlanDecision answers a pending plan item (policy ASK).
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc ResolvePlanDecision(ResolvePlanDecisionRequest) returns (ResolvePlanDecisionResult);
+
+  // ResolveInteractive answers a pending interactive-kind tool call.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc ResolveInteractive(ResolveInteractiveRequest) returns (ResolveInteractiveResult);
+
+  // Interrupt cancels the running turn for a session.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc Interrupt(InterruptRequest) returns (InterruptResult);
+
+  // CreateSession creates a new session and auto-attaches the caller.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResult);
+
+  // AttachSession subscribes the caller to an existing session.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc AttachSession(AttachSessionRequest) returns (AttachSessionResult);
+
+  // ResumeSession attaches a historical session for continuation or
+  // replay-only.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc ResumeSession(ResumeSessionRequest) returns (ResumeSessionResult);
+
+  // DetachSession unsubscribes the caller from a session.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc DetachSession(DetachSessionRequest) returns (DetachSessionResult);
+
+  // ListSessions returns a filtered session summary list.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResult);
+
+  // PublishMetadata upserts a MetadataBlock (producer and liveness
+  // server-stamped).
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc PublishMetadata(PublishMetadataRequest) returns (PublishMetadataResult);
+
+  // RetractMetadata flips a block to DISCONNECTED and republishes; never
+  // deletes.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc RetractMetadata(RetractMetadataRequest) returns (RetractMetadataResult);
+
+  // ListMetadata returns every known MetadataBlock for a session
+  // (snapshot half of snapshot-then-subscribe).
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc ListMetadata(ListMetadataRequest) returns (ListMetadataResult);
+
+  // StreamDeltas is the live-only token fast path: server-streaming on
+  // this channel, out-of-band with respect to the event bus. The kernel
+  // does not batch; frontends coalesce to their own refresh.
+  //
+  // buf:lint:ignore RPC_REQUEST_STANDARD_NAME
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc StreamDeltas(StreamDeltasRequest) returns (stream TokenDelta);
+
+  // InvokeSlashCommand dispatches a slash command against a session.
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc InvokeSlashCommand(InvokeSlashCommandRequest) returns (InvokeSlashCommandResult);
+
+  // TriggerAction dispatches an ActionNode activation (no model turn).
+  //
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc TriggerAction(TriggerActionRequest) returns (TriggerActionResult);
 }

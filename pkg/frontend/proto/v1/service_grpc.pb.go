@@ -4,9 +4,13 @@
 // - protoc             (unknown)
 // source: pluggableharness/frontend/v1/service.proto
 
-// Package pluggableharness.frontend.v1 defines the frontend provider plugin protocol
-// described in specifications/frontend.md §3 (Attach, ServerEvent,
-// ClientEvent, ...).
+// Package pluggableharness.frontend.v1 defines the frontend provider plugin
+// protocol described in specifications/frontend/. A frontend owns how the
+// operator sees and types — TUI, web, CLI, voice — but does not own the
+// agent loop. Kernel-to-frontend traffic (state, metadata, transcript,
+// token deltas) rides the kernel callback channel
+// (specifications/kernel-callbacks.md); this service is only the
+// standard category triple every plugin exposes.
 
 package frontendv1
 
@@ -25,7 +29,6 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	FrontendService_GetCapabilities_FullMethodName = "/pluggableharness.frontend.v1.FrontendService/GetCapabilities"
 	FrontendService_Configure_FullMethodName       = "/pluggableharness.frontend.v1.FrontendService/Configure"
-	FrontendService_Attach_FullMethodName          = "/pluggableharness.frontend.v1.FrontendService/Attach"
 	FrontendService_Describe_FullMethodName        = "/pluggableharness.frontend.v1.FrontendService/Describe"
 )
 
@@ -33,57 +36,22 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// FrontendService implements the frontend provider protocol described in
-// specifications/frontend.md §3.
+// FrontendService implements the frontend provider protocol. There is no
+// Attach RPC: under go-plugin the plugin is the gRPC server, so the only
+// direction that lets the kernel push streams into a frontend is the
+// callback channel where the plugin is the client. Session lifecycle,
+// operator input, plan/interactive resolution, metadata, and token
+// deltas are all KernelCallbackService RPCs.
 type FrontendServiceClient interface {
-	// GetCapabilities returns this frontend's slash commands and config
-	// schema. Unary. frontend.md §3.1.
+	// GetCapabilities returns this frontend's slash commands, config
+	// schema, and supported hook points. Unary.
 	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
-	// Configure applies this provider's `agent.hcl` configuration, validated
-	// against the schema returned by GetCapabilities (configuration.md §4).
-	// Unary. frontend.md §3.1.
+	// Configure applies this provider's agent.hcl configuration, validated
+	// against the schema returned by GetCapabilities.
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
-	// Attach opens ONE multiplexed, connection-scoped bidirectional event
-	// channel between the kernel and this frontend connection — not a
-	// per-session stream. A frontend subscribes individual sessions onto
-	// this one stream via the session-control ClientEvent variants
-	// (create_session/attach_session/resume_session/detach_session), and
-	// unsubscribes the same way; connection-level operations
-	// (list_sessions, the aggregate slash-command registry) have a natural
-	// home here precisely because the stream isn't tied to one session.
-	// ServerEvents flow from kernel to frontend, ClientEvents flow from
-	// frontend to kernel, both directions live for the duration of the
-	// stream. Bidirectional streaming — frontend.md §"Transport", and
-	// (along with the kernel callback channel) one of only two genuinely
-	// bidirectional RPCs in this protocol series (see .claude/rules/grpc.md).
-	//
-	// Multiple frontends MAY subscribe to the same session concurrently on
-	// their own Attach streams (frontend.md §"Session scope"): every
-	// ServerEvent for a given session broadcasts identically to every
-	// frontend subscribed to that session, with no partitioning and no
-	// "primary" frontend. ClientEvents are processed in kernel arrival
-	// order; for ClientEvent.plan_decision and
-	// ClientEvent.interactive_response specifically, which name a pending
-	// item by id within a session, the kernel applies first-response-wins
-	// arbitration per session and MUST reject any later response for an
-	// already-resolved item with a distinct error back to its sender.
-	//
-	// buf:lint:ignore RPC_REQUEST_STANDARD_NAME
-	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element types are the bare "ClientEvent"/"ServerEvent" per
-	// frontend.md §3.2's literal spec — names used throughout this project's
-	// specs and rules, not just here. Neither is reused by another RPC (no
-	// uniqueness violation); renaming to Attach*Request/Response would only
-	// satisfy a style convention while discarding real spec traceability.
-	Attach(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ClientEvent, ServerEvent], error)
 	// Describe reports this plugin build's own identity — {name, version,
 	// source, category, protocol_version} — directly from the running
 	// process, rather than the kernel inferring it from a lock-file row.
-	// Every one of the seven category protocols gains this identical RPC in
-	// this protocol revision; it exists specifically for a
-	// `dev_overrides`-resolved binary (configuration/lock-file.md's
-	// "dev_overrides and identity without a lock entry"), which has no
-	// provider {} lock-file entry to read identity from at all.
 	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
 }
 
@@ -115,19 +83,6 @@ func (c *frontendServiceClient) Configure(ctx context.Context, in *ConfigureRequ
 	return out, nil
 }
 
-func (c *frontendServiceClient) Attach(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ClientEvent, ServerEvent], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &FrontendService_ServiceDesc.Streams[0], FrontendService_Attach_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[ClientEvent, ServerEvent]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FrontendService_AttachClient = grpc.BidiStreamingClient[ClientEvent, ServerEvent]
-
 func (c *frontendServiceClient) Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DescribeResponse)
@@ -142,57 +97,22 @@ func (c *frontendServiceClient) Describe(ctx context.Context, in *DescribeReques
 // All implementations must embed UnimplementedFrontendServiceServer
 // for forward compatibility.
 //
-// FrontendService implements the frontend provider protocol described in
-// specifications/frontend.md §3.
+// FrontendService implements the frontend provider protocol. There is no
+// Attach RPC: under go-plugin the plugin is the gRPC server, so the only
+// direction that lets the kernel push streams into a frontend is the
+// callback channel where the plugin is the client. Session lifecycle,
+// operator input, plan/interactive resolution, metadata, and token
+// deltas are all KernelCallbackService RPCs.
 type FrontendServiceServer interface {
-	// GetCapabilities returns this frontend's slash commands and config
-	// schema. Unary. frontend.md §3.1.
+	// GetCapabilities returns this frontend's slash commands, config
+	// schema, and supported hook points. Unary.
 	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
-	// Configure applies this provider's `agent.hcl` configuration, validated
-	// against the schema returned by GetCapabilities (configuration.md §4).
-	// Unary. frontend.md §3.1.
+	// Configure applies this provider's agent.hcl configuration, validated
+	// against the schema returned by GetCapabilities.
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
-	// Attach opens ONE multiplexed, connection-scoped bidirectional event
-	// channel between the kernel and this frontend connection — not a
-	// per-session stream. A frontend subscribes individual sessions onto
-	// this one stream via the session-control ClientEvent variants
-	// (create_session/attach_session/resume_session/detach_session), and
-	// unsubscribes the same way; connection-level operations
-	// (list_sessions, the aggregate slash-command registry) have a natural
-	// home here precisely because the stream isn't tied to one session.
-	// ServerEvents flow from kernel to frontend, ClientEvents flow from
-	// frontend to kernel, both directions live for the duration of the
-	// stream. Bidirectional streaming — frontend.md §"Transport", and
-	// (along with the kernel callback channel) one of only two genuinely
-	// bidirectional RPCs in this protocol series (see .claude/rules/grpc.md).
-	//
-	// Multiple frontends MAY subscribe to the same session concurrently on
-	// their own Attach streams (frontend.md §"Session scope"): every
-	// ServerEvent for a given session broadcasts identically to every
-	// frontend subscribed to that session, with no partitioning and no
-	// "primary" frontend. ClientEvents are processed in kernel arrival
-	// order; for ClientEvent.plan_decision and
-	// ClientEvent.interactive_response specifically, which name a pending
-	// item by id within a session, the kernel applies first-response-wins
-	// arbitration per session and MUST reject any later response for an
-	// already-resolved item with a distinct error back to its sender.
-	//
-	// buf:lint:ignore RPC_REQUEST_STANDARD_NAME
-	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	// Stream element types are the bare "ClientEvent"/"ServerEvent" per
-	// frontend.md §3.2's literal spec — names used throughout this project's
-	// specs and rules, not just here. Neither is reused by another RPC (no
-	// uniqueness violation); renaming to Attach*Request/Response would only
-	// satisfy a style convention while discarding real spec traceability.
-	Attach(grpc.BidiStreamingServer[ClientEvent, ServerEvent]) error
 	// Describe reports this plugin build's own identity — {name, version,
 	// source, category, protocol_version} — directly from the running
 	// process, rather than the kernel inferring it from a lock-file row.
-	// Every one of the seven category protocols gains this identical RPC in
-	// this protocol revision; it exists specifically for a
-	// `dev_overrides`-resolved binary (configuration/lock-file.md's
-	// "dev_overrides and identity without a lock entry"), which has no
-	// provider {} lock-file entry to read identity from at all.
 	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
 	mustEmbedUnimplementedFrontendServiceServer()
 }
@@ -209,9 +129,6 @@ func (UnimplementedFrontendServiceServer) GetCapabilities(context.Context, *GetC
 }
 func (UnimplementedFrontendServiceServer) Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Configure not implemented")
-}
-func (UnimplementedFrontendServiceServer) Attach(grpc.BidiStreamingServer[ClientEvent, ServerEvent]) error {
-	return status.Error(codes.Unimplemented, "method Attach not implemented")
 }
 func (UnimplementedFrontendServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
@@ -273,13 +190,6 @@ func _FrontendService_Configure_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _FrontendService_Attach_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FrontendServiceServer).Attach(&grpc.GenericServerStream[ClientEvent, ServerEvent]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FrontendService_AttachServer = grpc.BidiStreamingServer[ClientEvent, ServerEvent]
-
 func _FrontendService_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DescribeRequest)
 	if err := dec(in); err != nil {
@@ -318,13 +228,6 @@ var FrontendService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FrontendService_Describe_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Attach",
-			Handler:       _FrontendService_Attach_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "pluggableharness/frontend/v1/service.proto",
 }

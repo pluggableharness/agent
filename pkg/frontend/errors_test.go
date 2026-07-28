@@ -1,7 +1,6 @@
 package frontend_test
 
 import (
-	"errors"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -35,8 +34,7 @@ func TestFrontendError_StatusErr(t *testing.T) {
 	}{
 		{"unspecified", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNSPECIFIED, codes.Internal},
 		{"render_failed", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_RENDER_FAILED, codes.Internal},
-		{"invalid_client_event", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_CLIENT_EVENT, codes.InvalidArgument},
-		{"region_unsupported", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_REGION_UNSUPPORTED, codes.FailedPrecondition},
+		{"invalid_request", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_INVALID_REQUEST, codes.InvalidArgument},
 		{"unknown", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_UNKNOWN, codes.Internal},
 		{"session_not_found", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_NOT_FOUND, codes.NotFound},
 		{"session_create_failed", frontendv1.FrontendErrorCategory_FRONTEND_ERROR_CATEGORY_SESSION_CREATE_FAILED, codes.InvalidArgument},
@@ -63,27 +61,5 @@ func TestFrontendError_StatusErr(t *testing.T) {
 				t.Errorf("StatusErr() carries no structured detail")
 			}
 		})
-	}
-}
-
-func TestFatal(t *testing.T) {
-	t.Parallel()
-
-	if got := frontend.Fatal(nil); got != nil {
-		t.Errorf("Fatal(nil) = %v, want nil", got)
-	}
-
-	inner := errors.New("process died")
-	wrapped := frontend.Fatal(inner)
-
-	var fatal *frontend.FatalErr
-	if !errors.As(wrapped, &fatal) {
-		t.Fatalf("Fatal(err) does not unwrap to *FatalErr: %v", wrapped)
-	}
-	if !errors.Is(wrapped, inner) {
-		t.Errorf("Fatal(err) does not wrap the original error via errors.Is")
-	}
-	if wrapped.Error() == "" {
-		t.Errorf("FatalErr.Error() returned empty string")
 	}
 }

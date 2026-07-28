@@ -14,7 +14,6 @@ import (
 
 	"github.com/pluggableharness/agent/internal/tui/region"
 	"github.com/pluggableharness/agent/pkg/render"
-	renderv1 "github.com/pluggableharness/agent/pkg/render/proto/v1"
 )
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
@@ -97,14 +96,12 @@ func key(s string) tea.KeyPressMsg {
 	}
 }
 
-func placeMsg(r renderv1.Region, text string, seq uint64) PlaceMsg {
+func placeMsg(r region.Region, text string, seq uint64) PlaceMsg {
 	return PlaceMsg{
+		Region:   r,
+		Tree:     render.Tree(render.Text(text)),
 		Producer: region.Producer{Category: "tool", Name: "fs"},
 		Sequence: seq,
-		Content: &renderv1.PlacedContent{
-			Region:  r,
-			Content: render.Tree(render.Text(text)),
-		},
 	}
 }
 
@@ -193,7 +190,7 @@ func TestFocusCyclesAndSkipsEmptySidebar(t *testing.T) {
 	}
 
 	// Give the sidebar content and it joins the ring.
-	m.Update(placeMsg(renderv1.Region_REGION_SIDEBAR, "git", 1))
+	m.Update(placeMsg(region.Sidebar, "git", 1))
 	press(t, m, "tab", "tab")
 
 	if m.Focus() != FocusSidebar {
@@ -231,7 +228,7 @@ func TestPlaceClearsLiveStreams(t *testing.T) {
 
 	m, _ := newTestModel(t)
 	m.Update(DeltaMsg{TargetID: "t1", Text: "partial"})
-	m.Update(placeMsg(renderv1.Region_REGION_MAIN_CHAT, "final", 1))
+	m.Update(placeMsg(region.MainChat, "final", 1))
 
 	if len(m.Store().Streams()) != 0 {
 		t.Fatal("a settled render left the streaming buffer live")
@@ -339,8 +336,8 @@ func TestOverlayPreservesTheFrameBeneathIt(t *testing.T) {
 	t.Parallel()
 
 	m, _ := newTestModel(t)
-	m.Update(placeMsg(renderv1.Region_REGION_MAIN_CHAT, "earlier transcript line", 1))
-	m.Update(placeMsg(renderv1.Region_REGION_SIDEBAR, "sidebar widget", 2))
+	m.Update(placeMsg(region.MainChat, "earlier transcript line", 1))
+	m.Update(placeMsg(region.Sidebar, "sidebar widget", 2))
 	m.Update(StatusMsg{Session: "session-01", Model: "claude-opus-5"})
 	m.Update(PermissionMsg{ItemID: "i", Title: "Allow?"})
 
@@ -359,7 +356,7 @@ func TestSidebarContentPaintsInWideLayout(t *testing.T) {
 	t.Parallel()
 
 	m, _ := newTestModel(t)
-	m.Update(placeMsg(renderv1.Region_REGION_SIDEBAR, "branch: main", 1))
+	m.Update(placeMsg(region.Sidebar, "branch: main", 1))
 
 	if !m.Layout().ShowSidebar {
 		t.Fatalf("sidebar not shown at width 120: %+v", m.Layout())
@@ -390,10 +387,8 @@ func TestActionTriggerDispatchesUnchanged(t *testing.T) {
 	m.Update(PlaceMsg{
 		Producer: region.Producer{Category: "widget", Name: "w"},
 		Sequence: 1,
-		Content: &renderv1.PlacedContent{
-			Region:  renderv1.Region_REGION_MAIN_CHAT,
-			Content: render.Tree(render.Action("act_1", "Compact", "compact_context", nil, "builtin")),
-		},
+		Region:   region.MainChat,
+		Tree:     render.Tree(render.Action("act_1", "Compact", "compact_context", nil, "builtin")),
 	})
 
 	press(t, m, "tab") // focus main
@@ -416,10 +411,8 @@ func TestActivatingACollapsibleTogglesLocallyAndSendsNothing(t *testing.T) {
 	m.Update(PlaceMsg{
 		Producer: region.Producer{Category: "tool", Name: "fs"},
 		Sequence: 1,
-		Content: &renderv1.PlacedContent{
-			Region:  renderv1.Region_REGION_MAIN_CHAT,
-			Content: render.Tree(render.CollapsedByDefault("summary", render.Text("hidden body"))),
-		},
+		Region:   region.MainChat,
+		Tree:     render.Tree(render.CollapsedByDefault("summary", render.Text("hidden body"))),
 	})
 
 	press(t, m, "tab")
@@ -518,7 +511,7 @@ func TestNarrowTerminalFoldsSidebarContentIntoMainChat(t *testing.T) {
 	t.Parallel()
 
 	m, _ := newTestModel(t)
-	m.Update(placeMsg(renderv1.Region_REGION_SIDEBAR, "git status", 1))
+	m.Update(placeMsg(region.Sidebar, "git status", 1))
 	m.Update(tea.WindowSizeMsg{Width: 50, Height: 24})
 
 	if !m.Layout().FoldSidebar() {
@@ -646,17 +639,17 @@ func TestDemoSourceEmitsItsScriptAndStopsOnCancel(t *testing.T) {
 func TestDemoScriptCoversTheMainRegions(t *testing.T) {
 	t.Parallel()
 
-	seen := map[renderv1.Region]bool{}
+	seen := map[region.Region]bool{}
 
 	for _, msg := range demoScript() {
 		if p, ok := msg.(PlaceMsg); ok {
-			seen[p.Content.GetRegion()] = true
+			seen[p.Region] = true
 		}
 	}
 
-	for _, want := range []renderv1.Region{
-		renderv1.Region_REGION_MAIN_CHAT,
-		renderv1.Region_REGION_SIDEBAR,
+	for _, want := range []region.Region{
+		region.MainChat,
+		region.Sidebar,
 	} {
 		if !seen[want] {
 			t.Errorf("demo script never places content in %v", want)
@@ -724,10 +717,8 @@ func TestTabbedContentDoesNotOverflow(t *testing.T) {
 	m.Update(PlaceMsg{
 		Producer: region.Producer{Category: "tool", Name: "fs"},
 		Sequence: 1,
-		Content: &renderv1.PlacedContent{
-			Region:  renderv1.Region_REGION_MAIN_CHAT,
-			Content: render.Tree(render.Code("go", "func main() {\n\tif x {\n\t\treturn\n\t}\n}")),
-		},
+		Region:   region.MainChat,
+		Tree:     render.Tree(render.Code("go", "func main() {\n\tif x {\n\t\treturn\n\t}\n}")),
 	})
 
 	frame := m.View().Content
@@ -813,7 +804,7 @@ func TestWheelScrollsTheTranscript(t *testing.T) {
 
 	m, _ := newTestModel(t)
 	for i := range 60 {
-		m.Update(placeMsg(renderv1.Region_REGION_MAIN_CHAT, fmt.Sprintf("line %d", i), uint64(i)))
+		m.Update(placeMsg(region.MainChat, fmt.Sprintf("line %d", i), uint64(i)))
 	}
 
 	// Paint once so the model learns how far the content can scroll.
@@ -845,7 +836,7 @@ func TestWheelDoesNotScrollPastTheTop(t *testing.T) {
 	t.Parallel()
 
 	m, _ := newTestModel(t)
-	m.Update(placeMsg(renderv1.Region_REGION_MAIN_CHAT, "only line", 1))
+	m.Update(placeMsg(region.MainChat, "only line", 1))
 	_ = m.View()
 
 	for range 10 {
@@ -1030,7 +1021,7 @@ func TestTranscriptIsBottomAnchored(t *testing.T) {
 	t.Parallel()
 
 	m, _ := newTestModel(t)
-	m.Update(placeMsg(renderv1.Region_REGION_MAIN_CHAT, "newest line", 1))
+	m.Update(placeMsg(region.MainChat, "newest line", 1))
 
 	rows := strings.Split(plain(m.View().Content), "\n")
 
