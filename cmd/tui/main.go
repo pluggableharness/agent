@@ -1,17 +1,12 @@
 // Command tui runs the reference terminal shell for PluggableHarness Agent.
 //
-// The shell is a frontend provider: the kernel launches it as a
-// hashicorp/go-plugin subprocess. There is no Attach stream — session
-// lifecycle, SubmitInput, GetSessionState, ListMetadata, Subscribe, and
-// StreamDeltas all ride the kernel callback channel
-// (docs/specifications/frontend/). The category service is only
-// GetCapabilities / Configure / Describe.
+// Default mode is a frontend plugin subprocess (hashicorp/go-plugin): the
+// kernel launches it, Configure dials the callback channel, CreateSession
+// opens a session, and operator input rides SubmitInput / ResolvePlanDecision /
+// Interrupt. There is no Attach stream.
 //
-// Until the session lifecycle RPCs are fully wired end-to-end, this binary
-// also supports a scripted demo source so layout, focus, and keymap stay
-// reviewable offline. The terminal is opened directly rather than using
-// stdin/stdout, because under go-plugin those streams belong to the
-// handshake and the host's logger.
+// Offline layout review: pass -demo to drive the shell from a scripted source
+// without a kernel.
 package main
 
 import (
@@ -28,27 +23,57 @@ import (
 
 	"github.com/pluggableharness/agent/internal/tui/shell"
 	"github.com/pluggableharness/agent/internal/tui/theme"
+	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
+	"github.com/pluggableharness/agent/pkg/frontend"
+	"github.com/pluggableharness/agent/pkg/plugin"
+)
+
+var (
+	pluginName    = "tui"
+	pluginVersion = "0.1.0"
+	pluginSource  = "github.com/pluggableharness/agent/cmd/tui"
 )
 
 func main() {
+	demo := flag.Bool("demo", false, "run the offline scripted demo (no kernel)")
 	themeName := flag.String("theme", "dark", "color theme: dark or light")
 	step := flag.Duration("step", 120*time.Millisecond, "delay between scripted demo events")
 	logLevel := flag.String("log-level", "warn", "log level: debug, info, warn, error")
 	flag.Parse()
 
-	if err := run(*themeName, *step, *logLevel); err != nil {
-		// Diagnostics go to stderr, never to the painted surface. Under
-		// go-plugin the host collects this as structured plugin output.
-		fmt.Fprintf(os.Stderr, "tui: %v\n", err)
-		os.Exit(1)
-	}
-}
-
-func run(themeName string, step time.Duration, logLevel string) error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: parseLevel(logLevel),
+		Level: parseLevel(*logLevel),
 	})))
 
+	if *demo {
+		if err := runDemo(*themeName, *step); err != nil {
+			fmt.Fprintf(os.Stderr, "tui: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	identity := plugin.Identity{
+		Name:    pluginName,
+		Version: pluginVersion,
+		Source:  pluginSource,
+	}
+	callback := plugin.NewCallback()
+	provider := &tuiProvider{
+		identity: identity,
+		callback: callback,
+		theme:    *themeName,
+	}
+
+	plugin.Serve(plugin.Config{
+		Identity: identity,
+		Category: commonv1.Category_CATEGORY_FRONTEND,
+		Callback: callback,
+		Services: []plugin.Service{frontend.NewService(provider, identity, callback)},
+	})
+}
+
+func runDemo(themeName string, step time.Duration) error {
 	th, ok := theme.ByName(themeName)
 	if !ok {
 		slog.Warn("unknown theme, falling back", "requested", themeName, "using", th.Name)
@@ -56,8 +81,6 @@ func run(themeName string, step time.Duration, logLevel string) error {
 
 	tty, err := openTTY()
 	if err != nil {
-		// No controlling terminal: the shell degrades to not attaching rather
-		// than taking down whatever launched it.
 		return fmt.Errorf("tui: open terminal: %w", err)
 	}
 	defer func() {
@@ -81,8 +104,6 @@ func run(themeName string, step time.Duration, logLevel string) error {
 		}),
 	)
 
-	// Alt-screen is declared by the model's View in Bubble Tea v2, not as a
-	// program option.
 	prog := tea.NewProgram(model,
 		tea.WithContext(ctx),
 		tea.WithInput(tty),
@@ -100,14 +121,9 @@ func run(themeName string, step time.Duration, logLevel string) error {
 	if _, err := prog.Run(); err != nil {
 		return fmt.Errorf("tui: run: %w", err)
 	}
-
 	return nil
 }
 
-// drainOutbox stands in for the Attach stream's writer goroutine. The real
-// bridge translates each Action into a ClientEvent and writes it to the stream
-// in arrival order, which matters because the kernel processes client events in
-// arrival order per session.
 func drainOutbox(ctx context.Context, outbox <-chan shell.Action) {
 	for {
 		select {

@@ -111,6 +111,10 @@ type Config struct {
 	// when nil StreamDeltas stays open until the client cancels with no
 	// deltas delivered.
 	Deltas *DeltaHub
+
+	// HostSlot is the late-bound agent-loop host shared across plugins.
+	// MAY be nil; frontend RPCs then return Unimplemented until Set.
+	HostSlot *HostSlot
 }
 
 // defaultBusSubscribeQueueBound is the fallback per-Subscribe-stream
@@ -145,6 +149,7 @@ type Server struct {
 	tokens                 *tokencount.Counter
 	metadata               *metadata.Store
 	deltas                 *DeltaHub
+	hostSlot               *HostSlot
 
 	// attachReleases tracks Grant release funcs from AttachSession so
 	// DetachSession can drop exactly one grant per call.
@@ -182,8 +187,17 @@ func NewServer(cfg Config) *Server {
 		tokens:                 cfg.Tokens,
 		metadata:               cfg.Metadata,
 		deltas:                 cfg.Deltas,
+		hostSlot:               cfg.HostSlot,
 		attachReleases:         make(map[string][]func()),
 	}
+}
+
+// host returns the late-bound FrontendHost, if any.
+func (s *Server) host() FrontendHost {
+	if s.hostSlot == nil {
+		return nil
+	}
+	return s.hostSlot.Get()
 }
 
 // Log implements the Log RPC by injecting this Server's fixed producer

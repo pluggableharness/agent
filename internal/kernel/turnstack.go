@@ -10,9 +10,7 @@ import (
 	"github.com/pluggableharness/agent/internal/circuitbreaker"
 	"github.com/pluggableharness/agent/internal/contextassembly"
 	"github.com/pluggableharness/agent/internal/hookdispatch"
-	"github.com/pluggableharness/agent/internal/interactive/drivers/unattended"
 	"github.com/pluggableharness/agent/internal/modelcall"
-	"github.com/pluggableharness/agent/internal/plandecision/drivers/autoallow"
 	"github.com/pluggableharness/agent/internal/plangate"
 	"github.com/pluggableharness/agent/internal/retrypolicy"
 	"github.com/pluggableharness/agent/internal/session"
@@ -20,6 +18,8 @@ import (
 	"github.com/pluggableharness/agent/internal/statebackend"
 	"github.com/pluggableharness/agent/internal/tooldispatch"
 	"github.com/pluggableharness/agent/internal/turn"
+
+	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 )
 
 // Circuit-breaker thresholds, and why these numbers.
@@ -226,60 +226,38 @@ func (k *kernel) newTurnDriver(ctx context.Context, sessionID string) (session.T
 		Logger:    k.logger,
 	})
 
+	var onDelta func(sessionID, targetID, text string)
+	if k.deltas != nil {
+		onDelta = func(sessionID, targetID, text string) {
+			k.deltas.Publish(&kernelv1.TokenDelta{
+				SessionId: sessionID,
+				TargetId:  targetID,
+				Text:      text,
+			})
+		}
+	}
+
 	caller := modelcall.New(modelcall.Config{
-		Retry:     retrypolicy.FromConfig(k.cfg.Settings.Retry, sessionMaxRetries),
-		Events:    k.sink,
-		Telemetry: k.telem,
-		Logger:    k.logger,
+		Retry:       retrypolicy.FromConfig(k.cfg.Settings.Retry, sessionMaxRetries),
+		Events:      k.sink,
+		Telemetry:   k.telem,
+		Logger:      k.logger,
+		OnTextDelta: onDelta,
 	})
 
+	planRes, err := newPlanResolver(k) //nolint:contextcheck
+	if err != nil {
+		return nil, fmt.Errorf("kernel: plan-decision resolver: %w", err)
+	}
+
 	scheduler := tooldispatch.New(tooldispatch.Config{ //nolint:contextcheck // see newTurnDriver's note
-		// TRACKED DEVIATION: no frontend exists to ask a human anything,
-		// so every interactive-kind call is refused rather than answered
-		// with a fabricated response. See
-		// internal/interactive/drivers/unattended's package doc for why
-		// this one needs no acknowledgment flag while its autoallow
-		// sibling below does.
-		Interactive:    unattended.New(k.logger, k.telem),
+		Interactive:    newInteractiveResolver(k),
 		Breaker:        breaker,
 		Events:         k.sink,
 		DefaultTimeout: toolTimeout(k.cfg.Settings.DefaultToolTimeoutMS),
 		Telemetry:      k.telem,
 		Logger:         k.logger,
 	})
-
-	// ------------------------------------------------------------------
-	// TRACKED DEVIATION FROM A SPEC MUST — READ BEFORE CHANGING.
-	//
-	// plan-apply-gate.md#decision-semantics requires an `ask` decision to
-	// emit a permission-request event and BLOCK that plan item until a
-	// frontend returns a human's verdict. This kernel has no frontend
-	// attach path, so it cannot satisfy that MUST. Until one exists,
-	// every `ask` item is auto-approved by the operator-approved stand-in
-	// below, and the acknowledgment is spelled out at this call site
-	// precisely so no code review can miss it.
-	//
-	// Consequence, in plain terms: a session run by this build executes
-	// mutating tool calls that a human was supposed to approve, and its
-	// plan_items.decided_by audit rows say exactly that, per item.
-	// autoallow.New logs one WARN at construction and one per resolution.
-	//
-	// The fix is not to soften anything here: it is the real
-	// internal/plandecision/drivers/frontend resolver, which stops this
-	// driver being the default the moment it lands.
-	// ------------------------------------------------------------------
-	resolver, err := autoallow.New(autoallow.Config{ //nolint:contextcheck // see newTurnDriver's note
-		AcknowledgeUnsafeAutoAllow: true,
-		Logger:                     k.logger,
-		Telemetry:                  k.telem,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("kernel: plan-decision resolver: %w", err)
-	}
-	k.logger.WarnContext(ctx, "kernel: UNSAFE plan-decision resolver active: every ask-decision plan item will be auto-approved with no human in the loop",
-		"session_id", sessionID,
-		"decided_by", autoallow.DecidedBy,
-		"reason", "no frontend attach path exists in this build")
 
 	gate := plangate.New(plangate.Config{ //nolint:contextcheck // see newTurnDriver's note
 		SessionID: sessionID,
@@ -289,7 +267,7 @@ func (k *kernel) newTurnDriver(ctx context.Context, sessionID string) (session.T
 		// itself. Do not write a second one — see internal/turn's
 		// CLAUDE.md on why plangate keeps its own types.
 		Hooks:    turn.GateHooks{Dispatcher: k.hooks},
-		Resolver: resolver,
+		Resolver: planRes,
 		Breaker:  breaker,
 		Events:   k.sink,
 		Tools:    k.catalog,

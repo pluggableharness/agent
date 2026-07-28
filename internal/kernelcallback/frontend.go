@@ -28,12 +28,23 @@ func (s *Server) GetSessionState(ctx context.Context, req *kernelv1.GetSessionSt
 
 	s.logger.DebugContext(ctx, "kernelcallback: get_session_state", "session_id", req.GetSessionId())
 
-	live, err := s.authorizedSession(ctx, req.GetSessionId())
-	if err != nil {
+	if _, err = s.authorizedSession(ctx, req.GetSessionId()); err != nil {
 		s.logger.WarnContext(ctx, "kernelcallback: get_session_state: rejected", "err", err)
 		return nil, err
 	}
 
+	if s.host() != nil {
+		state, hostErr := s.host().GetSessionState(ctx, req.GetSessionId())
+		if hostErr == nil && state != nil {
+			return &kernelv1.GetSessionStateResult{State: state}, nil
+		}
+		// Fall through to live-table assembly when host has no handle.
+	}
+
+	live, err := s.authorizedSession(ctx, req.GetSessionId())
+	if err != nil {
+		return nil, err
+	}
 	meta, metaErr := live.Meta(ctx)
 	if metaErr != nil {
 		err = status.Errorf(codes.Internal, "kernelcallback: get_session_state: %v", metaErr)
@@ -132,29 +143,76 @@ func (s *Server) publishMetadataBus(ctx context.Context, block *metadatav1.Metad
 	}
 }
 
-// SubmitInput is not yet wired to the agent loop.
-func (s *Server) SubmitInput(context.Context, *kernelv1.SubmitInputRequest) (*kernelv1.SubmitInputResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: SubmitInput not implemented")
+// SubmitInput submits operator content as the next turn.
+func (s *Server) SubmitInput(ctx context.Context, req *kernelv1.SubmitInputRequest) (*kernelv1.SubmitInputResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: SubmitInput not implemented")
+	}
+	if _, err := s.authorizedSession(ctx, req.GetSessionId()); err != nil {
+		return nil, err
+	}
+	turnID, err := s.host().SubmitInput(ctx, req.GetSessionId(), req.GetContent())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "kernelcallback: submit input: %v", err)
+	}
+	return &kernelv1.SubmitInputResult{TurnId: turnID}, nil
 }
 
-// ResolvePlanDecision is not yet wired to the plan-decision registry.
-func (s *Server) ResolvePlanDecision(context.Context, *kernelv1.ResolvePlanDecisionRequest) (*kernelv1.ResolvePlanDecisionResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: ResolvePlanDecision not implemented")
+// ResolvePlanDecision answers a pending plan item.
+func (s *Server) ResolvePlanDecision(ctx context.Context, req *kernelv1.ResolvePlanDecisionRequest) (*kernelv1.ResolvePlanDecisionResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: ResolvePlanDecision not implemented")
+	}
+	if _, err := s.authorizedSession(ctx, req.GetSessionId()); err != nil {
+		return nil, err
+	}
+	if err := s.host().ResolvePlanDecision(ctx, req); err != nil {
+		return nil, mapHostErr(err)
+	}
+	return &kernelv1.ResolvePlanDecisionResult{}, nil
 }
 
-// ResolveInteractive is not yet wired to the interactive waiter registry.
-func (s *Server) ResolveInteractive(context.Context, *kernelv1.ResolveInteractiveRequest) (*kernelv1.ResolveInteractiveResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: ResolveInteractive not implemented")
+// ResolveInteractive answers a pending interactive-kind tool call.
+func (s *Server) ResolveInteractive(ctx context.Context, req *kernelv1.ResolveInteractiveRequest) (*kernelv1.ResolveInteractiveResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: ResolveInteractive not implemented")
+	}
+	if _, err := s.authorizedSession(ctx, req.GetSessionId()); err != nil {
+		return nil, err
+	}
+	if err := s.host().ResolveInteractive(ctx, req); err != nil {
+		return nil, mapHostErr(err)
+	}
+	return &kernelv1.ResolveInteractiveResult{}, nil
 }
 
-// Interrupt is not yet wired to turn cancellation.
-func (s *Server) Interrupt(context.Context, *kernelv1.InterruptRequest) (*kernelv1.InterruptResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: Interrupt not implemented")
+// Interrupt cancels the running turn for a session.
+func (s *Server) Interrupt(ctx context.Context, req *kernelv1.InterruptRequest) (*kernelv1.InterruptResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: Interrupt not implemented")
+	}
+	if _, err := s.authorizedSession(ctx, req.GetSessionId()); err != nil {
+		return nil, err
+	}
+	if err := s.host().Interrupt(ctx, req.GetSessionId()); err != nil {
+		return nil, status.Errorf(codes.Internal, "kernelcallback: interrupt: %v", err)
+	}
+	return &kernelv1.InterruptResult{}, nil
 }
 
-// CreateSession is not yet wired to the session runner.
-func (s *Server) CreateSession(context.Context, *kernelv1.CreateSessionRequest) (*kernelv1.CreateSessionResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: CreateSession not implemented")
+// CreateSession creates a new session and auto-attaches the caller.
+func (s *Server) CreateSession(ctx context.Context, req *kernelv1.CreateSessionRequest) (*kernelv1.CreateSessionResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: CreateSession not implemented")
+	}
+	info, err := s.host().CreateSession(ctx, req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "kernelcallback: create session: %v", err)
+	}
+	// Auto-attach the calling frontend.
+	release := s.scopes.Grant(sessionscope.KeyFor(s.producer), info.GetSessionId())
+	s.trackAttach(info.GetSessionId(), release)
+	return &kernelv1.CreateSessionResult{Info: info}, nil
 }
 
 // AttachSession grants the calling producer a scope for session_id when the
@@ -209,19 +267,55 @@ func (s *Server) DetachSession(_ context.Context, req *kernelv1.DetachSessionReq
 	return &kernelv1.DetachSessionResult{}, nil
 }
 
-// ListSessions is not yet wired to a durable session index.
-func (s *Server) ListSessions(context.Context, *kernelv1.ListSessionsRequest) (*kernelv1.ListSessionsResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: ListSessions not implemented")
+// ListSessions returns a filtered session summary list.
+func (s *Server) ListSessions(ctx context.Context, req *kernelv1.ListSessionsRequest) (*kernelv1.ListSessionsResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: ListSessions not implemented")
+	}
+	sessions, err := s.host().ListSessions(ctx, req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "kernelcallback: list sessions: %v", err)
+	}
+	return &kernelv1.ListSessionsResult{Sessions: sessions}, nil
 }
 
-// InvokeSlashCommand is not yet wired.
-func (s *Server) InvokeSlashCommand(context.Context, *kernelv1.InvokeSlashCommandRequest) (*kernelv1.InvokeSlashCommandResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: InvokeSlashCommand not implemented")
+// InvokeSlashCommand dispatches a slash command.
+func (s *Server) InvokeSlashCommand(ctx context.Context, req *kernelv1.InvokeSlashCommandRequest) (*kernelv1.InvokeSlashCommandResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: InvokeSlashCommand not implemented")
+	}
+	if _, err := s.authorizedSession(ctx, req.GetSessionId()); err != nil {
+		return nil, err
+	}
+	if err := s.host().InvokeSlashCommand(ctx, req); err != nil {
+		return nil, mapHostErr(err)
+	}
+	return &kernelv1.InvokeSlashCommandResult{}, nil
 }
 
-// TriggerAction is not yet wired.
-func (s *Server) TriggerAction(context.Context, *kernelv1.TriggerActionRequest) (*kernelv1.TriggerActionResult, error) {
-	return nil, status.Error(codes.Unimplemented, "kernelcallback: TriggerAction not implemented")
+// TriggerAction dispatches an ActionNode activation.
+func (s *Server) TriggerAction(ctx context.Context, req *kernelv1.TriggerActionRequest) (*kernelv1.TriggerActionResult, error) {
+	if s.host() == nil {
+		return nil, status.Error(codes.Unimplemented, "kernelcallback: TriggerAction not implemented")
+	}
+	if _, err := s.authorizedSession(ctx, req.GetSessionId()); err != nil {
+		return nil, err
+	}
+	if err := s.host().TriggerAction(ctx, req); err != nil {
+		return nil, mapHostErr(err)
+	}
+	return &kernelv1.TriggerActionResult{}, nil
+}
+
+func mapHostErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	// Preserve FailedPrecondition / NotFound style when the host surfaces them.
+	if st, ok := status.FromError(err); ok {
+		return st.Err()
+	}
+	return status.Errorf(codes.FailedPrecondition, "kernelcallback: %v", err)
 }
 
 // StreamDeltas is the live-only token fast path. When no DeltaHub is

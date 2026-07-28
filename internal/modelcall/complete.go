@@ -194,6 +194,11 @@ func (c *Caller) doAttempt(ctx context.Context, req Request, attemptNum int) (me
 			spanErr = err
 			return nil, nil, modelv1.StopReason_STOP_REASON_UNSPECIFIED, nil, err
 		}
+		if c.cfg.OnTextDelta != nil {
+			if td := ev.GetTextDelta(); td != nil && td.GetText() != "" {
+				c.cfg.OnTextDelta(req.SessionID, req.MessageID, td.GetText())
+			}
+		}
 	}
 
 	msg, u, stopReason, ok := acc.Result()

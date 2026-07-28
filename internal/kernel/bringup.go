@@ -12,7 +12,10 @@ import (
 	"github.com/pluggableharness/agent/internal/config"
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/hookdispatch"
+	"github.com/pluggableharness/agent/internal/kernelcallback"
 	"github.com/pluggableharness/agent/internal/log"
+	"github.com/pluggableharness/agent/internal/metadata"
+	"github.com/pluggableharness/agent/internal/pending"
 	"github.com/pluggableharness/agent/internal/plugincache"
 	"github.com/pluggableharness/agent/internal/pluginhost"
 	catalogplugin "github.com/pluggableharness/agent/internal/providercatalog/drivers/plugin"
@@ -199,6 +202,11 @@ func (k *kernel) openStores(ctx context.Context) error {
 	k.sessions = sessionstate.NewTable()
 	k.plugins = pluginhost.NewRegistry()
 	k.tokens = tokencount.NewCounter(k.plugins, k.telem, k.logger)
+	k.metadata = metadata.NewStore()
+	k.deltas = kernelcallback.NewDeltaHub()
+	k.hostSlot = &kernelcallback.HostSlot{}
+	k.plans = pending.NewPlanBridge()
+	k.inter = pending.NewInteractiveBridge()
 
 	k.logger.DebugContext(ctx, "kernel: stores open",
 		"sessions_dir", k.paths.SessionsDir,
@@ -250,6 +258,9 @@ func (k *kernel) startPlugins(ctx context.Context) error {
 		Scopes:                 k.scopes,
 		Sessions:               k.sessions,
 		Tokens:                 k.tokens,
+		Metadata:               k.metadata,
+		Deltas:                 k.deltas,
+		HostSlot:               k.hostSlot,
 		ProviderBodies:         k.cfg.ProviderBodies,
 		ProviderEnv:            k.cfg.ProviderEnv,
 		BusSubscribeQueueBound: k.cfg.Settings.EventBus.SubscribeQueueBound,

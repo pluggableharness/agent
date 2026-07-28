@@ -372,6 +372,7 @@ func (r *run) callContext() *commonv1.CallContext {
 func (r *run) callModel(ctx context.Context, mreq *modelv1.StreamCompletionRequest) (modelcall.Response, error) {
 	resp, err := r.d.model.Complete(ctx, modelcall.Request{
 		Model:     r.req.Model,
+		SessionID: r.req.SessionID,
 		MessageID: r.d.ids.New(),
 		Request:   mreq,
 	})

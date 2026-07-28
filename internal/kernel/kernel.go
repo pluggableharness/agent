@@ -14,7 +14,10 @@ import (
 	"github.com/pluggableharness/agent/internal/config"
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/hookdispatch"
+	"github.com/pluggableharness/agent/internal/kernelcallback"
 	"github.com/pluggableharness/agent/internal/log"
+	"github.com/pluggableharness/agent/internal/metadata"
+	"github.com/pluggableharness/agent/internal/pending"
 	"github.com/pluggableharness/agent/internal/pluginhost"
 	"github.com/pluggableharness/agent/internal/providercatalog"
 	"github.com/pluggableharness/agent/internal/session"
@@ -142,6 +145,13 @@ type kernel struct {
 	// built here and the per-session *statebackend.Session internal/session
 	// creates for itself. See turnstack.go.
 	sink *sessionSink
+
+	// Frontend state-surface process-wide collaborators.
+	metadata *metadata.Store
+	deltas   *kernelcallback.DeltaHub
+	hostSlot *kernelcallback.HostSlot
+	plans    *pending.PlanBridge
+	inter    *pending.InteractiveBridge
 }
 
 // Run loads config, launches every resolved plugin, runs exactly one
@@ -198,6 +208,9 @@ func (k *kernel) runSession(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("kernel: session driver: %w", err)
 	}
+	// Install the frontend host so plugin-side callback RPCs can open
+	// interactive sessions. CLI Run still uses Runner.Run below.
+	k.hostSlot.Set(newFrontendHost(k, runner, k.plans, k.inter))
 
 	result, err := runner.Run(ctx, session.Spec{
 		Profile:          k.opts.Profile,

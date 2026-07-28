@@ -15,6 +15,7 @@ import (
 	"github.com/pluggableharness/agent/internal/eventbus"
 	"github.com/pluggableharness/agent/internal/kernelcallback"
 	"github.com/pluggableharness/agent/internal/log"
+	"github.com/pluggableharness/agent/internal/metadata"
 	"github.com/pluggableharness/agent/internal/pluginruntime"
 	"github.com/pluggableharness/agent/internal/providerresolve"
 	"github.com/pluggableharness/agent/internal/registry"
@@ -108,6 +109,15 @@ type Config struct {
 	// (internal/tokencount), wired into every plugin's kernel-callback
 	// server for CountTokens. MUST be set.
 	Tokens *tokencount.Counter
+
+	// Metadata is the process-wide MetadataBlock store. MAY be nil.
+	Metadata *metadata.Store
+
+	// Deltas is the live TokenDelta hub for StreamDeltas. MAY be nil.
+	Deltas *kernelcallback.DeltaHub
+
+	// HostSlot is the late-bound frontend host. MAY be nil.
+	HostSlot *kernelcallback.HostSlot
 
 	// ProviderBodies is config.Config.ProviderBodies — each provider{}
 	// block's raw, undecoded HCL body, keyed by local name. A local name
@@ -424,6 +434,9 @@ func (s *Supervisor) newCallbackServer(producer *commonv1.ProducerRef, resolvedC
 		Scopes:                 s.cfg.Scopes,
 		Sessions:               s.cfg.Sessions,
 		Tokens:                 s.cfg.Tokens,
+		Metadata:               s.cfg.Metadata,
+		Deltas:                 s.cfg.Deltas,
+		HostSlot:               s.cfg.HostSlot,
 		Logger:                 s.logger,
 	})
 }

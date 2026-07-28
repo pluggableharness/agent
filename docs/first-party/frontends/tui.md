@@ -1,9 +1,9 @@
 # The reference TUI shell
 
-The first-party frontend provider: a full-screen terminal shell that paints [`RenderTree`](../../specifications/frontend/render-tree.md) content into the six-region vocabulary and turns operator input into [`ClientEvent`](../../specifications/frontend/frontend-protocol.md#client-events)s.
+The first-party frontend provider: a full-screen terminal shell that consumes the four frontend state surfaces ([`frontend-protocol.md`](../../specifications/frontend/frontend-protocol.md)) — `SessionState` for chrome, `MetadataBlock`s for side contributions, `RenderTree` transcript events, and unary input RPCs (`SubmitInput`, `ResolvePlanDecision`, `Interrupt`) on the kernel callback channel. Offline review uses `tui -demo`.
 
 > [!IMPORTANT]
-> This document is descriptive, not normative. The protocol contract — what any frontend MUST implement — is [`frontend-protocol.md`](../../specifications/frontend/frontend-protocol.md) and [`render-tree.md`](../../specifications/frontend/render-tree.md). The layout, focus model, and keymap described here are *this* shell's choices, one conforming instantiation of the abstract region vocabulary, exactly as [`examples.md#the-reference-tui`](../../specifications/frontend/examples.md#the-reference-tui) frames it. A second frontend is free to resolve every one of them differently.
+> This document is descriptive, not normative. The protocol contract — what any frontend MUST implement — is [`frontend-protocol.md`](../../specifications/frontend/frontend-protocol.md) and [`render-tree.md`](../../specifications/frontend/render-tree.md). The layout, focus model, and keymap described here are *this* shell's choices. A second frontend is free to resolve every one of them differently.
 
 ## Why a shell framework exists at all
 
@@ -13,7 +13,7 @@ The ordering matters: the shell's regions, focus ring, and keymap layers must ex
 
 ## Process shape — who owns the terminal
 
-A frontend is a `hashicorp/go-plugin` subprocess, per [`plugin-runtime`](../../specifications/frontend/README.md#transport--lifecycle): the kernel is the gRPC *client*, the shell is the *server*, and the kernel calls `Attach` on it. That inverts the usual intuition — the process painting the screen is the child, not the parent — and it creates the single most load-bearing constraint in this design.
+A frontend is a `hashicorp/go-plugin` subprocess, per [`plugin-runtime`](../../specifications/frontend/README.md#transport): the kernel is the gRPC *client*, the shell is the *server* for `GetCapabilities`/`Configure`/`Describe` only. Kernel→frontend push traffic (state, metadata, transcript, token deltas) and frontend→kernel control both use the **callback channel**, where the plugin is the client. That creates the single most load-bearing constraint in this design.
 
 **go-plugin owns the subprocess's standard streams.** The handshake line is written to the plugin's `stdout`, and after handshake the host pipes the plugin's `stdout`/`stderr` into its own logger. A TUI that renders to `stdout` therefore corrupts the handshake, and one that reads `stdin` competes with the plugin transport.
 
