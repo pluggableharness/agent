@@ -87,6 +87,12 @@ type Accumulator struct {
 	// block belongs to, so a summary run and a raw-reasoning run stay
 	// separate blocks even when adjacent.
 	openThinkingChannel modelv1.StreamEvent_ThinkingChannel
+	// openThinkingHasPart / openThinkingPart are the vendor part_index for
+	// the open thinking block. HasPart is false when the provider left
+	// part_index unset (single-part stream); a different part within the
+	// same channel opens a new block per events.proto.
+	openThinkingHasPart bool
+	openThinkingPart    int32
 	pendingSig          []byte
 	tools               map[string]*toolCallState
 
@@ -167,7 +173,7 @@ func (a *Accumulator) Observe(ev *modelv1.StreamEvent) error {
 		a.observeTextDelta(e.TextDelta.GetText())
 		return nil
 	case *modelv1.StreamEvent_ThinkingDelta_:
-		a.observeThinkingDelta(e.ThinkingDelta.GetText(), e.ThinkingDelta.GetChannel())
+		a.observeThinkingDelta(e.ThinkingDelta.GetText(), e.ThinkingDelta.GetChannel(), e.ThinkingDelta.PartIndex)
 		return nil
 	case *modelv1.StreamEvent_ThinkingSignature_:
 		return a.observeThinkingSignature(e.ThinkingSignature.GetSignature())
@@ -270,6 +276,9 @@ func (a *Accumulator) observeMetadata(ev *modelv1.StreamEvent_StreamMetadata) {
 	if v := ev.CatalogEtag; v != nil {
 		m.CatalogEtag = proto.String(*v)
 	}
+	if v := ev.StickyTurnToken; v != nil {
+		m.StickyTurnToken = proto.String(*v)
+	}
 	if len(ev.GetRateLimits()) > 0 {
 		m.RateLimits = ev.GetRateLimits()
 	}
@@ -342,6 +351,8 @@ func (a *Accumulator) closeOpenBlock() {
 	a.openKind = blockKindNone
 	a.openText = nil
 	a.openThinking = nil
+	a.openThinkingHasPart = false
+	a.openThinkingPart = 0
 	a.pendingSig = nil
 }
 
@@ -363,22 +374,50 @@ func (a *Accumulator) observeTextDelta(text string) {
 // thinking block, opening a new one first if the previous event wasn't
 // itself a ThinkingDelta (or a ThinkingSignature belonging to the same
 // block) continuing it.
-func (a *Accumulator) observeThinkingDelta(text string, channel modelv1.StreamEvent_ThinkingChannel) {
-	// A channel switch closes the open block even though both sides are
-	// thinking. A vendor-written summary and the raw reasoning it
-	// summarizes are different text; concatenating them because they are
-	// adjacent and both "thinking" would produce one block that reads as
-	// neither. Providers that set no channel leave this UNSPECIFIED
-	// throughout, so their runs coalesce exactly as before.
-	if a.openKind != blockKindThinking || a.openThinkingChannel != channel {
+//
+// partIndex is the optional vendor part number. Fragments that share a
+// (channel, partIndex) pair are one block; a different partIndex (or a
+// switch between set and unset) starts a new block within the same
+// channel. Absent partIndex means a single-part stream, which is the
+// pre-part_index behaviour and remains the common case.
+func (a *Accumulator) observeThinkingDelta(text string, channel modelv1.StreamEvent_ThinkingChannel, partIndex *int32) {
+	// A channel or part switch closes the open block even though both
+	// sides are thinking. A vendor-written summary and the raw reasoning
+	// it summarizes are different text; concatenating them because they
+	// are adjacent and both "thinking" would produce one block that reads
+	// as neither. Numbered parts within one channel are likewise separate
+	// blocks (events.proto ThinkingDelta.part_index). Providers that set
+	// no channel and no part leave both UNSPECIFIED/absent throughout, so
+	// their runs coalesce exactly as before.
+	same := a.openKind == blockKindThinking &&
+		a.openThinkingChannel == channel &&
+		thinkingPartEqual(a.openThinkingHasPart, a.openThinkingPart, partIndex)
+	if !same {
 		a.closeOpenBlock()
 		th := &contentv1.ThinkingBlock{}
 		a.blocks = append(a.blocks, &contentv1.ContentBlock{Block: &contentv1.ContentBlock_Thinking{Thinking: th}})
 		a.openThinking = th
 		a.openKind = blockKindThinking
 		a.openThinkingChannel = channel
+		if partIndex != nil {
+			a.openThinkingHasPart = true
+			a.openThinkingPart = *partIndex
+		} else {
+			a.openThinkingHasPart = false
+			a.openThinkingPart = 0
+		}
 	}
 	a.openThinking.Text += text
+}
+
+// thinkingPartEqual reports whether the open block's part key matches the
+// incoming optional part_index. Both absent is a match (single-part stream);
+// one absent and one set is not; both set match only when equal.
+func thinkingPartEqual(openHas bool, openPart int32, incoming *int32) bool {
+	if incoming == nil {
+		return !openHas
+	}
+	return openHas && openPart == *incoming
 }
 
 // observeThinkingSignature accumulates signature bytes onto the currently

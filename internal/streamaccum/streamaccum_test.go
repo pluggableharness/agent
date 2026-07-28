@@ -793,6 +793,42 @@ func TestStreamMetadata_mergesFieldByField(t *testing.T) {
 	}
 }
 
+// TestStreamMetadata_stickyTurnTokenMerges is the edge case the sticky
+// field exists for: a provider reports it once (usually with response.id
+// or a product turn-state header) and later metadata without it must not
+// clear the handle the kernel will echo as sticky_turn_token.
+func TestStreamMetadata_stickyTurnTokenMerges(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{
+			StickyTurnToken: proto.String("resp_1"),
+			ActualModel:     proto.String("gpt-x"),
+		}),
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{
+			ServiceTier: proto.String("default"),
+		}),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	m := a.Metadata()
+	if got := m.GetStickyTurnToken(); got != "resp_1" {
+		t.Errorf("StickyTurnToken = %q, want resp_1 carried forward", got)
+	}
+	if got := m.GetServiceTier(); got != "default" {
+		t.Errorf("ServiceTier = %q, want default", got)
+	}
+	// A later event that does set sticky supersedes.
+	a2 := observeAll(t, []*modelv1.StreamEvent{
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{StickyTurnToken: proto.String("resp_1")}),
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{StickyTurnToken: proto.String("resp_2")}),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+	if got := a2.Metadata().GetStickyTurnToken(); got != "resp_2" {
+		t.Errorf("StickyTurnToken = %q, want resp_2 from later event", got)
+	}
+}
+
 // TestStreamMetadata_rateLimitsReplaceWholesale asserts rate_limits is
 // snapshot-replaced rather than merged entry by entry. Each event
 // carries the vendor's complete budget picture, so merging would
@@ -883,6 +919,14 @@ func thinkingOn(text string, ch modelv1.StreamEvent_ThinkingChannel) *modelv1.St
 	}}
 }
 
+// thinkingOnPart builds a channel+part_index thinking delta.
+func thinkingOnPart(text string, ch modelv1.StreamEvent_ThinkingChannel, part int32) *modelv1.StreamEvent {
+	idx := part
+	return &modelv1.StreamEvent{Event: &modelv1.StreamEvent_ThinkingDelta_{
+		ThinkingDelta: &modelv1.StreamEvent_ThinkingDelta{Text: text, Channel: ch, PartIndex: &idx},
+	}}
+}
+
 // TestThinkingChannel_switchClosesTheBlock asserts a summary run and a
 // raw-reasoning run stay separate blocks even when adjacent. Merging them
 // on adjacency alone would produce one block that reads as neither.
@@ -929,6 +973,56 @@ func TestThinkingChannel_unspecifiedStillCoalesces(t *testing.T) {
 	}
 	if got := msg.GetContent()[0].GetThinking().GetText(); got != "one block" {
 		t.Errorf("text = %q, want %q", got, "one block")
+	}
+}
+
+// TestThinkingPartIndex_switchClosesTheBlock asserts vendor-numbered
+// reasoning parts within one channel stay separate blocks. Concatenating
+// on channel alone would invent a single block the vendor never produced.
+func TestThinkingPartIndex_switchClosesTheBlock(t *testing.T) {
+	t.Parallel()
+
+	ch := modelv1.StreamEvent_THINKING_CHANNEL_CONTENT
+	a := observeAll(t, []*modelv1.StreamEvent{
+		thinkingOnPart("part0a ", ch, 0),
+		thinkingOnPart("part0b", ch, 0),
+		thinkingOnPart("part1", ch, 1),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	msg, _, _, ok := a.Result()
+	if !ok {
+		t.Fatal("Result reported ok = false after a Stop event")
+	}
+	if len(msg.GetContent()) != 2 {
+		t.Fatalf("Content has %d blocks, want 2 (one per part_index)", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetThinking().GetText(); got != "part0a part0b" {
+		t.Errorf("block 0 = %q, want coalesced part 0", got)
+	}
+	if got := msg.GetContent()[1].GetThinking().GetText(); got != "part1" {
+		t.Errorf("block 1 = %q, want part 1", got)
+	}
+}
+
+// TestThinkingPartIndex_absentStillCoalesces is the compatibility
+// guarantee for ThinkingDeltaOn (no part): runs stay one block.
+func TestThinkingPartIndex_absentStillCoalesces(t *testing.T) {
+	t.Parallel()
+
+	ch := modelv1.StreamEvent_THINKING_CHANNEL_SUMMARY
+	a := observeAll(t, []*modelv1.StreamEvent{
+		thinkingOn("sum ", ch),
+		thinkingOn("mary", ch),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	msg, _, _, _ := a.Result()
+	if len(msg.GetContent()) != 1 {
+		t.Fatalf("Content has %d blocks, want 1", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetThinking().GetText(); got != "sum mary" {
+		t.Errorf("text = %q, want %q", got, "sum mary")
 	}
 }
 

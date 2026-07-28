@@ -92,6 +92,14 @@ func TestLive_Emit_writesAndRepublishes(t *testing.T) {
 	if !busEvent.GetTime().AsTime().Equal(now) {
 		t.Errorf("BusEvent.Time = %v, want %v", busEvent.GetTime().AsTime(), now)
 	}
+	// The sequence must ride along, and must match the durable row's.
+	// A subscriber merges this live event with a ReadEvents backfill into
+	// one ordered view; without the sequence it has nothing to order by
+	// but arrival, and a frontend attaching mid-session sorts new
+	// messages above its own replayed history.
+	if busEvent.GetSequence() != outcome.Sequence {
+		t.Errorf("BusEvent.Sequence = %d, want %d (the persisted sequence)", busEvent.GetSequence(), outcome.Sequence)
+	}
 
 	// The persisted row must match what was published.
 	var found *statebackend.Event

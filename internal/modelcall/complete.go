@@ -217,9 +217,17 @@ func (c *Caller) doAttempt(ctx context.Context, req Request, attemptNum int) (ou
 			spanErr = err
 			return completion{}, nil, err
 		}
-		if c.cfg.OnTextDelta != nil {
+		if c.cfg.OnDelta != nil {
 			if td := ev.GetTextDelta(); td != nil && td.GetText() != "" {
-				c.cfg.OnTextDelta(req.SessionID, req.MessageID, td.GetText())
+				c.cfg.OnDelta(req.SessionID, req.MessageID, td.GetText(), kernelv1.DeltaKind_DELTA_KIND_UNSPECIFIED)
+			}
+			// Thinking rides the same fast path, tagged. The channel a
+			// vendor put it on is deliberately not forwarded: a status
+			// bar needs to know reasoning is happening, and the finer
+			// summary-vs-content split survives on the durable message
+			// for a reader that can act on it.
+			if td := ev.GetThinkingDelta(); td != nil && td.GetText() != "" {
+				c.cfg.OnDelta(req.SessionID, req.MessageID, td.GetText(), kernelv1.DeltaKind_DELTA_KIND_THINKING)
 			}
 		}
 	}

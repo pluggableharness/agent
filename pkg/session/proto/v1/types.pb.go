@@ -111,6 +111,67 @@ func (SessionStatus) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_session_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
+// SessionPhase is what a session is doing at this instant.
+//
+// Deliberately short. Every value here is one a frontend renders
+// differently; a phase nothing displays differently is a log line, not
+// protocol. Finer breakdowns (which tool, which turn step) are already
+// available as events on the transcript.
+type SessionPhase int32
+
+const (
+	// Zero value: the session has not reported a phase. A frontend SHOULD
+	// treat this as IDLE rather than rendering an unknown state — a session
+	// that never reports is not working.
+	SessionPhase_SESSION_PHASE_UNSPECIFIED SessionPhase = 0
+	// Nothing is in flight; the session is waiting on the operator.
+	SessionPhase_SESSION_PHASE_IDLE SessionPhase = 1
+	// A turn is in flight — the model is being called, or its tool calls
+	// are running.
+	SessionPhase_SESSION_PHASE_GENERATING SessionPhase = 2
+)
+
+// Enum value maps for SessionPhase.
+var (
+	SessionPhase_name = map[int32]string{
+		0: "SESSION_PHASE_UNSPECIFIED",
+		1: "SESSION_PHASE_IDLE",
+		2: "SESSION_PHASE_GENERATING",
+	}
+	SessionPhase_value = map[string]int32{
+		"SESSION_PHASE_UNSPECIFIED": 0,
+		"SESSION_PHASE_IDLE":        1,
+		"SESSION_PHASE_GENERATING":  2,
+	}
+)
+
+func (x SessionPhase) Enum() *SessionPhase {
+	p := new(SessionPhase)
+	*p = x
+	return p
+}
+
+func (x SessionPhase) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SessionPhase) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_session_v1_types_proto_enumTypes[1].Descriptor()
+}
+
+func (SessionPhase) Type() protoreflect.EnumType {
+	return &file_pluggableharness_session_v1_types_proto_enumTypes[1]
+}
+
+func (x SessionPhase) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SessionPhase.Descriptor instead.
+func (SessionPhase) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_session_v1_types_proto_rawDescGZIP(), []int{1}
+}
+
 // SessionInfo is a session's shareable summary, mirroring
 // state-backend.md's session_meta row plus a cheap cost_ledger SUM. Used
 // by session lifecycle RPCs (CreateSession/AttachSession/ListSessions)
@@ -474,7 +535,16 @@ type SessionState struct {
 	// otherwise invisible: an operator sees only that answers got worse,
 	// with nothing in the UI to attribute it to. Absent means the vendor
 	// served what was asked for, or said nothing.
-	ActualModel   *string `protobuf:"bytes,13,opt,name=actual_model,json=actualModel,proto3,oneof" json:"actual_model,omitempty"`
+	ActualModel *string `protobuf:"bytes,13,opt,name=actual_model,json=actualModel,proto3,oneof" json:"actual_model,omitempty"`
+	// What the session is doing right now, as opposed to info.status, which
+	// is where the session sits in its lifecycle.
+	//
+	// The two answer different questions and a status bar needs the second
+	// one: a session is `running` from creation until it ends, so a frontend
+	// driven by status alone reads "running" while idle at the prompt and
+	// "running" while a model call is in flight. Phase is what distinguishes
+	// them.
+	Phase         SessionPhase `protobuf:"varint,14,opt,name=phase,proto3,enum=pluggableharness.session.v1.SessionPhase" json:"phase,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -600,6 +670,13 @@ func (x *SessionState) GetActualModel() string {
 	return ""
 }
 
+func (x *SessionState) GetPhase() SessionPhase {
+	if x != nil {
+		return x.Phase
+	}
+	return SessionPhase_SESSION_PHASE_UNSPECIFIED
+}
+
 var File_pluggableharness_session_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
@@ -633,7 +710,7 @@ const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"\fContextState\x12\x1f\n" +
 	"\vused_tokens\x18\x01 \x01(\x03R\n" +
 	"usedTokens\x12#\n" +
-	"\rwindow_tokens\x18\x02 \x01(\x03R\fwindowTokens\"\xcf\x06\n" +
+	"\rwindow_tokens\x18\x02 \x01(\x03R\fwindowTokens\"\x90\a\n" +
 	"\fSessionState\x12<\n" +
 	"\x04info\x18\x01 \x01(\v2(.pluggableharness.session.v1.SessionInfoR\x04info\x12+\n" +
 	"\x11working_directory\x18\x02 \x01(\tR\x10workingDirectory\x12<\n" +
@@ -650,7 +727,8 @@ const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"\aaccount\x18\v \x01(\v2*.pluggableharness.model.v1.AccountSnapshotH\x04R\aaccount\x88\x01\x01\x12K\n" +
 	"\vvendor_cost\x18\f \x01(\v2%.pluggableharness.model.v1.VendorCostH\x05R\n" +
 	"vendorCost\x88\x01\x01\x12&\n" +
-	"\factual_model\x18\r \x01(\tH\x06R\vactualModel\x88\x01\x01B\x06\n" +
+	"\factual_model\x18\r \x01(\tH\x06R\vactualModel\x88\x01\x01\x12?\n" +
+	"\x05phase\x18\x0e \x01(\x0e2).pluggableharness.session.v1.SessionPhaseR\x05phaseB\x06\n" +
 	"\x04_vcsB\b\n" +
 	"\x06_modelB\x12\n" +
 	"\x10_thinking_effortB\n" +
@@ -668,7 +746,11 @@ const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"#SESSION_STATUS_ERROR_MAX_BUDGET_USD\x10\x04\x12'\n" +
 	"#SESSION_STATUS_ERROR_MAX_WALL_CLOCK\x10\x05\x12\x1c\n" +
 	"\x18SESSION_STATUS_CANCELLED\x10\x06\x12\x19\n" +
-	"\x15SESSION_STATUS_FAILED\x10\aBBZ@github.com/pluggableharness/agent/pkg/session/proto/v1;sessionv1b\x06proto3"
+	"\x15SESSION_STATUS_FAILED\x10\a*c\n" +
+	"\fSessionPhase\x12\x1d\n" +
+	"\x19SESSION_PHASE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12SESSION_PHASE_IDLE\x10\x01\x12\x1c\n" +
+	"\x18SESSION_PHASE_GENERATING\x10\x02BBZ@github.com/pluggableharness/agent/pkg/session/proto/v1;sessionv1b\x06proto3"
 
 var (
 	file_pluggableharness_session_v1_types_proto_rawDescOnce sync.Once
@@ -682,38 +764,40 @@ func file_pluggableharness_session_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_session_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_session_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pluggableharness_session_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_pluggableharness_session_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pluggableharness_session_v1_types_proto_goTypes = []any{
 	(SessionStatus)(0),            // 0: pluggableharness.session.v1.SessionStatus
-	(*SessionInfo)(nil),           // 1: pluggableharness.session.v1.SessionInfo
-	(*VcsState)(nil),              // 2: pluggableharness.session.v1.VcsState
-	(*ModelState)(nil),            // 3: pluggableharness.session.v1.ModelState
-	(*ContextState)(nil),          // 4: pluggableharness.session.v1.ContextState
-	(*SessionState)(nil),          // 5: pluggableharness.session.v1.SessionState
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),   // 7: google.protobuf.Duration
-	(*v1.RateLimitSnapshot)(nil),  // 8: pluggableharness.model.v1.RateLimitSnapshot
-	(*v1.AccountSnapshot)(nil),    // 9: pluggableharness.model.v1.AccountSnapshot
-	(*v1.VendorCost)(nil),         // 10: pluggableharness.model.v1.VendorCost
+	(SessionPhase)(0),             // 1: pluggableharness.session.v1.SessionPhase
+	(*SessionInfo)(nil),           // 2: pluggableharness.session.v1.SessionInfo
+	(*VcsState)(nil),              // 3: pluggableharness.session.v1.VcsState
+	(*ModelState)(nil),            // 4: pluggableharness.session.v1.ModelState
+	(*ContextState)(nil),          // 5: pluggableharness.session.v1.ContextState
+	(*SessionState)(nil),          // 6: pluggableharness.session.v1.SessionState
+	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),   // 8: google.protobuf.Duration
+	(*v1.RateLimitSnapshot)(nil),  // 9: pluggableharness.model.v1.RateLimitSnapshot
+	(*v1.AccountSnapshot)(nil),    // 10: pluggableharness.model.v1.AccountSnapshot
+	(*v1.VendorCost)(nil),         // 11: pluggableharness.model.v1.VendorCost
 }
 var file_pluggableharness_session_v1_types_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.session.v1.SessionInfo.status:type_name -> pluggableharness.session.v1.SessionStatus
-	6,  // 1: pluggableharness.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
-	6,  // 2: pluggableharness.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
-	1,  // 3: pluggableharness.session.v1.SessionState.info:type_name -> pluggableharness.session.v1.SessionInfo
-	2,  // 4: pluggableharness.session.v1.SessionState.vcs:type_name -> pluggableharness.session.v1.VcsState
-	3,  // 5: pluggableharness.session.v1.SessionState.model:type_name -> pluggableharness.session.v1.ModelState
-	4,  // 6: pluggableharness.session.v1.SessionState.context:type_name -> pluggableharness.session.v1.ContextState
-	7,  // 7: pluggableharness.session.v1.SessionState.elapsed:type_name -> google.protobuf.Duration
-	8,  // 8: pluggableharness.session.v1.SessionState.quotas:type_name -> pluggableharness.model.v1.RateLimitSnapshot
-	9,  // 9: pluggableharness.session.v1.SessionState.account:type_name -> pluggableharness.model.v1.AccountSnapshot
-	10, // 10: pluggableharness.session.v1.SessionState.vendor_cost:type_name -> pluggableharness.model.v1.VendorCost
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	7,  // 1: pluggableharness.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
+	7,  // 2: pluggableharness.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
+	2,  // 3: pluggableharness.session.v1.SessionState.info:type_name -> pluggableharness.session.v1.SessionInfo
+	3,  // 4: pluggableharness.session.v1.SessionState.vcs:type_name -> pluggableharness.session.v1.VcsState
+	4,  // 5: pluggableharness.session.v1.SessionState.model:type_name -> pluggableharness.session.v1.ModelState
+	5,  // 6: pluggableharness.session.v1.SessionState.context:type_name -> pluggableharness.session.v1.ContextState
+	8,  // 7: pluggableharness.session.v1.SessionState.elapsed:type_name -> google.protobuf.Duration
+	9,  // 8: pluggableharness.session.v1.SessionState.quotas:type_name -> pluggableharness.model.v1.RateLimitSnapshot
+	10, // 9: pluggableharness.session.v1.SessionState.account:type_name -> pluggableharness.model.v1.AccountSnapshot
+	11, // 10: pluggableharness.session.v1.SessionState.vendor_cost:type_name -> pluggableharness.model.v1.VendorCost
+	1,  // 11: pluggableharness.session.v1.SessionState.phase:type_name -> pluggableharness.session.v1.SessionPhase
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_session_v1_types_proto_init() }
@@ -729,7 +813,7 @@ func file_pluggableharness_session_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_session_v1_types_proto_rawDesc), len(file_pluggableharness_session_v1_types_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,

@@ -186,4 +186,32 @@ message SessionState {
   // with nothing in the UI to attribute it to. Absent means the vendor
   // served what was asked for, or said nothing.
   optional string actual_model = 13;
+
+  // What the session is doing right now, as opposed to info.status, which
+  // is where the session sits in its lifecycle.
+  //
+  // The two answer different questions and a status bar needs the second
+  // one: a session is `running` from creation until it ends, so a frontend
+  // driven by status alone reads "running" while idle at the prompt and
+  // "running" while a model call is in flight. Phase is what distinguishes
+  // them.
+  SessionPhase phase = 14;
+}
+
+// SessionPhase is what a session is doing at this instant.
+//
+// Deliberately short. Every value here is one a frontend renders
+// differently; a phase nothing displays differently is a log line, not
+// protocol. Finer breakdowns (which tool, which turn step) are already
+// available as events on the transcript.
+enum SessionPhase {
+  // Zero value: the session has not reported a phase. A frontend SHOULD
+  // treat this as IDLE rather than rendering an unknown state — a session
+  // that never reports is not working.
+  SESSION_PHASE_UNSPECIFIED = 0;
+  // Nothing is in flight; the session is waiting on the operator.
+  SESSION_PHASE_IDLE = 1;
+  // A turn is in flight — the model is being called, or its tool calls
+  // are running.
+  SESSION_PHASE_GENERATING = 2;
 }

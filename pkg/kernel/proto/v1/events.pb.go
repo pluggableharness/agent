@@ -23,6 +23,62 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// DeltaKind names which model output stream a TokenDelta carries.
+//
+// Deliberately coarser than model.v1's ThinkingChannel: a frontend needs
+// to know that reasoning is happening, not which of a vendor's two
+// reasoning streams produced a fragment. The finer distinction survives on
+// the durable message, where a reader can act on it.
+type DeltaKind int32
+
+const (
+	// Zero value, and the assistant's ordinary reply text — a producer that
+	// never sets this field emits reply text, which is what every producer
+	// written before this enum did.
+	DeltaKind_DELTA_KIND_UNSPECIFIED DeltaKind = 0
+	// The model's reasoning output, of any channel.
+	DeltaKind_DELTA_KIND_THINKING DeltaKind = 1
+)
+
+// Enum value maps for DeltaKind.
+var (
+	DeltaKind_name = map[int32]string{
+		0: "DELTA_KIND_UNSPECIFIED",
+		1: "DELTA_KIND_THINKING",
+	}
+	DeltaKind_value = map[string]int32{
+		"DELTA_KIND_UNSPECIFIED": 0,
+		"DELTA_KIND_THINKING":    1,
+	}
+)
+
+func (x DeltaKind) Enum() *DeltaKind {
+	p := new(DeltaKind)
+	*p = x
+	return p
+}
+
+func (x DeltaKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeltaKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_kernel_v1_events_proto_enumTypes[0].Descriptor()
+}
+
+func (DeltaKind) Type() protoreflect.EnumType {
+	return &file_pluggableharness_kernel_v1_events_proto_enumTypes[0]
+}
+
+func (x DeltaKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DeltaKind.Descriptor instead.
+func (DeltaKind) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_kernel_v1_events_proto_rawDescGZIP(), []int{0}
+}
+
 // BusEvent is one event delivered to a Subscribe stream. See
 // kernel-callbacks.md's Subscribe and event-bus.md.
 type BusEvent struct {
@@ -37,10 +93,26 @@ type BusEvent struct {
 	// Versions payload_type. See PublishRequest.schema_version.
 	SchemaVersion string `protobuf:"bytes,4,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	// When the kernel received the Publish call this event fans out from.
-	// MUST be set. Display-only — this bus assigns no sequence number and
-	// makes no cross-subscriber ordering guarantee
-	// (event-bus.md#delivery-semantics).
-	Time          *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`
+	// MUST be set. Display-only: never order by this. The bus makes no
+	// cross-subscriber ordering guarantee (event-bus.md#delivery-semantics),
+	// and .claude/rules/determinism.md is explicit that wall-clock time is
+	// never an ordering authority — sequence below is.
+	Time *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`
+	// The state-backend sequence of the persisted event this republishes,
+	// for events on the reserved kernel.event.* topics.
+	//
+	// Zero for everything else: a plugin's own Publish carries no persisted
+	// event and so has no sequence, which is a real distinction rather than
+	// a missing value.
+	//
+	// This exists because a subscriber has to merge two streams — the live
+	// bus and a ReadEvents backfill — into one ordered view, and until now
+	// only the backfill carried a sequence. A frontend attaching to a
+	// session in progress therefore had no way to order a live message
+	// against its own replayed history, and sorted new content above it.
+	// determinism.md makes sequence the sole ordering authority; a
+	// transport that drops it forces every subscriber to invent one.
+	Sequence      int64 `protobuf:"varint,6,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -108,6 +180,13 @@ func (x *BusEvent) GetTime() *timestamppb.Timestamp {
 		return x.Time
 	}
 	return nil
+}
+
+func (x *BusEvent) GetSequence() int64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
 }
 
 // StoredEvent is one persisted event, read back by ReadEvents. Mirrors
@@ -236,7 +315,15 @@ type TokenDelta struct {
 	// deltas into one growing piece of text.
 	TargetId string `protobuf:"bytes,2,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// The incremental text to append.
-	Text          string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	Text string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	// Which of the model's output streams this fragment belongs to.
+	//
+	// Without it a frontend cannot tell reasoning from the answer on the
+	// fast path, so it must either show both as the reply — which reads as
+	// the model talking to itself — or show neither, which is what left
+	// reasoning invisible while a turn was thinking. Unset means text, so a
+	// producer written before this field behaves exactly as before.
+	Kind          DeltaKind `protobuf:"varint,4,opt,name=kind,proto3,enum=pluggableharness.kernel.v1.DeltaKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -292,17 +379,25 @@ func (x *TokenDelta) GetText() string {
 	return ""
 }
 
+func (x *TokenDelta) GetKind() DeltaKind {
+	if x != nil {
+		return x.Kind
+	}
+	return DeltaKind_DELTA_KIND_UNSPECIFIED
+}
+
 var File_pluggableharness_kernel_v1_events_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_kernel_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/kernel/v1/events.proto\x12\x1apluggableharness.kernel.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/kernel/v1/types.proto\"\xb4\x01\n" +
+	"'pluggableharness/kernel/v1/events.proto\x12\x1apluggableharness.kernel.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&pluggableharness/common/v1/types.proto\x1a&pluggableharness/kernel/v1/types.proto\"\xd0\x01\n" +
 	"\bBusEvent\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12!\n" +
 	"\fpayload_type\x18\x03 \x01(\tR\vpayloadType\x12%\n" +
 	"\x0eschema_version\x18\x04 \x01(\tR\rschemaVersion\x12.\n" +
-	"\x04time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\"\xaa\x02\n" +
+	"\x04time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x1a\n" +
+	"\bsequence\x18\x06 \x01(\x03R\bsequence\"\xaa\x02\n" +
 	"\vStoredEvent\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x03R\bsequence\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12.\n" +
@@ -310,13 +405,17 @@ const file_pluggableharness_kernel_v1_events_proto_rawDesc = "" +
 	"\x04kind\x18\x04 \x01(\x0e2%.pluggableharness.kernel.v1.EventKindR\x04kind\x12C\n" +
 	"\bproducer\x18\x05 \x01(\v2'.pluggableharness.common.v1.ProducerRefR\bproducer\x12%\n" +
 	"\x0eschema_version\x18\x06 \x01(\tR\rschemaVersion\x12\x18\n" +
-	"\apayload\x18\a \x01(\fR\apayload\"\\\n" +
+	"\apayload\x18\a \x01(\fR\apayload\"\x97\x01\n" +
 	"\n" +
 	"TokenDelta\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n" +
 	"\ttarget_id\x18\x02 \x01(\tR\btargetId\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04textB@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
+	"\x04text\x18\x03 \x01(\tR\x04text\x129\n" +
+	"\x04kind\x18\x04 \x01(\x0e2%.pluggableharness.kernel.v1.DeltaKindR\x04kind*@\n" +
+	"\tDeltaKind\x12\x1a\n" +
+	"\x16DELTA_KIND_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13DELTA_KIND_THINKING\x10\x01B@Z>github.com/pluggableharness/agent/pkg/kernel/proto/v1;kernelv1b\x06proto3"
 
 var (
 	file_pluggableharness_kernel_v1_events_proto_rawDescOnce sync.Once
@@ -330,25 +429,28 @@ func file_pluggableharness_kernel_v1_events_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_kernel_v1_events_proto_rawDescData
 }
 
+var file_pluggableharness_kernel_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_pluggableharness_kernel_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pluggableharness_kernel_v1_events_proto_goTypes = []any{
-	(*BusEvent)(nil),              // 0: pluggableharness.kernel.v1.BusEvent
-	(*StoredEvent)(nil),           // 1: pluggableharness.kernel.v1.StoredEvent
-	(*TokenDelta)(nil),            // 2: pluggableharness.kernel.v1.TokenDelta
-	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
-	(EventKind)(0),                // 4: pluggableharness.kernel.v1.EventKind
-	(*v1.ProducerRef)(nil),        // 5: pluggableharness.common.v1.ProducerRef
+	(DeltaKind)(0),                // 0: pluggableharness.kernel.v1.DeltaKind
+	(*BusEvent)(nil),              // 1: pluggableharness.kernel.v1.BusEvent
+	(*StoredEvent)(nil),           // 2: pluggableharness.kernel.v1.StoredEvent
+	(*TokenDelta)(nil),            // 3: pluggableharness.kernel.v1.TokenDelta
+	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
+	(EventKind)(0),                // 5: pluggableharness.kernel.v1.EventKind
+	(*v1.ProducerRef)(nil),        // 6: pluggableharness.common.v1.ProducerRef
 }
 var file_pluggableharness_kernel_v1_events_proto_depIdxs = []int32{
-	3, // 0: pluggableharness.kernel.v1.BusEvent.time:type_name -> google.protobuf.Timestamp
-	3, // 1: pluggableharness.kernel.v1.StoredEvent.time:type_name -> google.protobuf.Timestamp
-	4, // 2: pluggableharness.kernel.v1.StoredEvent.kind:type_name -> pluggableharness.kernel.v1.EventKind
-	5, // 3: pluggableharness.kernel.v1.StoredEvent.producer:type_name -> pluggableharness.common.v1.ProducerRef
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 0: pluggableharness.kernel.v1.BusEvent.time:type_name -> google.protobuf.Timestamp
+	4, // 1: pluggableharness.kernel.v1.StoredEvent.time:type_name -> google.protobuf.Timestamp
+	5, // 2: pluggableharness.kernel.v1.StoredEvent.kind:type_name -> pluggableharness.kernel.v1.EventKind
+	6, // 3: pluggableharness.kernel.v1.StoredEvent.producer:type_name -> pluggableharness.common.v1.ProducerRef
+	0, // 4: pluggableharness.kernel.v1.TokenDelta.kind:type_name -> pluggableharness.kernel.v1.DeltaKind
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_kernel_v1_events_proto_init() }
@@ -362,13 +464,14 @@ func file_pluggableharness_kernel_v1_events_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_kernel_v1_events_proto_rawDesc), len(file_pluggableharness_kernel_v1_events_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_pluggableharness_kernel_v1_events_proto_goTypes,
 		DependencyIndexes: file_pluggableharness_kernel_v1_events_proto_depIdxs,
+		EnumInfos:         file_pluggableharness_kernel_v1_events_proto_enumTypes,
 		MessageInfos:      file_pluggableharness_kernel_v1_events_proto_msgTypes,
 	}.Build()
 	File_pluggableharness_kernel_v1_events_proto = out.File

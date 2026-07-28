@@ -9,6 +9,7 @@ import (
 	"time"
 
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
+	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 
 	"github.com/pluggableharness/agent/internal/providercatalog"
@@ -67,11 +68,16 @@ type Config struct {
 	Telemetry *telemetry.Provider
 	// Logger is this Caller's structured logger.
 	Logger *slog.Logger
-	// OnTextDelta is called for every text_delta StreamEvent after it is
-	// successfully Observed, for the live token fast path. MAY be nil.
-	// targetID is the completion's MessageID so frontends can correlate
-	// consecutive deltas into one growing block.
-	OnTextDelta func(sessionID, targetID, text string)
+	// OnDelta is called for every text_delta and thinking_delta
+	// StreamEvent after it is successfully Observed, for the live token
+	// fast path. MAY be nil. targetID is the completion's MessageID so
+	// frontends can correlate consecutive deltas into one growing block.
+	//
+	// kind distinguishes the two. Forwarding thinking at all is the point:
+	// reasoning previously reached the durable message and nothing else,
+	// so a frontend had no way to show that a turn was thinking rather
+	// than hung — and a reasoning model spends most of a turn there.
+	OnDelta func(sessionID, targetID, text string, kind kernelv1.DeltaKind)
 }
 
 // Request is one StreamCompletion invocation: which model to call, the

@@ -294,9 +294,16 @@ BusEvent {
   payload_type    string     // see Publish
   schema_version  string     // see Publish
   time            Timestamp  // when the kernel received the Publish this
-                              // event fans out from
+                              // event fans out from — display only,
+                              // never an ordering key
+  sequence        int64      // the state-backend sequence this event was
+                              // persisted under, for kernel.event.* topics;
+                              // zero for a plugin's own Publish, which has
+                              // no persisted event behind it
 }
 ```
+
+A subscriber that merges this live stream with a [`ReadEvents`](#readevents) backfill — which every frontend attaching to a session in progress does — MUST order the merged view by `sequence` and MUST NOT order it by `time`. Before `sequence` was carried here, only the backfill had it, so a frontend had no basis for ordering a live message against its own replayed history and placed new content above it.
 
 ## `ReadEvents`
 

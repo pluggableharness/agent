@@ -38,6 +38,22 @@ type run struct {
 	inTokens  int64
 	outTokens int64
 
+	// contextTokens is how much of the model's window the last completion
+	// actually occupied: that call's input tokens plus the cache reads
+	// that also sat in the window but are billed separately (Usage
+	// documents cache_read_tokens as never also counted in input_tokens).
+	//
+	// This is the honest answer to "how full is the context", and it is
+	// not `assembled` above. assembled sums the context-provider sections
+	// the chain contributed, which is zero for a session with no context
+	// plugins loaded — so a status bar reading it showed 0% forever while
+	// the conversation grew.
+	contextTokens int64
+
+	// phase is what the session is doing right now, distinct from its
+	// lifecycle status. Written by Handle.Submit around a turn.
+	phase sessionv1.SessionPhase
+
 	// Vendor-reported state from the most recent completion, surfaced on
 	// SessionState. Last-write-wins rather than accumulated: each is a
 	// reading of "how is the vendor serving me right now", and an older
@@ -306,6 +322,15 @@ func (st *run) absorb(result turn.Result) {
 	}
 	st.inTokens += result.Usage.GetInputTokens()
 	st.outTokens += result.Usage.GetOutputTokens()
+
+	// Window occupancy is the last call's figure, not a running sum:
+	// each completion resends the whole conversation, so adding turns
+	// together would report several multiples of a window that only ever
+	// held one conversation. A turn that reported no input tokens leaves
+	// the previous reading alone rather than zeroing the gauge.
+	if in := result.Usage.GetInputTokens(); in > 0 {
+		st.contextTokens = in + result.Usage.GetCacheReadTokens()
+	}
 
 	// Only overwrite what this turn actually reported. A vendor that
 	// publishes budgets on some responses and not others would otherwise

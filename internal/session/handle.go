@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
+	kernelv1 "github.com/pluggableharness/agent/pkg/kernel/proto/v1"
 	sessionv1 "github.com/pluggableharness/agent/pkg/session/proto/v1"
 
 	"github.com/pluggableharness/agent/internal/bounds"
@@ -23,6 +24,11 @@ import (
 
 // TopicState is the event-bus topic for SessionState republish.
 const TopicState = "kernel.state"
+
+// stateSchemaVersion is the SessionState payload's schema version, per
+// state-backend.md#events' schema_version convention. A breaking change
+// to SessionState's shape ships as session.v2 plus this becoming "2".
+const stateSchemaVersion = "1"
 
 // ErrHandleClosed reports use of a Handle after Close.
 var ErrHandleClosed = errors.New("session: handle closed")
@@ -125,11 +131,21 @@ func (h *Handle) Submit(ctx context.Context, content []*contentv1.ContentBlock) 
 	h.cancel = cancel
 	h.mu.Unlock()
 
+	// Announce the phase change before any work starts and again once the
+	// turn loop is done, whichever way it exits. Publishing only on
+	// completion would leave a frontend showing "idle" for the whole time
+	// the model is actually working, which is the entire thing the phase
+	// exists to fix.
+	h.setPhase(runCtx, sessionv1.SessionPhase_SESSION_PHASE_GENERATING)
+
 	defer func() {
 		h.mu.Lock()
 		h.busy = false
 		h.cancel = nil
 		h.mu.Unlock()
+		// WithoutCancel: an interrupted or failed turn still has to leave
+		// the status bar honest, and runCtx is already Done on those paths.
+		h.setPhase(context.WithoutCancel(runCtx), sessionv1.SessionPhase_SESSION_PHASE_IDLE)
 		cancel()
 	}()
 
@@ -270,9 +286,18 @@ func (h *Handle) State(ctx context.Context) (*sessionv1.SessionState, error) {
 			Provider: h.st.res.model.Ref.Provider,
 		}
 	}
+	state.Phase = h.st.phase
 	if h.st.res.target != nil && h.st.res.target.GetEffectiveCeiling() > 0 {
+		// The last completion's own occupancy when there is one, falling
+		// back to the assembled-context sum before the first model call —
+		// which is the only point at which that sum is the best available
+		// answer rather than a structural zero.
+		used := h.st.contextTokens
+		if used == 0 {
+			used = h.st.assembled
+		}
 		state.Context = &sessionv1.ContextState{
-			UsedTokens:   h.st.assembled,
+			UsedTokens:   used,
 			WindowTokens: h.st.res.target.GetEffectiveCeiling(),
 		}
 	}
@@ -302,6 +327,19 @@ func (h *Handle) Info(ctx context.Context) (*sessionv1.SessionInfo, error) {
 	return state.GetInfo(), nil
 }
 
+// setPhase records the session's current activity and publishes the new
+// state, so a frontend learns about it without polling.
+//
+// A publish failure is logged and swallowed: the phase is a status-bar
+// hint, and failing a turn because a bus publish did not land would trade
+// a working session for a cosmetic update.
+func (h *Handle) setPhase(ctx context.Context, phase sessionv1.SessionPhase) {
+	h.st.phase = phase
+	if err := h.publishState(ctx); err != nil {
+		h.r.logger.DebugContext(ctx, "session: publish phase", "phase", phase.String(), "err", err)
+	}
+}
+
 func (h *Handle) publishState(ctx context.Context) error {
 	state, err := h.State(ctx)
 	if err != nil {
@@ -311,7 +349,23 @@ func (h *Handle) publishState(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return h.r.bus.Publish(ctx, eventbus.Event{Topic: TopicState, Payload: payload})
+	// The bus event's Payload must be a *kernelv1.BusEvent, not the raw
+	// marshaled bytes. internal/kernelcallback's Subscribe handler type-
+	// asserts for that shape and drops anything else, so publishing bytes
+	// here meant every SessionState republish was logged as
+	// "received a non-BusEvent payload, dropping" and no frontend ever saw
+	// a state update after its initial snapshot — the status bar simply
+	// froze at whatever was true when it attached.
+	return h.r.bus.Publish(ctx, eventbus.Event{
+		Topic: TopicState,
+		Payload: &kernelv1.BusEvent{
+			Topic:         TopicState,
+			Payload:       payload,
+			PayloadType:   string((&sessionv1.SessionState{}).ProtoReflect().Descriptor().FullName()),
+			SchemaVersion: stateSchemaVersion,
+			Time:          timestamppb.New(h.r.clock()),
+		},
+	})
 }
 
 func (h *Handle) markTerminal(ctx context.Context, status sessionv1.SessionStatus) error {

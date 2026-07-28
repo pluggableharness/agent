@@ -29,10 +29,27 @@ message BusEvent {
   string schema_version = 4;
 
   // When the kernel received the Publish call this event fans out from.
-  // MUST be set. Display-only — this bus assigns no sequence number and
-  // makes no cross-subscriber ordering guarantee
-  // (event-bus.md#delivery-semantics).
+  // MUST be set. Display-only: never order by this. The bus makes no
+  // cross-subscriber ordering guarantee (event-bus.md#delivery-semantics),
+  // and .claude/rules/determinism.md is explicit that wall-clock time is
+  // never an ordering authority — sequence below is.
   google.protobuf.Timestamp time = 5;
+
+  // The state-backend sequence of the persisted event this republishes,
+  // for events on the reserved kernel.event.* topics.
+  //
+  // Zero for everything else: a plugin's own Publish carries no persisted
+  // event and so has no sequence, which is a real distinction rather than
+  // a missing value.
+  //
+  // This exists because a subscriber has to merge two streams — the live
+  // bus and a ReadEvents backfill — into one ordered view, and until now
+  // only the backfill carried a sequence. A frontend attaching to a
+  // session in progress therefore had no way to order a live message
+  // against its own replayed history, and sorted new content above it.
+  // determinism.md makes sequence the sole ordering authority; a
+  // transport that drops it forces every subscriber to invent one.
+  int64 sequence = 6;
 }
 
 // StoredEvent is one persisted event, read back by ReadEvents. Mirrors
@@ -85,4 +102,28 @@ message TokenDelta {
   string target_id = 2;
   // The incremental text to append.
   string text = 3;
+
+  // Which of the model's output streams this fragment belongs to.
+  //
+  // Without it a frontend cannot tell reasoning from the answer on the
+  // fast path, so it must either show both as the reply — which reads as
+  // the model talking to itself — or show neither, which is what left
+  // reasoning invisible while a turn was thinking. Unset means text, so a
+  // producer written before this field behaves exactly as before.
+  DeltaKind kind = 4;
+}
+
+// DeltaKind names which model output stream a TokenDelta carries.
+//
+// Deliberately coarser than model.v1's ThinkingChannel: a frontend needs
+// to know that reasoning is happening, not which of a vendor's two
+// reasoning streams produced a fragment. The finer distinction survives on
+// the durable message, where a reader can act on it.
+enum DeltaKind {
+  // Zero value, and the assistant's ordinary reply text — a producer that
+  // never sets this field emits reply text, which is what every producer
+  // written before this enum did.
+  DELTA_KIND_UNSPECIFIED = 0;
+  // The model's reasoning output, of any channel.
+  DELTA_KIND_THINKING = 1;
 }

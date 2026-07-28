@@ -201,6 +201,11 @@ func (l *Live) republish(ctx context.Context, id string, seq int64, kind kernelv
 		PayloadType:   payloadType,
 		SchemaVersion: schemaVersion,
 		Time:          timestamppb.New(at),
+		// The sequence the state backend just assigned. Carrying it is
+		// what lets a subscriber merge this live event with a ReadEvents
+		// backfill into one correctly ordered view; without it a frontend
+		// attaching mid-session sorts new messages above its own history.
+		Sequence: seq,
 	}
 
 	if pubErr := l.bus.Publish(ctx, eventbus.Event{Topic: topic, Payload: busEvent}); pubErr != nil {

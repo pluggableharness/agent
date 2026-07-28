@@ -226,23 +226,24 @@ func (k *kernel) newTurnDriver(ctx context.Context, sessionID string) (session.T
 		Logger:    k.logger,
 	})
 
-	var onDelta func(sessionID, targetID, text string)
+	var onDelta func(sessionID, targetID, text string, kind kernelv1.DeltaKind)
 	if k.deltas != nil {
-		onDelta = func(sessionID, targetID, text string) {
+		onDelta = func(sessionID, targetID, text string, kind kernelv1.DeltaKind) {
 			k.deltas.Publish(&kernelv1.TokenDelta{
 				SessionId: sessionID,
 				TargetId:  targetID,
 				Text:      text,
+				Kind:      kind,
 			})
 		}
 	}
 
 	caller := modelcall.New(modelcall.Config{
-		Retry:       retrypolicy.FromConfig(k.cfg.Settings.Retry, sessionMaxRetries),
-		Events:      k.sink,
-		Telemetry:   k.telem,
-		Logger:      k.logger,
-		OnTextDelta: onDelta,
+		Retry:     retrypolicy.FromConfig(k.cfg.Settings.Retry, sessionMaxRetries),
+		Events:    k.sink,
+		Telemetry: k.telem,
+		Logger:    k.logger,
+		OnDelta:   onDelta,
 	})
 
 	planRes, err := newPlanResolver(k) //nolint:contextcheck
