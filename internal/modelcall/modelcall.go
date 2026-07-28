@@ -115,6 +115,15 @@ type Response struct {
 	// call made, including the one that finally succeeded (1 if the
 	// first attempt succeeded).
 	Attempts int
+	// ActualModel is the model the vendor says actually served this
+	// completion, from a StreamMetadata event, when it differs from the
+	// requested id. Empty when the vendor served what was asked for or
+	// reported nothing.
+	//
+	// Surfaced up to the session so silent model substitution is
+	// attributable: a vendor rerouting for safety or capacity otherwise
+	// shows up only as answers that got worse for no visible reason.
+	ActualModel string
 }
 
 // Error carries a classified, non-retried (or retries-exhausted) model

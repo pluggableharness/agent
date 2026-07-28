@@ -35,6 +35,7 @@ const (
 	ModelService_CountTokens_FullMethodName      = "/pluggableharness.model.v1.ModelService/CountTokens"
 	ModelService_Render_FullMethodName           = "/pluggableharness.model.v1.ModelService/Render"
 	ModelService_Describe_FullMethodName         = "/pluggableharness.model.v1.ModelService/Describe"
+	ModelService_GetAccount_FullMethodName       = "/pluggableharness.model.v1.ModelService/GetAccount"
 )
 
 // ModelServiceClient is the client API for ModelService service.
@@ -103,6 +104,30 @@ type ModelServiceClient interface {
 	// explanation, shared verbatim across all seven category protocols that
 	// gain this RPC in this same protocol revision.
 	Describe(ctx context.Context, in *DescribeRequest, opts ...grpc.CallOption) (*DescribeResponse, error)
+	// GetAccount reports the live account and entitlement state behind this
+	// plugin's credential: which pool completions are charged against, what
+	// plan is in force, and whatever quota the vendor publishes outside a
+	// completion.
+	//
+	// MAY be implemented. A provider that has no account concept — a bare
+	// API key against a metered endpoint, a local model — returns
+	// codes.Unimplemented, and the kernel MUST tolerate that exactly as it
+	// tolerates an absent Render (tool/protocol.md's Preview rule is the
+	// precedent). Absence means "no account state to report", never an
+	// error.
+	//
+	// Separate from GetCapabilities because the two have different
+	// lifetimes. Capabilities are the static roster fixed at Configure;
+	// account state is live, changes as quota burns down, and is the only
+	// way an operator learns a subscription pool is nearly empty *before*
+	// the turn that strands them. It is not part of the capability
+	// advertisement and MUST NOT be cached as if it were.
+	//
+	// Deliberately not persisted into the session event log: it is a live
+	// reading of external state, so recording it would put a value into
+	// the replay path that no replay can reproduce
+	// (.claude/rules/determinism.md).
+	GetAccount(ctx context.Context, in *GetAccountRequest, opts ...grpc.CallOption) (*GetAccountResponse, error)
 }
 
 type modelServiceClient struct {
@@ -182,6 +207,16 @@ func (c *modelServiceClient) Describe(ctx context.Context, in *DescribeRequest, 
 	return out, nil
 }
 
+func (c *modelServiceClient) GetAccount(ctx context.Context, in *GetAccountRequest, opts ...grpc.CallOption) (*GetAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAccountResponse)
+	err := c.cc.Invoke(ctx, ModelService_GetAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ModelServiceServer is the server API for ModelService service.
 // All implementations must embed UnimplementedModelServiceServer
 // for forward compatibility.
@@ -248,6 +283,30 @@ type ModelServiceServer interface {
 	// explanation, shared verbatim across all seven category protocols that
 	// gain this RPC in this same protocol revision.
 	Describe(context.Context, *DescribeRequest) (*DescribeResponse, error)
+	// GetAccount reports the live account and entitlement state behind this
+	// plugin's credential: which pool completions are charged against, what
+	// plan is in force, and whatever quota the vendor publishes outside a
+	// completion.
+	//
+	// MAY be implemented. A provider that has no account concept — a bare
+	// API key against a metered endpoint, a local model — returns
+	// codes.Unimplemented, and the kernel MUST tolerate that exactly as it
+	// tolerates an absent Render (tool/protocol.md's Preview rule is the
+	// precedent). Absence means "no account state to report", never an
+	// error.
+	//
+	// Separate from GetCapabilities because the two have different
+	// lifetimes. Capabilities are the static roster fixed at Configure;
+	// account state is live, changes as quota burns down, and is the only
+	// way an operator learns a subscription pool is nearly empty *before*
+	// the turn that strands them. It is not part of the capability
+	// advertisement and MUST NOT be cached as if it were.
+	//
+	// Deliberately not persisted into the session event log: it is a live
+	// reading of external state, so recording it would put a value into
+	// the replay path that no replay can reproduce
+	// (.claude/rules/determinism.md).
+	GetAccount(context.Context, *GetAccountRequest) (*GetAccountResponse, error)
 	mustEmbedUnimplementedModelServiceServer()
 }
 
@@ -275,6 +334,9 @@ func (UnimplementedModelServiceServer) Render(context.Context, *RenderRequest) (
 }
 func (UnimplementedModelServiceServer) Describe(context.Context, *DescribeRequest) (*DescribeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Describe not implemented")
+}
+func (UnimplementedModelServiceServer) GetAccount(context.Context, *GetAccountRequest) (*GetAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAccount not implemented")
 }
 func (UnimplementedModelServiceServer) mustEmbedUnimplementedModelServiceServer() {}
 func (UnimplementedModelServiceServer) testEmbeddedByValue()                      {}
@@ -398,6 +460,24 @@ func _ModelService_Describe_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ModelService_GetAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModelServiceServer).GetAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ModelService_GetAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModelServiceServer).GetAccount(ctx, req.(*GetAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ModelService_ServiceDesc is the grpc.ServiceDesc for ModelService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -424,6 +504,10 @@ var ModelService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Describe",
 			Handler:    _ModelService_Describe_Handler,
+		},
+		{
+			MethodName: "GetAccount",
+			Handler:    _ModelService_GetAccount_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

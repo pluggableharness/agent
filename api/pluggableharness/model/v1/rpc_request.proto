@@ -171,3 +171,7 @@ message RenderRequest {
   // schema-drift-sensitive persisted data.
   string schema_version = 2;
 }
+
+// GetAccountRequest is empty: a plugin serves exactly one credential,
+// fixed at Configure, so there is nothing for the kernel to select.
+message GetAccountRequest {}

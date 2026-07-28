@@ -244,6 +244,10 @@ type Result struct {
 	// value the session driver threads back in as the next turn's
 	// Request.AssembledTokensLastTurn.
 	AssembledTokens int64
+	// ActualModel is the model the vendor says actually served this
+	// turn's completion, when it differs from the requested id. Empty
+	// when the vendor served what was asked for or reported nothing.
+	ActualModel string
 	// CallHashes are this turn's resource and data_source calls' hashes,
 	// in declaration order, for the caller's step-16 doom-loop check.
 	// Interactive calls are excluded: turn-algorithm.md#doom-loop-detection

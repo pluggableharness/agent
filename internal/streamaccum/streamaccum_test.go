@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
@@ -26,6 +27,10 @@ func observeAll(t *testing.T, evs []*modelv1.StreamEvent) *Accumulator {
 
 func textDelta(text string) *modelv1.StreamEvent {
 	return &modelv1.StreamEvent{Event: &modelv1.StreamEvent_TextDelta_{TextDelta: &modelv1.StreamEvent_TextDelta{Text: text}}}
+}
+
+func streamStart(id string) *modelv1.StreamEvent {
+	return &modelv1.StreamEvent{Event: &modelv1.StreamEvent_StreamStart_{StreamStart: &modelv1.StreamEvent_StreamStart{ProviderRequestId: id}}}
 }
 
 func thinkingDelta(text string) *modelv1.StreamEvent {
@@ -650,4 +655,223 @@ func structDiff(got, want *structpb.Struct) string {
 		return "got " + string(gotJSON) + ", want " + string(wantJSON)
 	}
 	return ""
+}
+
+// TestStreamStart_recordedWithoutAffectingContent pins that a real
+// provider's opening event is accepted rather than rejected as an
+// unhandled variant, and that it contributes nothing to the message.
+func TestStreamStart_recordedWithoutAffectingContent(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		streamStart("req-abc123"),
+		textDelta("Hello World"),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	if got := a.ProviderRequestID(); got != "req-abc123" {
+		t.Errorf("ProviderRequestID = %q, want req-abc123", got)
+	}
+	msg, _, _, ok := a.Result()
+	if !ok {
+		t.Fatal("Result reported ok = false after a Stop event")
+	}
+	if len(msg.GetContent()) != 1 {
+		t.Fatalf("Content has %d blocks, want 1 — StreamStart must not create one", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetText().GetText(); got != "Hello World" {
+		t.Errorf("text = %q, want Hello World", got)
+	}
+}
+
+// TestStreamStart_isNotABlockBoundary asserts a StreamStart arriving
+// between two text deltas leaves the open block open. It carries no
+// content, so splitting on it would fabricate a second block.
+func TestStreamStart_isNotABlockBoundary(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		textDelta("Hello "),
+		streamStart("req-late"),
+		textDelta("World"),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	msg, _, _, ok := a.Result()
+	if !ok {
+		t.Fatal("Result reported ok = false after a Stop event")
+	}
+	if len(msg.GetContent()) != 1 {
+		t.Fatalf("Content has %d blocks, want 1 unsplit block", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetText().GetText(); got != "Hello World" {
+		t.Errorf("text = %q, want Hello World", got)
+	}
+}
+
+// TestStreamStart_absentLeavesTheIDEmpty covers events.proto's MAY-omit:
+// a provider that publishes no request id is not an error.
+func TestStreamStart_absentLeavesTheIDEmpty(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		textDelta("hi"),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+	if got := a.ProviderRequestID(); got != "" {
+		t.Errorf("ProviderRequestID = %q, want empty when no StreamStart was observed", got)
+	}
+}
+
+// metaEvent wraps a StreamMetadata into a StreamEvent.
+func metaEvent(m *modelv1.StreamEvent_StreamMetadata) *modelv1.StreamEvent {
+	return &modelv1.StreamEvent{Event: &modelv1.StreamEvent_Metadata{Metadata: m}}
+}
+
+// TestStreamMetadata_isNotABlockBoundary is the property events.proto
+// states explicitly: metadata may arrive mid-stream, so splitting a text
+// run on it would corrupt any completion whose vendor revised its
+// headers partway through.
+func TestStreamMetadata_isNotABlockBoundary(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		textDelta("Hello "),
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{ActualModel: proto.String("grok-4.3")}),
+		textDelta("World"),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	msg, _, _, ok := a.Result()
+	if !ok {
+		t.Fatal("Result reported ok = false after a Stop event")
+	}
+	if len(msg.GetContent()) != 1 {
+		t.Fatalf("Content has %d blocks, want 1 unsplit block", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetText().GetText(); got != "Hello World" {
+		t.Errorf("text = %q, want Hello World", got)
+	}
+	if got := a.Metadata().GetActualModel(); got != "grok-4.3" {
+		t.Errorf("ActualModel = %q, want grok-4.3", got)
+	}
+}
+
+// TestStreamMetadata_mergesFieldByField pins the supersede rule: a later
+// event overwrites the fields it sets and leaves the rest alone. Keeping
+// only the newest event instead would drop an actual_model reported once
+// at the top of a stream.
+func TestStreamMetadata_mergesFieldByField(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{
+			ActualModel:       proto.String("grok-4.3"),
+			SystemFingerprint: proto.String("fp_1"),
+			Attrs:             map[string]string{"a": "1"},
+		}),
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{
+			SystemFingerprint: proto.String("fp_2"),
+			ServiceTier:       proto.String("fast"),
+			Attrs:             map[string]string{"b": "2"},
+		}),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	m := a.Metadata()
+	if got := m.GetActualModel(); got != "grok-4.3" {
+		t.Errorf("ActualModel = %q, want grok-4.3 carried forward from the first event", got)
+	}
+	if got := m.GetSystemFingerprint(); got != "fp_2" {
+		t.Errorf("SystemFingerprint = %q, want fp_2 (later event supersedes)", got)
+	}
+	if got := m.GetServiceTier(); got != "fast" {
+		t.Errorf("ServiceTier = %q, want fast", got)
+	}
+	if got := m.GetAttrs(); got["a"] != "1" || got["b"] != "2" {
+		t.Errorf("Attrs = %v, want both keys merged", got)
+	}
+}
+
+// TestStreamMetadata_rateLimitsReplaceWholesale asserts rate_limits is
+// snapshot-replaced rather than merged entry by entry. Each event
+// carries the vendor's complete budget picture, so merging would
+// resurrect a budget the vendor stopped reporting.
+func TestStreamMetadata_rateLimitsReplaceWholesale(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{RateLimits: []*modelv1.RateLimitSnapshot{
+			{Kind: modelv1.RateLimitKind_RATE_LIMIT_KIND_REQUESTS},
+			{Kind: modelv1.RateLimitKind_RATE_LIMIT_KIND_TOKENS},
+		}}),
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{RateLimits: []*modelv1.RateLimitSnapshot{
+			{Kind: modelv1.RateLimitKind_RATE_LIMIT_KIND_CREDITS},
+		}}),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	got := a.Metadata().GetRateLimits()
+	if len(got) != 1 {
+		t.Fatalf("RateLimits has %d entries, want 1 — the later snapshot replaces, not merges", len(got))
+	}
+	if got[0].GetKind() != modelv1.RateLimitKind_RATE_LIMIT_KIND_CREDITS {
+		t.Errorf("Kind = %v, want CREDITS", got[0].GetKind())
+	}
+}
+
+// TestStreamMetadata_absentMeansNoNewInformation covers the one reading
+// that would lose data: an event that sets nothing must not blank what
+// an earlier event established.
+func TestStreamMetadata_absentMeansNoNewInformation(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{ActualModel: proto.String("grok-4.3")}),
+		metaEvent(&modelv1.StreamEvent_StreamMetadata{}),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	if got := a.Metadata().GetActualModel(); got != "grok-4.3" {
+		t.Errorf("ActualModel = %q, want it preserved across an empty metadata event", got)
+	}
+}
+
+// TestStreamMetadata_absentEntirelyIsNil keeps the no-metadata case
+// distinguishable from an empty one, so a caller can tell "the vendor
+// said nothing" from "the vendor said nothing new".
+func TestStreamMetadata_absentEntirelyIsNil(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		textDelta("hi"),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+	if a.Metadata() != nil {
+		t.Errorf("Metadata = %v, want nil when no metadata event was observed", a.Metadata())
+	}
+}
+
+// TestStreamStart_correlationIDsAreCopied checks both that the extra
+// vendor handles survive and that the accumulator does not hand out a
+// map a caller could mutate underneath it.
+func TestStreamStart_correlationIDsAreCopied(t *testing.T) {
+	t.Parallel()
+
+	ev := &modelv1.StreamEvent{Event: &modelv1.StreamEvent_StreamStart_{
+		StreamStart: &modelv1.StreamEvent_StreamStart{
+			ProviderRequestId: "req-1",
+			CorrelationIds:    map[string]string{"cf-ray": "abc", "response_id": "resp_9"},
+		},
+	}}
+	a := observeAll(t, []*modelv1.StreamEvent{ev, stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, "")})
+
+	got := a.CorrelationIDs()
+	if got["cf-ray"] != "abc" || got["response_id"] != "resp_9" {
+		t.Fatalf("CorrelationIDs = %v, want both handles", got)
+	}
+	got["cf-ray"] = "mutated"
+	if a.CorrelationIDs()["cf-ray"] != "abc" {
+		t.Error("mutating the returned map changed the accumulator's own state")
+	}
 }

@@ -45,3 +45,13 @@ message RenderResponse {
   // Emit->Render->Paint pipeline, not a per-category variant.
   pluggableharness.render.v1.RenderTree tree = 1;
 }
+
+// GetAccountResponse carries the live account snapshot, per model.md's
+// GetAccount RPC.
+message GetAccountResponse {
+  // The account state. MUST be set on a successful response — a provider
+  // with nothing to report returns codes.Unimplemented rather than an
+  // empty snapshot, so "does not participate" stays distinguishable from
+  // "participates and currently knows nothing".
+  AccountSnapshot account = 1;
+}

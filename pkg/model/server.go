@@ -128,3 +128,20 @@ func (svc *Service) Render(ctx context.Context, req *modelv1.RenderRequest) (*mo
 	}
 	return &modelv1.RenderResponse{Tree: tree}, nil
 }
+
+// GetAccount delegates to svc.provider when it implements Accounter, per
+// docs/specifications/model/protocol.md#getaccount (MAY). A Provider that
+// doesn't implement Accounter returns codes.Unimplemented here, which the
+// kernel treats as "this provider has no account state to report" rather
+// than as a failure.
+func (svc *Service) GetAccount(ctx context.Context, _ *modelv1.GetAccountRequest) (*modelv1.GetAccountResponse, error) {
+	a, ok := svc.provider.(Accounter)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "model: GetAccount not implemented by this provider")
+	}
+	snap, err := a.GetAccount(ctx)
+	if err != nil {
+		return nil, statusFromErr(err)
+	}
+	return &modelv1.GetAccountResponse{Account: accountToProto(snap)}, nil
+}

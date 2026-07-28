@@ -13,6 +13,7 @@
 package sessionv1
 
 import (
+	v1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -439,7 +440,41 @@ type SessionState struct {
 	Elapsed *durationpb.Duration `protobuf:"bytes,8,opt,name=elapsed,proto3" json:"elapsed,omitempty"`
 	// Session-lifetime total tokens (input + output), summed from the cost
 	// ledger / usage rollups. Zero when no model call has completed yet.
-	TotalTokens   int64 `protobuf:"varint,9,opt,name=total_tokens,json=totalTokens,proto3" json:"total_tokens,omitempty"`
+	TotalTokens int64 `protobuf:"varint,9,opt,name=total_tokens,json=totalTokens,proto3" json:"total_tokens,omitempty"`
+	// The vendor budgets reported by the most recent completion, from that
+	// completion's Usage or StreamMetadata.
+	//
+	// Distinct from account.quotas below: these are per-completion
+	// readings taken from response headers as turns run, while
+	// account.quotas is the account-level snapshot GetAccount returns
+	// independently of any completion. A subscription product typically
+	// publishes both, and they refresh on different schedules.
+	//
+	// MAY be empty — a vendor that publishes no budgets has nothing here,
+	// and the kernel MUST NOT synthesize an entry from its own token
+	// counting.
+	Quotas []*v1.RateLimitSnapshot `protobuf:"bytes,10,rep,name=quotas,proto3" json:"quotas,omitempty"`
+	// The account and entitlement state behind the session's model
+	// provider, from GetAccount. Absent when the provider does not
+	// implement that RPC, which is the common case for a bare API key.
+	Account *v1.AccountSnapshot `protobuf:"bytes,11,opt,name=account,proto3,oneof" json:"account,omitempty"`
+	// What the vendor said the most recent completion cost, in its own
+	// denomination.
+	//
+	// Reported beside info.cost_usd, never instead of it: cost_usd remains
+	// the kernel's computed figure and the one every rollup and budget
+	// reads. This is here so a frontend can show that list price and
+	// actual bill disagree — and so a subscription session, where computed
+	// cost is structurally 0.00, has something truthful to display.
+	VendorCost *v1.VendorCost `protobuf:"bytes,12,opt,name=vendor_cost,json=vendorCost,proto3,oneof" json:"vendor_cost,omitempty"`
+	// The model that actually served the most recent completion, when the
+	// vendor remapped it away from the requested id.
+	//
+	// Surfaced at session level because silent model substitution is
+	// otherwise invisible: an operator sees only that answers got worse,
+	// with nothing in the UI to attribute it to. Absent means the vendor
+	// served what was asked for, or said nothing.
+	ActualModel   *string `protobuf:"bytes,13,opt,name=actual_model,json=actualModel,proto3,oneof" json:"actual_model,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -537,11 +572,39 @@ func (x *SessionState) GetTotalTokens() int64 {
 	return 0
 }
 
+func (x *SessionState) GetQuotas() []*v1.RateLimitSnapshot {
+	if x != nil {
+		return x.Quotas
+	}
+	return nil
+}
+
+func (x *SessionState) GetAccount() *v1.AccountSnapshot {
+	if x != nil {
+		return x.Account
+	}
+	return nil
+}
+
+func (x *SessionState) GetVendorCost() *v1.VendorCost {
+	if x != nil {
+		return x.VendorCost
+	}
+	return nil
+}
+
+func (x *SessionState) GetActualModel() string {
+	if x != nil && x.ActualModel != nil {
+		return *x.ActualModel
+	}
+	return ""
+}
+
 var File_pluggableharness_session_v1_types_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/session/v1/types.proto\x12\x1bpluggableharness.session.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x03\n" +
+	"'pluggableharness/session/v1/types.proto\x12\x1bpluggableharness.session.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a%pluggableharness/model/v1/types.proto\"\x98\x03\n" +
 	"\vSessionInfo\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12/\n" +
@@ -570,7 +633,7 @@ const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"\fContextState\x12\x1f\n" +
 	"\vused_tokens\x18\x01 \x01(\x03R\n" +
 	"usedTokens\x12#\n" +
-	"\rwindow_tokens\x18\x02 \x01(\x03R\fwindowTokens\"\x9c\x04\n" +
+	"\rwindow_tokens\x18\x02 \x01(\x03R\fwindowTokens\"\xcf\x06\n" +
 	"\fSessionState\x12<\n" +
 	"\x04info\x18\x01 \x01(\v2(.pluggableharness.session.v1.SessionInfoR\x04info\x12+\n" +
 	"\x11working_directory\x18\x02 \x01(\tR\x10workingDirectory\x12<\n" +
@@ -581,12 +644,22 @@ const file_pluggableharness_session_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"turn_count\x18\a \x01(\x05R\tturnCount\x123\n" +
 	"\aelapsed\x18\b \x01(\v2\x19.google.protobuf.DurationR\aelapsed\x12!\n" +
-	"\ftotal_tokens\x18\t \x01(\x03R\vtotalTokensB\x06\n" +
+	"\ftotal_tokens\x18\t \x01(\x03R\vtotalTokens\x12D\n" +
+	"\x06quotas\x18\n" +
+	" \x03(\v2,.pluggableharness.model.v1.RateLimitSnapshotR\x06quotas\x12I\n" +
+	"\aaccount\x18\v \x01(\v2*.pluggableharness.model.v1.AccountSnapshotH\x04R\aaccount\x88\x01\x01\x12K\n" +
+	"\vvendor_cost\x18\f \x01(\v2%.pluggableharness.model.v1.VendorCostH\x05R\n" +
+	"vendorCost\x88\x01\x01\x12&\n" +
+	"\factual_model\x18\r \x01(\tH\x06R\vactualModel\x88\x01\x01B\x06\n" +
 	"\x04_vcsB\b\n" +
 	"\x06_modelB\x12\n" +
 	"\x10_thinking_effortB\n" +
 	"\n" +
-	"\b_context*\x98\x02\n" +
+	"\b_contextB\n" +
+	"\n" +
+	"\b_accountB\x0e\n" +
+	"\f_vendor_costB\x0f\n" +
+	"\r_actual_model*\x98\x02\n" +
 	"\rSessionStatus\x12\x1e\n" +
 	"\x1aSESSION_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SESSION_STATUS_RUNNING\x10\x01\x12\x1c\n" +
@@ -620,21 +693,27 @@ var file_pluggableharness_session_v1_types_proto_goTypes = []any{
 	(*SessionState)(nil),          // 5: pluggableharness.session.v1.SessionState
 	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
 	(*durationpb.Duration)(nil),   // 7: google.protobuf.Duration
+	(*v1.RateLimitSnapshot)(nil),  // 8: pluggableharness.model.v1.RateLimitSnapshot
+	(*v1.AccountSnapshot)(nil),    // 9: pluggableharness.model.v1.AccountSnapshot
+	(*v1.VendorCost)(nil),         // 10: pluggableharness.model.v1.VendorCost
 }
 var file_pluggableharness_session_v1_types_proto_depIdxs = []int32{
-	0, // 0: pluggableharness.session.v1.SessionInfo.status:type_name -> pluggableharness.session.v1.SessionStatus
-	6, // 1: pluggableharness.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
-	6, // 2: pluggableharness.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
-	1, // 3: pluggableharness.session.v1.SessionState.info:type_name -> pluggableharness.session.v1.SessionInfo
-	2, // 4: pluggableharness.session.v1.SessionState.vcs:type_name -> pluggableharness.session.v1.VcsState
-	3, // 5: pluggableharness.session.v1.SessionState.model:type_name -> pluggableharness.session.v1.ModelState
-	4, // 6: pluggableharness.session.v1.SessionState.context:type_name -> pluggableharness.session.v1.ContextState
-	7, // 7: pluggableharness.session.v1.SessionState.elapsed:type_name -> google.protobuf.Duration
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	0,  // 0: pluggableharness.session.v1.SessionInfo.status:type_name -> pluggableharness.session.v1.SessionStatus
+	6,  // 1: pluggableharness.session.v1.SessionInfo.started_at:type_name -> google.protobuf.Timestamp
+	6,  // 2: pluggableharness.session.v1.SessionInfo.ended_at:type_name -> google.protobuf.Timestamp
+	1,  // 3: pluggableharness.session.v1.SessionState.info:type_name -> pluggableharness.session.v1.SessionInfo
+	2,  // 4: pluggableharness.session.v1.SessionState.vcs:type_name -> pluggableharness.session.v1.VcsState
+	3,  // 5: pluggableharness.session.v1.SessionState.model:type_name -> pluggableharness.session.v1.ModelState
+	4,  // 6: pluggableharness.session.v1.SessionState.context:type_name -> pluggableharness.session.v1.ContextState
+	7,  // 7: pluggableharness.session.v1.SessionState.elapsed:type_name -> google.protobuf.Duration
+	8,  // 8: pluggableharness.session.v1.SessionState.quotas:type_name -> pluggableharness.model.v1.RateLimitSnapshot
+	9,  // 9: pluggableharness.session.v1.SessionState.account:type_name -> pluggableharness.model.v1.AccountSnapshot
+	10, // 10: pluggableharness.session.v1.SessionState.vendor_cost:type_name -> pluggableharness.model.v1.VendorCost
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_session_v1_types_proto_init() }

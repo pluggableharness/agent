@@ -14,12 +14,18 @@ func capabilitiesToProto(c *Capabilities) *modelv1.Capabilities {
 	for i, m := range c.Models {
 		models[i] = modelSpecToProto(m)
 	}
-	return &modelv1.Capabilities{
+	out := &modelv1.Capabilities{
 		Models:              models,
 		SlashCommands:       c.SlashCommands,
 		ConfigSchema:        c.ConfigSchema,
 		SupportedHookPoints: c.SupportedHookPoints,
+		Auth:                authToProto(c.Auth),
+		CatalogEtag:         c.CatalogEtag,
 	}
+	if c.CatalogFetchedAt != nil {
+		out.CatalogFetchedAt = timestamppb.New(*c.CatalogFetchedAt)
+	}
+	return out
 }
 
 // capabilitiesFromProto is capabilitiesToProto's inverse.
@@ -31,12 +37,19 @@ func capabilitiesFromProto(in *modelv1.Capabilities) *Capabilities {
 	for i, m := range in.GetModels() {
 		models[i] = modelSpecFromProto(m)
 	}
-	return &Capabilities{
+	out := &Capabilities{
 		Models:              models,
 		SlashCommands:       in.GetSlashCommands(),
 		ConfigSchema:        in.GetConfigSchema(),
 		SupportedHookPoints: in.GetSupportedHookPoints(),
+		Auth:                authFromProto(in.GetAuth()),
+		CatalogEtag:         in.CatalogEtag,
 	}
+	if ts := in.GetCatalogFetchedAt(); ts != nil {
+		at := ts.AsTime()
+		out.CatalogFetchedAt = &at
+	}
+	return out
 }
 
 // modelSpecToProto converts m into the generated wire type.
@@ -55,6 +68,75 @@ func modelSpecToProto(m Spec) *modelv1.ModelSpec {
 		Pricing:                   pricingToProto(m.Pricing),
 		SupportedToolChoiceModes:  m.SupportedToolChoiceModes,
 		SupportsDocuments:         m.SupportsDocuments,
+
+		Catalog:                       catalogToProto(m.Catalog),
+		MaxContextWindow:              m.MaxContextWindow,
+		EffectiveContextWindowPercent: m.EffectiveContextWindowPercent,
+		AutoCompactTokenLimit:         m.AutoCompactTokenLimit,
+		Verbosity:                     verbosityToProto(m.Verbosity),
+		ServiceTiers:                  append([]string(nil), m.ServiceTiers...),
+		ApiBackend:                    m.APIBackend,
+		TruncationPolicy:              m.TruncationPolicy,
+		CompHash:                      m.CompHash,
+	}
+}
+
+// catalogToProto converts optional picker metadata into the wire type.
+func catalogToProto(c *CatalogMetadata) *modelv1.CatalogMetadata {
+	if c == nil {
+		return nil
+	}
+	return &modelv1.CatalogMetadata{
+		DisplayName:    c.DisplayName,
+		Description:    c.Description,
+		Visible:        c.Visible,
+		Priority:       c.Priority,
+		SupportedInApi: c.SupportedInAPI,
+		// Copied rather than aliased, for the same reason
+		// thinkingSpecToProto copies Effort.Levels: a roster value is
+		// typically shared across models.
+		Aliases: append([]string(nil), c.Aliases...),
+		Family:  c.Family,
+	}
+}
+
+// catalogFromProto is catalogToProto's inverse.
+func catalogFromProto(in *modelv1.CatalogMetadata) *CatalogMetadata {
+	if in == nil {
+		return nil
+	}
+	return &CatalogMetadata{
+		DisplayName:    in.DisplayName,
+		Description:    in.Description,
+		Visible:        in.Visible,
+		Priority:       in.Priority,
+		SupportedInAPI: in.SupportedInApi,
+		Aliases:        append([]string(nil), in.GetAliases()...),
+		Family:         in.Family,
+	}
+}
+
+// verbosityToProto converts an optional verbosity control into the wire type.
+func verbosityToProto(v *VerbositySpec) *modelv1.VerbositySpec {
+	if v == nil {
+		return nil
+	}
+	return &modelv1.VerbositySpec{
+		Supported: v.Supported,
+		Levels:    append([]string(nil), v.Levels...),
+		Default:   v.Default,
+	}
+}
+
+// verbosityFromProto is verbosityToProto's inverse.
+func verbosityFromProto(in *modelv1.VerbositySpec) *VerbositySpec {
+	if in == nil {
+		return nil
+	}
+	return &VerbositySpec{
+		Supported: in.GetSupported(),
+		Levels:    append([]string(nil), in.GetLevels()...),
+		Default:   in.Default,
 	}
 }
 
@@ -76,15 +158,27 @@ func modelSpecFromProto(in *modelv1.ModelSpec) Spec {
 		Pricing:                   pricingFromProto(in.GetPricing()),
 		SupportedToolChoiceModes:  in.GetSupportedToolChoiceModes(),
 		SupportsDocuments:         in.GetSupportsDocuments(),
+
+		Catalog:                       catalogFromProto(in.GetCatalog()),
+		MaxContextWindow:              in.MaxContextWindow,
+		EffectiveContextWindowPercent: in.EffectiveContextWindowPercent,
+		AutoCompactTokenLimit:         in.AutoCompactTokenLimit,
+		Verbosity:                     verbosityFromProto(in.GetVerbosity()),
+		ServiceTiers:                  append([]string(nil), in.GetServiceTiers()...),
+		APIBackend:                    in.ApiBackend,
+		TruncationPolicy:              in.TruncationPolicy,
+		CompHash:                      in.CompHash,
 	}
 }
 
 // thinkingSpecToProto converts t into the generated wire type.
 func thinkingSpecToProto(t ThinkingSpec) *modelv1.ThinkingSpec {
 	out := &modelv1.ThinkingSpec{
-		Supported:         t.Supported,
-		AdaptiveByDefault: t.AdaptiveByDefault,
-		Disable:           t.Disable,
+		Supported:                t.Supported,
+		AdaptiveByDefault:        t.AdaptiveByDefault,
+		Disable:                  t.Disable,
+		SupportsReasoningSummary: t.SupportsReasoningSummary,
+		DefaultReasoningSummary:  t.DefaultReasoningSummary,
 	}
 	if t.Effort != nil {
 		out.Effort = &modelv1.EffortControl{
@@ -119,9 +213,11 @@ func thinkingSpecFromProto(in *modelv1.ThinkingSpec) ThinkingSpec {
 		return ThinkingSpec{}
 	}
 	out := ThinkingSpec{
-		Supported:         in.GetSupported(),
-		AdaptiveByDefault: in.GetAdaptiveByDefault(),
-		Disable:           in.GetDisable(),
+		Supported:                in.GetSupported(),
+		AdaptiveByDefault:        in.GetAdaptiveByDefault(),
+		Disable:                  in.GetDisable(),
+		SupportsReasoningSummary: in.SupportsReasoningSummary,
+		DefaultReasoningSummary:  in.DefaultReasoningSummary,
 	}
 	if e := in.GetEffort(); e != nil {
 		out.Effort = &EffortControl{
@@ -173,9 +269,10 @@ func pricingToProto(p Pricing) *modelv1.Pricing {
 		tiers[i] = pricingTierToProto(t)
 	}
 	return &modelv1.Pricing{
-		Currency: p.Currency,
-		Free:     p.Free,
-		Tiers:    tiers,
+		Currency:   p.Currency,
+		Free:       p.Free,
+		Tiers:      tiers,
+		SourceUnit: p.SourceUnit,
 	}
 }
 
@@ -189,9 +286,10 @@ func pricingFromProto(in *modelv1.Pricing) Pricing {
 		tiers[i] = pricingTierFromProto(t)
 	}
 	return Pricing{
-		Currency: in.GetCurrency(),
-		Free:     in.GetFree(),
-		Tiers:    tiers,
+		Currency:   in.GetCurrency(),
+		Free:       in.GetFree(),
+		Tiers:      tiers,
+		SourceUnit: in.SourceUnit,
 	}
 }
 
@@ -213,6 +311,8 @@ func pricingTierToProto(t PricingTier) *modelv1.PricingTier {
 	out.BatchOutputPerMtok = t.BatchOutputPerMtok
 	out.InputTokensFrom = t.InputTokensFrom
 	out.InputTokensUntil = t.InputTokensUntil
+	out.ImageInputPerMtok = t.ImageInputPerMtok
+	out.AudioInputPerMtok = t.AudioInputPerMtok
 	return out
 }
 
@@ -230,6 +330,8 @@ func pricingTierFromProto(in *modelv1.PricingTier) PricingTier {
 		BatchOutputPerMtok: in.BatchOutputPerMtok,
 		InputTokensFrom:    in.InputTokensFrom,
 		InputTokensUntil:   in.InputTokensUntil,
+		ImageInputPerMtok:  in.ImageInputPerMtok,
+		AudioInputPerMtok:  in.AudioInputPerMtok,
 	}
 	if ef := in.GetEffectiveFrom(); ef != nil {
 		t := ef.AsTime()
@@ -246,13 +348,57 @@ func pricingTierFromProto(in *modelv1.PricingTier) PricingTier {
 // StreamEvent Usage variant.
 func usageToProto(u Usage) *modelv1.Usage {
 	return &modelv1.Usage{
-		InputTokens:      u.InputTokens,
-		OutputTokens:     u.OutputTokens,
-		CacheReadTokens:  u.CacheReadTokens,
-		CacheWriteTokens: u.CacheWriteTokens,
-		ReasoningTokens:  u.ReasoningTokens,
-		RateLimits:       rateLimitsToProto(u.RateLimits),
+		InputTokens:             u.InputTokens,
+		OutputTokens:            u.OutputTokens,
+		CacheReadTokens:         u.CacheReadTokens,
+		CacheWriteTokens:        u.CacheWriteTokens,
+		ReasoningTokens:         u.ReasoningTokens,
+		RateLimits:              rateLimitsToProto(u.RateLimits),
+		VendorCost:              vendorCostToProto(u.VendorCost),
+		VendorTotalTokens:       u.VendorTotalTokens,
+		Components:              componentsToProto(u.Components),
+		ReasoningAlreadyCounted: u.ReasoningAlreadyCounted,
 	}
+}
+
+// vendorCostToProto converts an optional vendor cost into the wire type.
+func vendorCostToProto(c *VendorCost) *modelv1.VendorCost {
+	if c == nil {
+		return nil
+	}
+	return &modelv1.VendorCost{Amount: c.Amount, Unit: c.Unit, Currency: c.Currency}
+}
+
+// vendorCostFromProto is vendorCostToProto's inverse.
+func vendorCostFromProto(in *modelv1.VendorCost) *VendorCost {
+	if in == nil {
+		return nil
+	}
+	return &VendorCost{Amount: in.GetAmount(), Unit: in.GetUnit(), Currency: in.Currency}
+}
+
+// componentsToProto converts vendor-defined counters into wire types.
+func componentsToProto(in []UsageComponent) []*modelv1.UsageComponent {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*modelv1.UsageComponent, len(in))
+	for i, c := range in {
+		out[i] = &modelv1.UsageComponent{Name: c.Name, Value: c.Value}
+	}
+	return out
+}
+
+// componentsFromProto is componentsToProto's inverse.
+func componentsFromProto(in []*modelv1.UsageComponent) []UsageComponent {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]UsageComponent, len(in))
+	for i, c := range in {
+		out[i] = UsageComponent{Name: c.GetName(), Value: c.GetValue()}
+	}
+	return out
 }
 
 // rateLimitsToProto converts each snapshot into the generated wire type.
@@ -263,9 +409,14 @@ func rateLimitsToProto(in []RateLimitSnapshot) []*modelv1.RateLimitSnapshot {
 	out := make([]*modelv1.RateLimitSnapshot, len(in))
 	for i, r := range in {
 		snap := &modelv1.RateLimitSnapshot{
-			Kind:      r.Kind,
-			Remaining: r.Remaining,
-			Limit:     r.Limit,
+			Kind:          r.Kind,
+			Remaining:     r.Remaining,
+			Limit:         r.Limit,
+			LimitId:       r.LimitID,
+			LimitName:     r.LimitName,
+			WindowRole:    r.WindowRole,
+			UsedPercent:   r.UsedPercent,
+			WindowSeconds: r.WindowSeconds,
 		}
 		if r.ResetAt != nil {
 			snap.ResetAt = timestamppb.New(*r.ResetAt)
@@ -283,9 +434,14 @@ func rateLimitsFromProto(in []*modelv1.RateLimitSnapshot) []RateLimitSnapshot {
 	out := make([]RateLimitSnapshot, len(in))
 	for i, r := range in {
 		snap := RateLimitSnapshot{
-			Kind:      r.GetKind(),
-			Remaining: r.Remaining,
-			Limit:     r.Limit,
+			Kind:          r.GetKind(),
+			Remaining:     r.Remaining,
+			Limit:         r.Limit,
+			LimitID:       r.LimitId,
+			LimitName:     r.LimitName,
+			WindowRole:    r.GetWindowRole(),
+			UsedPercent:   r.UsedPercent,
+			WindowSeconds: r.WindowSeconds,
 		}
 		if ts := r.GetResetAt(); ts != nil {
 			at := ts.AsTime()
@@ -302,11 +458,75 @@ func usageFromProto(in *modelv1.Usage) Usage {
 		return Usage{}
 	}
 	return Usage{
-		InputTokens:      in.GetInputTokens(),
-		OutputTokens:     in.GetOutputTokens(),
-		CacheReadTokens:  in.CacheReadTokens,
-		CacheWriteTokens: in.CacheWriteTokens,
-		ReasoningTokens:  in.ReasoningTokens,
-		RateLimits:       rateLimitsFromProto(in.GetRateLimits()),
+		InputTokens:             in.GetInputTokens(),
+		OutputTokens:            in.GetOutputTokens(),
+		CacheReadTokens:         in.CacheReadTokens,
+		CacheWriteTokens:        in.CacheWriteTokens,
+		ReasoningTokens:         in.ReasoningTokens,
+		RateLimits:              rateLimitsFromProto(in.GetRateLimits()),
+		VendorCost:              vendorCostFromProto(in.GetVendorCost()),
+		VendorTotalTokens:       in.VendorTotalTokens,
+		Components:              componentsFromProto(in.GetComponents()),
+		ReasoningAlreadyCounted: in.ReasoningAlreadyCounted,
+	}
+}
+
+// accountToProto converts an account snapshot into the wire type.
+func accountToProto(a AccountSnapshot) *modelv1.AccountSnapshot {
+	out := &modelv1.AccountSnapshot{
+		Method:   a.Method,
+		Metering: a.Metering,
+		Plan:     a.Plan,
+		Labels:   a.Labels,
+		Quotas:   rateLimitsToProto(a.Quotas),
+	}
+	if a.FetchedAt != nil {
+		out.FetchedAt = timestamppb.New(*a.FetchedAt)
+	}
+	return out
+}
+
+// accountFromProto is accountToProto's inverse.
+func accountFromProto(in *modelv1.AccountSnapshot) AccountSnapshot {
+	if in == nil {
+		return AccountSnapshot{}
+	}
+	out := AccountSnapshot{
+		Method:   in.GetMethod(),
+		Metering: in.GetMetering(),
+		Plan:     in.Plan,
+		Labels:   in.GetLabels(),
+		Quotas:   rateLimitsFromProto(in.GetQuotas()),
+	}
+	if ts := in.GetFetchedAt(); ts != nil {
+		at := ts.AsTime()
+		out.FetchedAt = &at
+	}
+	return out
+}
+
+// authToProto converts an optional auth descriptor into the wire type.
+func authToProto(a *AuthDescriptor) *modelv1.AuthDescriptor {
+	if a == nil {
+		return nil
+	}
+	return &modelv1.AuthDescriptor{
+		Method:   a.Method,
+		Metering: a.Metering,
+		Plan:     a.Plan,
+		Labels:   a.Labels,
+	}
+}
+
+// authFromProto is authToProto's inverse.
+func authFromProto(in *modelv1.AuthDescriptor) *AuthDescriptor {
+	if in == nil {
+		return nil
+	}
+	return &AuthDescriptor{
+		Method:   in.GetMethod(),
+		Metering: in.GetMetering(),
+		Plan:     in.Plan,
+		Labels:   in.GetLabels(),
 	}
 }

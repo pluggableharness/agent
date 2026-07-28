@@ -36,6 +36,8 @@ message StreamEvent {
     RedactedThinking redacted_thinking = 10;
     // The vendor has accepted the request and named it.
     StreamStart stream_start = 11;
+    // Non-content facts about how the vendor is serving this request.
+    StreamMetadata metadata = 12;
   }
 
   // StreamStart carries the vendor's own identifier for this request, as
@@ -52,6 +54,88 @@ message StreamEvent {
     // `request-id` header, an OpenAI `x-request-id`). Opaque to the
     // kernel: logged and surfaced, never parsed.
     string provider_request_id = 1;
+
+    // Every other handle this request is known by, keyed by the
+    // vendor's own name for it ("x-request-id", "response_id",
+    // "cf-ray").
+    //
+    // One id is not enough in practice: vendors log the same request
+    // under several, and a support conversation asks for whichever one
+    // that vendor's own tooling indexes. provider_request_id stays the
+    // single canonical handle; this carries the rest rather than forcing
+    // an adapter to choose which to discard.
+    //
+    // The kernel MUST serialize this with sorted keys wherever it
+    // reaches a persisted payload (.claude/rules/determinism.md).
+    map<string, string> correlation_ids = 2;
+  }
+
+  // StreamMetadata carries non-content facts about how the vendor is
+  // serving this request: which model actually answered, which build,
+  // which tier, and whatever budget state the response headers exposed.
+  //
+  // Separate from StreamStart because these arrive on a different
+  // schedule. StreamStart is emitted once when the vendor accepts the
+  // request; metadata may not be knowable until headers land, may
+  // change mid-stream, and MAY be emitted more than once — a later event
+  // supersedes an earlier one field by field, and an absent field means
+  // "no new information", never "cleared".
+  //
+  // This is not a block boundary. It carries no content, so a kernel
+  // accumulating a message MUST NOT close an open text or thinking block
+  // on receiving one; doing so would split a run of deltas that a vendor
+  // happened to interrupt with a late header.
+  message StreamMetadata {
+    // The model that actually served this completion, when it differs
+    // from the requested StreamCompletionRequest.model_id — vendors
+    // remap for safety routing, capacity, and deprecation
+    // (`grok-4` resolving to `grok-4.3`).
+    //
+    // Load-bearing for trust, not just for ops. A vendor silently
+    // serving a different model is how an operator experiences "it got
+    // worse today" with nothing to point at; dropping the fact makes
+    // the regression unattributable and, worse, makes the kernel's own
+    // cost computation cite pricing for a model that never ran.
+    optional string actual_model = 1;
+
+    // The vendor's opaque identifier for the backend build serving this
+    // request (OpenAI's `system_fingerprint`). Never parsed.
+    optional string system_fingerprint = 2;
+
+    // The service or speed tier this request was served at, where the
+    // vendor exposes tiers that differ in latency or price.
+    optional string service_tier = 3;
+
+    // Budget state as of this point in the stream, when the vendor
+    // publishes it in response headers rather than in the terminal usage
+    // payload.
+    //
+    // The same RateLimitSnapshot shape Usage carries. Reported here it
+    // is visible while a long completion is still running, which is the
+    // whole point: a limit an operator learns about only after the turn
+    // that exhausted it has already stranded them.
+    repeated RateLimitSnapshot rate_limits = 4;
+
+    // The context window the vendor says applies to this request, when
+    // it reports one that supersedes the roster's static figure
+    // (xAI's `x-grok-context-window`).
+    optional int64 live_context_window = 5;
+
+    // The maximum output token count the vendor says applies to this
+    // request, on the same terms as live_context_window.
+    optional int64 live_max_output_tokens = 6;
+
+    // The vendor's current model-catalog version, when a response
+    // advertises one (xAI's `x-models-etag`). A value differing from the
+    // one the loaded roster was built from means the catalog moved.
+    optional string catalog_etag = 7;
+
+    // Vendor-defined metadata with no typed field above. Opaque to the
+    // kernel, which stores and surfaces it without interpretation.
+    //
+    // The kernel MUST serialize this with sorted keys wherever it
+    // reaches a persisted payload (.claude/rules/determinism.md).
+    map<string, string> attrs = 8;
   }
 
   // TextDelta carries one incremental fragment of assistant text output.

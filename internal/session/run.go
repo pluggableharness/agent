@@ -9,6 +9,7 @@ import (
 
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
 	hookv1 "github.com/pluggableharness/agent/pkg/hook/proto/v1"
+	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
 	sessionv1 "github.com/pluggableharness/agent/pkg/session/proto/v1"
 
 	"github.com/pluggableharness/agent/internal/bounds"
@@ -36,6 +37,18 @@ type run struct {
 	final     *contentv1.Message
 	inTokens  int64
 	outTokens int64
+
+	// Vendor-reported state from the most recent completion, surfaced on
+	// SessionState. Last-write-wins rather than accumulated: each is a
+	// reading of "how is the vendor serving me right now", and an older
+	// reading is not additive with a newer one the way token counts are.
+	//
+	// quotas is left untouched by a turn that reported none, so a
+	// mid-session completion whose headers omitted budgets does not blank
+	// a figure the operator was watching.
+	quotas      []*modelv1.RateLimitSnapshot
+	vendorCost  *modelv1.VendorCost
+	actualModel string
 }
 
 // Run executes one whole session per turn-algorithm.md and returns its
@@ -293,6 +306,19 @@ func (st *run) absorb(result turn.Result) {
 	}
 	st.inTokens += result.Usage.GetInputTokens()
 	st.outTokens += result.Usage.GetOutputTokens()
+
+	// Only overwrite what this turn actually reported. A vendor that
+	// publishes budgets on some responses and not others would otherwise
+	// blank the operator's meter on every quiet turn.
+	if limits := result.Usage.GetRateLimits(); len(limits) > 0 {
+		st.quotas = limits
+	}
+	if vc := result.Usage.GetVendorCost(); vc != nil {
+		st.vendorCost = vc
+	}
+	if m := result.ActualModel; m != "" {
+		st.actualModel = m
+	}
 
 	st.budget.ObserveTurn()
 	st.budget.Debit(result.CostUSD)

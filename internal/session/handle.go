@@ -276,6 +276,15 @@ func (h *Handle) State(ctx context.Context) (*sessionv1.SessionState, error) {
 			WindowTokens: h.st.res.target.GetEffectiveCeiling(),
 		}
 	}
+	// Vendor-reported state from the most recent completion. Each is left
+	// absent rather than zero-filled when the vendor said nothing —
+	// "no reading" and "a reading of zero" are different facts to a
+	// status bar, and conflating them is how a usage meter starts lying.
+	state.Quotas = h.st.quotas
+	state.VendorCost = h.st.vendorCost
+	if h.st.actualModel != "" {
+		state.ActualModel = &h.st.actualModel
+	}
 	if wd := h.st.spec.WorkingDirectory; wd != "" {
 		if vcs := probeVCS(ctx, wd); vcs != nil {
 			state.Vcs = vcs

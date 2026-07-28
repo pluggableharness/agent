@@ -44,6 +44,130 @@ message Capabilities {
   // HookPoint itself lives in common.v1 for exactly this reason (see
   // common/v1/types.proto), already imported here for CallContext/Describe.
   repeated pluggableharness.common.v1.HookPoint supported_hook_points = 4;
+
+  // How this plugin authenticated and which pool it meters against, when
+  // it can say. MAY be absent — a provider with one credential shape has
+  // nothing to disambiguate.
+  optional AuthDescriptor auth = 5;
+
+  // The vendor's version identifier for the model catalog this roster
+  // was built from (an `x-models-etag`), when the provider fetched one.
+  //
+  // Reported so a mismatch against a StreamMetadata.catalog_etag on a
+  // later completion is *detectable*. Acting on it requires the kernel
+  // to be able to re-fetch capabilities, which this protocol revision
+  // does not add — the roster is still resolved once at Configure. Ship
+  // this now so a provider need not re-advertise when refresh lands.
+  optional string catalog_etag = 6;
+
+  // When this roster was fetched from the vendor. Absent for a
+  // hand-written roster compiled into the plugin, which is exactly the
+  // distinction it exists to make: a static roster is never stale, while
+  // a fetched one has an age.
+  optional google.protobuf.Timestamp catalog_fetched_at = 7;
+}
+
+// AuthMethod names the credential shape a model plugin is running under.
+//
+// It matters beyond bookkeeping: which models a vendor exposes, which
+// endpoint answers, and which terms of service apply all differ by
+// credential. A frontend that cannot tell a subscription session from a
+// console key cannot warn an operator which one they are spending.
+enum AuthMethod {
+  // Zero value: the provider did not say. Not an error — declaring this
+  // is optional.
+  AUTH_METHOD_UNSPECIFIED = 0;
+  // A console/platform API key billed per token.
+  AUTH_METHOD_API_KEY = 1;
+  // An interactive product session (a ChatGPT or Grok login), metered
+  // against that product's subscription pool.
+  AUTH_METHOD_PRODUCT_SESSION = 2;
+  // A cloud deployment credential (Azure, Bedrock, Vertex) where billing
+  // belongs to the hosting account rather than the model vendor.
+  AUTH_METHOD_DEPLOYMENT_KEY = 3;
+}
+
+// MeteringDomain names what a completion is actually charged against.
+//
+// Separate from AuthMethod because the two are not one-to-one: a product
+// session can be billed against credits once a pool is exhausted.
+enum MeteringDomain {
+  // Zero value: the provider did not say.
+  METERING_DOMAIN_UNSPECIFIED = 0;
+  // A subscription pool, where the scarce resource is quota rather than
+  // currency and computed cost_usd is not what the operator is spending.
+  METERING_DOMAIN_SUBSCRIPTION_POOL = 1;
+  // Per-token billing against an invoice, where computed cost_usd is a
+  // real prediction of a real charge.
+  METERING_DOMAIN_METERED_API = 2;
+}
+
+// AuthDescriptor is the non-secret description of how a model plugin is
+// authenticated.
+//
+// Nothing here is a credential, and nothing here may be derived from one
+// in a way that leaks it: no key material, no token, no refresh token,
+// no full account identifier. .claude/rules/logging-telemetry.md's
+// no-secrets rule applies to every field with no exception, including
+// the labels map.
+message AuthDescriptor {
+  // The credential shape in use.
+  AuthMethod method = 1;
+
+  // What completions are charged against.
+  MeteringDomain metering = 2;
+
+  // The vendor's plan name, where a subscription names one ("plus",
+  // "pro", "SuperGrok"). Display only; the kernel never routes on it.
+  optional string plan = 3;
+
+  // Additional non-secret, vendor-defined labels — a redacted account
+  // handle, a region, an organization display name.
+  //
+  // The kernel MUST serialize this with sorted keys wherever it reaches
+  // a persisted payload; Go map iteration order is randomized and would
+  // otherwise make the same state serialize differently across runs
+  // (.claude/rules/determinism.md).
+  map<string, string> labels = 4;
+}
+
+// AccountSnapshot is the live account and entitlement state behind a
+// model plugin's credential, as returned by GetAccount.
+//
+// It answers the question a subscription operator actually has — "how
+// much of my pool is left, and on which plan" — which no per-completion
+// message can answer before the first completion runs. The quota list
+// reuses RateLimitSnapshot rather than introducing a parallel shape:
+// pool headroom and a rate-limit budget are the same concept read at
+// different times, and two types for it would guarantee two frontend
+// renderers that disagree.
+message AccountSnapshot {
+  // The credential shape in use.
+  AuthMethod method = 1;
+
+  // What completions are charged against.
+  MeteringDomain metering = 2;
+
+  // The vendor's plan name, where a subscription names one. Display
+  // only; the kernel never routes on it.
+  optional string plan = 3;
+
+  // Non-secret, vendor-defined labels — a redacted account handle, a
+  // region, an organization display name. The no-secrets rule on
+  // AuthDescriptor.labels applies here identically.
+  map<string, string> labels = 4;
+
+  // Every budget the vendor publishes for this account outside a
+  // completion: pool percentages, credit balances, request ceilings.
+  // MAY be empty — a vendor that publishes budgets only in completion
+  // response headers reports them on Usage instead.
+  repeated RateLimitSnapshot quotas = 5;
+
+  // When this snapshot was read from the vendor. Lets a frontend say how
+  // stale the figure is rather than presenting a cached reading as live,
+  // which is the specific failure mode that makes an operator distrust a
+  // usage meter.
+  optional google.protobuf.Timestamp fetched_at = 6;
 }
 
 // ModelSpec describes one model this provider can serve, per
@@ -108,6 +232,123 @@ message ModelSpec {
   // the kernel MUST reject a DocumentBlock sent to a model where this is
   // false, with invalid_request, rather than silently dropping it.
   bool supports_documents = 12;
+
+  // Human-facing catalog metadata for a model picker. Absent for a
+  // provider with a hand-written roster and nothing to say beyond the
+  // id.
+  optional CatalogMetadata catalog = 13;
+
+  // The largest context window this model can be configured with, where
+  // the vendor exposes a ceiling above the default context_window (a
+  // long-context variant billed at a different tier).
+  //
+  // context_window remains the figure the kernel budgets against;
+  // this is the headroom a picker can offer, not a silent upgrade.
+  optional int64 max_context_window = 14;
+
+  // The fraction of context_window, 0-100, that is actually usable for
+  // conversation after the vendor's own fixed overhead.
+  //
+  // Vendors publish a round context_window and then reserve part of it,
+  // which is why a session can hit a limit well below the advertised
+  // number. Absent means the whole window is usable.
+  optional double effective_context_window_percent = 15;
+
+  // The assembled-token count at which a harness should compact this
+  // model's history, where the vendor recommends one. Advisory: the
+  // kernel's own compaction policy decides, and MUST NOT treat this as a
+  // hard bound.
+  optional int64 auto_compact_token_limit = 16;
+
+  // The model's output-verbosity control, where it exposes one.
+  optional VerbositySpec verbosity = 17;
+
+  // The service or speed tiers this model can be served at, in the
+  // vendor's own naming. Empty means the vendor exposes no tier choice.
+  repeated string service_tiers = 18;
+
+  // Which vendor API surface serves this model ("chat_completions",
+  // "responses", "messages"), for vendors exposing several with
+  // different capabilities.
+  //
+  // Opaque to the kernel — it never routes on this. It exists so a
+  // provider serving one roster across two backends can record which is
+  // which instead of splitting into two plugins.
+  optional string api_backend = 19;
+
+  // The vendor's policy name for truncating oversized tool output, where
+  // it defines one. Opaque to the kernel.
+  optional string truncation_policy = 20;
+
+  // The vendor's compaction-compatibility identifier, where it publishes
+  // one. Two models sharing a value can consume each other's compacted
+  // history; differing values mean a compaction cannot be carried
+  // across. Opaque to the kernel.
+  optional string comp_hash = 21;
+}
+
+// CatalogMetadata is the human-facing description of a model — what a
+// picker shows, not what the kernel routes on.
+//
+// Grouped into its own message rather than flattened onto ModelSpec
+// because none of it is behavioral: a kernel that ignored this message
+// entirely would route, budget, and bill identically. Keeping the
+// separation makes that obvious at a glance instead of leaving a reader
+// to work out which of twenty ModelSpec fields change behavior.
+message CatalogMetadata {
+  // The model's display name ("Grok 4.5", "GPT-5 Codex"), for a picker.
+  // Absent means a frontend falls back to ModelSpec.id.
+  optional string display_name = 1;
+
+  // A one-line description of what the model is for.
+  optional string description = 2;
+
+  // Whether this model should be offered in a picker by default.
+  // Vendors publish models that exist but are deprecated, internal, or
+  // gated; absent means visible.
+  optional bool visible = 3;
+
+  // A sort weight for a picker, higher first. Absent means unranked, and
+  // a frontend orders by whatever it likes.
+  optional int32 priority = 4;
+
+  // Whether this model is reachable with an API key, as opposed to only
+  // through a product session.
+  //
+  // Paired with AuthDescriptor.method this is what lets a frontend hide
+  // models the current credential cannot actually reach, instead of
+  // offering one that fails at first use.
+  optional bool supported_in_api = 5;
+
+  // Other ids that resolve to this same model. A vendor publishing
+  // `grok-4` as an alias of `grok-4.3` lists it here.
+  //
+  // Aliases are NOT separate ModelSpec entries: expanding them into one
+  // spec each is what makes a catalog appear to hold several distinct
+  // models that are one model, and makes a picker offer the same thing
+  // three times.
+  repeated string aliases = 6;
+
+  // The model family this belongs to, for grouping variants that differ
+  // only by size or revision. Opaque to the kernel.
+  optional string family = 7;
+}
+
+// VerbositySpec declares a model's output-verbosity control, where the
+// vendor exposes one — a knob distinct from thinking effort, which
+// governs reasoning depth rather than answer length.
+message VerbositySpec {
+  // Whether this model accepts a verbosity setting at all. When false,
+  // levels MUST be empty and default MUST be absent.
+  bool supported = 1;
+
+  // The accepted level names, in the vendor's own vocabulary ("low",
+  // "medium", "high"), ordered least to most verbose.
+  repeated string levels = 2;
+
+  // The level applied when a request names none. MUST be one of levels
+  // when set.
+  optional string default = 3;
 }
 
 // ThinkingDisableSupport describes whether a model's reasoning can be
@@ -219,6 +460,16 @@ message ThinkingSpec {
   // Whether, and when, reasoning can be turned off. MUST be set when
   // supported is true.
   ThinkingDisableSupport disable = 10;
+
+  // Whether this model can emit a reasoning *summary* distinct from its
+  // raw reasoning stream. When true, a StreamEvent's thinking deltas may
+  // carry a channel distinguishing the two.
+  optional bool supports_reasoning_summary = 11;
+
+  // The summary mode applied when a request names none, in the vendor's
+  // own vocabulary ("auto", "concise", "detailed"). Meaningless unless
+  // supports_reasoning_summary is true.
+  optional string default_reasoning_summary = 12;
 }
 
 // CachingSpec describes one model's prompt-caching capability, per
@@ -325,6 +576,18 @@ message PricingTier {
   // Omitted means unbounded above. Half-open with input_tokens_from,
   // matching effective_from/effective_until's half-open convention.
   optional int64 input_tokens_until = 10;
+
+  // Price per million image input tokens, where the vendor rates image
+  // input separately from text.
+  //
+  // Absent means image input bills at input_per_mtok — the correct
+  // reading for every vendor that does not price it separately, and the
+  // behavior before this field existed.
+  optional double image_input_per_mtok = 11;
+
+  // Price per million audio input tokens, on the same terms as
+  // image_input_per_mtok.
+  optional double audio_input_per_mtok = 12;
 }
 
 // Pricing describes one model's cost structure, per model.md §2. MUST
@@ -344,6 +607,17 @@ message Pricing {
   // given timestamp; the kernel MUST reject overlapping or gapped tiers
   // at capability-load time.
   repeated PricingTier tiers = 3;
+
+  // The vendor's own pricing unit these rates were converted from, when
+  // the adapter had to convert — an integer per-token price, a tick
+  // scale, a per-thousand rate.
+  //
+  // Recorded for audit, never used in computation: the kernel bills from
+  // the per-MTok rates above regardless. It exists because the
+  // conversion is otherwise adapter-private, which makes a ledger figure
+  // that disagrees with a vendor invoice impossible to trace back to
+  // whether the rate or the arithmetic was wrong.
+  optional string source_unit = 4;
 }
 
 // CacheBreakpoint marks one position in a StreamCompletionRequest where
@@ -501,9 +775,90 @@ message Usage {
   // left" is unactionable without saying 2% of what.
   repeated RateLimitSnapshot rate_limits = 6;
 
-  // Deliberately no cost field: the kernel computes and persists
-  // cost_usd from these token counts plus the matching PricingTier, per
-  // model.md §4.1 — the provider never computes cost itself.
+  // What the vendor says this completion cost, in the vendor's own
+  // denomination, when it reports a figure at all (xAI returns
+  // `cost_in_usd_ticks`).
+  //
+  // Reported, never authoritative. The kernel still computes and
+  // persists cost_usd from the token counts above plus the matching
+  // PricingTier, and every rollup, budget, and replay reads that
+  // computed figure — see model.md §4.1. This field is persisted
+  // alongside it for display and reconciliation, so an operator can see
+  // that list price and actual bill disagree instead of having to guess.
+  // Making it authoritative would put two costs in the ledger with no
+  // deterministic rule for which one a replay reproduces
+  // (.claude/rules/determinism.md).
+  optional VendorCost vendor_cost = 7;
+
+  // The vendor's own total-token figure, when it publishes one that is
+  // not simply the sum of the parts above. Recorded rather than
+  // recomputed precisely so a disagreement stays visible; the kernel
+  // never derives this and never bills from it.
+  optional int64 vendor_total_tokens = 8;
+
+  // Vendor-defined counters with no first-class field: per-modality
+  // input tokens (text/image/audio), accepted/rejected prediction
+  // tokens, hosted-tool source counts. Opaque to the kernel, which
+  // stores and surfaces them without interpretation.
+  //
+  // The kernel MUST sort these by name before persisting: a repeated
+  // field reaching a persisted payload in adapter-emission order would
+  // make the event log depend on map iteration inside the adapter
+  // (.claude/rules/determinism.md).
+  repeated UsageComponent components = 9;
+
+  // Whether reasoning_tokens is already included in output_tokens
+  // because the vendor said so out of band (OpenAI's
+  // `X-Reasoning-Included`). Absent means "not stated", which the kernel
+  // treats as the documented default for reasoning_tokens above: a
+  // distinct count, not folded in. Set true only on a vendor's explicit
+  // signal — it exists to stop the kernel double-counting reasoning in
+  // its own estimates, so guessing defeats the purpose.
+  optional bool reasoning_already_counted = 10;
+}
+
+// VendorCost is a vendor's own price for one completion, in whatever
+// unit that vendor bills in.
+//
+// The amount is a decimal string rather than a double because these are
+// exact monetary quantities and binary floating point cannot represent
+// them exactly — a ledger that must reconcile against an invoice cannot
+// afford the rounding.
+message VendorCost {
+  // The amount, as an exact decimal string ("0.00241", "24100000").
+  // MUST parse as a decimal number; MUST NOT carry a currency symbol,
+  // thousands separators, or exponent notation.
+  string amount = 1;
+
+  // The unit `amount` is denominated in, naming the vendor's own scale
+  // where it is not plain currency: "usd", "xai_ticks_1e10". Opaque to
+  // the kernel, which never converts between units — a conversion the
+  // kernel invented would be one more unaudited number in the ledger.
+  string unit = 2;
+
+  // The ISO 4217 currency, when `unit` is a currency-denominated one and
+  // the vendor bills in something other than USD.
+  optional string currency = 3;
+}
+
+// UsageComponent is one vendor-defined counter the protocol has no
+// typed field for.
+//
+// A repeated name/value pair rather than a growing list of optional
+// int64s because the set is vendor-specific and open-ended: every vendor
+// meters a slightly different decomposition, and promoting each one to a
+// field would churn this message on every provider added.
+message UsageComponent {
+  // The counter's vendor-facing name, verbatim
+  // ("input_image_tokens", "num_sources_used",
+  // "accepted_prediction_tokens"). MUST be set and MUST be unique within
+  // one Usage.
+  string name = 1;
+
+  // The counter's value. Named `value` rather than `tokens` because not
+  // every vendor counter is a token count — `num_sources_used` counts
+  // documents.
+  int64 value = 2;
 }
 
 // RateLimitKind names which vendor budget a RateLimitSnapshot describes.
@@ -519,6 +874,28 @@ enum RateLimitKind {
   RATE_LIMIT_KIND_INPUT_TOKENS = 3;
   // Output tokens per window, where the vendor meters them separately.
   RATE_LIMIT_KIND_OUTPUT_TOKENS = 4;
+  // A credit or currency balance metered independently of requests and
+  // tokens, as subscription products bill overage against.
+  RATE_LIMIT_KIND_CREDITS = 5;
+}
+
+// WindowRole distinguishes the several budgets a subscription product
+// meters at once, where one is the headline limit and the others
+// constrain bursts within it.
+//
+// Without it an adapter facing a product that publishes a primary and a
+// secondary window has to pick one RateLimitKind for each and hope the
+// frontend guesses right — the mapping 27-missing-openai-protocol.md
+// calls a "semantic lie".
+enum WindowRole {
+  // Zero value: the vendor publishes one undifferentiated budget, or
+  // says nothing about role. Not an error.
+  WINDOW_ROLE_UNSPECIFIED = 0;
+  // The headline budget an operator thinks of as "my limit".
+  WINDOW_ROLE_PRIMARY = 1;
+  // A shorter or narrower budget that constrains bursts inside the
+  // primary one.
+  WINDOW_ROLE_SECONDARY = 2;
 }
 
 // RateLimitSnapshot is one of the vendor's rate-limit budgets as of one
@@ -540,6 +917,36 @@ message RateLimitSnapshot {
 
   // When this budget next resets.
   optional google.protobuf.Timestamp reset_at = 4;
+
+  // The vendor's stable identifier for this budget, where it names one
+  // ("codex", "codex_other"). Opaque to the kernel; it exists so two
+  // snapshots of the same budget can be correlated across completions
+  // even when kind and window_role are identical.
+  optional string limit_id = 5;
+
+  // A human-facing label for this budget, when the vendor supplies one
+  // worth showing. Never synthesized from limit_id — a frontend can fall
+  // back to kind and window_role perfectly well, and an invented label
+  // reads as authoritative.
+  optional string limit_name = 6;
+
+  // Which of the vendor's several budgets this is.
+  WindowRole window_role = 7;
+
+  // How much of this budget is spent, 0-100, for the products that
+  // publish only a percentage and never absolute counts.
+  //
+  // This exists so those adapters stop faking `limit = 100` and
+  // `remaining = 100 - percent` to fit the absolute fields. A vendor
+  // publishing real counts sets remaining/limit and leaves this unset; a
+  // vendor publishing only a percentage sets this and leaves those
+  // unset. An adapter MUST NOT derive one form from the other.
+  optional double used_percent = 8;
+
+  // The budget window's length. Paired with reset_at it lets a frontend
+  // say "5 hours" rather than only "resets at 14:00", which is what
+  // makes a limit predictable instead of a surprise.
+  optional int64 window_seconds = 9;
 }
 
 // ModelTarget describes the model a context or memory contribution is

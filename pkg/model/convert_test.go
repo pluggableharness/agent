@@ -463,3 +463,160 @@ func TestConvert_UsageWithoutRateLimitsStaysNil(t *testing.T) {
 		t.Errorf("RateLimits = %+v, want nil", back.RateLimits)
 	}
 }
+
+// TestUsageRoundTrip_vendorFields covers the fields added for
+// vendor-reported cost and metering. A round trip is the real assertion:
+// convert.go is the only place these cross the wire boundary, so a field
+// dropped in either direction is silent data loss for every provider.
+func TestUsageRoundTrip_vendorFields(t *testing.T) {
+	t.Parallel()
+
+	currency := "USD"
+	total := int64(999)
+	counted := true
+	want := model.Usage{
+		InputTokens:  10,
+		OutputTokens: 5,
+		VendorCost: &model.VendorCost{
+			Amount:   "24100000",
+			Unit:     "xai_ticks_1e10",
+			Currency: &currency,
+		},
+		VendorTotalTokens: &total,
+		Components: []model.UsageComponent{
+			{Name: "input_image_tokens", Value: 128},
+			{Name: "num_sources_used", Value: 3},
+		},
+		ReasoningAlreadyCounted: &counted,
+	}
+
+	got := model.UsageFromProtoForTest(model.UsageToProtoForTest(want))
+
+	if got.VendorCost == nil {
+		t.Fatal("VendorCost was dropped in the round trip")
+	}
+	if got.VendorCost.Amount != "24100000" || got.VendorCost.Unit != "xai_ticks_1e10" {
+		t.Errorf("VendorCost = %+v, want the amount and unit preserved verbatim", got.VendorCost)
+	}
+	if got.VendorCost.Currency == nil || *got.VendorCost.Currency != "USD" {
+		t.Errorf("VendorCost.Currency = %v, want USD", got.VendorCost.Currency)
+	}
+	if got.VendorTotalTokens == nil || *got.VendorTotalTokens != 999 {
+		t.Errorf("VendorTotalTokens = %v, want 999", got.VendorTotalTokens)
+	}
+	if len(got.Components) != 2 || got.Components[0].Name != "input_image_tokens" || got.Components[0].Value != 128 {
+		t.Errorf("Components = %+v, want both counters in order", got.Components)
+	}
+	if got.ReasoningAlreadyCounted == nil || !*got.ReasoningAlreadyCounted {
+		t.Errorf("ReasoningAlreadyCounted = %v, want true", got.ReasoningAlreadyCounted)
+	}
+}
+
+// TestRateLimitRoundTrip_subscriptionFields covers the fields that exist
+// so a percentage-only vendor stops faking Limit=100.
+func TestRateLimitRoundTrip_subscriptionFields(t *testing.T) {
+	t.Parallel()
+
+	id, name := "codex", "Codex weekly"
+	pct := 62.5
+	window := int64(18000)
+	want := model.Usage{RateLimits: []model.RateLimitSnapshot{{
+		Kind:          modelv1.RateLimitKind_RATE_LIMIT_KIND_CREDITS,
+		LimitID:       &id,
+		LimitName:     &name,
+		WindowRole:    modelv1.WindowRole_WINDOW_ROLE_PRIMARY,
+		UsedPercent:   &pct,
+		WindowSeconds: &window,
+	}}}
+
+	got := model.UsageFromProtoForTest(model.UsageToProtoForTest(want))
+
+	if len(got.RateLimits) != 1 {
+		t.Fatalf("RateLimits has %d entries, want 1", len(got.RateLimits))
+	}
+	r := got.RateLimits[0]
+	if r.Kind != modelv1.RateLimitKind_RATE_LIMIT_KIND_CREDITS {
+		t.Errorf("Kind = %v, want CREDITS", r.Kind)
+	}
+	if r.WindowRole != modelv1.WindowRole_WINDOW_ROLE_PRIMARY {
+		t.Errorf("WindowRole = %v, want PRIMARY", r.WindowRole)
+	}
+	if r.LimitID == nil || *r.LimitID != "codex" {
+		t.Errorf("LimitID = %v, want codex", r.LimitID)
+	}
+	if r.LimitName == nil || *r.LimitName != "Codex weekly" {
+		t.Errorf("LimitName = %v, want %q", r.LimitName, "Codex weekly")
+	}
+	if r.UsedPercent == nil || *r.UsedPercent != 62.5 {
+		t.Errorf("UsedPercent = %v, want 62.5", r.UsedPercent)
+	}
+	if r.WindowSeconds == nil || *r.WindowSeconds != 18000 {
+		t.Errorf("WindowSeconds = %v, want 18000", r.WindowSeconds)
+	}
+	// Absolute counters stay unset: this vendor published only a
+	// percentage, and deriving Remaining/Limit from it is exactly the
+	// lie these fields were added to retire.
+	if r.Remaining != nil || r.Limit != nil {
+		t.Errorf("Remaining/Limit = %v/%v, want both nil for a percentage-only vendor", r.Remaining, r.Limit)
+	}
+}
+
+// TestAccountSnapshotRoundTrip covers the GetAccount payload. The quota
+// list is the load-bearing part: it reuses RateLimitSnapshot precisely so
+// pool headroom and per-completion budgets cannot drift into two shapes a
+// frontend has to render twice.
+func TestAccountSnapshotRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	plan := "SuperGrok"
+	fetched := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	pct := 41.0
+	want := model.AccountSnapshot{
+		Method:   modelv1.AuthMethod_AUTH_METHOD_PRODUCT_SESSION,
+		Metering: modelv1.MeteringDomain_METERING_DOMAIN_SUBSCRIPTION_POOL,
+		Plan:     &plan,
+		Labels:   map[string]string{"account": "s***@example.com"},
+		Quotas: []model.RateLimitSnapshot{{
+			Kind:        modelv1.RateLimitKind_RATE_LIMIT_KIND_TOKENS,
+			WindowRole:  modelv1.WindowRole_WINDOW_ROLE_PRIMARY,
+			UsedPercent: &pct,
+		}},
+		FetchedAt: &fetched,
+	}
+
+	got := model.AccountFromProtoForTest(model.AccountToProtoForTest(want))
+
+	if got.Method != want.Method || got.Metering != want.Metering {
+		t.Errorf("method/metering = %v/%v, want %v/%v", got.Method, got.Metering, want.Method, want.Metering)
+	}
+	if got.Plan == nil || *got.Plan != "SuperGrok" {
+		t.Errorf("Plan = %v, want SuperGrok", got.Plan)
+	}
+	if got.Labels["account"] != "s***@example.com" {
+		t.Errorf("Labels = %v, want the redacted handle preserved", got.Labels)
+	}
+	if len(got.Quotas) != 1 || got.Quotas[0].UsedPercent == nil || *got.Quotas[0].UsedPercent != 41.0 {
+		t.Errorf("Quotas = %+v, want one entry at 41%%", got.Quotas)
+	}
+	if got.FetchedAt == nil || !got.FetchedAt.Equal(fetched) {
+		t.Errorf("FetchedAt = %v, want %v", got.FetchedAt, fetched)
+	}
+}
+
+// TestAccountSnapshotRoundTrip_zeroValue asserts an empty snapshot stays
+// empty rather than acquiring a zero timestamp — "never fetched" and
+// "fetched at the epoch" must stay distinguishable.
+func TestAccountSnapshotRoundTrip_zeroValue(t *testing.T) {
+	t.Parallel()
+
+	got := model.AccountFromProtoForTest(model.AccountToProtoForTest(model.AccountSnapshot{}))
+	if got.FetchedAt != nil {
+		t.Errorf("FetchedAt = %v, want nil for a snapshot that never set it", got.FetchedAt)
+	}
+	if got.Plan != nil {
+		t.Errorf("Plan = %v, want nil", got.Plan)
+	}
+	if len(got.Quotas) != 0 {
+		t.Errorf("Quotas = %v, want empty", got.Quotas)
+	}
+}

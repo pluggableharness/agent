@@ -253,6 +253,56 @@ func (x *RenderResponse) GetTree() *v11.RenderTree {
 	return nil
 }
 
+// GetAccountResponse carries the live account snapshot, per model.md's
+// GetAccount RPC.
+type GetAccountResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The account state. MUST be set on a successful response — a provider
+	// with nothing to report returns codes.Unimplemented rather than an
+	// empty snapshot, so "does not participate" stays distinguishable from
+	// "participates and currently knows nothing".
+	Account       *AccountSnapshot `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccountResponse) Reset() {
+	*x = GetAccountResponse{}
+	mi := &file_pluggableharness_model_v1_rpc_response_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccountResponse) ProtoMessage() {}
+
+func (x *GetAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_rpc_response_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccountResponse.ProtoReflect.Descriptor instead.
+func (*GetAccountResponse) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_rpc_response_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetAccountResponse) GetAccount() *AccountSnapshot {
+	if x != nil {
+		return x.Account
+	}
+	return nil
+}
+
 var File_pluggableharness_model_v1_rpc_response_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_model_v1_rpc_response_proto_rawDesc = "" +
@@ -266,7 +316,9 @@ const file_pluggableharness_model_v1_rpc_response_proto_rawDesc = "" +
 	"\x13CountTokensResponse\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\x03R\x05count\"L\n" +
 	"\x0eRenderResponse\x12:\n" +
-	"\x04tree\x18\x01 \x01(\v2&.pluggableharness.render.v1.RenderTreeR\x04treeB>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
+	"\x04tree\x18\x01 \x01(\v2&.pluggableharness.render.v1.RenderTreeR\x04tree\"Z\n" +
+	"\x12GetAccountResponse\x12D\n" +
+	"\aaccount\x18\x01 \x01(\v2*.pluggableharness.model.v1.AccountSnapshotR\aaccountB>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
 
 var (
 	file_pluggableharness_model_v1_rpc_response_proto_rawDescOnce sync.Once
@@ -280,26 +332,29 @@ func file_pluggableharness_model_v1_rpc_response_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_model_v1_rpc_response_proto_rawDescData
 }
 
-var file_pluggableharness_model_v1_rpc_response_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_pluggableharness_model_v1_rpc_response_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_pluggableharness_model_v1_rpc_response_proto_goTypes = []any{
 	(*GetCapabilitiesResponse)(nil), // 0: pluggableharness.model.v1.GetCapabilitiesResponse
 	(*ConfigureResponse)(nil),       // 1: pluggableharness.model.v1.ConfigureResponse
 	(*DescribeResponse)(nil),        // 2: pluggableharness.model.v1.DescribeResponse
 	(*CountTokensResponse)(nil),     // 3: pluggableharness.model.v1.CountTokensResponse
 	(*RenderResponse)(nil),          // 4: pluggableharness.model.v1.RenderResponse
-	(*Capabilities)(nil),            // 5: pluggableharness.model.v1.Capabilities
-	(*v1.ProducerRef)(nil),          // 6: pluggableharness.common.v1.ProducerRef
-	(*v11.RenderTree)(nil),          // 7: pluggableharness.render.v1.RenderTree
+	(*GetAccountResponse)(nil),      // 5: pluggableharness.model.v1.GetAccountResponse
+	(*Capabilities)(nil),            // 6: pluggableharness.model.v1.Capabilities
+	(*v1.ProducerRef)(nil),          // 7: pluggableharness.common.v1.ProducerRef
+	(*v11.RenderTree)(nil),          // 8: pluggableharness.render.v1.RenderTree
+	(*AccountSnapshot)(nil),         // 9: pluggableharness.model.v1.AccountSnapshot
 }
 var file_pluggableharness_model_v1_rpc_response_proto_depIdxs = []int32{
-	5, // 0: pluggableharness.model.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.model.v1.Capabilities
-	6, // 1: pluggableharness.model.v1.DescribeResponse.producer:type_name -> pluggableharness.common.v1.ProducerRef
-	7, // 2: pluggableharness.model.v1.RenderResponse.tree:type_name -> pluggableharness.render.v1.RenderTree
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 0: pluggableharness.model.v1.GetCapabilitiesResponse.capabilities:type_name -> pluggableharness.model.v1.Capabilities
+	7, // 1: pluggableharness.model.v1.DescribeResponse.producer:type_name -> pluggableharness.common.v1.ProducerRef
+	8, // 2: pluggableharness.model.v1.RenderResponse.tree:type_name -> pluggableharness.render.v1.RenderTree
+	9, // 3: pluggableharness.model.v1.GetAccountResponse.account:type_name -> pluggableharness.model.v1.AccountSnapshot
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_rpc_response_proto_init() }
@@ -314,7 +369,7 @@ func file_pluggableharness_model_v1_rpc_response_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_rpc_response_proto_rawDesc), len(file_pluggableharness_model_v1_rpc_response_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

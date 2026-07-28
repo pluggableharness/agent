@@ -93,6 +93,50 @@ type Renderer interface {
 	Render(ctx context.Context, payload []byte, schemaVersion string) (*renderv1.RenderTree, error)
 }
 
+// Accounter is the optional interface a Provider implements to report
+// live account and entitlement state, per
+// docs/specifications/model/protocol.md#getaccount (MAY).
+//
+// Implement it when the backend meters against something an operator can
+// run out of — a subscription pool, a credit balance, a plan quota — so
+// the harness can show headroom before a turn strands them. A Provider
+// that does not implement it returns codes.Unimplemented, which the
+// kernel treats as "no account state", not an error.
+//
+// Do not implement this by counting tokens locally: the point is what
+// the vendor says is left, and a locally-derived figure is the
+// synthesized value RateLimitSnapshot's own contract forbids.
+type Accounter interface {
+	// GetAccount reads current account state from the vendor. Called on
+	// demand rather than cached by the kernel, so an implementation
+	// SHOULD apply its own short cache if the upstream call is
+	// expensive or rate-limited.
+	GetAccount(ctx context.Context) (AccountSnapshot, error)
+}
+
+// AccountSnapshot is the live account and entitlement state behind a
+// provider's credential.
+type AccountSnapshot struct {
+	// Method is the credential shape in use.
+	Method modelv1.AuthMethod
+	// Metering is what completions are charged against.
+	Metering modelv1.MeteringDomain
+	// Plan is the vendor's plan name, where a subscription names one.
+	// Display only.
+	Plan *string
+	// Labels are non-secret, vendor-defined labels — a redacted account
+	// handle, a region, an organization name. MUST NOT carry key
+	// material, tokens, or a full account identifier.
+	Labels map[string]string
+	// Quotas are the budgets the vendor publishes for this account
+	// outside a completion. MAY be empty.
+	Quotas []RateLimitSnapshot
+	// FetchedAt is when this snapshot was read from the vendor, so a
+	// frontend can show how stale it is rather than presenting a cached
+	// reading as live.
+	FetchedAt *time.Time
+}
+
 // Capabilities is GetCapabilities' response payload, per
 // docs/specifications/model/data-types.md#modelspec and
 // docs/specifications/model/data-types.md#capabilitiessupported_hook_points
@@ -112,6 +156,38 @@ type Capabilities struct {
 	// SupportedHookPoints declares which hook points this plugin can serve
 	// via HookSubscriberService.DispatchHook. MAY be empty.
 	SupportedHookPoints []commonv1.HookPoint
+	// Auth describes how this plugin authenticated and which pool it
+	// meters against. Nil for a provider with one credential shape and
+	// nothing to disambiguate.
+	Auth *AuthDescriptor
+	// CatalogEtag is the vendor's version identifier for the model
+	// catalog this roster was built from, when the provider fetched one.
+	// Reported so staleness is detectable; the kernel does not yet
+	// re-fetch capabilities on a mismatch.
+	CatalogEtag *string
+	// CatalogFetchedAt is when this roster was fetched. Nil for a
+	// hand-written roster compiled into the plugin — which is the
+	// distinction it exists to make: a static roster is never stale.
+	CatalogFetchedAt *time.Time
+}
+
+// AuthDescriptor is the non-secret description of how a plugin is
+// authenticated.
+//
+// Nothing here may be a credential or derived from one in a way that
+// leaks it: no key material, no token, no full account identifier. That
+// applies to Labels too.
+type AuthDescriptor struct {
+	// Method is the credential shape in use.
+	Method modelv1.AuthMethod
+	// Metering is what completions are charged against.
+	Metering modelv1.MeteringDomain
+	// Plan is the vendor's plan name, where a subscription names one.
+	// Display only; the kernel never routes on it.
+	Plan *string
+	// Labels are additional non-secret, vendor-defined labels — a
+	// redacted account handle, a region, an organization name.
+	Labels map[string]string
 }
 
 // Spec describes one model this provider can serve, per
@@ -156,6 +232,77 @@ type Spec struct {
 	// SupportsDocuments reports whether this model accepts a
 	// DocumentBlock content block.
 	SupportsDocuments bool
+
+	// Catalog is human-facing metadata for a model picker. Nil for a
+	// hand-written roster with nothing to say beyond the id. Purely
+	// descriptive: a kernel ignoring it routes and bills identically.
+	Catalog *CatalogMetadata
+	// MaxContextWindow is the largest window this model can be
+	// configured with, where the vendor exposes a ceiling above
+	// ContextWindow. ContextWindow remains what the kernel budgets
+	// against.
+	MaxContextWindow *int64
+	// EffectiveContextWindowPercent is the fraction of ContextWindow,
+	// 0-100, usable after the vendor's own fixed overhead. Nil means the
+	// whole window is usable.
+	EffectiveContextWindowPercent *float64
+	// AutoCompactTokenLimit is the assembled-token count at which the
+	// vendor recommends compacting. Advisory only.
+	AutoCompactTokenLimit *int64
+	// Verbosity is the model's output-verbosity control, where it
+	// exposes one distinct from thinking effort.
+	Verbosity *VerbositySpec
+	// ServiceTiers are the tiers this model can be served at, in the
+	// vendor's naming. Empty means no tier choice.
+	ServiceTiers []string
+	// APIBackend names which vendor API surface serves this model
+	// ("chat_completions", "responses"). Opaque to the kernel.
+	APIBackend *string
+	// TruncationPolicy is the vendor's policy name for truncating
+	// oversized tool output. Opaque to the kernel.
+	TruncationPolicy *string
+	// CompHash is the vendor's compaction-compatibility identifier.
+	// Models sharing a value can consume each other's compacted history.
+	CompHash *string
+}
+
+// CatalogMetadata is the human-facing description of a model — what a
+// picker shows, not what the kernel routes on.
+type CatalogMetadata struct {
+	// DisplayName is the model's display name ("Grok 4.5"). Nil means a
+	// frontend falls back to Spec.ID.
+	DisplayName *string
+	// Description is a one-line description of what the model is for.
+	Description *string
+	// Visible reports whether a picker should offer this model by
+	// default. Nil means visible.
+	Visible *bool
+	// Priority is a sort weight for a picker, higher first. Nil means
+	// unranked.
+	Priority *int32
+	// SupportedInAPI reports whether an API key can reach this model, as
+	// opposed to only a product session. With AuthDescriptor.Method it
+	// lets a frontend hide models the current credential cannot use.
+	SupportedInAPI *bool
+	// Aliases are other ids resolving to this same model. Do NOT also
+	// publish an alias as its own Spec — that is what makes one model
+	// look like several.
+	Aliases []string
+	// Family groups variants differing only by size or revision.
+	Family *string
+}
+
+// VerbositySpec declares a model's output-verbosity control — answer
+// length, as distinct from ThinkingSpec's reasoning depth.
+type VerbositySpec struct {
+	// Supported reports whether this model accepts a verbosity setting.
+	// When false, Levels MUST be empty and Default nil.
+	Supported bool
+	// Levels are the accepted level names, least to most verbose.
+	Levels []string
+	// Default is the level applied when a request names none. MUST be
+	// one of Levels when set.
+	Default *string
 }
 
 // ThinkingSpec describes one model's extended-reasoning capability, per
@@ -187,6 +334,13 @@ type ThinkingSpec struct {
 	// Disable reports whether, and when, reasoning can be turned off. MUST
 	// be set when Supported is true.
 	Disable modelv1.ThinkingDisableSupport
+	// SupportsReasoningSummary reports whether this model can emit a
+	// reasoning summary distinct from its raw reasoning stream.
+	SupportsReasoningSummary *bool
+	// DefaultReasoningSummary is the summary mode applied when a request
+	// names none ("auto", "concise", "detailed"). Meaningless unless
+	// SupportsReasoningSummary is true.
+	DefaultReasoningSummary *string
 }
 
 // EffortControl declares that a model accepts a named reasoning-effort
@@ -274,6 +428,12 @@ type Pricing struct {
 	// (timestamp, input_token_count) pair — see capabilities.go's
 	// validatePricing for the overlap check NewCapabilities performs.
 	Tiers []PricingTier
+	// SourceUnit records the vendor's own pricing unit these rates were
+	// converted from, when the adapter converted. Audit only — the
+	// kernel bills from the per-MTok rates regardless. Set it when you
+	// convert, so a ledger figure disagreeing with an invoice can be
+	// traced to the rate or the arithmetic.
+	SourceUnit *string
 }
 
 // PricingTier is one time-bounded, input-size-bounded rate within a
@@ -313,6 +473,12 @@ type PricingTier struct {
 	// InputTokensUntil is the input-token count this tier stops applying
 	// to, exclusive. Nil means unbounded above.
 	InputTokensUntil *int64
+	// ImageInputPerMtok is the price per million image input tokens,
+	// where the vendor rates image input separately. Nil means image
+	// input bills at InputPerMtok.
+	ImageInputPerMtok *float64
+	// AudioInputPerMtok is the same for audio input.
+	AudioInputPerMtok *float64
 }
 
 // Usage carries token accounting for one completion, per
@@ -339,6 +505,64 @@ type Usage struct {
 	// completion. MAY be empty; a Provider MUST NOT synthesize a snapshot
 	// from its own bookkeeping — only report what the vendor published.
 	RateLimits []RateLimitSnapshot
+
+	// VendorCost is what the vendor says this completion cost, in the
+	// vendor's own denomination. Nil when the vendor reports no figure.
+	//
+	// Reported, never authoritative: the kernel still computes cost_usd
+	// from the token counts above and the model's PricingTier, and every
+	// rollup and budget reads that. Set this when the vendor publishes a
+	// price so the two can be reconciled — do not compute it yourself.
+	VendorCost *VendorCost
+
+	// VendorTotalTokens is the vendor's own total-token figure, when it
+	// publishes one that is not simply the sum of the parts above. Leave
+	// nil rather than filling it in by addition; a derived value here
+	// destroys the disagreement the field exists to expose.
+	VendorTotalTokens *int64
+
+	// Components are vendor-defined counters with no first-class field:
+	// per-modality input tokens, accepted/rejected prediction tokens,
+	// hosted-tool source counts. The kernel stores and surfaces these
+	// without interpreting them.
+	Components []UsageComponent
+
+	// ReasoningAlreadyCounted reports that ReasoningTokens is already
+	// included in OutputTokens, because the vendor said so out of band.
+	// Nil means "not stated" and the kernel applies the documented
+	// default (a distinct count). Set it only on an explicit vendor
+	// signal — the field exists to stop the kernel double-counting, so a
+	// guess defeats it.
+	ReasoningAlreadyCounted *bool
+}
+
+// VendorCost is a vendor's own price for one completion, in whatever
+// unit that vendor bills in.
+type VendorCost struct {
+	// Amount is the cost as an exact decimal string ("0.00241",
+	// "24100000"). A string rather than a float because these are exact
+	// monetary quantities that binary floating point cannot represent
+	// exactly. MUST parse as a decimal number, with no currency symbol,
+	// separators, or exponent.
+	Amount string
+	// Unit names the vendor's denomination: "usd", "xai_ticks_1e10".
+	// The kernel never converts between units.
+	Unit string
+	// Currency is the ISO 4217 code, when Unit is currency-denominated
+	// and the vendor bills in something other than USD.
+	Currency *string
+}
+
+// UsageComponent is one vendor-defined counter the protocol has no typed
+// field for.
+type UsageComponent struct {
+	// Name is the counter's vendor-facing name, verbatim
+	// ("input_image_tokens", "num_sources_used"). MUST be set and unique
+	// within one Usage.
+	Name string
+	// Value is the counter's value. Not necessarily a token count —
+	// "num_sources_used" counts documents.
+	Value int64
 }
 
 // RateLimitSnapshot is one of the vendor's rate-limit budgets as of one
@@ -356,4 +580,30 @@ type RateLimitSnapshot struct {
 	Limit *int64
 	// ResetAt is when this budget next resets.
 	ResetAt *time.Time
+	// LimitID is the vendor's stable identifier for this budget, where
+	// it names one ("codex", "codex_other"). It lets two snapshots of
+	// the same budget be correlated across completions even when Kind
+	// and WindowRole match.
+	LimitID *string
+	// LimitName is a human-facing label, when the vendor supplies one
+	// worth showing. Never synthesize it from LimitID — a frontend falls
+	// back to Kind and WindowRole perfectly well, and an invented label
+	// reads as authoritative.
+	LimitName *string
+	// WindowRole distinguishes the several budgets a subscription
+	// product meters at once — which is the headline limit and which
+	// constrain bursts inside it.
+	WindowRole modelv1.WindowRole
+	// UsedPercent is how much of this budget is spent, 0-100, for
+	// products that publish only a percentage.
+	//
+	// Set this instead of faking Limit=100 and Remaining=100-percent to
+	// fit the absolute fields. A vendor publishing real counts sets
+	// Remaining/Limit and leaves this nil; one publishing a percentage
+	// sets this and leaves those nil. Never derive one form from the
+	// other.
+	UsedPercent *float64
+	// WindowSeconds is the budget window's length. With ResetAt it lets
+	// a frontend say "5 hours" rather than only "resets at 14:00".
+	WindowSeconds *int64
 }

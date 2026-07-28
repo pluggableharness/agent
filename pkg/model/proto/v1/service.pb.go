@@ -34,14 +34,16 @@ var File_pluggableharness_model_v1_service_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_model_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"'pluggableharness/model/v1/service.proto\x12\x19pluggableharness.model.v1\x1a&pluggableharness/model/v1/events.proto\x1a+pluggableharness/model/v1/rpc_request.proto\x1a,pluggableharness/model/v1/rpc_response.proto2\x94\x05\n" +
+	"'pluggableharness/model/v1/service.proto\x12\x19pluggableharness.model.v1\x1a&pluggableharness/model/v1/events.proto\x1a+pluggableharness/model/v1/rpc_request.proto\x1a,pluggableharness/model/v1/rpc_response.proto2\xff\x05\n" +
 	"\fModelService\x12x\n" +
 	"\x0fGetCapabilities\x121.pluggableharness.model.v1.GetCapabilitiesRequest\x1a2.pluggableharness.model.v1.GetCapabilitiesResponse\x12f\n" +
 	"\tConfigure\x12+.pluggableharness.model.v1.ConfigureRequest\x1a,.pluggableharness.model.v1.ConfigureResponse\x12p\n" +
 	"\x10StreamCompletion\x122.pluggableharness.model.v1.StreamCompletionRequest\x1a&.pluggableharness.model.v1.StreamEvent0\x01\x12l\n" +
 	"\vCountTokens\x12-.pluggableharness.model.v1.CountTokensRequest\x1a..pluggableharness.model.v1.CountTokensResponse\x12]\n" +
 	"\x06Render\x12(.pluggableharness.model.v1.RenderRequest\x1a).pluggableharness.model.v1.RenderResponse\x12c\n" +
-	"\bDescribe\x12*.pluggableharness.model.v1.DescribeRequest\x1a+.pluggableharness.model.v1.DescribeResponseB>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
+	"\bDescribe\x12*.pluggableharness.model.v1.DescribeRequest\x1a+.pluggableharness.model.v1.DescribeResponse\x12i\n" +
+	"\n" +
+	"GetAccount\x12,.pluggableharness.model.v1.GetAccountRequest\x1a-.pluggableharness.model.v1.GetAccountResponseB>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
 
 var file_pluggableharness_model_v1_service_proto_goTypes = []any{
 	(*GetCapabilitiesRequest)(nil),  // 0: pluggableharness.model.v1.GetCapabilitiesRequest
@@ -50,12 +52,14 @@ var file_pluggableharness_model_v1_service_proto_goTypes = []any{
 	(*CountTokensRequest)(nil),      // 3: pluggableharness.model.v1.CountTokensRequest
 	(*RenderRequest)(nil),           // 4: pluggableharness.model.v1.RenderRequest
 	(*DescribeRequest)(nil),         // 5: pluggableharness.model.v1.DescribeRequest
-	(*GetCapabilitiesResponse)(nil), // 6: pluggableharness.model.v1.GetCapabilitiesResponse
-	(*ConfigureResponse)(nil),       // 7: pluggableharness.model.v1.ConfigureResponse
-	(*StreamEvent)(nil),             // 8: pluggableharness.model.v1.StreamEvent
-	(*CountTokensResponse)(nil),     // 9: pluggableharness.model.v1.CountTokensResponse
-	(*RenderResponse)(nil),          // 10: pluggableharness.model.v1.RenderResponse
-	(*DescribeResponse)(nil),        // 11: pluggableharness.model.v1.DescribeResponse
+	(*GetAccountRequest)(nil),       // 6: pluggableharness.model.v1.GetAccountRequest
+	(*GetCapabilitiesResponse)(nil), // 7: pluggableharness.model.v1.GetCapabilitiesResponse
+	(*ConfigureResponse)(nil),       // 8: pluggableharness.model.v1.ConfigureResponse
+	(*StreamEvent)(nil),             // 9: pluggableharness.model.v1.StreamEvent
+	(*CountTokensResponse)(nil),     // 10: pluggableharness.model.v1.CountTokensResponse
+	(*RenderResponse)(nil),          // 11: pluggableharness.model.v1.RenderResponse
+	(*DescribeResponse)(nil),        // 12: pluggableharness.model.v1.DescribeResponse
+	(*GetAccountResponse)(nil),      // 13: pluggableharness.model.v1.GetAccountResponse
 }
 var file_pluggableharness_model_v1_service_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.model.v1.ModelService.GetCapabilities:input_type -> pluggableharness.model.v1.GetCapabilitiesRequest
@@ -64,14 +68,16 @@ var file_pluggableharness_model_v1_service_proto_depIdxs = []int32{
 	3,  // 3: pluggableharness.model.v1.ModelService.CountTokens:input_type -> pluggableharness.model.v1.CountTokensRequest
 	4,  // 4: pluggableharness.model.v1.ModelService.Render:input_type -> pluggableharness.model.v1.RenderRequest
 	5,  // 5: pluggableharness.model.v1.ModelService.Describe:input_type -> pluggableharness.model.v1.DescribeRequest
-	6,  // 6: pluggableharness.model.v1.ModelService.GetCapabilities:output_type -> pluggableharness.model.v1.GetCapabilitiesResponse
-	7,  // 7: pluggableharness.model.v1.ModelService.Configure:output_type -> pluggableharness.model.v1.ConfigureResponse
-	8,  // 8: pluggableharness.model.v1.ModelService.StreamCompletion:output_type -> pluggableharness.model.v1.StreamEvent
-	9,  // 9: pluggableharness.model.v1.ModelService.CountTokens:output_type -> pluggableharness.model.v1.CountTokensResponse
-	10, // 10: pluggableharness.model.v1.ModelService.Render:output_type -> pluggableharness.model.v1.RenderResponse
-	11, // 11: pluggableharness.model.v1.ModelService.Describe:output_type -> pluggableharness.model.v1.DescribeResponse
-	6,  // [6:12] is the sub-list for method output_type
-	0,  // [0:6] is the sub-list for method input_type
+	6,  // 6: pluggableharness.model.v1.ModelService.GetAccount:input_type -> pluggableharness.model.v1.GetAccountRequest
+	7,  // 7: pluggableharness.model.v1.ModelService.GetCapabilities:output_type -> pluggableharness.model.v1.GetCapabilitiesResponse
+	8,  // 8: pluggableharness.model.v1.ModelService.Configure:output_type -> pluggableharness.model.v1.ConfigureResponse
+	9,  // 9: pluggableharness.model.v1.ModelService.StreamCompletion:output_type -> pluggableharness.model.v1.StreamEvent
+	10, // 10: pluggableharness.model.v1.ModelService.CountTokens:output_type -> pluggableharness.model.v1.CountTokensResponse
+	11, // 11: pluggableharness.model.v1.ModelService.Render:output_type -> pluggableharness.model.v1.RenderResponse
+	12, // 12: pluggableharness.model.v1.ModelService.Describe:output_type -> pluggableharness.model.v1.DescribeResponse
+	13, // 13: pluggableharness.model.v1.ModelService.GetAccount:output_type -> pluggableharness.model.v1.GetAccountResponse
+	7,  // [7:14] is the sub-list for method output_type
+	0,  // [0:7] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name

@@ -9,6 +9,7 @@ package pluggableharness.session.v1;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
+import "pluggableharness/model/v1/types.proto";
 
 option go_package = "github.com/pluggableharness/agent/pkg/session/proto/v1;sessionv1";
 
@@ -147,4 +148,42 @@ message SessionState {
   // Session-lifetime total tokens (input + output), summed from the cost
   // ledger / usage rollups. Zero when no model call has completed yet.
   int64 total_tokens = 9;
+
+  // The vendor budgets reported by the most recent completion, from that
+  // completion's Usage or StreamMetadata.
+  //
+  // Distinct from account.quotas below: these are per-completion
+  // readings taken from response headers as turns run, while
+  // account.quotas is the account-level snapshot GetAccount returns
+  // independently of any completion. A subscription product typically
+  // publishes both, and they refresh on different schedules.
+  //
+  // MAY be empty — a vendor that publishes no budgets has nothing here,
+  // and the kernel MUST NOT synthesize an entry from its own token
+  // counting.
+  repeated pluggableharness.model.v1.RateLimitSnapshot quotas = 10;
+
+  // The account and entitlement state behind the session's model
+  // provider, from GetAccount. Absent when the provider does not
+  // implement that RPC, which is the common case for a bare API key.
+  optional pluggableharness.model.v1.AccountSnapshot account = 11;
+
+  // What the vendor said the most recent completion cost, in its own
+  // denomination.
+  //
+  // Reported beside info.cost_usd, never instead of it: cost_usd remains
+  // the kernel's computed figure and the one every rollup and budget
+  // reads. This is here so a frontend can show that list price and
+  // actual bill disagree — and so a subscription session, where computed
+  // cost is structurally 0.00, has something truthful to display.
+  optional pluggableharness.model.v1.VendorCost vendor_cost = 12;
+
+  // The model that actually served the most recent completion, when the
+  // vendor remapped it away from the requested id.
+  //
+  // Surfaced at session level because silent model substitution is
+  // otherwise invisible: an operator sees only that answers got worse,
+  // with nothing in the UI to attribute it to. Absent means the vendor
+  // served what was asked for, or said nothing.
+  optional string actual_model = 13;
 }

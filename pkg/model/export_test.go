@@ -23,6 +23,8 @@ var (
 	PricingTierFromProtoForTest  = pricingTierFromProto
 	UsageToProtoForTest          = usageToProto
 	UsageFromProtoForTest        = usageFromProto
+	AccountToProtoForTest        = accountToProto
+	AccountFromProtoForTest      = accountFromProto
 	ModelErrorFromProtoForTest   = modelErrorFromProto
 )
 

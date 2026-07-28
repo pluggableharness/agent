@@ -475,6 +475,44 @@ func (x *RenderRequest) GetSchemaVersion() string {
 	return ""
 }
 
+// GetAccountRequest is empty: a plugin serves exactly one credential,
+// fixed at Configure, so there is nothing for the kernel to select.
+type GetAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccountRequest) Reset() {
+	*x = GetAccountRequest{}
+	mi := &file_pluggableharness_model_v1_rpc_request_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccountRequest) ProtoMessage() {}
+
+func (x *GetAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_rpc_request_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccountRequest.ProtoReflect.Descriptor instead.
+func (*GetAccountRequest) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_rpc_request_proto_rawDescGZIP(), []int{6}
+}
+
 var File_pluggableharness_model_v1_rpc_request_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_model_v1_rpc_request_proto_rawDesc = "" +
@@ -502,7 +540,8 @@ const file_pluggableharness_model_v1_rpc_request_proto_rawDesc = "" +
 	"\x05tools\x18\x05 \x03(\v2*.pluggableharness.model.v1.ToolDeclarationR\x05toolsJ\x04\b\x01\x10\x02R\x04text\"P\n" +
 	"\rRenderRequest\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12%\n" +
-	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersionB>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
+	"\x0eschema_version\x18\x02 \x01(\tR\rschemaVersion\"\x13\n" +
+	"\x11GetAccountRequestB>Z<github.com/pluggableharness/agent/pkg/model/proto/v1;modelv1b\x06proto3"
 
 var (
 	file_pluggableharness_model_v1_rpc_request_proto_rawDescOnce sync.Once
@@ -516,7 +555,7 @@ func file_pluggableharness_model_v1_rpc_request_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_model_v1_rpc_request_proto_rawDescData
 }
 
-var file_pluggableharness_model_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_pluggableharness_model_v1_rpc_request_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_pluggableharness_model_v1_rpc_request_proto_goTypes = []any{
 	(*GetCapabilitiesRequest)(nil),  // 0: pluggableharness.model.v1.GetCapabilitiesRequest
 	(*ConfigureRequest)(nil),        // 1: pluggableharness.model.v1.ConfigureRequest
@@ -524,26 +563,27 @@ var file_pluggableharness_model_v1_rpc_request_proto_goTypes = []any{
 	(*StreamCompletionRequest)(nil), // 3: pluggableharness.model.v1.StreamCompletionRequest
 	(*CountTokensRequest)(nil),      // 4: pluggableharness.model.v1.CountTokensRequest
 	(*RenderRequest)(nil),           // 5: pluggableharness.model.v1.RenderRequest
-	(*structpb.Struct)(nil),         // 6: google.protobuf.Struct
-	(*v1.Message)(nil),              // 7: pluggableharness.content.v1.Message
-	(*ToolDeclaration)(nil),         // 8: pluggableharness.model.v1.ToolDeclaration
-	(*GenerationParams)(nil),        // 9: pluggableharness.model.v1.GenerationParams
-	(*v1.ContextSection)(nil),       // 10: pluggableharness.content.v1.ContextSection
-	(*v11.CallContext)(nil),         // 11: pluggableharness.common.v1.CallContext
-	(*CacheBreakpoint)(nil),         // 12: pluggableharness.model.v1.CacheBreakpoint
+	(*GetAccountRequest)(nil),       // 6: pluggableharness.model.v1.GetAccountRequest
+	(*structpb.Struct)(nil),         // 7: google.protobuf.Struct
+	(*v1.Message)(nil),              // 8: pluggableharness.content.v1.Message
+	(*ToolDeclaration)(nil),         // 9: pluggableharness.model.v1.ToolDeclaration
+	(*GenerationParams)(nil),        // 10: pluggableharness.model.v1.GenerationParams
+	(*v1.ContextSection)(nil),       // 11: pluggableharness.content.v1.ContextSection
+	(*v11.CallContext)(nil),         // 12: pluggableharness.common.v1.CallContext
+	(*CacheBreakpoint)(nil),         // 13: pluggableharness.model.v1.CacheBreakpoint
 }
 var file_pluggableharness_model_v1_rpc_request_proto_depIdxs = []int32{
-	6,  // 0: pluggableharness.model.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
-	7,  // 1: pluggableharness.model.v1.StreamCompletionRequest.messages:type_name -> pluggableharness.content.v1.Message
-	8,  // 2: pluggableharness.model.v1.StreamCompletionRequest.tools:type_name -> pluggableharness.model.v1.ToolDeclaration
-	9,  // 3: pluggableharness.model.v1.StreamCompletionRequest.params:type_name -> pluggableharness.model.v1.GenerationParams
-	10, // 4: pluggableharness.model.v1.StreamCompletionRequest.assembled_context:type_name -> pluggableharness.content.v1.ContextSection
-	11, // 5: pluggableharness.model.v1.StreamCompletionRequest.call_context:type_name -> pluggableharness.common.v1.CallContext
-	12, // 6: pluggableharness.model.v1.StreamCompletionRequest.cache_breakpoints:type_name -> pluggableharness.model.v1.CacheBreakpoint
-	6,  // 7: pluggableharness.model.v1.StreamCompletionRequest.provider_options:type_name -> google.protobuf.Struct
-	7,  // 8: pluggableharness.model.v1.CountTokensRequest.messages:type_name -> pluggableharness.content.v1.Message
-	10, // 9: pluggableharness.model.v1.CountTokensRequest.assembled_context:type_name -> pluggableharness.content.v1.ContextSection
-	8,  // 10: pluggableharness.model.v1.CountTokensRequest.tools:type_name -> pluggableharness.model.v1.ToolDeclaration
+	7,  // 0: pluggableharness.model.v1.ConfigureRequest.config:type_name -> google.protobuf.Struct
+	8,  // 1: pluggableharness.model.v1.StreamCompletionRequest.messages:type_name -> pluggableharness.content.v1.Message
+	9,  // 2: pluggableharness.model.v1.StreamCompletionRequest.tools:type_name -> pluggableharness.model.v1.ToolDeclaration
+	10, // 3: pluggableharness.model.v1.StreamCompletionRequest.params:type_name -> pluggableharness.model.v1.GenerationParams
+	11, // 4: pluggableharness.model.v1.StreamCompletionRequest.assembled_context:type_name -> pluggableharness.content.v1.ContextSection
+	12, // 5: pluggableharness.model.v1.StreamCompletionRequest.call_context:type_name -> pluggableharness.common.v1.CallContext
+	13, // 6: pluggableharness.model.v1.StreamCompletionRequest.cache_breakpoints:type_name -> pluggableharness.model.v1.CacheBreakpoint
+	7,  // 7: pluggableharness.model.v1.StreamCompletionRequest.provider_options:type_name -> google.protobuf.Struct
+	8,  // 8: pluggableharness.model.v1.CountTokensRequest.messages:type_name -> pluggableharness.content.v1.Message
+	11, // 9: pluggableharness.model.v1.CountTokensRequest.assembled_context:type_name -> pluggableharness.content.v1.ContextSection
+	9,  // 10: pluggableharness.model.v1.CountTokensRequest.tools:type_name -> pluggableharness.model.v1.ToolDeclaration
 	11, // [11:11] is the sub-list for method output_type
 	11, // [11:11] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name
@@ -564,7 +604,7 @@ func file_pluggableharness_model_v1_rpc_request_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_rpc_request_proto_rawDesc), len(file_pluggableharness_model_v1_rpc_request_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

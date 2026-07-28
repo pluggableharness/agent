@@ -115,6 +115,10 @@ func (f *fakeModelServiceClient) Describe(context.Context, *modelv1.DescribeRequ
 	panic("fakeModelServiceClient: Describe not scripted for this test")
 }
 
+func (f *fakeModelServiceClient) GetAccount(context.Context, *modelv1.GetAccountRequest, ...grpc.CallOption) (*modelv1.GetAccountResponse, error) {
+	panic("fakeModelServiceClient: GetAccount not scripted for this test")
+}
+
 // fakeSink is a hand-written MessageSink recording every AppendMessage
 // call for assertion.
 type fakeSink struct {
@@ -597,6 +601,9 @@ func (c *cancelingClient) StreamCompletion(context.Context, *modelv1.StreamCompl
 func (c *cancelingClient) CountTokens(context.Context, *modelv1.CountTokensRequest, ...grpc.CallOption) (*modelv1.CountTokensResponse, error) {
 	panic("not scripted")
 }
+func (c *cancelingClient) GetAccount(context.Context, *modelv1.GetAccountRequest, ...grpc.CallOption) (*modelv1.GetAccountResponse, error) {
+	panic("not scripted")
+}
 func (c *cancelingClient) Render(context.Context, *modelv1.RenderRequest, ...grpc.CallOption) (*modelv1.RenderResponse, error) {
 	panic("not scripted")
 }
@@ -930,7 +937,7 @@ func TestDoAttempt_streamEndsWithoutTerminalEvent(t *testing.T) {
 		Logger:    testLogger(&bytes.Buffer{}),
 	})
 
-	_, _, _, modelErr, err := caller.doAttempt(context.Background(), Request{Model: testModelHandle(client), MessageID: "m", Request: &modelv1.StreamCompletionRequest{}}, 1)
+	_, modelErr, err := caller.doAttempt(context.Background(), Request{Model: testModelHandle(client), MessageID: "m", Request: &modelv1.StreamCompletionRequest{}}, 1)
 	if err == nil {
 		t.Fatal("doAttempt returned nil err, want a structural error")
 	}
@@ -954,7 +961,7 @@ func TestDoAttempt_observeErrorIsUnclassified(t *testing.T) {
 		Logger:    testLogger(&bytes.Buffer{}),
 	})
 
-	_, _, _, modelErr, err := caller.doAttempt(context.Background(), Request{Model: testModelHandle(client), MessageID: "m", Request: &modelv1.StreamCompletionRequest{}}, 1)
+	_, modelErr, err := caller.doAttempt(context.Background(), Request{Model: testModelHandle(client), MessageID: "m", Request: &modelv1.StreamCompletionRequest{}}, 1)
 	if err == nil {
 		t.Fatal("doAttempt returned nil err, want the wrapped streamaccum error")
 	}

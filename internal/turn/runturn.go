@@ -166,6 +166,7 @@ func (r *run) execute(ctx context.Context) (Result, error) {
 		Usage:           resp.Usage,
 		CostUSD:         resp.CostUSD,
 		AssembledTokens: assembled.AssembledTokensLastTurn,
+		ActualModel:     resp.ActualModel,
 	}
 
 	// Step 6 — the implicit DoneCheck. No tool_use blocks ends the turn

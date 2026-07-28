@@ -4,6 +4,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/pluggableharness/agent/internal/agentprofile"
+	"github.com/pluggableharness/agent/internal/pluginhost"
 	commonv1 "github.com/pluggableharness/agent/pkg/common/proto/v1"
 	contextv1 "github.com/pluggableharness/agent/pkg/context/proto/v1"
 	modelv1 "github.com/pluggableharness/agent/pkg/model/proto/v1"
@@ -174,5 +176,85 @@ func TestDedupeSchemas_noDuplicatesIsIdentity(t *testing.T) {
 		if got[i] != in[i] {
 			t.Errorf("schema %d = %+v, want %+v (order must be preserved)", i, got[i], in[i])
 		}
+	}
+}
+
+// TestBuildModels_aliasesResolveToTheCanonicalHandle asserts a model
+// published with aliases is reachable under every one of them, and that
+// each alias keeps the canonical Ref.
+//
+// The Ref matters as much as the reachability: it is what the kernel
+// bills, logs, and records against, so an alias minting its own identity
+// would split one model's cost and history across several names — the
+// duplicate-model problem CatalogMetadata.aliases exists to retire.
+func TestBuildModels_aliasesResolveToTheCanonicalHandle(t *testing.T) {
+	t.Parallel()
+
+	reg := pluginhost.NewRegistry()
+	if err := reg.Add(live("xai", commonv1.Category_CATEGORY_MODEL, "xai", 0, nilModelClient(),
+		&modelv1.GetCapabilitiesResponse{Capabilities: &modelv1.Capabilities{Models: []*modelv1.ModelSpec{{
+			Id:            "grok-4.3",
+			ContextWindow: 256_000,
+			Catalog:       &modelv1.CatalogMetadata{Aliases: []string{"grok-4", "grok-latest"}},
+		}}}})); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	models := buildModels(t.Context(), testLogger(), reg)
+
+	canonical := agentprofile.ModelRef{Provider: "xai", ID: "grok-4.3"}
+	for _, id := range []string{"grok-4.3", "grok-4", "grok-latest"} {
+		got, ok := models[agentprofile.ModelRef{Provider: "xai", ID: id}]
+		if !ok {
+			t.Errorf("model %q is not reachable", id)
+			continue
+		}
+		if got.Ref != canonical {
+			t.Errorf("model %q: Ref = %+v, want the canonical %+v", id, got.Ref, canonical)
+		}
+		if got.Spec.GetId() != "grok-4.3" {
+			t.Errorf("model %q: Spec.Id = %q, want grok-4.3", id, got.Spec.GetId())
+		}
+	}
+}
+
+// TestBuildModels_aRealIDBeatsAnAlias covers the collision: when one
+// model's alias is another model's real id, the real model wins. Order
+// must not decide it, so both orderings are asserted.
+func TestBuildModels_aRealIDBeatsAnAlias(t *testing.T) {
+	t.Parallel()
+
+	aliasing := &modelv1.ModelSpec{
+		Id:      "big",
+		Catalog: &modelv1.CatalogMetadata{Aliases: []string{"small"}},
+	}
+	realModel := &modelv1.ModelSpec{Id: "small"}
+
+	for _, tc := range []struct {
+		name  string
+		specs []*modelv1.ModelSpec
+	}{
+		{"alias declared first", []*modelv1.ModelSpec{aliasing, realModel}},
+		{"real model declared first", []*modelv1.ModelSpec{realModel, aliasing}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			reg := pluginhost.NewRegistry()
+			if err := reg.Add(live("v", commonv1.Category_CATEGORY_MODEL, "v", 0, nilModelClient(),
+				&modelv1.GetCapabilitiesResponse{Capabilities: &modelv1.Capabilities{Models: tc.specs}})); err != nil {
+				t.Fatalf("Add: %v", err)
+			}
+
+			models := buildModels(t.Context(), testLogger(), reg)
+
+			got, ok := models[agentprofile.ModelRef{Provider: "v", ID: "small"}]
+			if !ok {
+				t.Fatal(`model "small" is not reachable`)
+			}
+			if got.Spec.GetId() != "small" {
+				t.Errorf(`"small" resolved to %q, want the real model regardless of declaration order`, got.Spec.GetId())
+			}
+		})
 	}
 }

@@ -63,7 +63,8 @@ func (c *Caller) Complete(ctx context.Context, req Request) (Response, error) {
 	c.cfg.Logger.DebugContext(ctx, "modelcall: starting completion", "model_id", modelID, "message_id", req.MessageID)
 
 	for attemptNum := 1; ; attemptNum++ {
-		message, usage, stop, modelErr, attemptErr := c.doAttempt(ctx, req, attemptNum)
+		done, modelErr, attemptErr := c.doAttempt(ctx, req, attemptNum)
+		message, usage, stop := done.message, done.usage, done.stop
 		if attemptErr != nil {
 			if isCancellation(attemptErr) {
 				c.cfg.Logger.DebugContext(ctx, "modelcall: canceled", "model_id", modelID, "attempt", attemptNum)
@@ -93,7 +94,14 @@ func (c *Caller) Complete(ctx context.Context, req Request) (Response, error) {
 				ModelID:          modelID,
 			})
 			c.cfg.Logger.DebugContext(ctx, "modelcall: completion succeeded", "model_id", modelID, "attempt", attemptNum, "cost_usd", costUSD)
-			return Response{Message: message, Usage: usage, CostUSD: costUSD, Stop: stop, Attempts: attemptNum}, nil
+			return Response{
+				Message:     message,
+				Usage:       usage,
+				CostUSD:     costUSD,
+				Stop:        stop,
+				Attempts:    attemptNum,
+				ActualModel: done.metadata.GetActualModel(),
+			}, nil
 		}
 
 		category := modelErr.GetCategory()
@@ -147,16 +155,31 @@ func modelErrToErr(modelErr *modelv1.ModelError) error {
 	return errors.New(msg)
 }
 
+// completion is one successful attempt's payload.
+//
+// Bundled rather than returned as a widening tuple: doAttempt already
+// reported four values plus an error, and threading vendor metadata
+// through as a sixth positional result would make every call site a
+// puzzle. The struct also keeps the three failure returns uniform —
+// completion{} says "nothing was produced" once, instead of repeating a
+// nil/nil/UNSPECIFIED prefix at each one.
+type completion struct {
+	message  *contentv1.Message
+	usage    *modelv1.Usage
+	stop     modelv1.StopReason
+	metadata *modelv1.StreamEvent_StreamMetadata
+}
+
 // doAttempt performs exactly one StreamCompletion invocation: dial the
 // RPC, accumulate every event into a fresh streamaccum.Accumulator (never
 // reused across attempts, so a retried attempt never inherits a failed
 // prior attempt's partial state), and report the outcome as exactly one
-// of: a successful message/usage/stop, a classified modelErr (either the
+// of: a successful completion, a classified modelErr (either the
 // accumulator's own decoded ModelError, or a fallback classification of a
 // badly-behaved transport-level failure — see classifyTransportErr), or
 // an unclassified err for a structurally invalid stream or a
 // cancellation.
-func (c *Caller) doAttempt(ctx context.Context, req Request, attemptNum int) (message *contentv1.Message, usage *modelv1.Usage, stop modelv1.StopReason, modelErr *modelv1.ModelError, err error) {
+func (c *Caller) doAttempt(ctx context.Context, req Request, attemptNum int) (out completion, modelErr *modelv1.ModelError, err error) {
 	modelID := req.Model.Ref.ID
 	ctx, span := c.cfg.Telemetry.StartModelAttempt(ctx, modelID, req.Model.Producer, attemptNum)
 	var spanErr error
@@ -166,12 +189,12 @@ func (c *Caller) doAttempt(ctx context.Context, req Request, attemptNum int) (me
 	stream, dialErr := req.Model.Client.StreamCompletion(ctx, req.Request)
 	if dialErr != nil {
 		if isCancellation(dialErr) {
-			return nil, nil, modelv1.StopReason_STOP_REASON_UNSPECIFIED, nil, dialErr
+			return completion{}, nil, dialErr
 		}
 		modelErr = classifyTransportErr(dialErr)
 		spanErr = dialErr
 		c.cfg.Logger.WarnContext(ctx, "modelcall: transport failure establishing stream, applying fallback classification", "model_id", modelID, "attempt", attemptNum, "category", modelErr.GetCategory(), "err", dialErr)
-		return nil, nil, modelv1.StopReason_STOP_REASON_UNSPECIFIED, modelErr, nil
+		return completion{}, modelErr, nil
 	}
 
 	acc := streamaccum.New()
@@ -182,17 +205,17 @@ func (c *Caller) doAttempt(ctx context.Context, req Request, attemptNum int) (me
 				break
 			}
 			if isCancellation(recvErr) {
-				return nil, nil, modelv1.StopReason_STOP_REASON_UNSPECIFIED, nil, recvErr
+				return completion{}, nil, recvErr
 			}
 			modelErr = classifyTransportErr(recvErr)
 			spanErr = recvErr
 			c.cfg.Logger.WarnContext(ctx, "modelcall: transport failure mid-stream, applying fallback classification", "model_id", modelID, "attempt", attemptNum, "category", modelErr.GetCategory(), "err", recvErr)
-			return nil, nil, modelv1.StopReason_STOP_REASON_UNSPECIFIED, modelErr, nil
+			return completion{}, modelErr, nil
 		}
 		if obsErr := acc.Observe(ev); obsErr != nil {
 			err = fmt.Errorf("modelcall: observe stream event: %w", obsErr)
 			spanErr = err
-			return nil, nil, modelv1.StopReason_STOP_REASON_UNSPECIFIED, nil, err
+			return completion{}, nil, err
 		}
 		if c.cfg.OnTextDelta != nil {
 			if td := ev.GetTextDelta(); td != nil && td.GetText() != "" {
@@ -205,13 +228,14 @@ func (c *Caller) doAttempt(ctx context.Context, req Request, attemptNum int) (me
 	if !ok {
 		err = errors.New("modelcall: stream ended before a terminal event")
 		spanErr = err
-		return nil, nil, modelv1.StopReason_STOP_REASON_UNSPECIFIED, nil, err
+		return completion{}, nil, err
 	}
+	done := completion{message: msg, usage: u, stop: stopReason, metadata: acc.Metadata()}
 	if accErr := acc.Err(); accErr != nil {
 		spanErr = modelErrToErr(accErr)
-		return msg, u, stopReason, accErr, nil
+		return done, accErr, nil
 	}
-	return msg, u, stopReason, nil, nil
+	return done, nil, nil
 }
 
 // isCancellation reports whether err represents the kernel canceling the

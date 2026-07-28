@@ -49,11 +49,36 @@ func buildModels(ctx context.Context, logger *slog.Logger, reg *pluginhost.Regis
 		client, _ := live.ModelClient()
 		for _, spec := range resp.GetCapabilities().GetModels() {
 			ref := agentprofile.ModelRef{Provider: live.LocalName, ID: spec.GetId()}
-			models[ref] = providercatalog.ModelHandle{
+			handle := providercatalog.ModelHandle{
 				Ref:      ref,
 				Producer: live.Producer,
 				Spec:     spec,
 				Client:   client,
+			}
+			models[ref] = handle
+
+			// Every alias resolves to this same handle, so a profile
+			// naming `grok-4` reaches the model published as `grok-4.3`.
+			//
+			// The alias entry keeps the canonical Ref rather than its own:
+			// the ref is what the kernel bills, logs, and records against,
+			// and minting a second identity per alias is exactly the
+			// duplicate-model problem CatalogMetadata.aliases exists to
+			// retire. A canonical id already in the map wins — a vendor
+			// publishing an id that is also another model's alias means
+			// the real model, not the alias, is what the operator asked
+			// for.
+			for _, alias := range spec.GetCatalog().GetAliases() {
+				if alias == "" || alias == spec.GetId() {
+					continue
+				}
+				aliasRef := agentprofile.ModelRef{Provider: live.LocalName, ID: alias}
+				if _, taken := models[aliasRef]; taken {
+					logger.DebugContext(ctx, "providercatalog/plugin: alias shadowed by a real model id",
+						"provider", live.LocalName, "alias", alias, "canonical", spec.GetId())
+					continue
+				}
+				models[aliasRef] = handle
 			}
 		}
 	}

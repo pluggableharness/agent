@@ -84,4 +84,29 @@ service ModelService {
   // explanation, shared verbatim across all seven category protocols that
   // gain this RPC in this same protocol revision.
   rpc Describe(DescribeRequest) returns (DescribeResponse);
+
+  // GetAccount reports the live account and entitlement state behind this
+  // plugin's credential: which pool completions are charged against, what
+  // plan is in force, and whatever quota the vendor publishes outside a
+  // completion.
+  //
+  // MAY be implemented. A provider that has no account concept — a bare
+  // API key against a metered endpoint, a local model — returns
+  // codes.Unimplemented, and the kernel MUST tolerate that exactly as it
+  // tolerates an absent Render (tool/protocol.md's Preview rule is the
+  // precedent). Absence means "no account state to report", never an
+  // error.
+  //
+  // Separate from GetCapabilities because the two have different
+  // lifetimes. Capabilities are the static roster fixed at Configure;
+  // account state is live, changes as quota burns down, and is the only
+  // way an operator learns a subscription pool is nearly empty *before*
+  // the turn that strands them. It is not part of the capability
+  // advertisement and MUST NOT be cached as if it were.
+  //
+  // Deliberately not persisted into the session event log: it is a live
+  // reading of external state, so recording it would put a value into
+  // the replay path that no replay can reproduce
+  // (.claude/rules/determinism.md).
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
 }

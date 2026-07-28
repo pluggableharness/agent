@@ -143,6 +143,10 @@ func (f *fakeModelClient) Describe(context.Context, *modelv1.DescribeRequest, ..
 	panic("fakeModelClient: Describe unexpectedly called")
 }
 
+func (f *fakeModelClient) GetAccount(context.Context, *modelv1.GetAccountRequest, ...grpc.CallOption) (*modelv1.GetAccountResponse, error) {
+	panic("fakeModelClient: GetAccount unexpectedly called")
+}
+
 // panickingClient is a modelv1.ModelServiceClient that panics on
 // CountTokens unconditionally — used to prove memoization actually
 // short-circuits the round trip (a provider marked unimplemented must
@@ -173,6 +177,10 @@ func (panickingClient) Render(context.Context, *modelv1.RenderRequest, ...grpc.C
 
 func (panickingClient) Describe(context.Context, *modelv1.DescribeRequest, ...grpc.CallOption) (*modelv1.DescribeResponse, error) {
 	panic("panickingClient: Describe unexpectedly called")
+}
+
+func (panickingClient) GetAccount(context.Context, *modelv1.GetAccountRequest, ...grpc.CallOption) (*modelv1.GetAccountResponse, error) {
+	panic("panickingClient: GetAccount unexpectedly called")
 }
 
 // fakeLookup is a hand-written tokencount.ModelLookup fake.
