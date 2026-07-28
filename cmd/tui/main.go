@@ -65,6 +65,10 @@ func main() {
 		theme:    *themeName,
 	}
 
+	// Serve blocks until go-plugin tears the subprocess down; Close is what
+	// gives the shell goroutine Configure started an actual shutdown path.
+	defer provider.Close()
+
 	plugin.Serve(plugin.Config{
 		Identity: identity,
 		Category: commonv1.Category_CATEGORY_FRONTEND,

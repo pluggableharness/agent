@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -56,10 +55,6 @@ func (r *Runner) Open(ctx context.Context, spec Spec) (*Handle, error) {
 	if err != nil {
 		return nil, err
 	}
-	if spec.WorkingDirectory == "" {
-		// Callers (kernel) should set this; leave empty only if truly unknown.
-	}
-
 	startedAt := r.clock()
 	sessionID := statebackend.NewSessionID(startedAt)
 
@@ -219,7 +214,11 @@ func (h *Handle) Close(ctx context.Context) error {
 		_ = h.markTerminal(finCtx, sessionv1.SessionStatus_SESSION_STATUS_COMPLETED)
 	}
 	h.r.dispatchSessionEnd(finCtx, h.st, metaStatusOr(meta, sessionv1.SessionStatus_SESSION_STATUS_COMPLETED))
-	h.r.teardown(h.st.sessionID, h.live, h.releases)
+	// teardown deliberately takes no context: statebackend.Session.Close
+	// derives its own, precisely so a canceled caller context cannot prevent
+	// a session file from being checkpointed and closed. Same rationale as
+	// Runner.Run's own deferred teardown.
+	h.r.teardown(h.st.sessionID, h.live, h.releases) //nolint:contextcheck // see comment above
 	return nil
 }
 
@@ -278,7 +277,7 @@ func (h *Handle) State(ctx context.Context) (*sessionv1.SessionState, error) {
 		}
 	}
 	if wd := h.st.spec.WorkingDirectory; wd != "" {
-		if vcs := probeVCS(wd); vcs != nil {
+		if vcs := probeVCS(ctx, wd); vcs != nil {
 			state.Vcs = vcs
 		}
 	}
@@ -315,17 +314,28 @@ func (h *Handle) markTerminal(ctx context.Context, status sessionv1.SessionStatu
 	return h.publishState(ctx)
 }
 
-// probeVCS best-effort reads git status for SessionState.Vcs.
-func probeVCS(dir string) *sessionv1.VcsState {
-	branchOut, err := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+// probeVCS best-effort reads git status for SessionState.Vcs. Every call is
+// context-bound: `git status --porcelain` on a large working tree is not
+// instant, and a SessionState snapshot must not outlive the request that
+// asked for it.
+//
+// The three commands are the literal "git"; only the -C path varies, and git
+// treats it as a path argument, never a shell fragment.
+func probeVCS(ctx context.Context, dir string) *sessionv1.VcsState {
+	git := func(args ...string) ([]byte, error) {
+		//nolint:gosec // G204: constant command, path-only variable argument (see doc comment)
+		return exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...).Output()
+	}
+
+	branchOut, err := git("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return nil
 	}
 	branch := strings.TrimSpace(string(branchOut))
-	remoteOut, _ := exec.Command("git", "-C", dir, "remote", "get-url", "origin").Output()
+	remoteOut, _ := git("remote", "get-url", "origin")
 	remote := strings.TrimSpace(string(remoteOut))
 	dirty := false
-	if statusOut, err := exec.Command("git", "-C", dir, "status", "--porcelain").Output(); err == nil {
+	if statusOut, err := git("status", "--porcelain"); err == nil {
 		dirty = len(strings.TrimSpace(string(statusOut))) > 0
 	}
 	vcs := &sessionv1.VcsState{}
@@ -338,6 +348,3 @@ func probeVCS(dir string) *sessionv1.VcsState {
 	vcs.Dirty = &dirty
 	return vcs
 }
-
-// silence unused import if Role constant needs it
-var _ = time.Time{}

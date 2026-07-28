@@ -19,8 +19,8 @@
 //   - Input — SubmitInput, ResolvePlanDecision, ResolveInteractive,
 //     Interrupt, InvokeSlashCommand, TriggerAction (unary)
 //   - State — GetSessionState snapshot + Subscribe on topic kernel.state
-//   - Metadata — ListMetadata snapshot + PublishMetadata/RetractMetadata
-//     + Subscribe on topic kernel.metadata
+//   - Metadata — ListMetadata snapshot, PublishMetadata/RetractMetadata,
+//     and Subscribe on topic kernel.metadata
 //   - Transcript — ReadEvents backfill + Subscribe on kernel.event.*;
 //     StreamDeltas for the live token fast path (not on the bus)
 //

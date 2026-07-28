@@ -2,9 +2,12 @@ package kernel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	contentv1 "github.com/pluggableharness/agent/pkg/content/proto/v1"
@@ -191,7 +194,10 @@ func (c *Client) StreamDeltas(ctx context.Context, sessionID string, handler Del
 	for {
 		delta, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF || ctx.Err() != nil {
+			// End-of-stream and cancellation are normal control flow
+			// (grpc.md); anything else is a real failure and MUST NOT be
+			// swallowed just because ctx happens to be done by now.
+			if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled {
 				return nil
 			}
 			return fmt.Errorf("kernel: stream deltas: recv: %w", err)

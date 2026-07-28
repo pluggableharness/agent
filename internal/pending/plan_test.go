@@ -2,6 +2,7 @@ package pending_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ func TestPlanBridge_ResolveAnswer(t *testing.T) {
 		if err == nil {
 			break
 		}
-		if err != pending.ErrNoWaiter {
+		if !errors.Is(err, pending.ErrNoWaiter) {
 			t.Fatalf("Answer: %v", err)
 		}
 		time.Sleep(time.Millisecond)

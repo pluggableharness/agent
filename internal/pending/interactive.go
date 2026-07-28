@@ -26,10 +26,6 @@ func NewInteractiveBridge() *InteractiveBridge {
 	return &InteractiveBridge{waiters: make(map[string]chan interactiveResult)}
 }
 
-func interactiveKey(sessionID, callID string) string {
-	return sessionID + "\x00" + callID
-}
-
 // Resolve implements interactive.Resolver.
 //
 // sessionID is not on interactive.Request — the bridge keys only by CallID

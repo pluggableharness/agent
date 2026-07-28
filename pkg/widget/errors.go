@@ -52,15 +52,14 @@ func Unknown(message string) *Error {
 	return &Error{Category: widgetv1.WidgetErrorCategory_WIDGET_ERROR_CATEGORY_UNKNOWN, Message: message}
 }
 
-// grpcCode returns the codes.Code e maps to.
-func (e *Error) grpcCode() codes.Code {
-	switch e.Category {
-	case widgetv1.WidgetErrorCategory_WIDGET_ERROR_CATEGORY_RENDER_FAILED:
-		return codes.Internal
-	default:
-		return codes.Internal
-	}
-}
+// widgetGRPCCode is the codes.Code every currently-defined widget error
+// category maps to. Both RENDER_FAILED and UNKNOWN are Internal per
+// conformance.md's canonical table — never codes.Unknown. This is a
+// constant rather than a switch precisely because a switch whose arms all
+// return the same value reads as a mapping that exists when it does not; if
+// a future category maps elsewhere (InvalidArgument, Canceled), reintroduce
+// the switch then, with arms that actually differ.
+const widgetGRPCCode = codes.Internal
 
 // reason returns e.Category's reason string.
 func (e *Error) reason() string {
@@ -74,7 +73,7 @@ func (e *Error) reason() string {
 
 // toStatus builds the gRPC status a Service returns for e.
 func (e *Error) toStatus() error {
-	return plugin.StatusError(e.grpcCode(), errorDomain, e.reason(), e.Message, map[string]string{
+	return plugin.StatusError(widgetGRPCCode, errorDomain, e.reason(), e.Message, map[string]string{
 		metadataCategoryKey: e.Category.String(),
 	})
 }

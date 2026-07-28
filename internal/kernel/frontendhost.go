@@ -78,10 +78,19 @@ func (h *frontendHost) CreateSession(ctx context.Context, req *kernelv1.CreateSe
 	h.mu.Unlock()
 
 	if initial != "" {
+		// The first turn outlives this RPC, so it detaches from ctx's
+		// cancellation — but WithoutCancel, never Background: a fresh root
+		// context severs trace parentage silently, so every session opened
+		// with a prompt would lose its first turn from the trace
+		// (logging-telemetry.md, go-architecture.md's WithoutCancel rule).
+		submitCtx := context.WithoutCancel(ctx)
 		go func() {
-			_, _ = handle.Submit(context.Background(), []*contentv1.ContentBlock{
+			if _, err := handle.Submit(submitCtx, []*contentv1.ContentBlock{
 				{Block: &contentv1.ContentBlock_Text{Text: &contentv1.TextBlock{Text: initial}}},
-			})
+			}); err != nil {
+				h.k.logger.ErrorContext(submitCtx, "kernel: initial prompt submit failed",
+					"session_id", handle.SessionID(), "err", err)
+			}
 		}()
 	}
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -53,7 +54,12 @@ func (p *tuiProvider) Configure(ctx context.Context, _ *structpb.Struct) error {
 		return fmt.Errorf("tui: callback client: %w", err)
 	}
 
-	runCtx, cancel := context.WithCancel(context.Background())
+	// The shell outlives this RPC, so it cannot inherit Configure's
+	// cancellation — but it MUST inherit Configure's values, or the whole
+	// session's spans are orphaned from the trace that started it
+	// (go-architecture.md's WithoutCancel rule, logging-telemetry.md's
+	// "never sever trace parentage"). Close is what ends it.
+	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.cancel = cancel
 
 	go func() {
@@ -62,6 +68,18 @@ func (p *tuiProvider) Configure(ctx context.Context, _ *structpb.Struct) error {
 		}
 	}()
 	return nil
+}
+
+// Close stops the shell goroutine Configure started. Called once plugin.Serve
+// returns, so the TTY loop and its Subscribe/StreamDeltas streams have a
+// shutdown path rather than living until the process dies.
+func (p *tuiProvider) Close() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel = nil
+	}
 }
 
 func (p *tuiProvider) runShell(ctx context.Context, client *kernel.Client) error {
@@ -196,7 +214,7 @@ func (p *tuiProvider) subscribeBus(ctx context.Context, client *kernel.Client, s
 		slog.Warn("subscribe failed", "error", err)
 		return
 	}
-	defer sub.Close()
+	defer func() { _ = sub.Close() }()
 	<-ctx.Done()
 }
 
@@ -205,7 +223,7 @@ func (p *tuiProvider) streamDeltas(ctx context.Context, client *kernel.Client, s
 		send(shell.DeltaMsg{TargetID: d.GetTargetId(), Text: d.GetText()})
 		return nil
 	})
-	if err != nil && ctx.Err() == nil && err != io.EOF {
+	if err != nil && ctx.Err() == nil && !errors.Is(err, io.EOF) {
 		slog.Warn("stream deltas ended", "error", err)
 	}
 }
