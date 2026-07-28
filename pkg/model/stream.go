@@ -72,11 +72,42 @@ func (s *Sink) send(ev *modelv1.StreamEvent, terminal bool) error {
 // it is needed, which is why this is a separate early event rather than a
 // field on Stop. A Provider whose vendor publishes no such id simply never
 // calls this.
+//
+// When the vendor also publishes secondary handles (x-request-id, cf-ray,
+// a response id distinct from the stream id), use StreamStartWith so
+// support tooling can look the request up under any of them.
 func (s *Sink) StreamStart(providerRequestID string) error {
+	return s.StreamStartWith(providerRequestID, nil)
+}
+
+// StreamStartWith is StreamStart plus every other handle the vendor uses
+// for the same request, keyed by the vendor's own name for it
+// ("x-request-id", "response_id", "cf-ray").
+//
+// providerRequestID remains the single canonical handle on the wire;
+// correlationIDs carries the rest rather than forcing the adapter to
+// discard them. A nil or empty map is equivalent to StreamStart.
+//
+// The kernel sorts map keys before persisting
+// (docs/specifications/model/data-types.md; .claude/rules/determinism.md);
+// adapters need not pre-sort.
+func (s *Sink) StreamStartWith(providerRequestID string, correlationIDs map[string]string) error {
+	start := &modelv1.StreamEvent_StreamStart{ProviderRequestId: providerRequestID}
+	if len(correlationIDs) > 0 {
+		// Copy so a caller reusing the map cannot mutate an in-flight send.
+		cp := make(map[string]string, len(correlationIDs))
+		for k, v := range correlationIDs {
+			if k == "" {
+				continue
+			}
+			cp[k] = v
+		}
+		if len(cp) > 0 {
+			start.CorrelationIds = cp
+		}
+	}
 	return s.send(&modelv1.StreamEvent{
-		Event: &modelv1.StreamEvent_StreamStart_{
-			StreamStart: &modelv1.StreamEvent_StreamStart{ProviderRequestId: providerRequestID},
-		},
+		Event: &modelv1.StreamEvent_StreamStart_{StreamStart: start},
 	}, false)
 }
 
@@ -263,11 +294,32 @@ func (s *Sink) SafetyNotice(kind modelv1.StreamEvent_SafetyKind, message string,
 // two: the kernel keeps a summary run and a content run as separate
 // blocks, and sending both through the untagged ThinkingDelta would
 // concatenate them into one block that reads as neither.
+//
+// When the vendor also numbers parallel reasoning parts within a channel,
+// use ThinkingDeltaOnPart so fragments of different parts are not
+// concatenated into one block.
 func (s *Sink) ThinkingDeltaOn(text string, channel modelv1.StreamEvent_ThinkingChannel) error {
+	return s.thinkingDelta(text, channel, nil)
+}
+
+// ThinkingDeltaOnPart is ThinkingDeltaOn with a vendor-supplied part index.
+//
+// Fragments that share a (channel, partIndex) pair are one reasoning block;
+// a different partIndex starts a new block within the same channel. Use
+// this only when the vendor actually numbers parts — inventing indices
+// would invent block boundaries the kernel cannot later re-split.
+func (s *Sink) ThinkingDeltaOnPart(text string, channel modelv1.StreamEvent_ThinkingChannel, partIndex int32) error {
+	idx := partIndex
+	return s.thinkingDelta(text, channel, &idx)
+}
+
+func (s *Sink) thinkingDelta(text string, channel modelv1.StreamEvent_ThinkingChannel, partIndex *int32) error {
+	delta := &modelv1.StreamEvent_ThinkingDelta{Text: text, Channel: channel}
+	if partIndex != nil {
+		delta.PartIndex = partIndex
+	}
 	return s.send(&modelv1.StreamEvent{
-		Event: &modelv1.StreamEvent_ThinkingDelta_{
-			ThinkingDelta: &modelv1.StreamEvent_ThinkingDelta{Text: text, Channel: channel},
-		},
+		Event: &modelv1.StreamEvent_ThinkingDelta_{ThinkingDelta: delta},
 	}, false)
 }
 

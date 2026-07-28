@@ -58,11 +58,23 @@ func TestSink_EventVariants(t *testing.T) {
 	stream := newFakeServerStream(t.Context())
 	sink := newSink(stream)
 
+	if err := sink.StreamStartWith("resp_1", map[string]string{
+		"x-request-id": "req_abc",
+		"cf-ray":       "ray-1",
+	}); err != nil {
+		t.Fatalf("StreamStartWith() = %v, want nil", err)
+	}
 	if err := sink.TextDelta("hello"); err != nil {
 		t.Fatalf("TextDelta() = %v, want nil", err)
 	}
 	if err := sink.ThinkingDelta("reasoning"); err != nil {
 		t.Fatalf("ThinkingDelta() = %v, want nil", err)
+	}
+	if err := sink.ThinkingDeltaOn("summary", modelv1.StreamEvent_THINKING_CHANNEL_SUMMARY); err != nil {
+		t.Fatalf("ThinkingDeltaOn() = %v, want nil", err)
+	}
+	if err := sink.ThinkingDeltaOnPart("part-raw", modelv1.StreamEvent_THINKING_CHANNEL_CONTENT, 2); err != nil {
+		t.Fatalf("ThinkingDeltaOnPart() = %v, want nil", err)
 	}
 	if err := sink.ThinkingSignature([]byte("sig")); err != nil {
 		t.Fatalf("ThinkingSignature() = %v, want nil", err)
@@ -79,25 +91,66 @@ func TestSink_EventVariants(t *testing.T) {
 	if err := sink.ToolCallDone("call-1"); err != nil {
 		t.Fatalf("ToolCallDone() = %v, want nil", err)
 	}
+	actual := "gpt-served"
+	if err := sink.Metadata(StreamMetadata{ActualModel: &actual}); err != nil {
+		t.Fatalf("Metadata() = %v, want nil", err)
+	}
+	if err := sink.SafetyNotice(modelv1.StreamEvent_SAFETY_KIND_BUFFERING, "reviewing", map[string]string{"k": "v"}); err != nil {
+		t.Fatalf("SafetyNotice() = %v, want nil", err)
+	}
 	reasoning := int64(5)
 	if err := sink.Usage(Usage{InputTokens: 10, OutputTokens: 20, ReasoningTokens: &reasoning}); err != nil {
 		t.Fatalf("Usage() = %v, want nil", err)
 	}
 
 	events := stream.events()
-	if len(events) != 8 {
-		t.Fatalf("len(events) = %d, want 8", len(events))
+	// start + text + think + summary + part + sig + redacted + tool×3 + meta + safety + usage = 13
+	if len(events) != 13 {
+		t.Fatalf("len(events) = %d, want 13", len(events))
 	}
-	if events[0].GetTextDelta().GetText() != "hello" {
-		t.Errorf("events[0].TextDelta.Text = %q, want %q", events[0].GetTextDelta().GetText(), "hello")
+	start := events[0].GetStreamStart()
+	if start.GetProviderRequestId() != "resp_1" {
+		t.Errorf("StreamStart.id = %q, want resp_1", start.GetProviderRequestId())
+	}
+	if start.GetCorrelationIds()["x-request-id"] != "req_abc" {
+		t.Errorf("correlation_ids = %v", start.GetCorrelationIds())
+	}
+	if events[1].GetTextDelta().GetText() != "hello" {
+		t.Errorf("events[1].TextDelta.Text = %q, want %q", events[1].GetTextDelta().GetText(), "hello")
+	}
+	part := events[4].GetThinkingDelta()
+	if part.GetChannel() != modelv1.StreamEvent_THINKING_CHANNEL_CONTENT || part.GetPartIndex() != 2 {
+		t.Errorf("ThinkingDelta part = channel=%v part=%d", part.GetChannel(), part.GetPartIndex())
 	}
 	// RedactedThinking carries the vendor's bytes through untouched — the
 	// kernel round-trips them verbatim or the vendor rejects the next turn.
-	if got := string(events[3].GetRedactedThinking().GetData()); got != "encrypted" {
-		t.Errorf("events[3].RedactedThinking.Data = %q, want %q", got, "encrypted")
+	if got := string(events[6].GetRedactedThinking().GetData()); got != "encrypted" {
+		t.Errorf("RedactedThinking.Data = %q, want %q", got, "encrypted")
 	}
-	if events[7].GetUsage().GetReasoningTokens() != 5 {
-		t.Errorf("events[7].Usage.ReasoningTokens = %d, want 5", events[7].GetUsage().GetReasoningTokens())
+	if events[10].GetMetadata().GetActualModel() != "gpt-served" {
+		t.Errorf("Metadata.ActualModel = %q", events[10].GetMetadata().GetActualModel())
+	}
+	if events[11].GetSafetyNotice().GetKind() != modelv1.StreamEvent_SAFETY_KIND_BUFFERING {
+		t.Errorf("SafetyNotice.Kind = %v", events[11].GetSafetyNotice().GetKind())
+	}
+	if events[12].GetUsage().GetReasoningTokens() != 5 {
+		t.Errorf("Usage.ReasoningTokens = %d, want 5", events[12].GetUsage().GetReasoningTokens())
+	}
+}
+
+func TestSink_StreamStartWithEmptyMap(t *testing.T) {
+	t.Parallel()
+	stream := newFakeServerStream(t.Context())
+	sink := newSink(stream)
+	if err := sink.StreamStartWith("id", map[string]string{"": "skip", "ok": "v"}); err != nil {
+		t.Fatal(err)
+	}
+	start := stream.events()[0].GetStreamStart()
+	if _, has := start.GetCorrelationIds()[""]; has {
+		t.Fatal("empty key must be dropped")
+	}
+	if start.GetCorrelationIds()["ok"] != "v" {
+		t.Fatalf("%v", start.GetCorrelationIds())
 	}
 }
 

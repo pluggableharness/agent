@@ -10,9 +10,11 @@
 // A plugin author implements Provider — Capabilities, Configure, and
 // StreamCompletion, the three MUST RPCs
 // (docs/specifications/model/conformance.md's summary matrix) — and
-// optionally TokenCounter and Renderer for the SHOULD/MAY RPCs CountTokens
-// and Render (docs/specifications/model/protocol.md#counttokens,
-// docs/specifications/model/protocol.md#render). NewService adapts a
+// optionally TokenCounter, Renderer, and Accounter for the SHOULD/MAY RPCs
+// CountTokens, Render, and GetAccount
+// (docs/specifications/model/protocol.md#counttokens,
+// docs/specifications/model/protocol.md#render,
+// docs/specifications/model/protocol.md#getaccount). NewService adapts a
 // Provider into the generated modelv1.ModelServiceServer, implementing
 // Describe itself from a plugin.Identity (docs/specifications/model/protocol.md#describe)
 // so no author code is needed for that RPC.
@@ -46,10 +48,14 @@
 // StreamEvent is likewise not mirrored as a struct an author constructs
 // and returns; stream.go's Sink is the domain-friendly StreamEvent
 // surface instead — one method per variant (TextDelta, ThinkingDelta,
-// ToolCallStart, ...), so an author never touches modelv1.StreamEvent's
-// oneof directly, and Sink enforces the "exactly one terminal event"
-// invariant (docs/specifications/model/data-types.md#streamevent)
-// mechanically rather than by convention.
+// ToolCallStart, Metadata, SafetyNotice, ...), so an author never
+// touches modelv1.StreamEvent's oneof directly, and Sink enforces the
+// "exactly one terminal event" invariant
+// (docs/specifications/model/data-types.md#streamevent) mechanically
+// rather than by convention. Optional wire fields that most vendors omit
+// have an explicit helper rather than overloading the simple form:
+// StreamStartWith for correlation_ids, ThinkingDeltaOnPart for
+// part_index, ThinkingDeltaOn for thinking channels.
 //
 // # Errors
 //
