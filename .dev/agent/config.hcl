@@ -13,9 +13,9 @@
 dev_overrides {
   tui = "/home/steven/pluggableharness/plugin-frontend-tui/bin/frontend_tui"
 
-  # The model provider is built outside this repository. A session cannot
-  # start without one: internal/session resolves the profile's model chain
-  # against the live catalog and fails with ErrNoDefaultModel if nothing
-  # answers. Point this at your provider binary.
-  model = "/path/to/your/model-provider/bin/model_provider"
+  # A session cannot start without a model provider: internal/session
+  # resolves the profile's model chain against the live catalog and fails
+  # with ErrNoDefaultModel if nothing answers. This one authenticates from
+  # ~/.grok/auth.json, so a `grok login` session is enough — no API key.
+  xai = "/home/steven/pluggableharness/plugin-provider-xai/bin/provider_xai"
 }

@@ -12,8 +12,8 @@ required_providers {
     source  = "github.com/pluggableharness/plugin-frontend-tui"
     version = "~> 0.1"
   }
-  model = {
-    source  = "github.com/pluggableharness/plugin-provider-model"
+  xai = {
+    source  = "github.com/pluggableharness/plugin-provider-xai"
     version = "~> 0.1"
   }
 }
@@ -27,8 +27,8 @@ settings {
 agent_profile "default" {
   model {
     primary {
-      provider = "model"
-      id       = "REPLACE-WITH-A-MODEL-ID"
+      provider = "xai"
+      id       = "grok-4"
     }
   }
 }

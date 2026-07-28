@@ -128,3 +128,83 @@ func (s *callbackSlot) ReadEvents(req *kernelv1.ReadEventsRequest, stream grpc.S
 func (s *callbackSlot) GetSession(ctx context.Context, req *kernelv1.GetSessionRequest) (*kernelv1.GetSessionResult, error) {
 	return s.server().GetSession(ctx, req)
 }
+
+// CreateSession forwards to the installed server.
+func (s *callbackSlot) CreateSession(ctx context.Context, req *kernelv1.CreateSessionRequest) (*kernelv1.CreateSessionResult, error) {
+	return s.server().CreateSession(ctx, req)
+}
+
+// AttachSession forwards to the installed server.
+func (s *callbackSlot) AttachSession(ctx context.Context, req *kernelv1.AttachSessionRequest) (*kernelv1.AttachSessionResult, error) {
+	return s.server().AttachSession(ctx, req)
+}
+
+// ResumeSession forwards to the installed server.
+func (s *callbackSlot) ResumeSession(ctx context.Context, req *kernelv1.ResumeSessionRequest) (*kernelv1.ResumeSessionResult, error) {
+	return s.server().ResumeSession(ctx, req)
+}
+
+// DetachSession forwards to the installed server.
+func (s *callbackSlot) DetachSession(ctx context.Context, req *kernelv1.DetachSessionRequest) (*kernelv1.DetachSessionResult, error) {
+	return s.server().DetachSession(ctx, req)
+}
+
+// ListSessions forwards to the installed server.
+func (s *callbackSlot) ListSessions(ctx context.Context, req *kernelv1.ListSessionsRequest) (*kernelv1.ListSessionsResult, error) {
+	return s.server().ListSessions(ctx, req)
+}
+
+// GetSessionState forwards to the installed server.
+func (s *callbackSlot) GetSessionState(ctx context.Context, req *kernelv1.GetSessionStateRequest) (*kernelv1.GetSessionStateResult, error) {
+	return s.server().GetSessionState(ctx, req)
+}
+
+// SubmitInput forwards to the installed server.
+func (s *callbackSlot) SubmitInput(ctx context.Context, req *kernelv1.SubmitInputRequest) (*kernelv1.SubmitInputResult, error) {
+	return s.server().SubmitInput(ctx, req)
+}
+
+// Interrupt forwards to the installed server.
+func (s *callbackSlot) Interrupt(ctx context.Context, req *kernelv1.InterruptRequest) (*kernelv1.InterruptResult, error) {
+	return s.server().Interrupt(ctx, req)
+}
+
+// PublishMetadata forwards to the installed server.
+func (s *callbackSlot) PublishMetadata(ctx context.Context, req *kernelv1.PublishMetadataRequest) (*kernelv1.PublishMetadataResult, error) {
+	return s.server().PublishMetadata(ctx, req)
+}
+
+// RetractMetadata forwards to the installed server.
+func (s *callbackSlot) RetractMetadata(ctx context.Context, req *kernelv1.RetractMetadataRequest) (*kernelv1.RetractMetadataResult, error) {
+	return s.server().RetractMetadata(ctx, req)
+}
+
+// ListMetadata forwards to the installed server.
+func (s *callbackSlot) ListMetadata(ctx context.Context, req *kernelv1.ListMetadataRequest) (*kernelv1.ListMetadataResult, error) {
+	return s.server().ListMetadata(ctx, req)
+}
+
+// ResolvePlanDecision forwards to the installed server.
+func (s *callbackSlot) ResolvePlanDecision(ctx context.Context, req *kernelv1.ResolvePlanDecisionRequest) (*kernelv1.ResolvePlanDecisionResult, error) {
+	return s.server().ResolvePlanDecision(ctx, req)
+}
+
+// ResolveInteractive forwards to the installed server.
+func (s *callbackSlot) ResolveInteractive(ctx context.Context, req *kernelv1.ResolveInteractiveRequest) (*kernelv1.ResolveInteractiveResult, error) {
+	return s.server().ResolveInteractive(ctx, req)
+}
+
+// InvokeSlashCommand forwards to the installed server.
+func (s *callbackSlot) InvokeSlashCommand(ctx context.Context, req *kernelv1.InvokeSlashCommandRequest) (*kernelv1.InvokeSlashCommandResult, error) {
+	return s.server().InvokeSlashCommand(ctx, req)
+}
+
+// TriggerAction forwards to the installed server.
+func (s *callbackSlot) TriggerAction(ctx context.Context, req *kernelv1.TriggerActionRequest) (*kernelv1.TriggerActionResult, error) {
+	return s.server().TriggerAction(ctx, req)
+}
+
+// StreamDeltas forwards to the installed server.
+func (s *callbackSlot) StreamDeltas(req *kernelv1.StreamDeltasRequest, stream kernelv1.KernelCallbackService_StreamDeltasServer) error {
+	return s.server().StreamDeltas(req, stream)
+}

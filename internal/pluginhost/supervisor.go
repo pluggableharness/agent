@@ -197,6 +197,23 @@ type Supervisor struct {
 	mu       sync.Mutex
 	launched []*Live
 	shutDown bool
+
+	// prepped carries the state Prepare hands to Configure, in launch
+	// order. Deliberately not guarded by mu: unlike launched, nothing
+	// outside the single bring-up goroutine that drives Prepare and
+	// Configure ever touches it — Shutdown works from launched.
+	prepped []*preparedPlugin
+}
+
+// preparedPlugin is one provider that Prepare took all the way to
+// registration, carrying forward the two things Configure still needs:
+// the decoded provider{} config to send, and the Live whose category
+// decides whether a given Configure pass admits it.
+type preparedPlugin struct {
+	resolved   providerresolve.Resolved
+	live       *Live
+	decoded    *structpb.Struct
+	configured bool
 }
 
 // launched is one successfully launched subprocess, in the terms the
@@ -227,38 +244,104 @@ func NewSupervisor(cfg Config) (*Supervisor, error) {
 	return s, nil
 }
 
-// Start brings up every resolved provider, in order, all-or-nothing.
-//
-// Each provider runs the same sequence: build its late-bound callback
-// slot, launch the subprocess, Describe it and reconcile that identity
-// against the lock file, verify the binary's checksum, fetch its
-// capability advertisement, decode its provider{} block against the
-// ConfigSchema that advertisement carried, install the real identity and
-// decoded config into the slot, Configure, and register.
+// Start brings up every resolved provider, in order, all-or-nothing:
+// Prepare, then Configure over every category.
 //
 // A failure anywhere tears down every provider already launched, in
 // reverse order, before returning — a half-started kernel is never
 // handed to a session.
 func (s *Supervisor) Start(ctx context.Context) error {
+	if err := s.Prepare(ctx); err != nil {
+		return err
+	}
+	return s.Configure(ctx, nil)
+}
+
+// Prepare runs every provider's bring-up sequence short of Configure:
+// build its late-bound callback slot, launch the subprocess, Describe it
+// and reconcile that identity against the lock file, verify the binary's
+// checksum, fetch its capability advertisement, decode its provider{}
+// block against the ConfigSchema that advertisement carried, install the
+// real identity and decoded config into the slot, and register.
+//
+// Prepare and Configure are separable so the kernel can stand up
+// everything a frontend consumes — the provider catalog, the hook
+// chains, the session runner, the frontend host — before any frontend's
+// Configure handler runs. kernel-callbacks.md permits a plugin to call
+// back from inside Configure, and a frontend's first act is to create a
+// session, so a single-phase bring-up answers that call against a kernel
+// that does not exist yet.
+//
+// The split falls exactly here because Describe is what reveals a dev
+// override's category (its lock file has none). Before Prepare there is
+// nothing to sequence on; after it, every category is known.
+func (s *Supervisor) Prepare(ctx context.Context) error {
 	for i, resolved := range s.cfg.Resolved {
-		if err := s.startOne(ctx, i, resolved); err != nil {
-			// The teardown error is deliberately swallowed rather than
-			// joined: the caller needs to act on why startup failed, and
-			// go-style.md forbids logging and returning the same error,
-			// so the one that IS swallowed is the one logged.
-			if teardownErr := s.Shutdown(ctx); teardownErr != nil {
-				s.logger.ErrorContext(ctx, "pluginhost: teardown after failed start",
-					"provider", resolved.LocalName, "error", teardownErr)
-			}
+		if err := s.prepareOne(ctx, i, resolved); err != nil {
+			s.teardownAfterFailure(ctx, resolved.LocalName)
 			return err
 		}
 	}
-	s.logger.InfoContext(ctx, "pluginhost: all providers started", "count", len(s.cfg.Resolved))
+	s.logger.InfoContext(ctx, "pluginhost: all providers prepared", "count", len(s.cfg.Resolved))
 	return nil
 }
 
-// startOne runs one provider's whole bring-up sequence.
-func (s *Supervisor) startOne(ctx context.Context, index int, resolved providerresolve.Resolved) (err error) {
+// Configure issues Configure to every prepared provider whose category
+// want admits, in launch order, skipping any already configured. A nil
+// want admits every category.
+//
+// Two calls with complementary predicates configure each provider
+// exactly once, which is how the kernel sequences frontends last.
+func (s *Supervisor) Configure(ctx context.Context, want func(commonv1.Category) bool) error {
+	for _, p := range s.prepped {
+		if p.configured || (want != nil && !want(p.live.Producer.GetCategory())) {
+			continue
+		}
+		if err := s.configureOne(ctx, p); err != nil {
+			s.teardownAfterFailure(ctx, p.resolved.LocalName)
+			return err
+		}
+	}
+	return nil
+}
+
+// teardownAfterFailure tears down every provider already launched after
+// a bring-up failure.
+//
+// The teardown error is deliberately swallowed rather than joined: the
+// caller needs to act on why bring-up failed, and go-style.md forbids
+// logging and returning the same error, so the one that IS swallowed is
+// the one logged.
+func (s *Supervisor) teardownAfterFailure(ctx context.Context, provider string) {
+	if teardownErr := s.Shutdown(ctx); teardownErr != nil {
+		s.logger.ErrorContext(ctx, "pluginhost: teardown after failed start",
+			"provider", provider, "error", teardownErr)
+	}
+}
+
+// configureOne issues one prepared provider's Configure — the step
+// Prepare deliberately leaves undone.
+func (s *Supervisor) configureOne(ctx context.Context, p *preparedPlugin) (err error) {
+	ctx, span := s.cfg.Telemetry.StartProviderBringUp(ctx, p.resolved.LocalName, categoryText(p.live.Producer.GetCategory()))
+	defer func() { telemetry.EndSpan(span, err) }()
+
+	if err = configurePlugin(ctx, p.live.Client, p.decoded); err != nil {
+		return fmt.Errorf("pluginhost: %s: %w", p.resolved.LocalName, err)
+	}
+	p.configured = true
+
+	s.logger.InfoContext(ctx, "pluginhost: provider started",
+		"provider", p.resolved.LocalName,
+		"producer_category", p.live.Producer.GetCategory().String(),
+		"producer_name", p.live.Producer.GetName(),
+		"producer_version", p.live.Producer.GetVersion(),
+		"launch_index", p.live.LaunchIndex)
+	return nil
+}
+
+// prepareOne runs one provider's bring-up sequence up to, but not
+// including, Configure.
+func (s *Supervisor) prepareOne(ctx context.Context, index int, resolved providerresolve.Resolved) (err error) {
 	ctx, span := s.cfg.Telemetry.StartProviderBringUp(ctx, resolved.LocalName, categoryText(resolved.Category))
 	defer func() { telemetry.EndSpan(span, err) }()
 
@@ -320,11 +403,7 @@ func (s *Supervisor) startOne(ctx context.Context, index int, resolved providerr
 	// not tidiness.
 	slot.set(s.newCallbackServer(producer, decoded))
 
-	// Step 8: Configure, then register.
-	if err = configurePlugin(ctx, client, decoded); err != nil {
-		return fmt.Errorf("pluginhost: %s: %w", resolved.LocalName, err)
-	}
-
+	// Step 8: register. Configure is Configure's job — see Prepare.
 	live := &Live{
 		LocalName:    resolved.LocalName,
 		Producer:     producer,
@@ -343,7 +422,13 @@ func (s *Supervisor) startOne(ctx context.Context, index int, resolved providerr
 	s.launched = append(s.launched, live)
 	s.mu.Unlock()
 
-	s.logger.InfoContext(ctx, "pluginhost: provider started",
+	s.prepped = append(s.prepped, &preparedPlugin{
+		resolved: resolved,
+		live:     live,
+		decoded:  decoded,
+	})
+
+	s.logger.DebugContext(ctx, "pluginhost: provider prepared",
 		"provider", resolved.LocalName,
 		"producer_category", producer.GetCategory().String(),
 		"producer_name", producer.GetName(),

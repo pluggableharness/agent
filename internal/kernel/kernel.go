@@ -159,6 +159,11 @@ type kernel struct {
 	// creates for itself. See turnstack.go.
 	sink *sessionSink
 
+	// runner drives sessions in both modes. Built during bring-up rather
+	// than in run, because the frontend host wraps it and a frontend
+	// calls back from inside its own Configure.
+	runner *session.Runner
+
 	// Frontend state-surface process-wide collaborators.
 	metadata *metadata.Store
 	deltas   *kernelcallback.DeltaHub
@@ -194,23 +199,16 @@ func Run(ctx context.Context, opts Options) error {
 	return errors.Join(runErr, k.shutdown(ctx))
 }
 
-// run builds the session driver, installs the frontend host, and then
-// picks a mode: one non-interactive session when a prompt was given,
+// run picks a mode: one non-interactive session when a prompt was given,
 // otherwise wait while a frontend plugin drives.
 //
-// The host is installed in both modes deliberately. A frontend's callback
-// RPCs are answerable the moment its subprocess is up, which happens
-// during bring-up — before either branch below runs — so gating the host
-// on the mode would leave a launched frontend talking to a nil host.
+// The session runner and the frontend host are both built during
+// bring-up rather than here, in both modes. A frontend calls back the
+// moment its Configure handler runs, so the host has to exist before
+// that — see bringUp's startFrontends.
 func (k *kernel) run(ctx context.Context) error {
-	runner, err := k.newRunner(ctx)
-	if err != nil {
-		return err
-	}
-	k.hostSlot.Set(newFrontendHost(k, runner, k.plans, k.inter))
-
 	if k.opts.Prompt != "" {
-		return k.runSession(ctx, runner)
+		return k.runSession(ctx, k.runner)
 	}
 	return k.hostFrontend(ctx)
 }
