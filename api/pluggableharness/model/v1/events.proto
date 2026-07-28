@@ -38,6 +38,8 @@ message StreamEvent {
     StreamStart stream_start = 11;
     // Non-content facts about how the vendor is serving this request.
     StreamMetadata metadata = 12;
+    // The vendor is interposing on this request.
+    SafetyNotice safety_notice = 13;
   }
 
   // StreamStart carries the vendor's own identifier for this request, as
@@ -136,6 +138,11 @@ message StreamEvent {
     // The kernel MUST serialize this with sorted keys wherever it
     // reaches a persisted payload (.claude/rules/determinism.md).
     map<string, string> attrs = 8;
+
+    // A handle to this turn's vendor-side state, for vendors that accept
+    // an incremental continuation on the next request. The kernel passes
+    // it back as StreamCompletionRequest.sticky_turn_token.
+    optional string sticky_turn_token = 9;
   }
 
   // TextDelta carries one incremental fragment of assistant text output.
@@ -151,6 +158,72 @@ message StreamEvent {
   message ThinkingDelta {
     // The reasoning-text fragment.
     string text = 1;
+
+    // Which reasoning stream this fragment belongs to, for vendors that
+    // emit a readable summary alongside (or instead of) raw reasoning.
+    //
+    // UNSPECIFIED means the vendor draws no distinction, which is the
+    // correct reading for every provider written before this field and
+    // the reason it is not a required field.
+    ThinkingChannel channel = 2;
+
+    // Which reasoning part this fragment belongs to, where a vendor
+    // emits several in parallel. Fragments sharing a part_index within a
+    // channel are one block; absent means a single part.
+    //
+    // Unlike tool calls, which correlate by an explicit id, reasoning
+    // fragments have historically been correlated by adjacency alone —
+    // this makes a vendor's own part structure representable without
+    // changing that default.
+    optional int32 part_index = 3;
+  }
+
+  // ThinkingChannel distinguishes a vendor's reasoning streams.
+  enum ThinkingChannel {
+    // The vendor draws no distinction between reasoning streams.
+    THINKING_CHANNEL_UNSPECIFIED = 0;
+    // The model's raw reasoning output.
+    THINKING_CHANNEL_CONTENT = 1;
+    // A vendor-generated readable summary of the reasoning, which is
+    // typically what a frontend should show when both are present.
+    THINKING_CHANNEL_SUMMARY = 2;
+  }
+
+  // SafetyNotice reports that the vendor is interposing on this request:
+  // holding output for review, applying a moderation decision, or
+  // requiring an account challenge before continuing.
+  //
+  // It carries no content and is not a block boundary. A kernel that does
+  // not understand a given kind MUST ignore the event rather than failing
+  // the turn — this exists so a frontend can explain a stall, and an
+  // unexplained stall is strictly worse than an unrecognized notice.
+  message SafetyNotice {
+    // What the vendor is doing.
+    SafetyKind kind = 1;
+
+    // A human-readable explanation, where the vendor supplies one worth
+    // showing. Never synthesized.
+    optional string message = 2;
+
+    // Vendor-defined detail with no typed field. The kernel MUST
+    // serialize this with sorted keys wherever it reaches a persisted
+    // payload (.claude/rules/determinism.md).
+    map<string, string> attrs = 3;
+  }
+
+  // SafetyKind names the vendor interventions a SafetyNotice reports.
+  enum SafetyKind {
+    // Zero value. Never valid on a real notice.
+    SAFETY_KIND_UNSPECIFIED = 0;
+    // Output is being buffered for review before release, so a stall is
+    // expected and is not a hang.
+    SAFETY_KIND_BUFFERING = 1;
+    // A moderation decision was applied to this request.
+    SAFETY_KIND_MODERATION = 2;
+    // The account must complete a challenge before the request can
+    // proceed. The kernel cannot satisfy this itself; surfacing it is
+    // what lets an operator go and do so.
+    SAFETY_KIND_VERIFICATION_REQUIRED = 3;
   }
 
   // ThinkingSignature carries the vendor's opaque integrity token for the
@@ -199,6 +272,16 @@ message StreamEvent {
     // reason == STOP_REASON_STOP_SEQUENCE; MUST be omitted for every
     // other reason.
     optional string matched_stop_sequence = 2;
+
+    // Whether the vendor reported that the model itself declared the turn
+    // finished, as opposed to the stream merely ending.
+    //
+    // STOP_REASON_END_TURN already covers the ordinary case; this
+    // separates "the model said it was done" from "nothing further
+    // arrived", which vendors exposing an explicit end-of-turn signal can
+    // distinguish and the kernel otherwise cannot. Absent means the
+    // vendor said nothing, not that the model failed to affirm.
+    optional bool model_affirmed = 3;
   }
 
   // Error signals the completion failed.

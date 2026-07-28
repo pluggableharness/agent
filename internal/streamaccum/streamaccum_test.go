@@ -875,3 +875,97 @@ func TestStreamStart_correlationIDsAreCopied(t *testing.T) {
 		t.Error("mutating the returned map changed the accumulator's own state")
 	}
 }
+
+// thinkingOn builds a channel-tagged thinking delta.
+func thinkingOn(text string, ch modelv1.StreamEvent_ThinkingChannel) *modelv1.StreamEvent {
+	return &modelv1.StreamEvent{Event: &modelv1.StreamEvent_ThinkingDelta_{
+		ThinkingDelta: &modelv1.StreamEvent_ThinkingDelta{Text: text, Channel: ch},
+	}}
+}
+
+// TestThinkingChannel_switchClosesTheBlock asserts a summary run and a
+// raw-reasoning run stay separate blocks even when adjacent. Merging them
+// on adjacency alone would produce one block that reads as neither.
+func TestThinkingChannel_switchClosesTheBlock(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		thinkingOn("raw ", modelv1.StreamEvent_THINKING_CHANNEL_CONTENT),
+		thinkingOn("reasoning", modelv1.StreamEvent_THINKING_CHANNEL_CONTENT),
+		thinkingOn("a summary", modelv1.StreamEvent_THINKING_CHANNEL_SUMMARY),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	msg, _, _, ok := a.Result()
+	if !ok {
+		t.Fatal("Result reported ok = false after a Stop event")
+	}
+	if len(msg.GetContent()) != 2 {
+		t.Fatalf("Content has %d blocks, want 2 (one per channel)", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetThinking().GetText(); got != "raw reasoning" {
+		t.Errorf("block 0 = %q, want the coalesced content run", got)
+	}
+	if got := msg.GetContent()[1].GetThinking().GetText(); got != "a summary" {
+		t.Errorf("block 1 = %q, want the summary run", got)
+	}
+}
+
+// TestThinkingChannel_unspecifiedStillCoalesces is the compatibility
+// guarantee: a provider that sets no channel behaves exactly as before
+// this field existed.
+func TestThinkingChannel_unspecifiedStillCoalesces(t *testing.T) {
+	t.Parallel()
+
+	a := observeAll(t, []*modelv1.StreamEvent{
+		thinkingDelta("one "),
+		thinkingDelta("block"),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	msg, _, _, _ := a.Result()
+	if len(msg.GetContent()) != 1 {
+		t.Fatalf("Content has %d blocks, want 1 unsplit block", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetThinking().GetText(); got != "one block" {
+		t.Errorf("text = %q, want %q", got, "one block")
+	}
+}
+
+// TestSafetyNotice_recordedInOrderAndNotABlockBoundary covers both
+// properties at once: the sequence is the explanation an operator needs,
+// and interposing on a text run must not split it.
+func TestSafetyNotice_recordedInOrderAndNotABlockBoundary(t *testing.T) {
+	t.Parallel()
+
+	notice := func(k modelv1.StreamEvent_SafetyKind) *modelv1.StreamEvent {
+		return &modelv1.StreamEvent{Event: &modelv1.StreamEvent_SafetyNotice_{
+			SafetyNotice: &modelv1.StreamEvent_SafetyNotice{Kind: k},
+		}}
+	}
+	a := observeAll(t, []*modelv1.StreamEvent{
+		textDelta("Hello "),
+		notice(modelv1.StreamEvent_SAFETY_KIND_BUFFERING),
+		notice(modelv1.StreamEvent_SAFETY_KIND_MODERATION),
+		textDelta("World"),
+		stopEvent(modelv1.StopReason_STOP_REASON_END_TURN, ""),
+	})
+
+	msg, _, _, _ := a.Result()
+	if len(msg.GetContent()) != 1 {
+		t.Fatalf("Content has %d blocks, want 1 unsplit block", len(msg.GetContent()))
+	}
+	if got := msg.GetContent()[0].GetText().GetText(); got != "Hello World" {
+		t.Errorf("text = %q, want Hello World", got)
+	}
+
+	got := a.SafetyNotices()
+	if len(got) != 2 {
+		t.Fatalf("SafetyNotices has %d entries, want 2", len(got))
+	}
+	if got[0].GetKind() != modelv1.StreamEvent_SAFETY_KIND_BUFFERING ||
+		got[1].GetKind() != modelv1.StreamEvent_SAFETY_KIND_MODERATION {
+		t.Errorf("notices = %v/%v, want BUFFERING then MODERATION in arrival order",
+			got[0].GetKind(), got[1].GetKind())
+	}
+}

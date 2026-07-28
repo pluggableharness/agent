@@ -98,6 +98,59 @@ func (Role) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
+// ImageDetail names how much resolution a model should spend on an image.
+type ImageDetail int32
+
+const (
+	// The vendor's own default applies.
+	ImageDetail_IMAGE_DETAIL_UNSPECIFIED ImageDetail = 0
+	// Prefer fewer tokens over fidelity.
+	ImageDetail_IMAGE_DETAIL_LOW ImageDetail = 1
+	// Prefer fidelity over token cost.
+	ImageDetail_IMAGE_DETAIL_HIGH ImageDetail = 2
+)
+
+// Enum value maps for ImageDetail.
+var (
+	ImageDetail_name = map[int32]string{
+		0: "IMAGE_DETAIL_UNSPECIFIED",
+		1: "IMAGE_DETAIL_LOW",
+		2: "IMAGE_DETAIL_HIGH",
+	}
+	ImageDetail_value = map[string]int32{
+		"IMAGE_DETAIL_UNSPECIFIED": 0,
+		"IMAGE_DETAIL_LOW":         1,
+		"IMAGE_DETAIL_HIGH":        2,
+	}
+)
+
+func (x ImageDetail) Enum() *ImageDetail {
+	p := new(ImageDetail)
+	*p = x
+	return p
+}
+
+func (x ImageDetail) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ImageDetail) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_content_v1_types_proto_enumTypes[1].Descriptor()
+}
+
+func (ImageDetail) Type() protoreflect.EnumType {
+	return &file_pluggableharness_content_v1_types_proto_enumTypes[1]
+}
+
+func (x ImageDetail) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ImageDetail.Descriptor instead.
+func (ImageDetail) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{1}
+}
+
 // Stability hints whether a ContextSection's content changes turn to turn,
 // used both as a context provider's ContextCapabilities-level declaration
 // (pluggableharness.context.v1.ContextCapabilities.stability) and
@@ -144,11 +197,11 @@ func (x Stability) String() string {
 }
 
 func (Stability) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_content_v1_types_proto_enumTypes[1].Descriptor()
+	return file_pluggableharness_content_v1_types_proto_enumTypes[2].Descriptor()
 }
 
 func (Stability) Type() protoreflect.EnumType {
-	return &file_pluggableharness_content_v1_types_proto_enumTypes[1]
+	return &file_pluggableharness_content_v1_types_proto_enumTypes[2]
 }
 
 func (x Stability) Number() protoreflect.EnumNumber {
@@ -157,7 +210,7 @@ func (x Stability) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Stability.Descriptor instead.
 func (Stability) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{1}
+	return file_pluggableharness_content_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
 // Message is one turn in the canonical conversation history: a role plus
@@ -633,7 +686,15 @@ type ImageBlock struct {
 	// Raw image bytes.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 	// The image's MIME type, e.g. "image/png".
-	MediaType     string `protobuf:"bytes,2,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	MediaType string `protobuf:"bytes,2,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	// How much detail the model should spend on this image, where the
+	// vendor exposes the choice.
+	//
+	// It is a cost control, not a rendering hint: vendors bill high-detail
+	// image input at a multiple of low, so a caller sending many
+	// screenshots for a coarse question has a real reason to say so.
+	// UNSPECIFIED leaves the vendor's own default.
+	Detail        ImageDetail `protobuf:"varint,3,opt,name=detail,proto3,enum=pluggableharness.content.v1.ImageDetail" json:"detail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -680,6 +741,13 @@ func (x *ImageBlock) GetMediaType() string {
 		return x.MediaType
 	}
 	return ""
+}
+
+func (x *ImageBlock) GetDetail() ImageDetail {
+	if x != nil {
+		return x.Detail
+	}
+	return ImageDetail_IMAGE_DETAIL_UNSPECIFIED
 }
 
 // ThinkingBlock is the model's extended-reasoning output, when
@@ -999,12 +1067,13 @@ const file_pluggableharness_content_v1_types_proto_rawDesc = "" +
 	"\x0fToolResultBlock\x12\x1e\n" +
 	"\vtool_use_id\x18\x01 \x01(\tR\ttoolUseId\x12C\n" +
 	"\acontent\x18\x02 \x03(\v2).pluggableharness.content.v1.ContentBlockR\acontent\x12\x19\n" +
-	"\bis_error\x18\x03 \x01(\bR\aisError\"?\n" +
+	"\bis_error\x18\x03 \x01(\bR\aisError\"\x81\x01\n" +
 	"\n" +
 	"ImageBlock\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\x12\x1d\n" +
 	"\n" +
-	"media_type\x18\x02 \x01(\tR\tmediaType\"A\n" +
+	"media_type\x18\x02 \x01(\tR\tmediaType\x12@\n" +
+	"\x06detail\x18\x03 \x01(\x0e2(.pluggableharness.content.v1.ImageDetailR\x06detail\"A\n" +
 	"\rThinkingBlock\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"+\n" +
@@ -1026,7 +1095,11 @@ const file_pluggableharness_content_v1_types_proto_rawDesc = "" +
 	"\x04Role\x12\x14\n" +
 	"\x10ROLE_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tROLE_USER\x10\x01\x12\x12\n" +
-	"\x0eROLE_ASSISTANT\x10\x02*S\n" +
+	"\x0eROLE_ASSISTANT\x10\x02*X\n" +
+	"\vImageDetail\x12\x1c\n" +
+	"\x18IMAGE_DETAIL_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10IMAGE_DETAIL_LOW\x10\x01\x12\x15\n" +
+	"\x11IMAGE_DETAIL_HIGH\x10\x02*S\n" +
 	"\tStability\x12\x19\n" +
 	"\x15STABILITY_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10STABILITY_STATIC\x10\x01\x12\x15\n" +
@@ -1044,42 +1117,44 @@ func file_pluggableharness_content_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_content_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_content_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pluggableharness_content_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_pluggableharness_content_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_pluggableharness_content_v1_types_proto_goTypes = []any{
 	(Role)(0),                     // 0: pluggableharness.content.v1.Role
-	(Stability)(0),                // 1: pluggableharness.content.v1.Stability
-	(*Message)(nil),               // 2: pluggableharness.content.v1.Message
-	(*ContentBlock)(nil),          // 3: pluggableharness.content.v1.ContentBlock
-	(*TextBlock)(nil),             // 4: pluggableharness.content.v1.TextBlock
-	(*ToolUseBlock)(nil),          // 5: pluggableharness.content.v1.ToolUseBlock
-	(*ToolResultBlock)(nil),       // 6: pluggableharness.content.v1.ToolResultBlock
-	(*ImageBlock)(nil),            // 7: pluggableharness.content.v1.ImageBlock
-	(*ThinkingBlock)(nil),         // 8: pluggableharness.content.v1.ThinkingBlock
-	(*RedactedThinkingBlock)(nil), // 9: pluggableharness.content.v1.RedactedThinkingBlock
-	(*DocumentBlock)(nil),         // 10: pluggableharness.content.v1.DocumentBlock
-	(*ContextSection)(nil),        // 11: pluggableharness.content.v1.ContextSection
-	(*structpb.Struct)(nil),       // 12: google.protobuf.Struct
+	(ImageDetail)(0),              // 1: pluggableharness.content.v1.ImageDetail
+	(Stability)(0),                // 2: pluggableharness.content.v1.Stability
+	(*Message)(nil),               // 3: pluggableharness.content.v1.Message
+	(*ContentBlock)(nil),          // 4: pluggableharness.content.v1.ContentBlock
+	(*TextBlock)(nil),             // 5: pluggableharness.content.v1.TextBlock
+	(*ToolUseBlock)(nil),          // 6: pluggableharness.content.v1.ToolUseBlock
+	(*ToolResultBlock)(nil),       // 7: pluggableharness.content.v1.ToolResultBlock
+	(*ImageBlock)(nil),            // 8: pluggableharness.content.v1.ImageBlock
+	(*ThinkingBlock)(nil),         // 9: pluggableharness.content.v1.ThinkingBlock
+	(*RedactedThinkingBlock)(nil), // 10: pluggableharness.content.v1.RedactedThinkingBlock
+	(*DocumentBlock)(nil),         // 11: pluggableharness.content.v1.DocumentBlock
+	(*ContextSection)(nil),        // 12: pluggableharness.content.v1.ContextSection
+	(*structpb.Struct)(nil),       // 13: google.protobuf.Struct
 }
 var file_pluggableharness_content_v1_types_proto_depIdxs = []int32{
 	0,  // 0: pluggableharness.content.v1.Message.role:type_name -> pluggableharness.content.v1.Role
-	3,  // 1: pluggableharness.content.v1.Message.content:type_name -> pluggableharness.content.v1.ContentBlock
-	4,  // 2: pluggableharness.content.v1.ContentBlock.text:type_name -> pluggableharness.content.v1.TextBlock
-	5,  // 3: pluggableharness.content.v1.ContentBlock.tool_use:type_name -> pluggableharness.content.v1.ToolUseBlock
-	6,  // 4: pluggableharness.content.v1.ContentBlock.tool_result:type_name -> pluggableharness.content.v1.ToolResultBlock
-	7,  // 5: pluggableharness.content.v1.ContentBlock.image:type_name -> pluggableharness.content.v1.ImageBlock
-	8,  // 6: pluggableharness.content.v1.ContentBlock.thinking:type_name -> pluggableharness.content.v1.ThinkingBlock
-	9,  // 7: pluggableharness.content.v1.ContentBlock.redacted_thinking:type_name -> pluggableharness.content.v1.RedactedThinkingBlock
-	10, // 8: pluggableharness.content.v1.ContentBlock.document:type_name -> pluggableharness.content.v1.DocumentBlock
-	12, // 9: pluggableharness.content.v1.ToolUseBlock.arguments:type_name -> google.protobuf.Struct
-	3,  // 10: pluggableharness.content.v1.ToolResultBlock.content:type_name -> pluggableharness.content.v1.ContentBlock
-	3,  // 11: pluggableharness.content.v1.ContextSection.content:type_name -> pluggableharness.content.v1.ContentBlock
-	1,  // 12: pluggableharness.content.v1.ContextSection.stability:type_name -> pluggableharness.content.v1.Stability
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	4,  // 1: pluggableharness.content.v1.Message.content:type_name -> pluggableharness.content.v1.ContentBlock
+	5,  // 2: pluggableharness.content.v1.ContentBlock.text:type_name -> pluggableharness.content.v1.TextBlock
+	6,  // 3: pluggableharness.content.v1.ContentBlock.tool_use:type_name -> pluggableharness.content.v1.ToolUseBlock
+	7,  // 4: pluggableharness.content.v1.ContentBlock.tool_result:type_name -> pluggableharness.content.v1.ToolResultBlock
+	8,  // 5: pluggableharness.content.v1.ContentBlock.image:type_name -> pluggableharness.content.v1.ImageBlock
+	9,  // 6: pluggableharness.content.v1.ContentBlock.thinking:type_name -> pluggableharness.content.v1.ThinkingBlock
+	10, // 7: pluggableharness.content.v1.ContentBlock.redacted_thinking:type_name -> pluggableharness.content.v1.RedactedThinkingBlock
+	11, // 8: pluggableharness.content.v1.ContentBlock.document:type_name -> pluggableharness.content.v1.DocumentBlock
+	13, // 9: pluggableharness.content.v1.ToolUseBlock.arguments:type_name -> google.protobuf.Struct
+	4,  // 10: pluggableharness.content.v1.ToolResultBlock.content:type_name -> pluggableharness.content.v1.ContentBlock
+	1,  // 11: pluggableharness.content.v1.ImageBlock.detail:type_name -> pluggableharness.content.v1.ImageDetail
+	4,  // 12: pluggableharness.content.v1.ContextSection.content:type_name -> pluggableharness.content.v1.ContentBlock
+	2,  // 13: pluggableharness.content.v1.ContextSection.stability:type_name -> pluggableharness.content.v1.Stability
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_content_v1_types_proto_init() }
@@ -1103,7 +1178,7 @@ func file_pluggableharness_content_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_content_v1_types_proto_rawDesc), len(file_pluggableharness_content_v1_types_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,

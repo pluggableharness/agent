@@ -154,6 +154,25 @@ message ImageBlock {
 
   // The image's MIME type, e.g. "image/png".
   string media_type = 2;
+
+  // How much detail the model should spend on this image, where the
+  // vendor exposes the choice.
+  //
+  // It is a cost control, not a rendering hint: vendors bill high-detail
+  // image input at a multiple of low, so a caller sending many
+  // screenshots for a coarse question has a real reason to say so.
+  // UNSPECIFIED leaves the vendor's own default.
+  ImageDetail detail = 3;
+}
+
+// ImageDetail names how much resolution a model should spend on an image.
+enum ImageDetail {
+  // The vendor's own default applies.
+  IMAGE_DETAIL_UNSPECIFIED = 0;
+  // Prefer fewer tokens over fidelity.
+  IMAGE_DETAIL_LOW = 1;
+  // Prefer fidelity over token cost.
+  IMAGE_DETAIL_HIGH = 2;
 }
 
 // ThinkingBlock is the model's extended-reasoning output, when

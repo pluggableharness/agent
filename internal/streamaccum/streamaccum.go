@@ -83,8 +83,12 @@ type Accumulator struct {
 	openKind     blockKind
 	openText     *contentv1.TextBlock
 	openThinking *contentv1.ThinkingBlock
-	pendingSig   []byte
-	tools        map[string]*toolCallState
+	// openThinkingChannel is which reasoning stream the open thinking
+	// block belongs to, so a summary run and a raw-reasoning run stay
+	// separate blocks even when adjacent.
+	openThinkingChannel modelv1.StreamEvent_ThinkingChannel
+	pendingSig          []byte
+	tools               map[string]*toolCallState
 
 	usage      *modelv1.Usage
 	stopReason modelv1.StopReason
@@ -109,6 +113,11 @@ type Accumulator struct {
 	// the newest event would silently drop an actual_model reported once
 	// at the top of a stream.
 	metadata *modelv1.StreamEvent_StreamMetadata
+
+	// safety are the vendor interventions reported during this stream, in
+	// arrival order. Accumulated rather than replaced: a request can be
+	// buffered and then moderated, and the sequence is the explanation.
+	safety []*modelv1.StreamEvent_SafetyNotice
 }
 
 // New returns a ready Accumulator with no content observed yet.
@@ -141,6 +150,12 @@ func (a *Accumulator) Observe(ev *modelv1.StreamEvent) error {
 		// vendor happened to precede with a late StreamStart.
 		a.observeStreamStart(e.StreamStart)
 		return nil
+	case *modelv1.StreamEvent_SafetyNotice_:
+		// Not a block boundary: it carries no content, and a vendor may
+		// interpose mid-completion, so closing an open block here would
+		// split a text run around a moderation notice.
+		a.safety = append(a.safety, e.SafetyNotice)
+		return nil
 	case *modelv1.StreamEvent_Metadata:
 		// Not a block boundary either, and for a stronger reason:
 		// events.proto explicitly permits this mid-stream, so closing an
@@ -152,7 +167,7 @@ func (a *Accumulator) Observe(ev *modelv1.StreamEvent) error {
 		a.observeTextDelta(e.TextDelta.GetText())
 		return nil
 	case *modelv1.StreamEvent_ThinkingDelta_:
-		a.observeThinkingDelta(e.ThinkingDelta.GetText())
+		a.observeThinkingDelta(e.ThinkingDelta.GetText(), e.ThinkingDelta.GetChannel())
 		return nil
 	case *modelv1.StreamEvent_ThinkingSignature_:
 		return a.observeThinkingSignature(e.ThinkingSignature.GetSignature())
@@ -288,6 +303,19 @@ func (a *Accumulator) CorrelationIDs() map[string]string {
 	return maps.Clone(a.correlationIDs)
 }
 
+// SafetyNotices returns the vendor interventions reported during this
+// stream, in arrival order, or nil if there were none.
+//
+// Readable mid-stream deliberately: a BUFFERING notice explains a stall
+// while the stall is still happening, which is the only time the
+// explanation is worth anything.
+//
+// The returned slice aliases the accumulator's own state — read-only,
+// like Result's Message and Usage.
+func (a *Accumulator) SafetyNotices() []*modelv1.StreamEvent_SafetyNotice {
+	return a.safety
+}
+
 // ProviderRequestID returns the vendor's own identifier for this request,
 // as carried by a StreamStart event, or "" if the provider published
 // none. It is opaque: surfaced so a failure can be correlated against the
@@ -335,13 +363,20 @@ func (a *Accumulator) observeTextDelta(text string) {
 // thinking block, opening a new one first if the previous event wasn't
 // itself a ThinkingDelta (or a ThinkingSignature belonging to the same
 // block) continuing it.
-func (a *Accumulator) observeThinkingDelta(text string) {
-	if a.openKind != blockKindThinking {
+func (a *Accumulator) observeThinkingDelta(text string, channel modelv1.StreamEvent_ThinkingChannel) {
+	// A channel switch closes the open block even though both sides are
+	// thinking. A vendor-written summary and the raw reasoning it
+	// summarizes are different text; concatenating them because they are
+	// adjacent and both "thinking" would produce one block that reads as
+	// neither. Providers that set no channel leave this UNSPECIFIED
+	// throughout, so their runs coalesce exactly as before.
+	if a.openKind != blockKindThinking || a.openThinkingChannel != channel {
 		a.closeOpenBlock()
 		th := &contentv1.ThinkingBlock{}
 		a.blocks = append(a.blocks, &contentv1.ContentBlock{Block: &contentv1.ContentBlock_Thinking{Thinking: th}})
 		a.openThinking = th
 		a.openKind = blockKindThinking
+		a.openThinkingChannel = channel
 	}
 	a.openThinking.Text += text
 }

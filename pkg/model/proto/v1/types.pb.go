@@ -217,6 +217,63 @@ func (ThinkingDisableSupport) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
+// ResponseFormatKind names the structured-output modes.
+type ResponseFormatKind int32
+
+const (
+	// Zero value. Never valid on a set ResponseFormat.
+	ResponseFormatKind_RESPONSE_FORMAT_KIND_UNSPECIFIED ResponseFormatKind = 0
+	// Ordinary free-form text.
+	ResponseFormatKind_RESPONSE_FORMAT_KIND_TEXT ResponseFormatKind = 1
+	// Any syntactically valid JSON, with no schema constraint.
+	ResponseFormatKind_RESPONSE_FORMAT_KIND_JSON_OBJECT ResponseFormatKind = 2
+	// JSON conforming to json_schema.
+	ResponseFormatKind_RESPONSE_FORMAT_KIND_JSON_SCHEMA ResponseFormatKind = 3
+)
+
+// Enum value maps for ResponseFormatKind.
+var (
+	ResponseFormatKind_name = map[int32]string{
+		0: "RESPONSE_FORMAT_KIND_UNSPECIFIED",
+		1: "RESPONSE_FORMAT_KIND_TEXT",
+		2: "RESPONSE_FORMAT_KIND_JSON_OBJECT",
+		3: "RESPONSE_FORMAT_KIND_JSON_SCHEMA",
+	}
+	ResponseFormatKind_value = map[string]int32{
+		"RESPONSE_FORMAT_KIND_UNSPECIFIED": 0,
+		"RESPONSE_FORMAT_KIND_TEXT":        1,
+		"RESPONSE_FORMAT_KIND_JSON_OBJECT": 2,
+		"RESPONSE_FORMAT_KIND_JSON_SCHEMA": 3,
+	}
+)
+
+func (x ResponseFormatKind) Enum() *ResponseFormatKind {
+	p := new(ResponseFormatKind)
+	*p = x
+	return p
+}
+
+func (x ResponseFormatKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ResponseFormatKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_model_v1_types_proto_enumTypes[3].Descriptor()
+}
+
+func (ResponseFormatKind) Type() protoreflect.EnumType {
+	return &file_pluggableharness_model_v1_types_proto_enumTypes[3]
+}
+
+func (x ResponseFormatKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ResponseFormatKind.Descriptor instead.
+func (ResponseFormatKind) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{3}
+}
+
 // ToolChoiceMode enumerates the tool-invocation constraint shapes found
 // across researched vendors, per the same "declare precisely, don't
 // collapse to a bool" reasoning as ThinkingMode/CachingMode above.
@@ -267,11 +324,11 @@ func (x ToolChoiceMode) String() string {
 }
 
 func (ToolChoiceMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_model_v1_types_proto_enumTypes[3].Descriptor()
+	return file_pluggableharness_model_v1_types_proto_enumTypes[4].Descriptor()
 }
 
 func (ToolChoiceMode) Type() protoreflect.EnumType {
-	return &file_pluggableharness_model_v1_types_proto_enumTypes[3]
+	return &file_pluggableharness_model_v1_types_proto_enumTypes[4]
 }
 
 func (x ToolChoiceMode) Number() protoreflect.EnumNumber {
@@ -280,7 +337,7 @@ func (x ToolChoiceMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ToolChoiceMode.Descriptor instead.
 func (ToolChoiceMode) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{3}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{4}
 }
 
 // RateLimitKind names which vendor budget a RateLimitSnapshot describes.
@@ -334,11 +391,11 @@ func (x RateLimitKind) String() string {
 }
 
 func (RateLimitKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_model_v1_types_proto_enumTypes[4].Descriptor()
+	return file_pluggableharness_model_v1_types_proto_enumTypes[5].Descriptor()
 }
 
 func (RateLimitKind) Type() protoreflect.EnumType {
-	return &file_pluggableharness_model_v1_types_proto_enumTypes[4]
+	return &file_pluggableharness_model_v1_types_proto_enumTypes[5]
 }
 
 func (x RateLimitKind) Number() protoreflect.EnumNumber {
@@ -347,7 +404,7 @@ func (x RateLimitKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RateLimitKind.Descriptor instead.
 func (RateLimitKind) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{4}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{5}
 }
 
 // WindowRole distinguishes the several budgets a subscription product
@@ -396,11 +453,11 @@ func (x WindowRole) String() string {
 }
 
 func (WindowRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_pluggableharness_model_v1_types_proto_enumTypes[5].Descriptor()
+	return file_pluggableharness_model_v1_types_proto_enumTypes[6].Descriptor()
 }
 
 func (WindowRole) Type() protoreflect.EnumType {
-	return &file_pluggableharness_model_v1_types_proto_enumTypes[5]
+	return &file_pluggableharness_model_v1_types_proto_enumTypes[6]
 }
 
 func (x WindowRole) Number() protoreflect.EnumNumber {
@@ -409,7 +466,7 @@ func (x WindowRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WindowRole.Descriptor instead.
 func (WindowRole) EnumDescriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{5}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{6}
 }
 
 // Capabilities is GetCapabilities' response payload: every model this
@@ -2100,9 +2157,36 @@ type GenerationParams struct {
 	// thinking_effort/thinking_budget_tokens' ThinkingSpec-validation rule
 	// above — an unsupported mode is a kernel-level reject-or-fallback, not
 	// something forwarded to the vendor.
-	ToolChoice    *ToolChoice `protobuf:"bytes,6,opt,name=tool_choice,json=toolChoice,proto3,oneof" json:"tool_choice,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ToolChoice *ToolChoice `protobuf:"bytes,6,opt,name=tool_choice,json=toolChoice,proto3,oneof" json:"tool_choice,omitempty"`
+	// The service or speed tier to serve this request at. MUST be one of
+	// the target ModelSpec.service_tiers; the kernel rejects a tier the
+	// model does not advertise rather than forwarding it, matching
+	// tool_choice's own validate-then-send rule above.
+	ServiceTier *string `protobuf:"bytes,7,opt,name=service_tier,json=serviceTier,proto3,oneof" json:"service_tier,omitempty"`
+	// The output-verbosity level — answer length, distinct from
+	// thinking_effort's reasoning depth. MUST be one of the target
+	// model's VerbositySpec.levels.
+	Verbosity *string `protobuf:"bytes,8,opt,name=verbosity,proto3,oneof" json:"verbosity,omitempty"`
+	// Constrains the response to a structured format.
+	ResponseFormat *ResponseFormat `protobuf:"bytes,9,opt,name=response_format,json=responseFormat,proto3,oneof" json:"response_format,omitempty"`
+	// An opaque key grouping requests the vendor should cache together.
+	//
+	// Typed rather than left to provider_options because the kernel does
+	// act on caching — cache_read_tokens and cache_write_tokens feed
+	// cost_usd, and data-types.md's provider_options rule is explicit that
+	// a field affecting cost computation cannot live there.
+	PromptCacheKey *string `protobuf:"bytes,10,opt,name=prompt_cache_key,json=promptCacheKey,proto3,oneof" json:"prompt_cache_key,omitempty"`
+	// Whether the vendor should retain this request server-side, for
+	// vendors that offer it. Absent leaves the vendor's own default.
+	Store *bool `protobuf:"varint,11,opt,name=store,proto3,oneof" json:"store,omitempty"`
+	// Overrides ModelSpec.supports_parallel_tool_calls for this one
+	// request. MUST NOT be set true for a model that does not support it.
+	ParallelToolCalls *bool `protobuf:"varint,12,opt,name=parallel_tool_calls,json=parallelToolCalls,proto3,oneof" json:"parallel_tool_calls,omitempty"`
+	// The reasoning-summary mode for this request, where the model
+	// advertises ThinkingSpec.supports_reasoning_summary.
+	ReasoningSummary *string `protobuf:"bytes,13,opt,name=reasoning_summary,json=reasoningSummary,proto3,oneof" json:"reasoning_summary,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GenerationParams) Reset() {
@@ -2177,6 +2261,126 @@ func (x *GenerationParams) GetToolChoice() *ToolChoice {
 	return nil
 }
 
+func (x *GenerationParams) GetServiceTier() string {
+	if x != nil && x.ServiceTier != nil {
+		return *x.ServiceTier
+	}
+	return ""
+}
+
+func (x *GenerationParams) GetVerbosity() string {
+	if x != nil && x.Verbosity != nil {
+		return *x.Verbosity
+	}
+	return ""
+}
+
+func (x *GenerationParams) GetResponseFormat() *ResponseFormat {
+	if x != nil {
+		return x.ResponseFormat
+	}
+	return nil
+}
+
+func (x *GenerationParams) GetPromptCacheKey() string {
+	if x != nil && x.PromptCacheKey != nil {
+		return *x.PromptCacheKey
+	}
+	return ""
+}
+
+func (x *GenerationParams) GetStore() bool {
+	if x != nil && x.Store != nil {
+		return *x.Store
+	}
+	return false
+}
+
+func (x *GenerationParams) GetParallelToolCalls() bool {
+	if x != nil && x.ParallelToolCalls != nil {
+		return *x.ParallelToolCalls
+	}
+	return false
+}
+
+func (x *GenerationParams) GetReasoningSummary() string {
+	if x != nil && x.ReasoningSummary != nil {
+		return *x.ReasoningSummary
+	}
+	return ""
+}
+
+// ResponseFormat constrains a completion's shape, for vendors offering
+// structured output.
+type ResponseFormat struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The format kind.
+	Kind ResponseFormatKind `protobuf:"varint,1,opt,name=kind,proto3,enum=pluggableharness.model.v1.ResponseFormatKind" json:"kind,omitempty"`
+	// The JSON Schema the response MUST conform to. Required when kind is
+	// RESPONSE_FORMAT_KIND_JSON_SCHEMA, meaningless otherwise.
+	//
+	// Uses the same restricted JSON-Schema subset as tool parameters
+	// (schema.v1), deliberately: a vendor accepting one and not the other
+	// is an adapter concern, and two schema dialects in one protocol would
+	// be two things for a plugin author to learn.
+	JsonSchema *v12.Schema `protobuf:"bytes,2,opt,name=json_schema,json=jsonSchema,proto3,oneof" json:"json_schema,omitempty"`
+	// A name for the schema, where the vendor requires one.
+	SchemaName    *string `protobuf:"bytes,3,opt,name=schema_name,json=schemaName,proto3,oneof" json:"schema_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResponseFormat) Reset() {
+	*x = ResponseFormat{}
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResponseFormat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResponseFormat) ProtoMessage() {}
+
+func (x *ResponseFormat) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResponseFormat.ProtoReflect.Descriptor instead.
+func (*ResponseFormat) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ResponseFormat) GetKind() ResponseFormatKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ResponseFormatKind_RESPONSE_FORMAT_KIND_UNSPECIFIED
+}
+
+func (x *ResponseFormat) GetJsonSchema() *v12.Schema {
+	if x != nil {
+		return x.JsonSchema
+	}
+	return nil
+}
+
+func (x *ResponseFormat) GetSchemaName() string {
+	if x != nil && x.SchemaName != nil {
+		return *x.SchemaName
+	}
+	return ""
+}
+
 // ToolChoice carries one request's tool-invocation constraint, per
 // GenerationParams.tool_choice above.
 type ToolChoice struct {
@@ -2194,7 +2398,7 @@ type ToolChoice struct {
 
 func (x *ToolChoice) Reset() {
 	*x = ToolChoice{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2206,7 +2410,7 @@ func (x *ToolChoice) String() string {
 func (*ToolChoice) ProtoMessage() {}
 
 func (x *ToolChoice) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[16]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2219,7 +2423,7 @@ func (x *ToolChoice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolChoice.ProtoReflect.Descriptor instead.
 func (*ToolChoice) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{16}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ToolChoice) GetMode() ToolChoiceMode {
@@ -2316,7 +2520,7 @@ type Usage struct {
 
 func (x *Usage) Reset() {
 	*x = Usage{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2328,7 +2532,7 @@ func (x *Usage) String() string {
 func (*Usage) ProtoMessage() {}
 
 func (x *Usage) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[17]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2341,7 +2545,7 @@ func (x *Usage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Usage.ProtoReflect.Descriptor instead.
 func (*Usage) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{17}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Usage) GetInputTokens() int64 {
@@ -2441,7 +2645,7 @@ type VendorCost struct {
 
 func (x *VendorCost) Reset() {
 	*x = VendorCost{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[18]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2453,7 +2657,7 @@ func (x *VendorCost) String() string {
 func (*VendorCost) ProtoMessage() {}
 
 func (x *VendorCost) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[18]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2466,7 +2670,7 @@ func (x *VendorCost) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VendorCost.ProtoReflect.Descriptor instead.
 func (*VendorCost) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{18}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *VendorCost) GetAmount() string {
@@ -2514,7 +2718,7 @@ type UsageComponent struct {
 
 func (x *UsageComponent) Reset() {
 	*x = UsageComponent{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[19]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2526,7 +2730,7 @@ func (x *UsageComponent) String() string {
 func (*UsageComponent) ProtoMessage() {}
 
 func (x *UsageComponent) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[19]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2539,7 +2743,7 @@ func (x *UsageComponent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageComponent.ProtoReflect.Descriptor instead.
 func (*UsageComponent) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{19}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UsageComponent) GetName() string {
@@ -2604,7 +2808,7 @@ type RateLimitSnapshot struct {
 
 func (x *RateLimitSnapshot) Reset() {
 	*x = RateLimitSnapshot{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[20]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2616,7 +2820,7 @@ func (x *RateLimitSnapshot) String() string {
 func (*RateLimitSnapshot) ProtoMessage() {}
 
 func (x *RateLimitSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[20]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2629,7 +2833,7 @@ func (x *RateLimitSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RateLimitSnapshot.ProtoReflect.Descriptor instead.
 func (*RateLimitSnapshot) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{20}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *RateLimitSnapshot) GetKind() RateLimitKind {
@@ -2720,7 +2924,7 @@ type ModelTarget struct {
 
 func (x *ModelTarget) Reset() {
 	*x = ModelTarget{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[21]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2732,7 +2936,7 @@ func (x *ModelTarget) String() string {
 func (*ModelTarget) ProtoMessage() {}
 
 func (x *ModelTarget) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[21]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2745,7 +2949,7 @@ func (x *ModelTarget) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelTarget.ProtoReflect.Descriptor instead.
 func (*ModelTarget) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{21}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ModelTarget) GetId() string {
@@ -2786,7 +2990,7 @@ type ModelRef struct {
 
 func (x *ModelRef) Reset() {
 	*x = ModelRef{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[22]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2798,7 +3002,7 @@ func (x *ModelRef) String() string {
 func (*ModelRef) ProtoMessage() {}
 
 func (x *ModelRef) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[22]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2811,7 +3015,7 @@ func (x *ModelRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelRef.ProtoReflect.Descriptor instead.
 func (*ModelRef) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{22}
+	return file_pluggableharness_model_v1_types_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ModelRef) GetProvider() string {
@@ -2838,7 +3042,7 @@ type CacheBreakpoint_AfterAssembledContext struct {
 
 func (x *CacheBreakpoint_AfterAssembledContext) Reset() {
 	*x = CacheBreakpoint_AfterAssembledContext{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[25]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2850,7 +3054,7 @@ func (x *CacheBreakpoint_AfterAssembledContext) String() string {
 func (*CacheBreakpoint_AfterAssembledContext) ProtoMessage() {}
 
 func (x *CacheBreakpoint_AfterAssembledContext) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[25]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2876,7 +3080,7 @@ type CacheBreakpoint_AfterTools struct {
 
 func (x *CacheBreakpoint_AfterTools) Reset() {
 	*x = CacheBreakpoint_AfterTools{}
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[26]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2888,7 +3092,7 @@ func (x *CacheBreakpoint_AfterTools) String() string {
 func (*CacheBreakpoint_AfterTools) ProtoMessage() {}
 
 func (x *CacheBreakpoint_AfterTools) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[26]
+	mi := &file_pluggableharness_model_v1_types_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3076,7 +3280,7 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\x0fToolDeclaration\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12E\n" +
-	"\finput_schema\x18\x03 \x01(\v2\".pluggableharness.schema.v1.SchemaR\vinputSchema\"\xac\x03\n" +
+	"\finput_schema\x18\x03 \x01(\v2\".pluggableharness.schema.v1.SchemaR\vinputSchema\"\x81\a\n" +
 	"\x10GenerationParams\x12,\n" +
 	"\x0fthinking_effort\x18\x01 \x01(\tH\x00R\x0ethinkingEffort\x88\x01\x01\x129\n" +
 	"\x16thinking_budget_tokens\x18\x02 \x01(\x03H\x01R\x14thinkingBudgetTokens\x88\x01\x01\x12/\n" +
@@ -3084,12 +3288,37 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"\vtemperature\x18\x04 \x01(\x01H\x03R\vtemperature\x88\x01\x01\x12%\n" +
 	"\x0estop_sequences\x18\x05 \x03(\tR\rstopSequences\x12K\n" +
 	"\vtool_choice\x18\x06 \x01(\v2%.pluggableharness.model.v1.ToolChoiceH\x04R\n" +
-	"toolChoice\x88\x01\x01B\x12\n" +
+	"toolChoice\x88\x01\x01\x12&\n" +
+	"\fservice_tier\x18\a \x01(\tH\x05R\vserviceTier\x88\x01\x01\x12!\n" +
+	"\tverbosity\x18\b \x01(\tH\x06R\tverbosity\x88\x01\x01\x12W\n" +
+	"\x0fresponse_format\x18\t \x01(\v2).pluggableharness.model.v1.ResponseFormatH\aR\x0eresponseFormat\x88\x01\x01\x12-\n" +
+	"\x10prompt_cache_key\x18\n" +
+	" \x01(\tH\bR\x0epromptCacheKey\x88\x01\x01\x12\x19\n" +
+	"\x05store\x18\v \x01(\bH\tR\x05store\x88\x01\x01\x123\n" +
+	"\x13parallel_tool_calls\x18\f \x01(\bH\n" +
+	"R\x11parallelToolCalls\x88\x01\x01\x120\n" +
+	"\x11reasoning_summary\x18\r \x01(\tH\vR\x10reasoningSummary\x88\x01\x01B\x12\n" +
 	"\x10_thinking_effortB\x19\n" +
 	"\x17_thinking_budget_tokensB\x14\n" +
 	"\x12_max_output_tokensB\x0e\n" +
 	"\f_temperatureB\x0e\n" +
-	"\f_tool_choice\"{\n" +
+	"\f_tool_choiceB\x0f\n" +
+	"\r_service_tierB\f\n" +
+	"\n" +
+	"_verbosityB\x12\n" +
+	"\x10_response_formatB\x13\n" +
+	"\x11_prompt_cache_keyB\b\n" +
+	"\x06_storeB\x16\n" +
+	"\x14_parallel_tool_callsB\x14\n" +
+	"\x12_reasoning_summary\"\xe3\x01\n" +
+	"\x0eResponseFormat\x12A\n" +
+	"\x04kind\x18\x01 \x01(\x0e2-.pluggableharness.model.v1.ResponseFormatKindR\x04kind\x12H\n" +
+	"\vjson_schema\x18\x02 \x01(\v2\".pluggableharness.schema.v1.SchemaH\x00R\n" +
+	"jsonSchema\x88\x01\x01\x12$\n" +
+	"\vschema_name\x18\x03 \x01(\tH\x01R\n" +
+	"schemaName\x88\x01\x01B\x0e\n" +
+	"\f_json_schemaB\x0e\n" +
+	"\f_schema_name\"{\n" +
 	"\n" +
 	"ToolChoice\x12=\n" +
 	"\x04mode\x18\x01 \x01(\x0e2).pluggableharness.model.v1.ToolChoiceModeR\x04mode\x12 \n" +
@@ -3168,7 +3397,12 @@ const file_pluggableharness_model_v1_types_proto_rawDesc = "" +
 	"$THINKING_DISABLE_SUPPORT_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eTHINKING_DISABLE_SUPPORT_NEVER\x10\x01\x12#\n" +
 	"\x1fTHINKING_DISABLE_SUPPORT_ALWAYS\x10\x02\x12(\n" +
-	"$THINKING_DISABLE_SUPPORT_CONDITIONAL\x10\x03*\xa1\x01\n" +
+	"$THINKING_DISABLE_SUPPORT_CONDITIONAL\x10\x03*\xa5\x01\n" +
+	"\x12ResponseFormatKind\x12$\n" +
+	" RESPONSE_FORMAT_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19RESPONSE_FORMAT_KIND_TEXT\x10\x01\x12$\n" +
+	" RESPONSE_FORMAT_KIND_JSON_OBJECT\x10\x02\x12$\n" +
+	" RESPONSE_FORMAT_KIND_JSON_SCHEMA\x10\x03*\xa1\x01\n" +
 	"\x0eToolChoiceMode\x12 \n" +
 	"\x1cTOOL_CHOICE_MODE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TOOL_CHOICE_MODE_AUTO\x10\x01\x12\x18\n" +
@@ -3200,92 +3434,97 @@ func file_pluggableharness_model_v1_types_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_model_v1_types_proto_rawDescData
 }
 
-var file_pluggableharness_model_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_pluggableharness_model_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_pluggableharness_model_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_pluggableharness_model_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_pluggableharness_model_v1_types_proto_goTypes = []any{
 	(AuthMethod)(0),             // 0: pluggableharness.model.v1.AuthMethod
 	(MeteringDomain)(0),         // 1: pluggableharness.model.v1.MeteringDomain
 	(ThinkingDisableSupport)(0), // 2: pluggableharness.model.v1.ThinkingDisableSupport
-	(ToolChoiceMode)(0),         // 3: pluggableharness.model.v1.ToolChoiceMode
-	(RateLimitKind)(0),          // 4: pluggableharness.model.v1.RateLimitKind
-	(WindowRole)(0),             // 5: pluggableharness.model.v1.WindowRole
-	(*Capabilities)(nil),        // 6: pluggableharness.model.v1.Capabilities
-	(*AuthDescriptor)(nil),      // 7: pluggableharness.model.v1.AuthDescriptor
-	(*AccountSnapshot)(nil),     // 8: pluggableharness.model.v1.AccountSnapshot
-	(*ModelSpec)(nil),           // 9: pluggableharness.model.v1.ModelSpec
-	(*CatalogMetadata)(nil),     // 10: pluggableharness.model.v1.CatalogMetadata
-	(*VerbositySpec)(nil),       // 11: pluggableharness.model.v1.VerbositySpec
-	(*ThinkingBudgetRange)(nil), // 12: pluggableharness.model.v1.ThinkingBudgetRange
-	(*EffortControl)(nil),       // 13: pluggableharness.model.v1.EffortControl
-	(*BudgetControl)(nil),       // 14: pluggableharness.model.v1.BudgetControl
-	(*ThinkingSpec)(nil),        // 15: pluggableharness.model.v1.ThinkingSpec
-	(*CachingSpec)(nil),         // 16: pluggableharness.model.v1.CachingSpec
-	(*PricingTier)(nil),         // 17: pluggableharness.model.v1.PricingTier
-	(*Pricing)(nil),             // 18: pluggableharness.model.v1.Pricing
-	(*CacheBreakpoint)(nil),     // 19: pluggableharness.model.v1.CacheBreakpoint
-	(*ToolDeclaration)(nil),     // 20: pluggableharness.model.v1.ToolDeclaration
-	(*GenerationParams)(nil),    // 21: pluggableharness.model.v1.GenerationParams
-	(*ToolChoice)(nil),          // 22: pluggableharness.model.v1.ToolChoice
-	(*Usage)(nil),               // 23: pluggableharness.model.v1.Usage
-	(*VendorCost)(nil),          // 24: pluggableharness.model.v1.VendorCost
-	(*UsageComponent)(nil),      // 25: pluggableharness.model.v1.UsageComponent
-	(*RateLimitSnapshot)(nil),   // 26: pluggableharness.model.v1.RateLimitSnapshot
-	(*ModelTarget)(nil),         // 27: pluggableharness.model.v1.ModelTarget
-	(*ModelRef)(nil),            // 28: pluggableharness.model.v1.ModelRef
-	nil,                         // 29: pluggableharness.model.v1.AuthDescriptor.LabelsEntry
-	nil,                         // 30: pluggableharness.model.v1.AccountSnapshot.LabelsEntry
-	(*CacheBreakpoint_AfterAssembledContext)(nil), // 31: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	(*CacheBreakpoint_AfterTools)(nil),            // 32: pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	(*v1.PromptExpansionSpec)(nil),                // 33: pluggableharness.common.v1.PromptExpansionSpec
-	(*v11.ConfigSchema)(nil),                      // 34: pluggableharness.config.v1.ConfigSchema
-	(v1.HookPoint)(0),                             // 35: pluggableharness.common.v1.HookPoint
-	(*timestamppb.Timestamp)(nil),                 // 36: google.protobuf.Timestamp
-	(*v12.Schema)(nil),                            // 37: pluggableharness.schema.v1.Schema
+	(ResponseFormatKind)(0),     // 3: pluggableharness.model.v1.ResponseFormatKind
+	(ToolChoiceMode)(0),         // 4: pluggableharness.model.v1.ToolChoiceMode
+	(RateLimitKind)(0),          // 5: pluggableharness.model.v1.RateLimitKind
+	(WindowRole)(0),             // 6: pluggableharness.model.v1.WindowRole
+	(*Capabilities)(nil),        // 7: pluggableharness.model.v1.Capabilities
+	(*AuthDescriptor)(nil),      // 8: pluggableharness.model.v1.AuthDescriptor
+	(*AccountSnapshot)(nil),     // 9: pluggableharness.model.v1.AccountSnapshot
+	(*ModelSpec)(nil),           // 10: pluggableharness.model.v1.ModelSpec
+	(*CatalogMetadata)(nil),     // 11: pluggableharness.model.v1.CatalogMetadata
+	(*VerbositySpec)(nil),       // 12: pluggableharness.model.v1.VerbositySpec
+	(*ThinkingBudgetRange)(nil), // 13: pluggableharness.model.v1.ThinkingBudgetRange
+	(*EffortControl)(nil),       // 14: pluggableharness.model.v1.EffortControl
+	(*BudgetControl)(nil),       // 15: pluggableharness.model.v1.BudgetControl
+	(*ThinkingSpec)(nil),        // 16: pluggableharness.model.v1.ThinkingSpec
+	(*CachingSpec)(nil),         // 17: pluggableharness.model.v1.CachingSpec
+	(*PricingTier)(nil),         // 18: pluggableharness.model.v1.PricingTier
+	(*Pricing)(nil),             // 19: pluggableharness.model.v1.Pricing
+	(*CacheBreakpoint)(nil),     // 20: pluggableharness.model.v1.CacheBreakpoint
+	(*ToolDeclaration)(nil),     // 21: pluggableharness.model.v1.ToolDeclaration
+	(*GenerationParams)(nil),    // 22: pluggableharness.model.v1.GenerationParams
+	(*ResponseFormat)(nil),      // 23: pluggableharness.model.v1.ResponseFormat
+	(*ToolChoice)(nil),          // 24: pluggableharness.model.v1.ToolChoice
+	(*Usage)(nil),               // 25: pluggableharness.model.v1.Usage
+	(*VendorCost)(nil),          // 26: pluggableharness.model.v1.VendorCost
+	(*UsageComponent)(nil),      // 27: pluggableharness.model.v1.UsageComponent
+	(*RateLimitSnapshot)(nil),   // 28: pluggableharness.model.v1.RateLimitSnapshot
+	(*ModelTarget)(nil),         // 29: pluggableharness.model.v1.ModelTarget
+	(*ModelRef)(nil),            // 30: pluggableharness.model.v1.ModelRef
+	nil,                         // 31: pluggableharness.model.v1.AuthDescriptor.LabelsEntry
+	nil,                         // 32: pluggableharness.model.v1.AccountSnapshot.LabelsEntry
+	(*CacheBreakpoint_AfterAssembledContext)(nil), // 33: pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	(*CacheBreakpoint_AfterTools)(nil),            // 34: pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	(*v1.PromptExpansionSpec)(nil),                // 35: pluggableharness.common.v1.PromptExpansionSpec
+	(*v11.ConfigSchema)(nil),                      // 36: pluggableharness.config.v1.ConfigSchema
+	(v1.HookPoint)(0),                             // 37: pluggableharness.common.v1.HookPoint
+	(*timestamppb.Timestamp)(nil),                 // 38: google.protobuf.Timestamp
+	(*v12.Schema)(nil),                            // 39: pluggableharness.schema.v1.Schema
 }
 var file_pluggableharness_model_v1_types_proto_depIdxs = []int32{
-	9,  // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
-	33, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
-	34, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
-	35, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
-	7,  // 4: pluggableharness.model.v1.Capabilities.auth:type_name -> pluggableharness.model.v1.AuthDescriptor
-	36, // 5: pluggableharness.model.v1.Capabilities.catalog_fetched_at:type_name -> google.protobuf.Timestamp
+	10, // 0: pluggableharness.model.v1.Capabilities.models:type_name -> pluggableharness.model.v1.ModelSpec
+	35, // 1: pluggableharness.model.v1.Capabilities.slash_commands:type_name -> pluggableharness.common.v1.PromptExpansionSpec
+	36, // 2: pluggableharness.model.v1.Capabilities.config_schema:type_name -> pluggableharness.config.v1.ConfigSchema
+	37, // 3: pluggableharness.model.v1.Capabilities.supported_hook_points:type_name -> pluggableharness.common.v1.HookPoint
+	8,  // 4: pluggableharness.model.v1.Capabilities.auth:type_name -> pluggableharness.model.v1.AuthDescriptor
+	38, // 5: pluggableharness.model.v1.Capabilities.catalog_fetched_at:type_name -> google.protobuf.Timestamp
 	0,  // 6: pluggableharness.model.v1.AuthDescriptor.method:type_name -> pluggableharness.model.v1.AuthMethod
 	1,  // 7: pluggableharness.model.v1.AuthDescriptor.metering:type_name -> pluggableharness.model.v1.MeteringDomain
-	29, // 8: pluggableharness.model.v1.AuthDescriptor.labels:type_name -> pluggableharness.model.v1.AuthDescriptor.LabelsEntry
+	31, // 8: pluggableharness.model.v1.AuthDescriptor.labels:type_name -> pluggableharness.model.v1.AuthDescriptor.LabelsEntry
 	0,  // 9: pluggableharness.model.v1.AccountSnapshot.method:type_name -> pluggableharness.model.v1.AuthMethod
 	1,  // 10: pluggableharness.model.v1.AccountSnapshot.metering:type_name -> pluggableharness.model.v1.MeteringDomain
-	30, // 11: pluggableharness.model.v1.AccountSnapshot.labels:type_name -> pluggableharness.model.v1.AccountSnapshot.LabelsEntry
-	26, // 12: pluggableharness.model.v1.AccountSnapshot.quotas:type_name -> pluggableharness.model.v1.RateLimitSnapshot
-	36, // 13: pluggableharness.model.v1.AccountSnapshot.fetched_at:type_name -> google.protobuf.Timestamp
-	15, // 14: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
-	16, // 15: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
-	18, // 16: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
-	3,  // 17: pluggableharness.model.v1.ModelSpec.supported_tool_choice_modes:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	10, // 18: pluggableharness.model.v1.ModelSpec.catalog:type_name -> pluggableharness.model.v1.CatalogMetadata
-	11, // 19: pluggableharness.model.v1.ModelSpec.verbosity:type_name -> pluggableharness.model.v1.VerbositySpec
-	12, // 20: pluggableharness.model.v1.BudgetControl.range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
-	13, // 21: pluggableharness.model.v1.ThinkingSpec.effort:type_name -> pluggableharness.model.v1.EffortControl
-	14, // 22: pluggableharness.model.v1.ThinkingSpec.budget:type_name -> pluggableharness.model.v1.BudgetControl
+	32, // 11: pluggableharness.model.v1.AccountSnapshot.labels:type_name -> pluggableharness.model.v1.AccountSnapshot.LabelsEntry
+	28, // 12: pluggableharness.model.v1.AccountSnapshot.quotas:type_name -> pluggableharness.model.v1.RateLimitSnapshot
+	38, // 13: pluggableharness.model.v1.AccountSnapshot.fetched_at:type_name -> google.protobuf.Timestamp
+	16, // 14: pluggableharness.model.v1.ModelSpec.thinking:type_name -> pluggableharness.model.v1.ThinkingSpec
+	17, // 15: pluggableharness.model.v1.ModelSpec.caching:type_name -> pluggableharness.model.v1.CachingSpec
+	19, // 16: pluggableharness.model.v1.ModelSpec.pricing:type_name -> pluggableharness.model.v1.Pricing
+	4,  // 17: pluggableharness.model.v1.ModelSpec.supported_tool_choice_modes:type_name -> pluggableharness.model.v1.ToolChoiceMode
+	11, // 18: pluggableharness.model.v1.ModelSpec.catalog:type_name -> pluggableharness.model.v1.CatalogMetadata
+	12, // 19: pluggableharness.model.v1.ModelSpec.verbosity:type_name -> pluggableharness.model.v1.VerbositySpec
+	13, // 20: pluggableharness.model.v1.BudgetControl.range:type_name -> pluggableharness.model.v1.ThinkingBudgetRange
+	14, // 21: pluggableharness.model.v1.ThinkingSpec.effort:type_name -> pluggableharness.model.v1.EffortControl
+	15, // 22: pluggableharness.model.v1.ThinkingSpec.budget:type_name -> pluggableharness.model.v1.BudgetControl
 	2,  // 23: pluggableharness.model.v1.ThinkingSpec.disable:type_name -> pluggableharness.model.v1.ThinkingDisableSupport
-	36, // 24: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
-	36, // 25: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
-	17, // 26: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
-	31, // 27: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
-	32, // 28: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
-	37, // 29: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
-	22, // 30: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
-	3,  // 31: pluggableharness.model.v1.ToolChoice.mode:type_name -> pluggableharness.model.v1.ToolChoiceMode
-	26, // 32: pluggableharness.model.v1.Usage.rate_limits:type_name -> pluggableharness.model.v1.RateLimitSnapshot
-	24, // 33: pluggableharness.model.v1.Usage.vendor_cost:type_name -> pluggableharness.model.v1.VendorCost
-	25, // 34: pluggableharness.model.v1.Usage.components:type_name -> pluggableharness.model.v1.UsageComponent
-	4,  // 35: pluggableharness.model.v1.RateLimitSnapshot.kind:type_name -> pluggableharness.model.v1.RateLimitKind
-	36, // 36: pluggableharness.model.v1.RateLimitSnapshot.reset_at:type_name -> google.protobuf.Timestamp
-	5,  // 37: pluggableharness.model.v1.RateLimitSnapshot.window_role:type_name -> pluggableharness.model.v1.WindowRole
-	38, // [38:38] is the sub-list for method output_type
-	38, // [38:38] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	38, // 24: pluggableharness.model.v1.PricingTier.effective_from:type_name -> google.protobuf.Timestamp
+	38, // 25: pluggableharness.model.v1.PricingTier.effective_until:type_name -> google.protobuf.Timestamp
+	18, // 26: pluggableharness.model.v1.Pricing.tiers:type_name -> pluggableharness.model.v1.PricingTier
+	33, // 27: pluggableharness.model.v1.CacheBreakpoint.after_assembled_context:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterAssembledContext
+	34, // 28: pluggableharness.model.v1.CacheBreakpoint.after_tools:type_name -> pluggableharness.model.v1.CacheBreakpoint.AfterTools
+	39, // 29: pluggableharness.model.v1.ToolDeclaration.input_schema:type_name -> pluggableharness.schema.v1.Schema
+	24, // 30: pluggableharness.model.v1.GenerationParams.tool_choice:type_name -> pluggableharness.model.v1.ToolChoice
+	23, // 31: pluggableharness.model.v1.GenerationParams.response_format:type_name -> pluggableharness.model.v1.ResponseFormat
+	3,  // 32: pluggableharness.model.v1.ResponseFormat.kind:type_name -> pluggableharness.model.v1.ResponseFormatKind
+	39, // 33: pluggableharness.model.v1.ResponseFormat.json_schema:type_name -> pluggableharness.schema.v1.Schema
+	4,  // 34: pluggableharness.model.v1.ToolChoice.mode:type_name -> pluggableharness.model.v1.ToolChoiceMode
+	28, // 35: pluggableharness.model.v1.Usage.rate_limits:type_name -> pluggableharness.model.v1.RateLimitSnapshot
+	26, // 36: pluggableharness.model.v1.Usage.vendor_cost:type_name -> pluggableharness.model.v1.VendorCost
+	27, // 37: pluggableharness.model.v1.Usage.components:type_name -> pluggableharness.model.v1.UsageComponent
+	5,  // 38: pluggableharness.model.v1.RateLimitSnapshot.kind:type_name -> pluggableharness.model.v1.RateLimitKind
+	38, // 39: pluggableharness.model.v1.RateLimitSnapshot.reset_at:type_name -> google.protobuf.Timestamp
+	6,  // 40: pluggableharness.model.v1.RateLimitSnapshot.window_role:type_name -> pluggableharness.model.v1.WindowRole
+	41, // [41:41] is the sub-list for method output_type
+	41, // [41:41] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_types_proto_init() }
@@ -3312,14 +3551,15 @@ func file_pluggableharness_model_v1_types_proto_init() {
 	file_pluggableharness_model_v1_types_proto_msgTypes[16].OneofWrappers = []any{}
 	file_pluggableharness_model_v1_types_proto_msgTypes[17].OneofWrappers = []any{}
 	file_pluggableharness_model_v1_types_proto_msgTypes[18].OneofWrappers = []any{}
-	file_pluggableharness_model_v1_types_proto_msgTypes[20].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_types_proto_msgTypes[19].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_types_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_types_proto_rawDesc), len(file_pluggableharness_model_v1_types_proto_rawDesc)),
-			NumEnums:      6,
-			NumMessages:   27,
+			NumEnums:      7,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

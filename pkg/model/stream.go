@@ -208,3 +208,93 @@ func (s *Sink) Error(modelErr *Error) error {
 		},
 	}, true)
 }
+
+// Metadata sends non-content facts about how the vendor is serving this
+// request: which model actually answered, which build, which tier, and
+// whatever budget state the response headers exposed.
+//
+// MAY be sent more than once and at any point before the terminal event.
+// A later call supersedes an earlier one field by field; leaving a field
+// nil means "no new information", never "cleared", so a provider can
+// report actual_model once at the top of a stream and rate limits later
+// without the first being lost.
+//
+// Send this as soon as the facts are known rather than saving them for
+// the end — an operator learning that a limit was nearly exhausted only
+// after the turn that exhausted it has learned nothing useful.
+func (s *Sink) Metadata(m StreamMetadata) error {
+	return s.send(&modelv1.StreamEvent{
+		Event: &modelv1.StreamEvent_Metadata{Metadata: &modelv1.StreamEvent_StreamMetadata{
+			ActualModel:         m.ActualModel,
+			SystemFingerprint:   m.SystemFingerprint,
+			ServiceTier:         m.ServiceTier,
+			RateLimits:          rateLimitsToProto(m.RateLimits),
+			LiveContextWindow:   m.LiveContextWindow,
+			LiveMaxOutputTokens: m.LiveMaxOutputTokens,
+			CatalogEtag:         m.CatalogEtag,
+			StickyTurnToken:     m.StickyTurnToken,
+			Attrs:               m.Attrs,
+		}},
+	}, false)
+}
+
+// SafetyNotice reports that the vendor is interposing on this request —
+// buffering output for review, applying a moderation decision, or
+// requiring an account challenge.
+//
+// Send it when the vendor says so, particularly for BUFFERING: it is what
+// lets a frontend explain a stall instead of leaving it looking like a
+// hang.
+func (s *Sink) SafetyNotice(kind modelv1.StreamEvent_SafetyKind, message string, attrs map[string]string) error {
+	notice := &modelv1.StreamEvent_SafetyNotice{Kind: kind, Attrs: attrs}
+	if message != "" {
+		notice.Message = &message
+	}
+	return s.send(&modelv1.StreamEvent{
+		Event: &modelv1.StreamEvent_SafetyNotice_{SafetyNotice: notice},
+	}, false)
+}
+
+// ThinkingDeltaOn sends a reasoning fragment tagged with which stream it
+// belongs to, for vendors emitting a readable summary alongside raw
+// reasoning.
+//
+// Use this instead of ThinkingDelta when the vendor distinguishes the
+// two: the kernel keeps a summary run and a content run as separate
+// blocks, and sending both through the untagged ThinkingDelta would
+// concatenate them into one block that reads as neither.
+func (s *Sink) ThinkingDeltaOn(text string, channel modelv1.StreamEvent_ThinkingChannel) error {
+	return s.send(&modelv1.StreamEvent{
+		Event: &modelv1.StreamEvent_ThinkingDelta_{
+			ThinkingDelta: &modelv1.StreamEvent_ThinkingDelta{Text: text, Channel: channel},
+		},
+	}, false)
+}
+
+// StreamMetadata is Sink.Metadata's payload. Every field is optional: a
+// provider reports what its vendor published and leaves the rest nil.
+type StreamMetadata struct {
+	// ActualModel is the model that actually served this completion, when
+	// it differs from the requested id. Set it whenever the vendor says
+	// so — it is what makes a silent model substitution attributable.
+	ActualModel *string
+	// SystemFingerprint is the vendor's opaque backend-build identifier.
+	SystemFingerprint *string
+	// ServiceTier is the tier this request was served at.
+	ServiceTier *string
+	// RateLimits is budget state as of this point in the stream, from
+	// response headers.
+	RateLimits []RateLimitSnapshot
+	// LiveContextWindow is the context window the vendor says applies to
+	// this request, superseding the roster's static figure.
+	LiveContextWindow *int64
+	// LiveMaxOutputTokens is the same for maximum output tokens.
+	LiveMaxOutputTokens *int64
+	// CatalogEtag is the vendor's current model-catalog version.
+	CatalogEtag *string
+	// StickyTurnToken is a handle to this turn's vendor-side state, for
+	// vendors accepting an incremental continuation next request.
+	StickyTurnToken *string
+	// Attrs are vendor-defined metadata with no typed field.
+	Attrs map[string]string
+}

@@ -114,6 +114,22 @@ message StreamCompletionRequest {
   // revision is the fix; teaching the kernel to read this field is not.
   // See model/data-types.md#provider_options.
   optional google.protobuf.Struct provider_options = 8;
+
+  // An opaque handle to the vendor-side state of a prior turn, for
+  // vendors that keep conversation state server-side and accept an
+  // incremental continuation instead of a full history resend (an
+  // OpenAI `previous_response_id`).
+  //
+  // Typed rather than left to provider_options because using it changes
+  // what the kernel must send: a continuation carries only the new
+  // messages, so `messages` above and this field are not independent.
+  // The kernel therefore has to know whether it is in use, which is
+  // exactly the "a field the kernel reads" test data-types.md applies to
+  // provider_options.
+  //
+  // A provider that publishes such a handle returns it on StreamMetadata;
+  // absent here means send the full history as normal.
+  optional string sticky_turn_token = 9;
 }
 
 // CountTokensRequest is CountTokens' request: the request whose input

@@ -102,6 +102,28 @@ Model providers MAY implement `Render` per the general Emit→Render→Paint pip
 
 `RenderRequest.schema_version` MUST be set alongside `payload` — the schema version the payload was emitted under, so a `Render` implementation can interpret a payload emitted by an older plugin version consistently when a session is replayed. See [`frontend/render-tree.md#schema-versioning`](../frontend/render-tree.md#schema-versioning) for the versioning scheme itself.
 
+## `GetAccount`
+
+```text
+GetAccount(GetAccountRequest{}) -> GetAccountResponse{
+  account: AccountSnapshot{ method, metering, plan?, labels{}, quotas[], fetched_at? }
+}
+```
+
+Reports the live account and entitlement state behind this plugin's credential: which pool completions are charged against, what plan is in force, and whatever quota the vendor publishes outside a completion.
+
+**MAY be implemented.** A provider with no account concept — a bare API key against a metered endpoint, a locally served model — returns `codes.Unimplemented`, and the kernel MUST tolerate that exactly as it tolerates an absent `Render`. Absence means "no account state to report", never an error.
+
+It is separate from [`GetCapabilities`](#getcapabilities) because the two have different lifetimes. Capabilities are the static roster fixed at `Configure`; account state is live, changes as quota burns down, and is the only way an operator learns a subscription pool is nearly empty *before* the turn that strands them. The kernel MUST NOT cache it as part of the capability advertisement.
+
+`quotas[]` reuses [`RateLimitSnapshot`](data-types.md#usagerate_limits) rather than introducing a parallel shape — pool headroom and a per-completion rate-limit budget are the same concept read at different times, and two types for it would guarantee two frontend renderers that disagree. `fetched_at` lets a frontend show how stale a reading is instead of presenting a cached figure as live, which is the specific failure that makes an operator stop trusting a usage meter.
+
+`method` (`api_key` | `product_session` | `deployment_key`) and `metering` (`subscription_pool` | `metered_api`) are not one-to-one: a product session can bill against credits once its pool is exhausted. The same pair is available statically on [`Capabilities.auth`](data-types.md#capabilities) for a provider that knows its credential shape without a network call.
+
+**Nothing in `AccountSnapshot` may be a credential or leak one** — no key material, no token, no full account identifier, `labels{}` included.
+
+The kernel MUST NOT persist this into the session event log: it is a live reading of external state, and recording it would put a value into the replay path that no replay can reproduce ([`.claude/rules/determinism.md`](../../../.claude/rules/determinism.md)).
+
 ## `Describe`
 
 ```text

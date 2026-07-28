@@ -103,6 +103,120 @@ func (StopReason) EnumDescriptor() ([]byte, []int) {
 	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0}
 }
 
+// ThinkingChannel distinguishes a vendor's reasoning streams.
+type StreamEvent_ThinkingChannel int32
+
+const (
+	// The vendor draws no distinction between reasoning streams.
+	StreamEvent_THINKING_CHANNEL_UNSPECIFIED StreamEvent_ThinkingChannel = 0
+	// The model's raw reasoning output.
+	StreamEvent_THINKING_CHANNEL_CONTENT StreamEvent_ThinkingChannel = 1
+	// A vendor-generated readable summary of the reasoning, which is
+	// typically what a frontend should show when both are present.
+	StreamEvent_THINKING_CHANNEL_SUMMARY StreamEvent_ThinkingChannel = 2
+)
+
+// Enum value maps for StreamEvent_ThinkingChannel.
+var (
+	StreamEvent_ThinkingChannel_name = map[int32]string{
+		0: "THINKING_CHANNEL_UNSPECIFIED",
+		1: "THINKING_CHANNEL_CONTENT",
+		2: "THINKING_CHANNEL_SUMMARY",
+	}
+	StreamEvent_ThinkingChannel_value = map[string]int32{
+		"THINKING_CHANNEL_UNSPECIFIED": 0,
+		"THINKING_CHANNEL_CONTENT":     1,
+		"THINKING_CHANNEL_SUMMARY":     2,
+	}
+)
+
+func (x StreamEvent_ThinkingChannel) Enum() *StreamEvent_ThinkingChannel {
+	p := new(StreamEvent_ThinkingChannel)
+	*p = x
+	return p
+}
+
+func (x StreamEvent_ThinkingChannel) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StreamEvent_ThinkingChannel) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_model_v1_events_proto_enumTypes[1].Descriptor()
+}
+
+func (StreamEvent_ThinkingChannel) Type() protoreflect.EnumType {
+	return &file_pluggableharness_model_v1_events_proto_enumTypes[1]
+}
+
+func (x StreamEvent_ThinkingChannel) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StreamEvent_ThinkingChannel.Descriptor instead.
+func (StreamEvent_ThinkingChannel) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 0}
+}
+
+// SafetyKind names the vendor interventions a SafetyNotice reports.
+type StreamEvent_SafetyKind int32
+
+const (
+	// Zero value. Never valid on a real notice.
+	StreamEvent_SAFETY_KIND_UNSPECIFIED StreamEvent_SafetyKind = 0
+	// Output is being buffered for review before release, so a stall is
+	// expected and is not a hang.
+	StreamEvent_SAFETY_KIND_BUFFERING StreamEvent_SafetyKind = 1
+	// A moderation decision was applied to this request.
+	StreamEvent_SAFETY_KIND_MODERATION StreamEvent_SafetyKind = 2
+	// The account must complete a challenge before the request can
+	// proceed. The kernel cannot satisfy this itself; surfacing it is
+	// what lets an operator go and do so.
+	StreamEvent_SAFETY_KIND_VERIFICATION_REQUIRED StreamEvent_SafetyKind = 3
+)
+
+// Enum value maps for StreamEvent_SafetyKind.
+var (
+	StreamEvent_SafetyKind_name = map[int32]string{
+		0: "SAFETY_KIND_UNSPECIFIED",
+		1: "SAFETY_KIND_BUFFERING",
+		2: "SAFETY_KIND_MODERATION",
+		3: "SAFETY_KIND_VERIFICATION_REQUIRED",
+	}
+	StreamEvent_SafetyKind_value = map[string]int32{
+		"SAFETY_KIND_UNSPECIFIED":           0,
+		"SAFETY_KIND_BUFFERING":             1,
+		"SAFETY_KIND_MODERATION":            2,
+		"SAFETY_KIND_VERIFICATION_REQUIRED": 3,
+	}
+)
+
+func (x StreamEvent_SafetyKind) Enum() *StreamEvent_SafetyKind {
+	p := new(StreamEvent_SafetyKind)
+	*p = x
+	return p
+}
+
+func (x StreamEvent_SafetyKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StreamEvent_SafetyKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_pluggableharness_model_v1_events_proto_enumTypes[2].Descriptor()
+}
+
+func (StreamEvent_SafetyKind) Type() protoreflect.EnumType {
+	return &file_pluggableharness_model_v1_events_proto_enumTypes[2]
+}
+
+func (x StreamEvent_SafetyKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StreamEvent_SafetyKind.Descriptor instead.
+func (StreamEvent_SafetyKind) EnumDescriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 1}
+}
+
 // StreamEvent is one message in the stream StreamCompletion returns, per
 // model.md §4. Exactly one variant is set.
 type StreamEvent struct {
@@ -121,6 +235,7 @@ type StreamEvent struct {
 	//	*StreamEvent_RedactedThinking_
 	//	*StreamEvent_StreamStart_
 	//	*StreamEvent_Metadata
+	//	*StreamEvent_SafetyNotice_
 	Event         isStreamEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -271,6 +386,15 @@ func (x *StreamEvent) GetMetadata() *StreamEvent_StreamMetadata {
 	return nil
 }
 
+func (x *StreamEvent) GetSafetyNotice() *StreamEvent_SafetyNotice {
+	if x != nil {
+		if x, ok := x.Event.(*StreamEvent_SafetyNotice_); ok {
+			return x.SafetyNotice
+		}
+	}
+	return nil
+}
+
 type isStreamEvent_Event interface {
 	isStreamEvent_Event()
 }
@@ -336,6 +460,11 @@ type StreamEvent_Metadata struct {
 	Metadata *StreamEvent_StreamMetadata `protobuf:"bytes,12,opt,name=metadata,proto3,oneof"`
 }
 
+type StreamEvent_SafetyNotice_ struct {
+	// The vendor is interposing on this request.
+	SafetyNotice *StreamEvent_SafetyNotice `protobuf:"bytes,13,opt,name=safety_notice,json=safetyNotice,proto3,oneof"`
+}
+
 func (*StreamEvent_TextDelta_) isStreamEvent_Event() {}
 
 func (*StreamEvent_ThinkingDelta_) isStreamEvent_Event() {}
@@ -359,6 +488,8 @@ func (*StreamEvent_RedactedThinking_) isStreamEvent_Event() {}
 func (*StreamEvent_StreamStart_) isStreamEvent_Event() {}
 
 func (*StreamEvent_Metadata) isStreamEvent_Event() {}
+
+func (*StreamEvent_SafetyNotice_) isStreamEvent_Event() {}
 
 // StreamStart carries the vendor's own identifier for this request, as
 // soon as the adapter learns it — normally from response headers,
@@ -495,9 +626,13 @@ type StreamEvent_StreamMetadata struct {
 	//
 	// The kernel MUST serialize this with sorted keys wherever it
 	// reaches a persisted payload (.claude/rules/determinism.md).
-	Attrs         map[string]string `protobuf:"bytes,8,rep,name=attrs,proto3" json:"attrs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Attrs map[string]string `protobuf:"bytes,8,rep,name=attrs,proto3" json:"attrs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// A handle to this turn's vendor-side state, for vendors that accept
+	// an incremental continuation on the next request. The kernel passes
+	// it back as StreamCompletionRequest.sticky_turn_token.
+	StickyTurnToken *string `protobuf:"bytes,9,opt,name=sticky_turn_token,json=stickyTurnToken,proto3,oneof" json:"sticky_turn_token,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *StreamEvent_StreamMetadata) Reset() {
@@ -586,6 +721,13 @@ func (x *StreamEvent_StreamMetadata) GetAttrs() map[string]string {
 	return nil
 }
 
+func (x *StreamEvent_StreamMetadata) GetStickyTurnToken() string {
+	if x != nil && x.StickyTurnToken != nil {
+		return *x.StickyTurnToken
+	}
+	return ""
+}
+
 // TextDelta carries one incremental fragment of assistant text output.
 // MUST be supported by every plugin, both directions (model.md §5).
 type StreamEvent_TextDelta struct {
@@ -639,7 +781,23 @@ func (x *StreamEvent_TextDelta) GetText() string {
 type StreamEvent_ThinkingDelta struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The reasoning-text fragment.
-	Text          string `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Text string `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	// Which reasoning stream this fragment belongs to, for vendors that
+	// emit a readable summary alongside (or instead of) raw reasoning.
+	//
+	// UNSPECIFIED means the vendor draws no distinction, which is the
+	// correct reading for every provider written before this field and
+	// the reason it is not a required field.
+	Channel StreamEvent_ThinkingChannel `protobuf:"varint,2,opt,name=channel,proto3,enum=pluggableharness.model.v1.StreamEvent_ThinkingChannel" json:"channel,omitempty"`
+	// Which reasoning part this fragment belongs to, where a vendor
+	// emits several in parallel. Fragments sharing a part_index within a
+	// channel are one block; absent means a single part.
+	//
+	// Unlike tool calls, which correlate by an explicit id, reasoning
+	// fragments have historically been correlated by adjacency alone —
+	// this makes a vendor's own part structure representable without
+	// changing that default.
+	PartIndex     *int32 `protobuf:"varint,3,opt,name=part_index,json=partIndex,proto3,oneof" json:"part_index,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -681,6 +839,94 @@ func (x *StreamEvent_ThinkingDelta) GetText() string {
 	return ""
 }
 
+func (x *StreamEvent_ThinkingDelta) GetChannel() StreamEvent_ThinkingChannel {
+	if x != nil {
+		return x.Channel
+	}
+	return StreamEvent_THINKING_CHANNEL_UNSPECIFIED
+}
+
+func (x *StreamEvent_ThinkingDelta) GetPartIndex() int32 {
+	if x != nil && x.PartIndex != nil {
+		return *x.PartIndex
+	}
+	return 0
+}
+
+// SafetyNotice reports that the vendor is interposing on this request:
+// holding output for review, applying a moderation decision, or
+// requiring an account challenge before continuing.
+//
+// It carries no content and is not a block boundary. A kernel that does
+// not understand a given kind MUST ignore the event rather than failing
+// the turn — this exists so a frontend can explain a stall, and an
+// unexplained stall is strictly worse than an unrecognized notice.
+type StreamEvent_SafetyNotice struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What the vendor is doing.
+	Kind StreamEvent_SafetyKind `protobuf:"varint,1,opt,name=kind,proto3,enum=pluggableharness.model.v1.StreamEvent_SafetyKind" json:"kind,omitempty"`
+	// A human-readable explanation, where the vendor supplies one worth
+	// showing. Never synthesized.
+	Message *string `protobuf:"bytes,2,opt,name=message,proto3,oneof" json:"message,omitempty"`
+	// Vendor-defined detail with no typed field. The kernel MUST
+	// serialize this with sorted keys wherever it reaches a persisted
+	// payload (.claude/rules/determinism.md).
+	Attrs         map[string]string `protobuf:"bytes,3,rep,name=attrs,proto3" json:"attrs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StreamEvent_SafetyNotice) Reset() {
+	*x = StreamEvent_SafetyNotice{}
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StreamEvent_SafetyNotice) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StreamEvent_SafetyNotice) ProtoMessage() {}
+
+func (x *StreamEvent_SafetyNotice) ProtoReflect() protoreflect.Message {
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StreamEvent_SafetyNotice.ProtoReflect.Descriptor instead.
+func (*StreamEvent_SafetyNotice) Descriptor() ([]byte, []int) {
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 4}
+}
+
+func (x *StreamEvent_SafetyNotice) GetKind() StreamEvent_SafetyKind {
+	if x != nil {
+		return x.Kind
+	}
+	return StreamEvent_SAFETY_KIND_UNSPECIFIED
+}
+
+func (x *StreamEvent_SafetyNotice) GetMessage() string {
+	if x != nil && x.Message != nil {
+		return *x.Message
+	}
+	return ""
+}
+
+func (x *StreamEvent_SafetyNotice) GetAttrs() map[string]string {
+	if x != nil {
+		return x.Attrs
+	}
+	return nil
+}
+
 // ThinkingSignature carries the vendor's opaque integrity token for the
 // reasoning block just completed. MUST be emitted if the vendor's
 // thinking blocks carry an integrity signature (model.md §4/§5); the
@@ -696,7 +942,7 @@ type StreamEvent_ThinkingSignature struct {
 
 func (x *StreamEvent_ThinkingSignature) Reset() {
 	*x = StreamEvent_ThinkingSignature{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +954,7 @@ func (x *StreamEvent_ThinkingSignature) String() string {
 func (*StreamEvent_ThinkingSignature) ProtoMessage() {}
 
 func (x *StreamEvent_ThinkingSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[5]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +967,7 @@ func (x *StreamEvent_ThinkingSignature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ThinkingSignature.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ThinkingSignature) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 4}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 5}
 }
 
 func (x *StreamEvent_ThinkingSignature) GetSignature() []byte {
@@ -746,7 +992,7 @@ type StreamEvent_ToolCallStart struct {
 
 func (x *StreamEvent_ToolCallStart) Reset() {
 	*x = StreamEvent_ToolCallStart{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -758,7 +1004,7 @@ func (x *StreamEvent_ToolCallStart) String() string {
 func (*StreamEvent_ToolCallStart) ProtoMessage() {}
 
 func (x *StreamEvent_ToolCallStart) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[6]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -771,7 +1017,7 @@ func (x *StreamEvent_ToolCallStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ToolCallStart.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ToolCallStart) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 5}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 6}
 }
 
 func (x *StreamEvent_ToolCallStart) GetId() string {
@@ -803,7 +1049,7 @@ type StreamEvent_ToolCallDelta struct {
 
 func (x *StreamEvent_ToolCallDelta) Reset() {
 	*x = StreamEvent_ToolCallDelta{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -815,7 +1061,7 @@ func (x *StreamEvent_ToolCallDelta) String() string {
 func (*StreamEvent_ToolCallDelta) ProtoMessage() {}
 
 func (x *StreamEvent_ToolCallDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[7]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -828,7 +1074,7 @@ func (x *StreamEvent_ToolCallDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ToolCallDelta.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ToolCallDelta) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 6}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 7}
 }
 
 func (x *StreamEvent_ToolCallDelta) GetId() string {
@@ -857,7 +1103,7 @@ type StreamEvent_ToolCallDone struct {
 
 func (x *StreamEvent_ToolCallDone) Reset() {
 	*x = StreamEvent_ToolCallDone{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -869,7 +1115,7 @@ func (x *StreamEvent_ToolCallDone) String() string {
 func (*StreamEvent_ToolCallDone) ProtoMessage() {}
 
 func (x *StreamEvent_ToolCallDone) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[8]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -882,7 +1128,7 @@ func (x *StreamEvent_ToolCallDone) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_ToolCallDone.ProtoReflect.Descriptor instead.
 func (*StreamEvent_ToolCallDone) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 7}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 8}
 }
 
 func (x *StreamEvent_ToolCallDone) GetId() string {
@@ -901,13 +1147,22 @@ type StreamEvent_Stop struct {
 	// reason == STOP_REASON_STOP_SEQUENCE; MUST be omitted for every
 	// other reason.
 	MatchedStopSequence *string `protobuf:"bytes,2,opt,name=matched_stop_sequence,json=matchedStopSequence,proto3,oneof" json:"matched_stop_sequence,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Whether the vendor reported that the model itself declared the turn
+	// finished, as opposed to the stream merely ending.
+	//
+	// STOP_REASON_END_TURN already covers the ordinary case; this
+	// separates "the model said it was done" from "nothing further
+	// arrived", which vendors exposing an explicit end-of-turn signal can
+	// distinguish and the kernel otherwise cannot. Absent means the
+	// vendor said nothing, not that the model failed to affirm.
+	ModelAffirmed *bool `protobuf:"varint,3,opt,name=model_affirmed,json=modelAffirmed,proto3,oneof" json:"model_affirmed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StreamEvent_Stop) Reset() {
 	*x = StreamEvent_Stop{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -919,7 +1174,7 @@ func (x *StreamEvent_Stop) String() string {
 func (*StreamEvent_Stop) ProtoMessage() {}
 
 func (x *StreamEvent_Stop) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[9]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -932,7 +1187,7 @@ func (x *StreamEvent_Stop) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_Stop.ProtoReflect.Descriptor instead.
 func (*StreamEvent_Stop) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 8}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 9}
 }
 
 func (x *StreamEvent_Stop) GetReason() StopReason {
@@ -949,6 +1204,13 @@ func (x *StreamEvent_Stop) GetMatchedStopSequence() string {
 	return ""
 }
 
+func (x *StreamEvent_Stop) GetModelAffirmed() bool {
+	if x != nil && x.ModelAffirmed != nil {
+		return *x.ModelAffirmed
+	}
+	return false
+}
+
 // Error signals the completion failed.
 type StreamEvent_Error struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -960,7 +1222,7 @@ type StreamEvent_Error struct {
 
 func (x *StreamEvent_Error) Reset() {
 	*x = StreamEvent_Error{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[10]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -972,7 +1234,7 @@ func (x *StreamEvent_Error) String() string {
 func (*StreamEvent_Error) ProtoMessage() {}
 
 func (x *StreamEvent_Error) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[10]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -985,7 +1247,7 @@ func (x *StreamEvent_Error) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_Error.ProtoReflect.Descriptor instead.
 func (*StreamEvent_Error) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 9}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 10}
 }
 
 func (x *StreamEvent_Error) GetError() *ModelError {
@@ -1014,7 +1276,7 @@ type StreamEvent_RedactedThinking struct {
 
 func (x *StreamEvent_RedactedThinking) Reset() {
 	*x = StreamEvent_RedactedThinking{}
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[11]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1026,7 +1288,7 @@ func (x *StreamEvent_RedactedThinking) String() string {
 func (*StreamEvent_RedactedThinking) ProtoMessage() {}
 
 func (x *StreamEvent_RedactedThinking) ProtoReflect() protoreflect.Message {
-	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[11]
+	mi := &file_pluggableharness_model_v1_events_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1039,7 +1301,7 @@ func (x *StreamEvent_RedactedThinking) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvent_RedactedThinking.ProtoReflect.Descriptor instead.
 func (*StreamEvent_RedactedThinking) Descriptor() ([]byte, []int) {
-	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 10}
+	return file_pluggableharness_model_v1_events_proto_rawDescGZIP(), []int{0, 11}
 }
 
 func (x *StreamEvent_RedactedThinking) GetData() []byte {
@@ -1053,7 +1315,7 @@ var File_pluggableharness_model_v1_events_proto protoreflect.FileDescriptor
 
 const file_pluggableharness_model_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"&pluggableharness/model/v1/events.proto\x12\x19pluggableharness.model.v1\x1a&pluggableharness/model/v1/errors.proto\x1a%pluggableharness/model/v1/types.proto\"\xd0\x13\n" +
+	"&pluggableharness/model/v1/events.proto\x12\x19pluggableharness.model.v1\x1a&pluggableharness/model/v1/errors.proto\x1a%pluggableharness/model/v1/types.proto\"\xc6\x1a\n" +
 	"\vStreamEvent\x12Q\n" +
 	"\n" +
 	"text_delta\x18\x01 \x01(\v20.pluggableharness.model.v1.StreamEvent.TextDeltaH\x00R\ttextDelta\x12]\n" +
@@ -1068,13 +1330,14 @@ const file_pluggableharness_model_v1_events_proto_rawDesc = "" +
 	"\x11redacted_thinking\x18\n" +
 	" \x01(\v27.pluggableharness.model.v1.StreamEvent.RedactedThinkingH\x00R\x10redactedThinking\x12W\n" +
 	"\fstream_start\x18\v \x01(\v22.pluggableharness.model.v1.StreamEvent.StreamStartH\x00R\vstreamStart\x12S\n" +
-	"\bmetadata\x18\f \x01(\v25.pluggableharness.model.v1.StreamEvent.StreamMetadataH\x00R\bmetadata\x1a\xf1\x01\n" +
+	"\bmetadata\x18\f \x01(\v25.pluggableharness.model.v1.StreamEvent.StreamMetadataH\x00R\bmetadata\x12Z\n" +
+	"\rsafety_notice\x18\r \x01(\v23.pluggableharness.model.v1.StreamEvent.SafetyNoticeH\x00R\fsafetyNotice\x1a\xf1\x01\n" +
 	"\vStreamStart\x12.\n" +
 	"\x13provider_request_id\x18\x01 \x01(\tR\x11providerRequestId\x12o\n" +
 	"\x0fcorrelation_ids\x18\x02 \x03(\v2F.pluggableharness.model.v1.StreamEvent.StreamStart.CorrelationIdsEntryR\x0ecorrelationIds\x1aA\n" +
 	"\x13CorrelationIdsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a\x89\x05\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a\xd0\x05\n" +
 	"\x0eStreamMetadata\x12&\n" +
 	"\factual_model\x18\x01 \x01(\tH\x00R\vactualModel\x88\x01\x01\x122\n" +
 	"\x12system_fingerprint\x18\x02 \x01(\tH\x01R\x11systemFingerprint\x88\x01\x01\x12&\n" +
@@ -1084,7 +1347,8 @@ const file_pluggableharness_model_v1_events_proto_rawDesc = "" +
 	"\x13live_context_window\x18\x05 \x01(\x03H\x03R\x11liveContextWindow\x88\x01\x01\x128\n" +
 	"\x16live_max_output_tokens\x18\x06 \x01(\x03H\x04R\x13liveMaxOutputTokens\x88\x01\x01\x12&\n" +
 	"\fcatalog_etag\x18\a \x01(\tH\x05R\vcatalogEtag\x88\x01\x01\x12V\n" +
-	"\x05attrs\x18\b \x03(\v2@.pluggableharness.model.v1.StreamEvent.StreamMetadata.AttrsEntryR\x05attrs\x1a8\n" +
+	"\x05attrs\x18\b \x03(\v2@.pluggableharness.model.v1.StreamEvent.StreamMetadata.AttrsEntryR\x05attrs\x12/\n" +
+	"\x11sticky_turn_token\x18\t \x01(\tH\x06R\x0fstickyTurnToken\x88\x01\x01\x1a8\n" +
 	"\n" +
 	"AttrsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -1094,11 +1358,26 @@ const file_pluggableharness_model_v1_events_proto_rawDesc = "" +
 	"\r_service_tierB\x16\n" +
 	"\x14_live_context_windowB\x19\n" +
 	"\x17_live_max_output_tokensB\x0f\n" +
-	"\r_catalog_etag\x1a\x1f\n" +
+	"\r_catalog_etagB\x14\n" +
+	"\x12_sticky_turn_token\x1a\x1f\n" +
 	"\tTextDelta\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\x1a#\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x1a\xa8\x01\n" +
 	"\rThinkingDelta\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\x1a1\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12P\n" +
+	"\achannel\x18\x02 \x01(\x0e26.pluggableharness.model.v1.StreamEvent.ThinkingChannelR\achannel\x12\"\n" +
+	"\n" +
+	"part_index\x18\x03 \x01(\x05H\x00R\tpartIndex\x88\x01\x01B\r\n" +
+	"\v_part_index\x1a\x90\x02\n" +
+	"\fSafetyNotice\x12E\n" +
+	"\x04kind\x18\x01 \x01(\x0e21.pluggableharness.model.v1.StreamEvent.SafetyKindR\x04kind\x12\x1d\n" +
+	"\amessage\x18\x02 \x01(\tH\x00R\amessage\x88\x01\x01\x12T\n" +
+	"\x05attrs\x18\x03 \x03(\v2>.pluggableharness.model.v1.StreamEvent.SafetyNotice.AttrsEntryR\x05attrs\x1a8\n" +
+	"\n" +
+	"AttrsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\n" +
+	"\n" +
+	"\b_message\x1a1\n" +
 	"\x11ThinkingSignature\x12\x1c\n" +
 	"\tsignature\x18\x01 \x01(\fR\tsignature\x1a3\n" +
 	"\rToolCallStart\x12\x0e\n" +
@@ -1108,15 +1387,27 @@ const file_pluggableharness_model_v1_events_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12-\n" +
 	"\x12arguments_fragment\x18\x02 \x01(\tR\x11argumentsFragment\x1a\x1e\n" +
 	"\fToolCallDone\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x1a\x98\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x1a\xd7\x01\n" +
 	"\x04Stop\x12=\n" +
 	"\x06reason\x18\x01 \x01(\x0e2%.pluggableharness.model.v1.StopReasonR\x06reason\x127\n" +
-	"\x15matched_stop_sequence\x18\x02 \x01(\tH\x00R\x13matchedStopSequence\x88\x01\x01B\x18\n" +
-	"\x16_matched_stop_sequence\x1aD\n" +
+	"\x15matched_stop_sequence\x18\x02 \x01(\tH\x00R\x13matchedStopSequence\x88\x01\x01\x12*\n" +
+	"\x0emodel_affirmed\x18\x03 \x01(\bH\x01R\rmodelAffirmed\x88\x01\x01B\x18\n" +
+	"\x16_matched_stop_sequenceB\x11\n" +
+	"\x0f_model_affirmed\x1aD\n" +
 	"\x05Error\x12;\n" +
 	"\x05error\x18\x01 \x01(\v2%.pluggableharness.model.v1.ModelErrorR\x05error\x1a&\n" +
 	"\x10RedactedThinking\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04dataB\a\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"o\n" +
+	"\x0fThinkingChannel\x12 \n" +
+	"\x1cTHINKING_CHANNEL_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18THINKING_CHANNEL_CONTENT\x10\x01\x12\x1c\n" +
+	"\x18THINKING_CHANNEL_SUMMARY\x10\x02\"\x87\x01\n" +
+	"\n" +
+	"SafetyKind\x12\x1b\n" +
+	"\x17SAFETY_KIND_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15SAFETY_KIND_BUFFERING\x10\x01\x12\x1a\n" +
+	"\x16SAFETY_KIND_MODERATION\x10\x02\x12%\n" +
+	"!SAFETY_KIND_VERIFICATION_REQUIRED\x10\x03B\a\n" +
 	"\x05event*\xee\x01\n" +
 	"\n" +
 	"StopReason\x12\x1b\n" +
@@ -1141,51 +1432,59 @@ func file_pluggableharness_model_v1_events_proto_rawDescGZIP() []byte {
 	return file_pluggableharness_model_v1_events_proto_rawDescData
 }
 
-var file_pluggableharness_model_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pluggableharness_model_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_pluggableharness_model_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_pluggableharness_model_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_pluggableharness_model_v1_events_proto_goTypes = []any{
 	(StopReason)(0),                       // 0: pluggableharness.model.v1.StopReason
-	(*StreamEvent)(nil),                   // 1: pluggableharness.model.v1.StreamEvent
-	(*StreamEvent_StreamStart)(nil),       // 2: pluggableharness.model.v1.StreamEvent.StreamStart
-	(*StreamEvent_StreamMetadata)(nil),    // 3: pluggableharness.model.v1.StreamEvent.StreamMetadata
-	(*StreamEvent_TextDelta)(nil),         // 4: pluggableharness.model.v1.StreamEvent.TextDelta
-	(*StreamEvent_ThinkingDelta)(nil),     // 5: pluggableharness.model.v1.StreamEvent.ThinkingDelta
-	(*StreamEvent_ThinkingSignature)(nil), // 6: pluggableharness.model.v1.StreamEvent.ThinkingSignature
-	(*StreamEvent_ToolCallStart)(nil),     // 7: pluggableharness.model.v1.StreamEvent.ToolCallStart
-	(*StreamEvent_ToolCallDelta)(nil),     // 8: pluggableharness.model.v1.StreamEvent.ToolCallDelta
-	(*StreamEvent_ToolCallDone)(nil),      // 9: pluggableharness.model.v1.StreamEvent.ToolCallDone
-	(*StreamEvent_Stop)(nil),              // 10: pluggableharness.model.v1.StreamEvent.Stop
-	(*StreamEvent_Error)(nil),             // 11: pluggableharness.model.v1.StreamEvent.Error
-	(*StreamEvent_RedactedThinking)(nil),  // 12: pluggableharness.model.v1.StreamEvent.RedactedThinking
-	nil,                                   // 13: pluggableharness.model.v1.StreamEvent.StreamStart.CorrelationIdsEntry
-	nil,                                   // 14: pluggableharness.model.v1.StreamEvent.StreamMetadata.AttrsEntry
-	(*Usage)(nil),                         // 15: pluggableharness.model.v1.Usage
-	(*RateLimitSnapshot)(nil),             // 16: pluggableharness.model.v1.RateLimitSnapshot
-	(*ModelError)(nil),                    // 17: pluggableharness.model.v1.ModelError
+	(StreamEvent_ThinkingChannel)(0),      // 1: pluggableharness.model.v1.StreamEvent.ThinkingChannel
+	(StreamEvent_SafetyKind)(0),           // 2: pluggableharness.model.v1.StreamEvent.SafetyKind
+	(*StreamEvent)(nil),                   // 3: pluggableharness.model.v1.StreamEvent
+	(*StreamEvent_StreamStart)(nil),       // 4: pluggableharness.model.v1.StreamEvent.StreamStart
+	(*StreamEvent_StreamMetadata)(nil),    // 5: pluggableharness.model.v1.StreamEvent.StreamMetadata
+	(*StreamEvent_TextDelta)(nil),         // 6: pluggableharness.model.v1.StreamEvent.TextDelta
+	(*StreamEvent_ThinkingDelta)(nil),     // 7: pluggableharness.model.v1.StreamEvent.ThinkingDelta
+	(*StreamEvent_SafetyNotice)(nil),      // 8: pluggableharness.model.v1.StreamEvent.SafetyNotice
+	(*StreamEvent_ThinkingSignature)(nil), // 9: pluggableharness.model.v1.StreamEvent.ThinkingSignature
+	(*StreamEvent_ToolCallStart)(nil),     // 10: pluggableharness.model.v1.StreamEvent.ToolCallStart
+	(*StreamEvent_ToolCallDelta)(nil),     // 11: pluggableharness.model.v1.StreamEvent.ToolCallDelta
+	(*StreamEvent_ToolCallDone)(nil),      // 12: pluggableharness.model.v1.StreamEvent.ToolCallDone
+	(*StreamEvent_Stop)(nil),              // 13: pluggableharness.model.v1.StreamEvent.Stop
+	(*StreamEvent_Error)(nil),             // 14: pluggableharness.model.v1.StreamEvent.Error
+	(*StreamEvent_RedactedThinking)(nil),  // 15: pluggableharness.model.v1.StreamEvent.RedactedThinking
+	nil,                                   // 16: pluggableharness.model.v1.StreamEvent.StreamStart.CorrelationIdsEntry
+	nil,                                   // 17: pluggableharness.model.v1.StreamEvent.StreamMetadata.AttrsEntry
+	nil,                                   // 18: pluggableharness.model.v1.StreamEvent.SafetyNotice.AttrsEntry
+	(*Usage)(nil),                         // 19: pluggableharness.model.v1.Usage
+	(*RateLimitSnapshot)(nil),             // 20: pluggableharness.model.v1.RateLimitSnapshot
+	(*ModelError)(nil),                    // 21: pluggableharness.model.v1.ModelError
 }
 var file_pluggableharness_model_v1_events_proto_depIdxs = []int32{
-	4,  // 0: pluggableharness.model.v1.StreamEvent.text_delta:type_name -> pluggableharness.model.v1.StreamEvent.TextDelta
-	5,  // 1: pluggableharness.model.v1.StreamEvent.thinking_delta:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingDelta
-	6,  // 2: pluggableharness.model.v1.StreamEvent.thinking_signature:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingSignature
-	7,  // 3: pluggableharness.model.v1.StreamEvent.tool_call_start:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallStart
-	8,  // 4: pluggableharness.model.v1.StreamEvent.tool_call_delta:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDelta
-	9,  // 5: pluggableharness.model.v1.StreamEvent.tool_call_done:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDone
-	15, // 6: pluggableharness.model.v1.StreamEvent.usage:type_name -> pluggableharness.model.v1.Usage
-	10, // 7: pluggableharness.model.v1.StreamEvent.stop:type_name -> pluggableharness.model.v1.StreamEvent.Stop
-	11, // 8: pluggableharness.model.v1.StreamEvent.error:type_name -> pluggableharness.model.v1.StreamEvent.Error
-	12, // 9: pluggableharness.model.v1.StreamEvent.redacted_thinking:type_name -> pluggableharness.model.v1.StreamEvent.RedactedThinking
-	2,  // 10: pluggableharness.model.v1.StreamEvent.stream_start:type_name -> pluggableharness.model.v1.StreamEvent.StreamStart
-	3,  // 11: pluggableharness.model.v1.StreamEvent.metadata:type_name -> pluggableharness.model.v1.StreamEvent.StreamMetadata
-	13, // 12: pluggableharness.model.v1.StreamEvent.StreamStart.correlation_ids:type_name -> pluggableharness.model.v1.StreamEvent.StreamStart.CorrelationIdsEntry
-	16, // 13: pluggableharness.model.v1.StreamEvent.StreamMetadata.rate_limits:type_name -> pluggableharness.model.v1.RateLimitSnapshot
-	14, // 14: pluggableharness.model.v1.StreamEvent.StreamMetadata.attrs:type_name -> pluggableharness.model.v1.StreamEvent.StreamMetadata.AttrsEntry
-	0,  // 15: pluggableharness.model.v1.StreamEvent.Stop.reason:type_name -> pluggableharness.model.v1.StopReason
-	17, // 16: pluggableharness.model.v1.StreamEvent.Error.error:type_name -> pluggableharness.model.v1.ModelError
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	6,  // 0: pluggableharness.model.v1.StreamEvent.text_delta:type_name -> pluggableharness.model.v1.StreamEvent.TextDelta
+	7,  // 1: pluggableharness.model.v1.StreamEvent.thinking_delta:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingDelta
+	9,  // 2: pluggableharness.model.v1.StreamEvent.thinking_signature:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingSignature
+	10, // 3: pluggableharness.model.v1.StreamEvent.tool_call_start:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallStart
+	11, // 4: pluggableharness.model.v1.StreamEvent.tool_call_delta:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDelta
+	12, // 5: pluggableharness.model.v1.StreamEvent.tool_call_done:type_name -> pluggableharness.model.v1.StreamEvent.ToolCallDone
+	19, // 6: pluggableharness.model.v1.StreamEvent.usage:type_name -> pluggableharness.model.v1.Usage
+	13, // 7: pluggableharness.model.v1.StreamEvent.stop:type_name -> pluggableharness.model.v1.StreamEvent.Stop
+	14, // 8: pluggableharness.model.v1.StreamEvent.error:type_name -> pluggableharness.model.v1.StreamEvent.Error
+	15, // 9: pluggableharness.model.v1.StreamEvent.redacted_thinking:type_name -> pluggableharness.model.v1.StreamEvent.RedactedThinking
+	4,  // 10: pluggableharness.model.v1.StreamEvent.stream_start:type_name -> pluggableharness.model.v1.StreamEvent.StreamStart
+	5,  // 11: pluggableharness.model.v1.StreamEvent.metadata:type_name -> pluggableharness.model.v1.StreamEvent.StreamMetadata
+	8,  // 12: pluggableharness.model.v1.StreamEvent.safety_notice:type_name -> pluggableharness.model.v1.StreamEvent.SafetyNotice
+	16, // 13: pluggableharness.model.v1.StreamEvent.StreamStart.correlation_ids:type_name -> pluggableharness.model.v1.StreamEvent.StreamStart.CorrelationIdsEntry
+	20, // 14: pluggableharness.model.v1.StreamEvent.StreamMetadata.rate_limits:type_name -> pluggableharness.model.v1.RateLimitSnapshot
+	17, // 15: pluggableharness.model.v1.StreamEvent.StreamMetadata.attrs:type_name -> pluggableharness.model.v1.StreamEvent.StreamMetadata.AttrsEntry
+	1,  // 16: pluggableharness.model.v1.StreamEvent.ThinkingDelta.channel:type_name -> pluggableharness.model.v1.StreamEvent.ThinkingChannel
+	2,  // 17: pluggableharness.model.v1.StreamEvent.SafetyNotice.kind:type_name -> pluggableharness.model.v1.StreamEvent.SafetyKind
+	18, // 18: pluggableharness.model.v1.StreamEvent.SafetyNotice.attrs:type_name -> pluggableharness.model.v1.StreamEvent.SafetyNotice.AttrsEntry
+	0,  // 19: pluggableharness.model.v1.StreamEvent.Stop.reason:type_name -> pluggableharness.model.v1.StopReason
+	21, // 20: pluggableharness.model.v1.StreamEvent.Error.error:type_name -> pluggableharness.model.v1.ModelError
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_pluggableharness_model_v1_events_proto_init() }
@@ -1208,16 +1507,19 @@ func file_pluggableharness_model_v1_events_proto_init() {
 		(*StreamEvent_RedactedThinking_)(nil),
 		(*StreamEvent_StreamStart_)(nil),
 		(*StreamEvent_Metadata)(nil),
+		(*StreamEvent_SafetyNotice_)(nil),
 	}
 	file_pluggableharness_model_v1_events_proto_msgTypes[2].OneofWrappers = []any{}
-	file_pluggableharness_model_v1_events_proto_msgTypes[9].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_events_proto_msgTypes[4].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_events_proto_msgTypes[5].OneofWrappers = []any{}
+	file_pluggableharness_model_v1_events_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pluggableharness_model_v1_events_proto_rawDesc), len(file_pluggableharness_model_v1_events_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   14,
+			NumEnums:      3,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

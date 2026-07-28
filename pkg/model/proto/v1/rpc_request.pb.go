@@ -229,6 +229,21 @@ type StreamCompletionRequest struct {
 	// revision is the fix; teaching the kernel to read this field is not.
 	// See model/data-types.md#provider_options.
 	ProviderOptions *structpb.Struct `protobuf:"bytes,8,opt,name=provider_options,json=providerOptions,proto3,oneof" json:"provider_options,omitempty"`
+	// An opaque handle to the vendor-side state of a prior turn, for
+	// vendors that keep conversation state server-side and accept an
+	// incremental continuation instead of a full history resend (an
+	// OpenAI `previous_response_id`).
+	//
+	// Typed rather than left to provider_options because using it changes
+	// what the kernel must send: a continuation carries only the new
+	// messages, so `messages` above and this field are not independent.
+	// The kernel therefore has to know whether it is in use, which is
+	// exactly the "a field the kernel reads" test data-types.md applies to
+	// provider_options.
+	//
+	// A provider that publishes such a handle returns it on StreamMetadata;
+	// absent here means send the full history as normal.
+	StickyTurnToken *string `protobuf:"bytes,9,opt,name=sticky_turn_token,json=stickyTurnToken,proto3,oneof" json:"sticky_turn_token,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -317,6 +332,13 @@ func (x *StreamCompletionRequest) GetProviderOptions() *structpb.Struct {
 		return x.ProviderOptions
 	}
 	return nil
+}
+
+func (x *StreamCompletionRequest) GetStickyTurnToken() string {
+	if x != nil && x.StickyTurnToken != nil {
+		return *x.StickyTurnToken
+	}
+	return ""
 }
 
 // CountTokensRequest is CountTokens' request: the request whose input
@@ -521,7 +543,7 @@ const file_pluggableharness_model_v1_rpc_request_proto_rawDesc = "" +
 	"\x16GetCapabilitiesRequest\"C\n" +
 	"\x10ConfigureRequest\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\x11\n" +
-	"\x0fDescribeRequest\"\xea\x04\n" +
+	"\x0fDescribeRequest\"\xb1\x05\n" +
 	"\x17StreamCompletionRequest\x12@\n" +
 	"\bmessages\x18\x01 \x03(\v2$.pluggableharness.content.v1.MessageR\bmessages\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12@\n" +
@@ -530,9 +552,11 @@ const file_pluggableharness_model_v1_rpc_request_proto_rawDesc = "" +
 	"\x11assembled_context\x18\x05 \x03(\v2+.pluggableharness.content.v1.ContextSectionR\x10assembledContext\x12J\n" +
 	"\fcall_context\x18\x06 \x01(\v2'.pluggableharness.common.v1.CallContextR\vcallContext\x12W\n" +
 	"\x11cache_breakpoints\x18\a \x03(\v2*.pluggableharness.model.v1.CacheBreakpointR\x10cacheBreakpoints\x12G\n" +
-	"\x10provider_options\x18\b \x01(\v2\x17.google.protobuf.StructH\x01R\x0fproviderOptions\x88\x01\x01B\t\n" +
+	"\x10provider_options\x18\b \x01(\v2\x17.google.protobuf.StructH\x01R\x0fproviderOptions\x88\x01\x01\x12/\n" +
+	"\x11sticky_turn_token\x18\t \x01(\tH\x02R\x0fstickyTurnToken\x88\x01\x01B\t\n" +
 	"\a_paramsB\x13\n" +
-	"\x11_provider_options\"\x99\x02\n" +
+	"\x11_provider_optionsB\x14\n" +
+	"\x12_sticky_turn_token\"\x99\x02\n" +
 	"\x12CountTokensRequest\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12@\n" +
 	"\bmessages\x18\x03 \x03(\v2$.pluggableharness.content.v1.MessageR\bmessages\x12X\n" +

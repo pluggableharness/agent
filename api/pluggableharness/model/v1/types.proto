@@ -703,6 +703,71 @@ message GenerationParams {
   // above — an unsupported mode is a kernel-level reject-or-fallback, not
   // something forwarded to the vendor.
   optional ToolChoice tool_choice = 6;
+
+  // The service or speed tier to serve this request at. MUST be one of
+  // the target ModelSpec.service_tiers; the kernel rejects a tier the
+  // model does not advertise rather than forwarding it, matching
+  // tool_choice's own validate-then-send rule above.
+  optional string service_tier = 7;
+
+  // The output-verbosity level — answer length, distinct from
+  // thinking_effort's reasoning depth. MUST be one of the target
+  // model's VerbositySpec.levels.
+  optional string verbosity = 8;
+
+  // Constrains the response to a structured format.
+  optional ResponseFormat response_format = 9;
+
+  // An opaque key grouping requests the vendor should cache together.
+  //
+  // Typed rather than left to provider_options because the kernel does
+  // act on caching — cache_read_tokens and cache_write_tokens feed
+  // cost_usd, and data-types.md's provider_options rule is explicit that
+  // a field affecting cost computation cannot live there.
+  optional string prompt_cache_key = 10;
+
+  // Whether the vendor should retain this request server-side, for
+  // vendors that offer it. Absent leaves the vendor's own default.
+  optional bool store = 11;
+
+  // Overrides ModelSpec.supports_parallel_tool_calls for this one
+  // request. MUST NOT be set true for a model that does not support it.
+  optional bool parallel_tool_calls = 12;
+
+  // The reasoning-summary mode for this request, where the model
+  // advertises ThinkingSpec.supports_reasoning_summary.
+  optional string reasoning_summary = 13;
+}
+
+// ResponseFormat constrains a completion's shape, for vendors offering
+// structured output.
+message ResponseFormat {
+  // The format kind.
+  ResponseFormatKind kind = 1;
+
+  // The JSON Schema the response MUST conform to. Required when kind is
+  // RESPONSE_FORMAT_KIND_JSON_SCHEMA, meaningless otherwise.
+  //
+  // Uses the same restricted JSON-Schema subset as tool parameters
+  // (schema.v1), deliberately: a vendor accepting one and not the other
+  // is an adapter concern, and two schema dialects in one protocol would
+  // be two things for a plugin author to learn.
+  optional pluggableharness.schema.v1.Schema json_schema = 2;
+
+  // A name for the schema, where the vendor requires one.
+  optional string schema_name = 3;
+}
+
+// ResponseFormatKind names the structured-output modes.
+enum ResponseFormatKind {
+  // Zero value. Never valid on a set ResponseFormat.
+  RESPONSE_FORMAT_KIND_UNSPECIFIED = 0;
+  // Ordinary free-form text.
+  RESPONSE_FORMAT_KIND_TEXT = 1;
+  // Any syntactically valid JSON, with no schema constraint.
+  RESPONSE_FORMAT_KIND_JSON_OBJECT = 2;
+  // JSON conforming to json_schema.
+  RESPONSE_FORMAT_KIND_JSON_SCHEMA = 3;
 }
 
 // ToolChoiceMode enumerates the tool-invocation constraint shapes found

@@ -153,9 +153,12 @@ StreamEvent = oneof {
   tool_call_start      { id: string, name: string }
   tool_call_delta       { id: string, arguments_fragment: string }  // partial-JSON accumulation
   tool_call_done        { id: string }
-  usage                 { input_tokens, output_tokens, cache_read_tokens?, cache_write_tokens?, reasoning_tokens?, rate_limits[] }
-  stop                   { reason: StopReason, matched_stop_sequence?: string }
+  usage                 { input_tokens, output_tokens, cache_read_tokens?, cache_write_tokens?, reasoning_tokens?, rate_limits[],
+                          vendor_cost?, vendor_total_tokens?, components[], reasoning_already_counted? }
+  stop                   { reason: StopReason, matched_stop_sequence?: string, model_affirmed?: bool }
   error                  ModelError                        // see conformance.md#error-taxonomy
+  metadata               StreamMetadata                    // non-content facts; see #stream-metadata
+  safety_notice          { kind: SafetyKind, message?: string, attrs{} }
 }
 
 StopReason = enum {
@@ -189,6 +192,30 @@ It is a separate early event rather than a field on `stop` deliberately: an id t
 `rate_limits` reports the vendor's own rate-limit budgets as of this completion. It MAY be empty; a vendor that publishes nothing has nothing to declare, and an adapter MUST NOT synthesize a snapshot from its own bookkeeping.
 
 It is repeated because vendors publish several budgets at once and they exhaust independently — OpenAI and xAI return separate request and token headers, Anthropic reports input and output separately. Naming *which* budget is close to empty is the entire value: "you have 2% left" is unactionable without saying 2% of what, and a user whose session stops mid-task without being told which ceiling they hit cannot act on it. Every numeric field on a snapshot is optional, so an adapter reports the subset its vendor actually returned rather than inventing the rest.
+
+A snapshot also carries `limit_id`, `limit_name`, `window_role` (`primary` | `secondary`), `used_percent`, and `window_seconds`. These exist for subscription products, which meter several windows at once and frequently publish only a percentage. Before them, an adapter facing such a vendor had to pick a `RateLimitKind` per window and fake `limit = 100`, `remaining = 100 - percent` to fit the absolute fields — a mapping that reads as authoritative and is not. **An adapter MUST NOT derive one form from the other**: a vendor publishing real counts sets `remaining`/`limit`; a vendor publishing a percentage sets `used_percent`; neither is computed from the other, and a budget the vendor did not report is absent rather than zero.
+
+### `usage.vendor_cost` — reported, never authoritative
+
+Some vendors return their own price for a completion (xAI's `cost_in_usd_ticks`). `vendor_cost` carries it as `{ amount, unit, currency? }`, where `amount` is an **exact decimal string** — not a double, because these reconcile against invoices and binary floating point cannot represent them exactly — and `unit` names the vendor's own denomination (`"usd"`, `"xai_ticks_1e10"`).
+
+**This does not change who computes cost.** The kernel still derives and persists `cost_usd` from the token counts plus the matching [`PricingTier`](#pricing) at the completion's receipt time, and every rollup, budget check, and replay reads that computed figure. `vendor_cost` is persisted beside it so an operator can see that list price and actual bill disagree, and so a subscription session — where computed cost is structurally `0.00` under `free: true` — has something truthful to show. Making the vendor figure authoritative would put two costs in the ledger with no deterministic rule for which one a replay reproduces, which [`.claude/rules/determinism.md`](../../../.claude/rules/determinism.md) treats as a correctness bug. The kernel MUST NOT convert between units: a conversion it invented would be one more unaudited number in the ledger.
+
+`vendor_total_tokens` and `components[]` follow the same reporting-not-deriving rule. `vendor_total_tokens` is recorded only when the vendor publishes a total that is *not* the sum of the parts — the disagreement is the point, so the kernel MUST NOT fill it in by addition. `components[]` carries vendor-defined counters with no first-class field (`{ name, value }`): per-modality input tokens, accepted/rejected prediction tokens, hosted-tool source counts. They are opaque — stored and surfaced, never interpreted — and **the kernel MUST sort them by `name` before persisting**, or the event log would inherit the adapter's own map iteration order.
+
+`reasoning_already_counted` is set only on an explicit vendor signal (OpenAI's `X-Reasoning-Included`) that `reasoning_tokens` is already inside `output_tokens`. Absent means "not stated", and the kernel applies the default above: a distinct count. It exists to stop the kernel double-counting reasoning in its own estimates, so guessing at it defeats the purpose.
+
+### `stream_metadata` — how the vendor is serving this request
+
+`metadata` carries non-content facts: `actual_model`, `system_fingerprint`, `service_tier`, `rate_limits[]`, `live_context_window`, `live_max_output_tokens`, `catalog_etag`, `sticky_turn_token`, and an `attrs{}` escape hatch.
+
+It is separate from `stream_start` because the two have different schedules. `stream_start` fires once when the vendor accepts the request; metadata may not be knowable until headers land, may change mid-stream, and **MAY be emitted more than once** — a later event supersedes an earlier one *field by field*, and an absent field means "no new information", never "cleared".
+
+`actual_model` is the load-bearing field. Vendors remap for safety routing, capacity, and deprecation (`grok-4` resolving to `grok-4.3`), and dropping that fact has two costs: a silent quality change becomes unattributable, and the kernel's own `cost_usd` cites pricing for a model that never ran.
+
+**Neither `metadata` nor `safety_notice` is a content-block boundary.** Both carry no content and both may arrive mid-stream, so a kernel accumulating a message MUST NOT close an open `text` or `thinking` block on receiving one — doing so splits a run of deltas around a header revision or a moderation notice.
+
+`safety_notice` reports the vendor interposing: `buffering` (output held for review, so a stall is expected and is not a hang), `moderation`, or `verification_required` (the account must complete a challenge the kernel cannot satisfy itself). A kernel that does not recognize a `kind` MUST ignore the event rather than failing the turn — an unexplained stall is strictly worse than an unrecognized notice.
 
 A plugin MUST classify every terminal failure via a `stop` event's `content_filtered` reason or an `error` event carrying a `ModelError` ([`conformance.md#error-taxonomy`](conformance.md#error-taxonomy)) — the in-band `error` variant is how a plugin reports a classified failure *within* an otherwise-open stream, distinct from the stream simply being torn down at the transport level (a gRPC-level status, or the kernel closing the stream on cancellation). A plugin whose backend fails outright before producing any events MAY end the stream with just an `error` event and no preceding `stop`.
 
